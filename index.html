@@ -163,15 +163,22 @@ tr:hover td{background:#faf7ef;}
 .modal-close{float:right;background:none;border:none;font-size:18px;color:var(--muted);}
 .modal-title{cursor:move;user-select:none;}
 .icn{display:inline-flex;vertical-align:-4px;margin-right:4px;}
-.np-section{background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px;}
+.np-section{background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:10px;}
 .np-section select,.np-section input{width:100%;height:38px;border:1px solid var(--line);border-radius:6px;padding:0 10px;font-size:13.5px;background:#fff;}
 .np-label{display:block;font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
 .np-row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .np-row2>div .np-label{margin-bottom:6px;}
 .np-product-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:170px;overflow:auto;margin-top:10px;}
 .np-product-grid .btn{min-width:0;height:40px;}
-.np-empty{text-align:center;padding:14px 10px;color:var(--muted);font-size:12.5px;margin:0;}
-.np-cart{background:#fff;}
+.np-empty{text-align:center;padding:10px;color:var(--muted);font-size:12.5px;margin:0;}
+.np-cart{background:#fff;padding-top:10px;padding-bottom:10px;}
+.np-origin-badge{background:#eef0f6;border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:12px;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:6px;}
+.np-cat-tabs{display:flex;gap:6px;overflow-x:auto;margin:8px 0 2px;padding-bottom:2px;}
+.np-cat-tab{flex:0 0 auto;background:#fff;border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:11.5px;font-weight:600;color:var(--muted);white-space:nowrap;}
+.np-cat-tab.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+.np-prod-btn{position:relative;}
+.np-prod-btn.has-qty{border-color:var(--amber)!important;background:var(--brand-teal-l)!important;}
+.np-prod-btn .np-qty-badge{position:absolute;top:-7px;right:-7px;background:var(--amber);color:#fff;font-size:10.5px;font-weight:700;border-radius:10px;min-width:18px;height:18px;display:flex;align-items:center;justify-content:center;padding:0 4px;}
 .np-total{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:16px;font-weight:700;color:var(--navy);}
 
 /* ===== MODO GARÇOM (mobile — no padrão Consumer) ===== */
@@ -2268,18 +2275,21 @@ function openNovoPedidoModal(saleId){
     </div>` : `<select id="npRequester" style="display:none">${requesterOptions}</select>`;
   openModal('Novo Pedido', `
     ${requesterSection}
-    <div class="np-section np-row2">
-      <div><label class="np-label">Local de entrega</label><select id="npLocal"><option value="">— No balcão / retirar aqui —</option>${state.locais.map(l=>`<option value="${h(l.nome)}">${h(l.nome)}</option>`).join('')}</select></div>
-      <div><label class="np-label">Origem deste pedido</label><input value="${ORIGEM_LABELS[currentUser.origem]||'Caixa'} (${h(currentUser.name)})" disabled style="background:#eee;color:#666"></div>
+    <div class="np-section">
+      <div style="display:flex;align-items:flex-end;gap:12px">
+        <div style="flex:1"><label class="np-label">Local de entrega</label><select id="npLocal"><option value="">— No balcão / retirar aqui —</option>${state.locais.map(l=>`<option value="${h(l.nome)}">${h(l.nome)}</option>`).join('')}</select></div>
+        <div class="np-origin-badge" title="Origem deste pedido">${ORIGEM_LABELS[currentUser.origem]||'Caixa'} · ${h(currentUser.name)}</div>
+      </div>
     </div>
     <div class="np-section">
-      <label class="np-label">Produtos</label>
-      <input id="npProductSearch" placeholder="Buscar produto..." oninput="renderNpProductGrid(this.value)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><label class="np-label" style="margin:0">Produtos</label><span class="sub" id="npResultCount" style="font-size:11px"></span></div>
+      <input id="npProductSearch" placeholder="Buscar produto..." oninput="renderNpProductGrid(this.value)" style="margin-top:8px">
+      <div class="np-cat-tabs" id="npCatTabs"></div>
       <div id="npProductGrid" class="np-product-grid"></div>
     </div>
     <div class="np-section np-cart">
-      <label class="np-label">Itens do pedido</label>
-      <div id="npCartList"></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><label class="np-label" style="margin:0">Itens do pedido</label><span class="sub" id="npItemCount" style="font-size:11px"></span></div>
+      <div id="npCartList" style="margin-top:8px"></div>
       <div class="np-total"><span>Total</span><span class="mono" id="npCartTotal">R$ 0,00</span></div>
     </div>
     <div class="row">
@@ -2288,20 +2298,32 @@ function openNovoPedidoModal(saleId){
     </div>
   `, true);
   const modal = document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal'); modal.style.width='620px';
-  renderNpProductGrid(''); renderNpCart();
+  npCategory='';
+  renderNpCatTabs(); renderNpProductGrid(''); renderNpCart();
   document.getElementById('npRequester').onchange = (e)=>{
     const opt = e.target.selectedOptions[0];
     document.getElementById('npRequesterWarn').style.display = opt&&opt.disabled ? 'block':'none';
   };
   document.getElementById('npConfirmBtn').onclick = ()=>confirmNovoPedidoModal(saleId);
 }
+let npCategory = '';
+function renderNpCatTabs(){
+  const el = document.getElementById('npCatTabs'); if(!el) return;
+  const cats = [...new Set(state.products.filter(p=>p.active!==false).map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  if(!cats.length){ el.innerHTML=''; return; }
+  el.innerHTML = `<button class="np-cat-tab ${!npCategory?'active':''}" onclick="npCategory='';renderNpCatTabs();renderNpProductGrid(document.getElementById('npProductSearch').value)">Todas</button>` +
+    cats.map(c=>`<button class="np-cat-tab ${npCategory===c?'active':''}" onclick="npCategory='${h(c).replace(/'/g,"\\'")}';renderNpCatTabs();renderNpProductGrid(document.getElementById('npProductSearch').value)">${h(c)}</button>`).join('');
+}
 function renderNpProductGrid(q){
   const el = document.getElementById('npProductGrid'); if(!el) return;
   const query = String(q||'').toLowerCase();
-  const list = state.products.filter(p=>p.active!==false && p.name.toLowerCase().includes(query));
+  let list = state.products.filter(p=>p.active!==false && p.name.toLowerCase().includes(query));
+  if(npCategory) list = list.filter(p=>p.category===npCategory);
+  const countEl = document.getElementById('npResultCount'); if(countEl) countEl.textContent = list.length+' produto'+(list.length===1?'':'s');
   el.innerHTML = list.length ? list.map(p=>{
     const av = productAvailable(p); const out = av!==Infinity && av<=0;
-    return `<button class="btn" style="text-align:left;display:flex;justify-content:space-between" ${out?'disabled':''} onclick="npCartAdd('${p.id}')"><span>${h(p.name)}</span><span class="mono">${fmt(p.price)}</span></button>`;
+    const inCart = npCart.find(i=>i.productId===p.id);
+    return `<button class="btn np-prod-btn ${inCart?'has-qty':''}" style="text-align:left;display:flex;justify-content:space-between" ${out?'disabled':''} onclick="npCartAdd('${p.id}')">${inCart?`<span class="np-qty-badge">${inCart.qty}</span>`:''}<span>${h(p.name)}</span><span class="mono">${fmt(p.price)}</span></button>`;
   }).join('') : '<p class="np-empty">Nenhum produto encontrado.</p>';
 }
 function npCartAdd(productId){
@@ -2310,11 +2332,13 @@ function npCartAdd(productId){
   const existing = npCart.find(i=>i.productId===productId);
   if(existing) existing.qty+=1; else npCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha'});
   renderNpCart();
+  renderNpProductGrid(document.getElementById('npProductSearch')?.value||'');
 }
 function npCartChangeQty(idx,delta){
   const it = npCart[idx]; if(!it) return;
   it.qty+=delta; if(it.qty<=0) npCart.splice(idx,1);
   renderNpCart();
+  renderNpProductGrid(document.getElementById('npProductSearch')?.value||'');
 }
 function renderNpCart(){
   const el = document.getElementById('npCartList'); if(!el) return;
@@ -2325,6 +2349,7 @@ function renderNpCart(){
       <span class="mono" style="min-width:70px;text-align:right">${fmt(i.price*i.qty)}</span></div>
     </div>`).join('') : '<p class="np-empty">Nenhum item adicionado ainda.</p>';
   const totEl = document.getElementById('npCartTotal'); if(totEl) totEl.textContent = fmt(npCart.reduce((a,i)=>a+i.price*i.qty,0));
+  const countEl = document.getElementById('npItemCount'); if(countEl){ const n=npCart.reduce((a,i)=>a+i.qty,0); countEl.textContent = n?n+' item'+(n===1?'':'s'):''; }
 }
 function confirmNovoPedidoModal(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
