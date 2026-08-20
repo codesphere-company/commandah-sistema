@@ -175,6 +175,13 @@ tr:hover td{background:#faf7ef;}
 .np-origin-badge{background:#eef0f6;border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:12px;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:6px;}
 .np-cat-tabs{display:flex;gap:6px;overflow-x:auto;margin:8px 0 2px;padding-bottom:2px;}
 .np-cat-tab{flex:0 0 auto;background:#fff;border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:11.5px;font-weight:600;color:var(--muted);white-space:nowrap;}
+.import-tabs{display:flex;border-bottom:1px solid var(--line);margin-bottom:16px;}
+.import-tab{background:none;border:none;border-bottom:2px solid transparent;padding:10px 4px;margin-right:22px;font-size:13px;color:var(--muted);font-weight:600;}
+.import-tab.active{color:var(--navy);border-color:var(--amber);}
+.import-sheet-list{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff;}
+.import-sheet-item{display:block;width:100%;text-align:left;background:#fff;border:none;padding:9px 12px;font-size:12.5px;border-bottom:1px solid var(--line);}
+.import-sheet-item:last-child{border-bottom:none;}
+.import-sheet-item.active{background:var(--navy);color:#fff;}
 .np-cat-tab.active{background:var(--navy);border-color:var(--navy);color:#fff;}
 .np-prod-btn{position:relative;}
 .np-prod-btn.has-qty{border-color:var(--amber)!important;background:var(--brand-teal-l)!important;}
@@ -1294,7 +1301,7 @@ function renderProdutos(){
     <header class="op-titlebar"><span>Produtos</span><span class="op-controls"><span>□</span><span>×</span></span></header>
     <div class="op-toolbar">
       <div class="op-search"><span>⌕</span><input id="productSearch" placeholder="Pesquisar aqui..."></div><div class="op-toolbar-spacer"></div>
-      <div style="position:relative"><button class="op-btn" onclick="toggleProductOptions()"><span class="op-ico">•••</span> Opções <span style="margin-left:8px">▾</span></button>${productOptionsOpen?`<div class="pdv-menu product-options-menu" style="top:48px;right:0;left:auto;min-width:270px"><button onclick="productOptionsOpen=false;window.print()">▣ &nbsp; Imprimir</button><button onclick="openProductOrderModal()">↕ &nbsp; Ajustar Ordem</button><div class="menu-title">Exportar Produtos</div><button onclick="exportProductsXlsx()">▧ &nbsp; Para arquivo Excel (.xlsx)</button><button onclick="exportProductsPackage()">▧ &nbsp; Para arquivo Commandah (.ccprod)</button><div class="menu-title">Importar Produtos</div><button onclick="pickProductsImport('xlsx')">▧ &nbsp; De arquivo Excel (.xlsx)</button><button onclick="pickProductsImport('json')">▧ &nbsp; De arquivo Commandah (.ccprod)</button></div>`:''}</div>
+      <div style="position:relative"><button class="op-btn" onclick="toggleProductOptions()"><span class="op-ico">•••</span> Opções <span style="margin-left:8px">▾</span></button>${productOptionsOpen?`<div class="pdv-menu product-options-menu" style="top:48px;right:0;left:auto;min-width:270px"><button onclick="productOptionsOpen=false;window.print()">▣ &nbsp; Imprimir</button><button onclick="openProductOrderModal()">↕ &nbsp; Ajustar Ordem</button><div class="menu-title">Exportar Produtos</div><button onclick="exportProductsXlsx()">▧ &nbsp; Para arquivo Excel (.xlsx)</button><button onclick="exportProductsPackage()">▧ &nbsp; Para arquivo Commandah (.ccprod)</button><div class="menu-title">Importar Produtos</div><button onclick="openProductImportWizard()">▧ &nbsp; De arquivo Excel (.xlsx)</button><button onclick="pickProductsImport('json')">▧ &nbsp; De arquivo Commandah (.ccprod)</button></div>`:''}</div>
       <button class="op-btn" onclick="refreshProductList()">↻ &nbsp; Atualizar Lista</button>
       <button class="op-btn" onclick="duplicateSelectedProduct()" ${selectedProductId?'':'disabled'}>▣ &nbsp; Duplicar</button>
       <button class="op-btn" onclick="openSelectedProductStock()" ${selectedProductId?'':'disabled'}><span class="op-ico">▣</span> Estoque</button>
@@ -1403,6 +1410,139 @@ function parseProductsCsv(text){
   return rows.slice(1).map(cols=>({code:(cols[0]||'').trim(),kind:(cols[1]||'produto').trim(),category:(cols[2]||'').trim(),name:(cols[3]||'').trim(),measure:(cols[4]||'un').trim(),price:Number(String(cols[5]||0).replace(',','.'))||0,minStock:Number(String(cols[7]||0).replace(',','.'))||0,active:(cols[8]||'ativo').trim().toLowerCase()!=='pausado'})).filter(p=>p.name);
 }
 function parseProductsPackage(text){const data=JSON.parse(text);const list=Array.isArray(data)?data:data&&(data.format==='commandah-produtos'||data.format==='cantina-produtos')&&Array.isArray(data.products)?data.products:null;if(!list)throw new Error('Pacote de produtos inválido.');return list.filter(p=>p&&typeof p.name==='string'&&p.name.trim());}
+const IMPORT_FIELDS = [
+  {key:'name', label:'Nome do Produto', required:true, guesses:['Nome','Produto','Descrição']},
+  {key:'price', label:'Preço Venda', required:true, guesses:['Preço Venda','Preço de venda','Preco Venda','Preço']},
+  {key:'cost', label:'Preço Custo', required:false, guesses:['Preço Custo','Custo estimado','Preco Custo','Custo']},
+  {key:'category', label:'Categoria', required:false, guesses:['Categoria']},
+  {key:'measure', label:'Medida', required:false, guesses:['Medida','Unidade']},
+  {key:'minStock', label:'Estoque Mínimo', required:false, guesses:['Estoque Mín','Estoque mínimo','Estoque Min']},
+  {key:'pdvCode', label:'Código PDV', required:false, guesses:['Cód. PDV','Cod. PDV','Código PDV']},
+  {key:'code', label:'Código Personalizado', required:false, guesses:['Código','Cód. Busca','Cod. Busca','Cód','Codigo']}
+];
+let importWorkbook=null, importSheetName='', importHeaders=[], importRows=[], importMapping={};
+function openProductImportWizard(){
+  productOptionsOpen=false;
+  importWorkbook=null; importSheetName=''; importHeaders=[]; importRows=[]; importMapping={};
+  openModal('Importar Produtos', `
+    <div class="import-tabs">
+      <button class="import-tab active" id="impTabConfigBtn" onclick="switchImportTab('config')">Configurar Importação</button>
+      <button class="import-tab" id="impTabPreviewBtn" onclick="switchImportTab('preview')">Visualizar Registros da Planilha <span id="impRowCount"></span></button>
+    </div>
+    <div id="importTabConfig">
+      <button class="btn" onclick="pickImportExcelFile()">📊 &nbsp; Abrir Arquivo Excel...</button>
+      <div class="row" style="margin-top:16px;align-items:flex-start;gap:20px">
+        <div style="width:170px;flex-shrink:0">
+          <label class="np-label">Planilha selecionada</label>
+          <div id="importSheetList" class="import-sheet-list"><p class="sub">Abra um arquivo para ver as planilhas.</p></div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <label class="np-label">Mapear colunas</label>
+          <table class="finance-grid" style="width:100%"><thead><tr><th style="width:80px">Obrigat.</th><th>Campo no Commandah</th><th>Coluna na Planilha</th></tr></thead><tbody id="importMapRows"><tr><td colspan="3" class="empty">Abra um arquivo Excel para mapear as colunas.</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+    <div id="importTabPreview" style="display:none">
+      <div class="finance-grid" style="max-height:360px;overflow:auto"><table><thead><tr id="importPreviewHead"></tr></thead><tbody id="importPreviewRows"></tbody></table></div>
+    </div>
+    <div class="record-actions">
+      <button class="op-btn" onclick="closeModal()">〈 &nbsp; Voltar</button>
+      <button class="op-btn primary" id="impStartBtn" disabled onclick="startMappedImport()">▷ &nbsp; Iniciar Importação</button>
+    </div>
+  `, true);
+  const modal=document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal'); modal.style.width='860px';
+}
+function switchImportTab(tab){
+  document.getElementById('impTabConfigBtn').classList.toggle('active', tab==='config');
+  document.getElementById('impTabPreviewBtn').classList.toggle('active', tab==='preview');
+  document.getElementById('importTabConfig').style.display = tab==='config'?'block':'none';
+  document.getElementById('importTabPreview').style.display = tab==='preview'?'block':'none';
+}
+function pickImportExcelFile(){
+  if(!window.XLSX){ toast('Não foi possível carregar o leitor de planilhas — verifique sua conexão e tente de novo.'); return; }
+  const input=document.createElement('input'); input.type='file'; input.accept='.xlsx,.xls';
+  input.onchange=()=>{
+    const file=input.files&&input.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        importWorkbook = XLSX.read(reader.result,{type:'array'});
+        importSheetName = importWorkbook.SheetNames[0];
+        renderImportSheetList();
+        loadImportSheet();
+      }catch(e){ toast('Não foi possível ler esse arquivo.'); }
+    };
+    reader.onerror=()=>toast('Não foi possível ler o arquivo.');
+    reader.readAsArrayBuffer(file);
+  };
+  input.click();
+}
+function renderImportSheetList(){
+  const el=document.getElementById('importSheetList'); if(!el) return;
+  el.innerHTML = importWorkbook.SheetNames.map(name=>`<button class="import-sheet-item ${name===importSheetName?'active':''}" onclick="selectImportSheet('${h(name).replace(/'/g,"\\'")}')">${h(name)}</button>`).join('');
+}
+function selectImportSheet(name){ importSheetName=name; renderImportSheetList(); loadImportSheet(); }
+function loadImportSheet(){
+  const sheet = importWorkbook.Sheets[importSheetName];
+  const raw = XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+  if(!raw.length){ importHeaders=[]; importRows=[]; }
+  else{
+    importHeaders = raw[0].map(c=>String(c||'').trim()).filter(Boolean);
+    importRows = raw.slice(1).filter(r=>r.some(v=>String(v||'').trim()) && !r.some(v=>/^total\s*itens/i.test(String(v||''))));
+  }
+  IMPORT_FIELDS.forEach(f=>{
+    const guess = importHeaders.find(col=>f.guesses.some(g=>g.toLowerCase()===col.toLowerCase()));
+    importMapping[f.key] = guess || '';
+  });
+  renderImportMapTable();
+  renderImportPreview();
+  updateImportStartState();
+}
+function renderImportMapTable(){
+  const el=document.getElementById('importMapRows'); if(!el) return;
+  if(!importHeaders.length){ el.innerHTML='<tr><td colspan="3" class="empty">Abra um arquivo Excel para mapear as colunas.</td></tr>'; return; }
+  el.innerHTML = IMPORT_FIELDS.map(f=>`<tr>
+    <td style="text-align:center">${f.required?'<span style="color:var(--red);font-size:18px">●</span>':''}</td>
+    <td>${h(f.label)}</td>
+    <td><select onchange="importMapping['${f.key}']=this.value;updateImportStartState()">
+      <option value="">— Selecione uma coluna —</option>
+      ${importHeaders.map(col=>`<option value="${h(col)}" ${importMapping[f.key]===col?'selected':''}>${h(col)}</option>`).join('')}
+    </select></td>
+  </tr>`).join('');
+}
+function renderImportPreview(){
+  const head=document.getElementById('importPreviewHead'), body=document.getElementById('importPreviewRows'), countEl=document.getElementById('impRowCount');
+  if(countEl) countEl.textContent = importRows.length ? '('+importRows.length+')' : '';
+  if(!head||!body) return;
+  head.innerHTML = importHeaders.map(c=>`<th>${h(c)}</th>`).join('');
+  body.innerHTML = importRows.length ? importRows.slice(0,200).map(r=>`<tr>${importHeaders.map((c,i)=>`<td>${h(String(r[i]!==undefined?r[i]:''))}</td>`).join('')}</tr>`).join('') : '<tr><td class="empty">Nenhum registro.</td></tr>';
+}
+function updateImportStartState(){
+  const btn=document.getElementById('impStartBtn'); if(!btn) return;
+  btn.disabled = !(importMapping.name && importMapping.price && importRows.length);
+}
+function startMappedImport(){
+  const colIndex = name => importHeaders.indexOf(name);
+  const idx = {}; Object.keys(importMapping).forEach(k=>idx[k]=colIndex(importMapping[k]));
+  const val = (r,k) => idx[k]>=0 ? r[idx[k]] : '';
+  const incoming = importRows.map(r=>{
+    const name = String(val(r,'name')||'').trim();
+    if(!name) return null;
+    return {
+      name,
+      price: Number(String(val(r,'price')||0).toString().replace(',','.'))||0,
+      costPerUnit: Number(String(val(r,'cost')||0).toString().replace(',','.'))||0,
+      category: String(val(r,'category')||'').trim(),
+      measure: String(val(r,'measure')||'un').trim()||'un',
+      minStock: Number(String(val(r,'minStock')||0).toString().replace(',','.'))||0,
+      pdvCode: String(val(r,'pdvCode')||'').trim(),
+      code: String(val(r,'code')||'').trim(),
+      kind:'produto', active:true
+    };
+  }).filter(Boolean);
+  closeModal();
+  mergeImportedProducts(incoming, importSheetName||'planilha selecionada');
+}
 function mergeImportedProducts(incoming,fileName){
   if(!incoming.length){toast('Nenhum produto válido foi encontrado.');return;}
   if(!confirm(`Importar ${incoming.length} produto(s) de ${fileName}? Produtos com o mesmo código serão atualizados.`))return;
