@@ -1287,7 +1287,9 @@ function renderProdutos(){
     <header class="op-titlebar"><span>Produtos</span><span class="op-controls"><span>□</span><span>×</span></span></header>
     <div class="op-toolbar">
       <div class="op-search"><span>⌕</span><input id="productSearch" placeholder="Pesquisar aqui..."></div><div class="op-toolbar-spacer"></div>
-      <div style="position:relative"><button class="op-btn" onclick="toggleProductOptions()"><span class="op-ico">•••</span> Opções <span style="margin-left:8px">▾</span></button>${productOptionsOpen?`<div class="pdv-menu product-options-menu" style="top:48px;right:0;left:auto;min-width:270px"><button onclick="productOptionsOpen=false;window.print()">▣ &nbsp; Imprimir</button><button onclick="refreshProductList()">↻ &nbsp; Atualizar Lista</button><button onclick="openProductOrderModal()">↕ &nbsp; Ordenação Manual</button><button onclick="duplicateSelectedProduct()" ${selectedProductId?'':'disabled'}>▣ &nbsp; Duplicar Produto Selecionado</button><div class="menu-title">Exportar Produtos</div><button onclick="exportProductsCsv()">▧ &nbsp; Para arquivo Excel (.csv)</button><button onclick="exportProductsPackage()">▧ &nbsp; Pacote completo com vínculos (.json)</button><button onclick="exportProductsImportTemplate()">□ &nbsp; Modelo para preenchimento</button><div class="menu-title">Importar Produtos</div><button onclick="pickProductsImport('xlsx')">▧ &nbsp; De planilha Excel (.xlsx)</button><button onclick="pickProductsImport('csv')">▧ &nbsp; De arquivo Excel (.csv)</button><button onclick="pickProductsImport('json')">▧ &nbsp; De pacote completo (.json)</button></div>`:''}</div>
+      <div style="position:relative"><button class="op-btn" onclick="toggleProductOptions()"><span class="op-ico">•••</span> Opções <span style="margin-left:8px">▾</span></button>${productOptionsOpen?`<div class="pdv-menu product-options-menu" style="top:48px;right:0;left:auto;min-width:270px"><button onclick="productOptionsOpen=false;window.print()">▣ &nbsp; Imprimir</button><button onclick="openProductOrderModal()">↕ &nbsp; Ajustar Ordem</button><div class="menu-title">Exportar Produtos</div><button onclick="exportProductsXlsx()">▧ &nbsp; Para arquivo Excel (.xlsx)</button><button onclick="exportProductsPackage()">▧ &nbsp; Para arquivo Commandah (.ccprod)</button><div class="menu-title">Importar Produtos</div><button onclick="pickProductsImport('xlsx')">▧ &nbsp; De arquivo Excel (.xlsx)</button><button onclick="pickProductsImport('json')">▧ &nbsp; De arquivo Commandah (.ccprod)</button></div>`:''}</div>
+      <button class="op-btn" onclick="refreshProductList()">↻ &nbsp; Atualizar Lista</button>
+      <button class="op-btn" onclick="duplicateSelectedProduct()" ${selectedProductId?'':'disabled'}>▣ &nbsp; Duplicar</button>
       <button class="op-btn" onclick="openSelectedProductStock()" ${selectedProductId?'':'disabled'}><span class="op-ico">▣</span> Estoque</button>
       <button class="op-btn" onclick="editSelectedProduct()" ${selectedProductId?'':'disabled'}><span class="op-ico">✎</span> Editar</button>
       <button class="op-btn primary" onclick="openProductModal()"><span class="op-ico">＋</span> Novo</button>
@@ -1302,19 +1304,23 @@ function renderProdutos(){
   </section></div>`;
   document.getElementById('productSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#productRows tr[data-search]').forEach(r=>r.style.display=r.dataset.search.includes(q)?'':'none');};
 }
-function exportProductsCsv(){
-  const cols=['Código','Tipo','Categoria','Nome','Medida','Preço de venda','Custo estimado','Estoque mínimo','Status'];
-  const csv=[cols,...state.products.map(p=>[p.code||'',productKind(p),p.category||'',p.name,p.measure||'un',Number(p.price)||0,productCost(p),Number(p.minStock)||0,p.active===false?'pausado':'ativo'])]
-    .map(row=>row.map(value=>'"'+String(value).replace(/"/g,'""')+'"').join(';')).join('\r\n');
-  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='produtos-'+todayStr()+'.csv'; a.click(); URL.revokeObjectURL(a.href); logAction('Produtos exportados em CSV');
+function exportProductsXlsx(){
+  productOptionsOpen=false;
+  if(!window.XLSX){toast('Não foi possível carregar o gerador de planilhas — verifique sua conexão e tente de novo.');return;}
+  const cols=['Cód. Sistema','Categoria','Nome','Preço Custo','Preço Venda','Medida','Estoque Mín','Status Venda','Cód. PDV'];
+  const rows=state.products.map(p=>[p.code||'',p.category||'',p.name,Number(productCost(p))||0,Number(p.price)||0,p.measure||'un',Number(p.minStock)||0,p.active===false?'Pausado':'Ativo',p.pdvCode||'']);
+  const ws=XLSX.utils.aoa_to_sheet([cols,...rows]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Produtos');
+  XLSX.writeFile(wb,'produtos-'+todayStr()+'.xlsx');
+  logAction('Produtos exportados em Excel (.xlsx)');
 }
 function exportProductsPackage(){
-  const payload={format:'cantina-produtos',version:1,exportedAt:new Date().toISOString(),products:state.products};
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));a.download='pacote-produtos-'+todayStr()+'.json';a.click();URL.revokeObjectURL(a.href);logAction('Pacote de produtos exportado em JSON');
+  productOptionsOpen=false;
+  const payload={format:'commandah-produtos',version:1,exportedAt:new Date().toISOString(),products:state.products};
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));a.download='pacote-produtos-'+todayStr()+'.ccprod';a.click();URL.revokeObjectURL(a.href);logAction('Pacote de produtos exportado (.ccprod)');
 }
 function refreshProductList(){productOptionsOpen=false;renderProdutos();toast('Lista de produtos atualizada.');}
-function exportProductsImportTemplate(){productOptionsOpen=false;downloadCsvFile('modelo-importacao-produtos.csv',[['Código','Tipo','Categoria','Nome','Medida','Preço de venda','Custo estimado','Estoque mínimo','Status'],['001','produto','Lanches','Exemplo','un','0,00','','0','ativo']]);logAction('Modelo de importação de produtos exportado');}
 function duplicateSelectedProduct(){productOptionsOpen=false;const source=state.products.find(p=>p.id===selectedProductId);if(!source){toast('Selecione um produto para duplicar.');return;}const copy=JSON.parse(JSON.stringify(source));copy.id=uid();copy.code='';copy.pdvCode='';copy.name=source.name+' — Cópia';copy.sortOrder=state.products.length+1;state.products.push(copy);selectedProductId=copy.id;save('products');renderProdutos();toast('Produto duplicado. Revise o cadastro antes de utilizar.');logAction('Produto duplicado: '+source.name);}
 function openProductOrderModal(){
   productOptionsOpen=false;
@@ -1330,7 +1336,7 @@ function saveProductOrder(){
 function pickProductsImport(format){
   productOptionsOpen=false;
   const input=document.createElement('input');input.type='file';
-  input.accept=format==='csv'?'.csv,text/csv':format==='xlsx'?'.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel':'.json,application/json';
+  input.accept=format==='csv'?'.csv,text/csv':format==='xlsx'?'.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel':'.ccprod,.json,application/json';
   input.onchange=()=>{
     const file=input.files&&input.files[0];if(!file)return;
     if(format==='xlsx'){
@@ -1389,7 +1395,7 @@ function parseProductsCsv(text){
   const rows=[];let row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){const ch=text[i];if(ch==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}else if(ch===';'&&!quoted){row.push(cell);cell='';}else if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(cell);cell='';if(row.some(v=>v.trim()))rows.push(row);row=[];}else cell+=ch;}if(cell||row.length){row.push(cell);rows.push(row);}if(rows.length<2)throw new Error('A planilha não possui produtos.');
   return rows.slice(1).map(cols=>({code:(cols[0]||'').trim(),kind:(cols[1]||'produto').trim(),category:(cols[2]||'').trim(),name:(cols[3]||'').trim(),measure:(cols[4]||'un').trim(),price:Number(String(cols[5]||0).replace(',','.'))||0,minStock:Number(String(cols[7]||0).replace(',','.'))||0,active:(cols[8]||'ativo').trim().toLowerCase()!=='pausado'})).filter(p=>p.name);
 }
-function parseProductsPackage(text){const data=JSON.parse(text);const list=Array.isArray(data)?data:data&&data.format==='cantina-produtos'&&Array.isArray(data.products)?data.products:null;if(!list)throw new Error('Pacote de produtos inválido.');return list.filter(p=>p&&typeof p.name==='string'&&p.name.trim());}
+function parseProductsPackage(text){const data=JSON.parse(text);const list=Array.isArray(data)?data:data&&(data.format==='commandah-produtos'||data.format==='cantina-produtos')&&Array.isArray(data.products)?data.products:null;if(!list)throw new Error('Pacote de produtos inválido.');return list.filter(p=>p&&typeof p.name==='string'&&p.name.trim());}
 function mergeImportedProducts(incoming,fileName){
   if(!incoming.length){toast('Nenhum produto válido foi encontrado.');return;}
   if(!confirm(`Importar ${incoming.length} produto(s) de ${fileName}? Produtos com o mesmo código serão atualizados.`))return;
