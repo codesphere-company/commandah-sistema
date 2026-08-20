@@ -1393,7 +1393,17 @@ function parseProductsPackage(text){const data=JSON.parse(text);const list=Array
 function mergeImportedProducts(incoming,fileName){
   if(!incoming.length){toast('Nenhum produto válido foi encontrado.');return;}
   if(!confirm(`Importar ${incoming.length} produto(s) de ${fileName}? Produtos com o mesmo código serão atualizados.`))return;
-  incoming.forEach(raw=>{const code=String(raw.code||'').trim(),existing=state.products.find(p=>(raw.id&&p.id===raw.id)||(code&&p.code===code));const normalized={...raw,id:existing?existing.id:(raw.id||uid()),name:String(raw.name).trim(),code,kind:['produto','tamanho','combo'].includes(raw.kind)?raw.kind:'produto',category:String(raw.category||''),measure:String(raw.measure||'un'),price:Math.max(0,Number(raw.price)||0),minStock:Math.max(0,Number(raw.minStock)||0),active:raw.active!==false,recipe:Array.isArray(raw.recipe)?raw.recipe:(existing&&existing.recipe||[])};if(existing)Object.assign(existing,normalized);else state.products.push(normalized);});
+  incoming.forEach(raw=>{
+    const code=String(raw.code||'').trim();
+    const pdvCode=String(raw.pdvCode||'').trim();
+    const existing=state.products.find(p=>
+      (raw.id&&p.id===raw.id) ||
+      (pdvCode && String(p.pdvCode||'').trim()===pdvCode) ||
+      (code && code!=='0' && String(p.code||'').trim()===code)
+    );
+    const normalized={...raw,id:existing?existing.id:(raw.id||uid()),name:String(raw.name).trim(),code,pdvCode,kind:['produto','tamanho','combo'].includes(raw.kind)?raw.kind:'produto',category:String(raw.category||''),measure:String(raw.measure||'un'),price:Math.max(0,Number(raw.price)||0),minStock:Math.max(0,Number(raw.minStock)||0),active:raw.active!==false,recipe:Array.isArray(raw.recipe)?raw.recipe:(existing&&existing.recipe||[])};
+    if(existing)Object.assign(existing,normalized);else state.products.push(normalized);
+  });
   save('products');renderAll();toast(`${incoming.length} produto(s) importado(s).`);logAction('Produtos importados de '+fileName);
 }
 function renderRecipeRows(){
