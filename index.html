@@ -414,7 +414,23 @@ body.tv-mode main{padding:26px;}
 .cash-order-side .pdv-menu-wrap{flex-shrink:0;}.cash-order-items{flex:1;padding:0}.cash-order-items .empty{text-align:left;padding:18px 28px;color:#777;border-bottom:1px solid #d2d2d2}.cash-order-links{margin-top:auto;display:flex;flex-direction:column;gap:4px;padding:12px 10px 4px}.cash-order-links button{border:0;background:none;text-align:left;color:#555;font-size:14px;padding:9px}.cash-order-links button:hover{background:#e5e5e5}.cash-order-modal .record-actions{margin:0;padding:10px 14px;background:#f4f4f4;justify-content:space-between}
 .record-actions .op-btn.primary{background:var(--amber);color:#fff;border-color:var(--amber-dark);font-weight:700;}
 .record-actions .op-btn.primary:hover{background:var(--amber-dark);}
-.cash-order-links button:hover{background:var(--brand-teal-l);color:var(--navy);}.cash-order-total{border-top:1px solid #bbb;padding:12px 18px;display:flex;justify-content:space-between;font-weight:700;font-size:16px}.cash-order-modal>h3{height:41px;padding:11px 12px}.cash-order-modal>.modal-close{margin-top:8px}@media(max-width:800px){.cash-order-modal{width:calc(100vw - 24px)!important;height:calc(100vh - 24px)}.cash-order-head,.cash-order-layout{grid-template-columns:220px 1fr}.cash-order-toolbar{gap:8px}.cash-order-toolbar .op-search{min-width:150px}.cash-order-ident .delivery-open-badge{width:auto}.cash-order-ident strong{font-size:15px}}
+.cash-order-links button:hover{background:var(--brand-teal-l);color:var(--navy);}.cash-order-total{border-top:1px solid #bbb;padding:12px 18px;display:flex;justify-content:space-between;font-weight:700;font-size:16px}
+.cash-order-total-breakdown{padding:6px 18px 12px;border-top:1px solid #bbb;}
+.cash-order-total-breakdown .cash-order-subtotal-line,.cash-order-total-breakdown .cash-order-service-line{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);padding:4px 0;}
+.cash-order-total-breakdown .cash-order-total{border-top:1px dashed var(--line);margin-top:4px;padding:8px 0 0;}
+.pay-summary{background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:12px 16px;}
+.pay-summary>div{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);padding:3px 0;}
+.pay-summary .pay-total-row{font-size:17px;font-weight:800;color:var(--navy);border-top:1px dashed var(--line);margin-top:6px;padding-top:8px;}
+.pay-method-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;}
+.pay-method-btn{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:10px 6px;font-size:11.5px;font-weight:600;color:var(--ink);}
+.pay-method-btn:hover{border-color:var(--amber);}
+.pay-method-btn.active{background:var(--brand-teal-l);border-color:var(--amber);color:var(--navy);}
+.pay-method-icon{font-size:18px;}
+.pay-method-key{position:absolute;top:3px;right:5px;font-size:9px;color:var(--muted);font-weight:700;}
+.pay-progress-panel{background:var(--cream);padding:12px;margin:12px 0;}
+.pay-progress-track{height:8px;border-radius:6px;background:#e2e4ec;overflow:hidden;}
+.pay-progress-fill{height:100%;background:var(--amber);transition:width .2s;}
+.cash-order-modal>h3{height:41px;padding:11px 12px}.cash-order-modal>.modal-close{margin-top:8px}@media(max-width:800px){.cash-order-modal{width:calc(100vw - 24px)!important;height:calc(100vh - 24px)}.cash-order-head,.cash-order-layout{grid-template-columns:220px 1fr}.cash-order-toolbar{gap:8px}.cash-order-toolbar .op-search{min-width:150px}.cash-order-ident .delivery-open-badge{width:auto}.cash-order-ident strong{font-size:15px}}
 @media(max-width:760px){.record-grid{grid-template-columns:1fr}.product-image-box{height:150px}.record-pane{min-height:0}.record-tabs button{padding:9px 11px}}
 @media(max-width:760px){.consumer-workspace,.table-workspace{margin:-16px}.cash-layout{grid-template-columns:1fr}.cash-side{border-right:0;border-bottom:1px solid #ccc}.cash-main{min-height:260px}.free-cash{padding:35px 18px}.free-cash h2{font-size:35px}.free-cash-actions{gap:10px}.table-grid{grid-template-columns:repeat(auto-fill,minmax(96px,1fr));margin-top:30px}.table-toolbar input{width:100%}}
 @media(max-width:760px){.workspace-gray{margin:-16px;padding:10px}.op-toolbar{flex-wrap:wrap}.op-search{min-width:100%;max-width:none}.op-toolbar-spacer{display:none}.op-btn{min-width:110px;flex:1}.op-footer{gap:18px;justify-content:space-between}.op-titlebar .op-controls{display:none}}
@@ -1967,6 +1983,18 @@ function changeDraftQty(idx, delta){
   renderDraftItems();renderComandaAuditHistory();
 }
 function draftTotal(){ return currentSaleDraft.items.reduce((s,i)=>s+i.price*i.qty,0)+(Number(currentSaleDraft.deliveryFee)||0); }
+function serviceRatePct(){ return Math.max(0,Number(state.settings.serviceRate)||0); }
+function serviceChargeAmount(base){ return base*serviceRatePct()/100; }
+function renderTotalWithService(subtotal){
+  const rate = serviceRatePct();
+  if(!rate) return `<div class="cash-order-total"><span>Total</span><span class="mono" id="draftTotal">${fmt(subtotal)}</span></div>`;
+  const svc = serviceChargeAmount(subtotal);
+  return `<div class="cash-order-total-breakdown">
+    <div class="cash-order-subtotal-line"><span>Subtotal</span><span class="mono" id="draftSubtotalLine">${fmt(subtotal)}</span></div>
+    <div class="cash-order-service-line"><span>(+) Serviço (${rate}%)</span><span class="mono" id="draftServiceLine">${fmt(svc)}</span></div>
+    <div class="cash-order-total"><span>Total</span><span class="mono" id="draftTotal">${fmt(subtotal+svc)}</span></div>
+  </div>`;
+}
 function renderDraftItems(){
   const el = document.getElementById('draftItemsList');
   if(el){
@@ -1981,7 +2009,19 @@ function renderDraftItems(){
       </div>
     </div>`).join('') : `<p class="empty">${el.closest('.cash-order-modal')?'Nenhum item lançado.':'Nenhum item adicionado.'}</p>`;
   }
-  const totEl = document.getElementById('draftTotal'); if(totEl) totEl.textContent = fmt(draftTotal());
+  const totEl = document.getElementById('draftTotal');
+  if(totEl){
+    const subtotal = draftTotal();
+    const rate = currentSaleDraft.type==='comanda' ? serviceRatePct() : 0;
+    if(rate>0){
+      const svc = serviceChargeAmount(subtotal);
+      totEl.textContent = fmt(subtotal+svc);
+      const subEl=document.getElementById('draftSubtotalLine'); if(subEl) subEl.textContent=fmt(subtotal);
+      const svcEl=document.getElementById('draftServiceLine'); if(svcEl) svcEl.textContent=fmt(svc);
+    } else {
+      totEl.textContent = fmt(subtotal);
+    }
+  }
   const printBtn=document.getElementById('pdvPrintConsumption');
   if(printBtn){const count=currentSaleDraft.items.reduce((sum,item)=>sum+(Number(item.qty)||0),0);printBtn.disabled=!count;printBtn.textContent=`Imprimir Fichas de Consumação (${count} ${count===1?'Item novo':'Itens novos'})`;}
 }
@@ -2078,80 +2118,153 @@ function editSelectedPdvSale(){
 function finalizeSelectedPdvSale(){ editSelectedPdvSale(); }
 
 /* ============ PAGAMENTO ============ */
+function methodConfig(){
+  const base=[
+    {key:'A',method:'dinheiro',label:'Dinheiro',icon:'💵'},
+    {key:'P',method:'pix',label:'Pix',icon:'⚡'},
+    {key:'C',method:'credito',label:'Crédito',icon:'💳'},
+    {key:'B',method:'debito',label:'Débito',icon:'💳'},
+    {key:'V',method:'vale',label:'Vale Refeição',icon:'🍽'},
+    {key:'F',method:'fiado',label:'Fiado',icon:'📋'},
+  ];
+  const usedKeys=new Set(base.map(b=>b.key));
+  const extras=state.paymentMethods.map((pm,i)=>{
+    let key = pm.nome.trim().charAt(0).toUpperCase();
+    if(!key || usedKeys.has(key)) key = 'ZYXWQJK'[i%7];
+    usedKeys.add(key);
+    return {key,method:'outro:'+pm.nome,label:pm.nome,icon:'●'};
+  });
+  base.push({key:'O',method:'outro',label:'Outros',icon:'●'});
+  return [...base,...extras];
+}
 function openPaymentModal(mode, comandaId){
   if(!currentSaleDraft.items.length){ toast('Adicione ao menos um item.'); return; }
-  const total = draftTotal();
+  const subtotal = draftTotal();
+  const applyService = mode==='comanda' && serviceRatePct()>0;
   const memberOptions = state.members.filter(m=>!m.archived).map(m=>`<option value="${m.id}" ${m.debt>0?'data-blocked="1"':''}>${h((m.code?m.code+' — ':'')+m.name+(m.debt>0?' (deve '+fmt(m.debt)+')':''))}</option>`).join('');
-  const customMethodOptions = state.paymentMethods.map(pm=>`<option value="outro:${h(pm.nome)}">${h(pm.nome)}</option>`).join('');
   const preselected = currentSaleDraft.memberId || '';
+  const methods = methodConfig();
   openModal('Pagamento', `
-    <p style="font-size:14px">Subtotal: <b class="mono" id="paySubtotal">${fmt(total)}</b></p>
-    <div class="row">
-      <div class="field"><label>Cupom de desconto (opcional)</label><input id="payCoupon" placeholder="Ex: SOCIO10"></div>
-      <div class="field" style="flex:0 0 auto;align-self:flex-end"><button class="btn btn-sm" id="applyCouponBtn" style="margin-bottom:12px">Aplicar</button></div>
+    <div class="pay-summary">
+      <div><span>Subtotal</span><span class="mono" id="paySubtotalLine">${fmt(subtotal)}</span></div>
+      <div id="payDiscountRow" style="display:none"><span>Desconto</span><span class="mono" id="payDiscountLine">− R$ 0,00</span></div>
+      ${applyService?`<div><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono" id="payServiceLine">R$ 0,00</span></div>`:''}
+      <div class="pay-total-row"><span>Total a pagar</span><span class="mono" id="payFinalTotal">${fmt(subtotal)}</span></div>
     </div>
-    <p style="font-size:16px;font-weight:700">Total a pagar: <b class="mono" id="payFinalTotal">${fmt(total)}</b></p>
+    <div class="row" style="align-items:flex-end;margin-top:10px">
+      <div class="field" style="flex:1"><label>Cupom de desconto (opcional)</label><input id="payCoupon" placeholder="Ex: SOCIO10"></div>
+      <button class="btn btn-sm" id="applyCouponBtn">Aplicar</button>
+    </div>
+    <label class="comp-switch" style="margin:12px 0 4px"><input type="checkbox" id="paySplitToggle"><span></span> Rachar a conta</label>
+    <div id="paySplitBox" style="display:none;background:var(--cream);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+      <div class="field" style="margin-bottom:0"><label>Dividir em quantas partes?</label><input id="paySplitCount" type="number" min="2" value="2"></div>
+      <p class="sub" style="margin:8px 0 0">Cada parte: <b class="mono" id="paySplitPerPart">R$ 0,00</b> — clique numa forma de pagamento pra lançar cada parte.</p>
+    </div>
     <div class="field"><label>Associado (opcional — necessário para fiado)</label>
       <select id="paySelMember"><option value="">— Cliente avulso —</option>${memberOptions}</select></div>
-    <div class="row">
-    <div class="field"><label>Forma de pagamento</label>
-      <select id="paySelMethod">
-        <option value="dinheiro">Dinheiro</option>
-        <option value="cartao">Cartão (débito/crédito na maquininha)</option>
-        <option value="pix">Pix</option>
-        <option value="fiado">Fiado (associado)</option>
-        ${customMethodOptions}
-      </select></div>
-      <div class="field"><label>Valor desta forma</label><input id="payPartAmount" type="number" min="0.01" step="0.01"></div>
-      <div style="flex:0 0 auto;align-self:flex-end"><button class="btn btn-sm" id="addPaymentBtn" style="margin-bottom:12px">Adicionar</button></div>
+    <label class="np-label" style="margin-top:12px;display:block">Forma de pagamento <span style="text-transform:none;font-weight:400">(atalho de teclado entre parênteses)</span></label>
+    <div class="pay-method-grid" id="payMethodGrid">
+      ${methods.map(m=>`<button class="pay-method-btn" data-key="${m.key}" data-method="${h(m.method)}" onclick="selectPayMethod('${m.key}')"><span class="pay-method-icon">${m.icon}</span><span>${h(m.label)}</span><span class="pay-method-key">${m.key}</span></button>`).join('')}
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div class="field" style="flex:1"><label>Valor desta forma</label><input id="payPartAmount" type="number" min="0.01" step="0.01"></div>
+      <button class="btn" id="addPaymentBtn" style="align-self:flex-end">+ &nbsp; Adicionar</button>
     </div>
     <p id="fiadoWarning" style="display:none;color:var(--red);font-size:12px">Este associado possui saldo devedor pendente e não pode usar fiado até quitar.</p>
     <div id="paymentParts"></div>
-    <div class="panel" style="background:var(--cream);padding:12px;margin:12px 0">
-      <div style="display:flex;justify-content:space-between"><b>Recebido</b><b class="mono" id="payReceived">R$ 0,00</b></div>
-      <div style="display:flex;justify-content:space-between;margin-top:6px"><b id="payBalanceLabel">Falta</b><b class="mono" id="payBalance">R$ 0,00</b></div>
+    <div class="panel pay-progress-panel">
+      <div class="pay-progress-track"><div class="pay-progress-fill" id="payProgressFill" style="width:0%"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px">
+        <div><small class="sub">Total Pago</small><br><b class="mono" id="payReceived">R$ 0,00</b></div>
+        <div style="text-align:right"><small class="sub" id="payBalanceLabel">Falta pagar</small><br><b class="mono" id="payBalance">R$ 0,00</b></div>
+      </div>
     </div>
-    <button class="btn btn-primary btn-block" id="confirmPayBtn">Confirmar pagamento</button>`);
-  const selMember = document.getElementById('paySelMember'); const selMethod = document.getElementById('paySelMethod');
-  let finalTotal = total;
+    <button class="btn btn-primary btn-block" id="confirmPayBtn">Confirmar pagamento</button>`,true);
+  const modal=document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal'); modal.style.width='520px';
+  const selMember = document.getElementById('paySelMember');
+  let finalTotal = subtotal, discount = 0, selectedMethodKey = 'A';
   tempPayments = [];
   if(preselected) selMember.value = preselected;
+  function currentMethod(){ return methods.find(m=>m.key===selectedMethodKey)||methods[0]; }
+  function recomputeTotals(){
+    const afterDiscount = Math.max(0, subtotal-discount);
+    const service = applyService ? serviceChargeAmount(afterDiscount) : 0;
+    finalTotal = afterDiscount+service;
+    document.getElementById('payDiscountRow').style.display = discount>0 ? 'flex':'none';
+    if(discount>0) document.getElementById('payDiscountLine').textContent = '− '+fmt(discount);
+    if(applyService) document.getElementById('payServiceLine').textContent = fmt(service);
+    document.getElementById('payFinalTotal').textContent = fmt(finalTotal);
+    updateSplitInfo(); renderPaymentParts();
+  }
+  function splitActive(){ return document.getElementById('paySplitToggle').checked; }
+  function splitCount(){ return Math.max(2,parseInt(document.getElementById('paySplitCount').value,10)||2); }
+  function updateSplitInfo(){
+    const box=document.getElementById('paySplitBox');
+    box.style.display = splitActive() ? 'block':'none';
+    if(splitActive()) document.getElementById('paySplitPerPart').textContent = fmt(finalTotal/splitCount());
+  }
+  document.getElementById('paySplitToggle').onchange = updateSplitInfo;
+  document.getElementById('paySplitCount').oninput = updateSplitInfo;
+  window.selectPayMethod = function(key){
+    selectedMethodKey = key;
+    document.querySelectorAll('.pay-method-btn').forEach(b=>b.classList.toggle('active', b.dataset.key===key));
+    const received = tempPayments.reduce((a,p)=>a+p.amount,0);
+    const remaining = Math.max(0, finalTotal-received);
+    const suggested = splitActive() ? Math.min(remaining, finalTotal/splitCount()) : remaining;
+    document.getElementById('payPartAmount').value = suggested.toFixed(2);
+    checkFiado();
+  };
   function checkFiado(){
     const opt = selMember.options[selMember.selectedIndex];
     const blocked = opt && opt.dataset.blocked==='1';
-    document.getElementById('fiadoWarning').style.display = (selMethod.value==='fiado' && blocked) ? 'block':'none';
+    document.getElementById('fiadoWarning').style.display = (currentMethod().method==='fiado' && blocked) ? 'block':'none';
   }
-  selMember.onchange = checkFiado; selMethod.onchange = checkFiado; checkFiado();
+  selMember.onchange = checkFiado;
   function renderPaymentParts(){
     const received = tempPayments.reduce((a,p)=>a+p.amount,0);
     const balance = finalTotal-received;
     document.getElementById('paymentParts').innerHTML = tempPayments.length ? tempPayments.map((p,idx)=>`
       <div class="item-line"><span>${methodLabel(p.method)}</span><div><b class="mono">${fmt(p.amount)}</b>
-      <button class="btn btn-sm btn-danger" style="margin-left:8px" onclick="tempPayments.splice(${idx},1);document.getElementById('payPartAmount').dispatchEvent(new Event('paymentrefresh'))">Remover</button></div></div>`).join('') : '<p class="empty" style="padding:12px">Adicione uma ou mais formas de pagamento.</p>';
+      <button class="btn btn-sm btn-danger" style="margin-left:8px" onclick="tempPayments.splice(${idx},1);renderPaymentPartsGlobal()">Remover</button></div></div>`).join('') : '<p class="empty" style="padding:12px">Clique numa forma de pagamento e depois em Adicionar.</p>';
     document.getElementById('payReceived').textContent = fmt(received);
-    document.getElementById('payBalanceLabel').textContent = balance>=0 ? 'Falta' : 'Troco';
+    document.getElementById('payBalanceLabel').textContent = balance>=0 ? 'Falta pagar' : 'Troco';
     document.getElementById('payBalance').textContent = fmt(Math.abs(balance));
     document.getElementById('payBalance').style.color = balance>0.009 ? 'var(--red)' : 'var(--green)';
-    document.getElementById('payPartAmount').value = Math.max(0,balance).toFixed(2);
+    const pct = finalTotal>0 ? Math.min(100,(received/finalTotal)*100) : 0;
+    document.getElementById('payProgressFill').style.width = pct+'%';
+    document.getElementById('payProgressFill').style.background = balance>0.009 ? 'var(--amber)':'var(--green)';
+    if(!splitActive()) document.getElementById('payPartAmount').value = Math.max(0,balance).toFixed(2);
+    else updateSplitInfo();
   }
-  document.getElementById('payPartAmount').addEventListener('paymentrefresh',renderPaymentParts);
+  window.renderPaymentPartsGlobal = renderPaymentParts;
   document.getElementById('addPaymentBtn').onclick = ()=>{
-    const method = selMethod.value; const amount = parseFloat(document.getElementById('payPartAmount').value);
+    const method = currentMethod().method; const amount = parseFloat(document.getElementById('payPartAmount').value);
     const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
     if(!amount || amount<=0){ toast('Informe o valor desta forma de pagamento.'); return; }
     if(method==='fiado' && (!member || member.debt>0)){ toast(!member?'Selecione um associado para usar fiado.':'Associado com pendência não pode usar fiado.'); return; }
     tempPayments.push({method,amount}); renderPaymentParts();
   };
-  renderPaymentParts();
+  document.getElementById('payPartAmount').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('addPaymentBtn').click(); } });
+  selectPayMethod('A');
+  recomputeTotals();
   document.getElementById('applyCouponBtn').onclick = ()=>{
     const code = document.getElementById('payCoupon').value.trim().toUpperCase();
     const c = state.coupons.find(x=>x.code===code && isCouponUsable(x));
     if(!c){ toast('Cupom inválido ou inativo.'); return; }
-    finalTotal = c.type==='percent' ? total*(1-c.value/100) : Math.max(0, total-c.value);
-    document.getElementById('payFinalTotal').textContent = fmt(finalTotal);
+    discount = c.type==='percent' ? subtotal*(c.value/100) : Math.min(subtotal,c.value);
+    recomputeTotals();
     tempPayments = []; renderPaymentParts();
     toast('Cupom '+code+' aplicado.');
   };
+  function payKeyHandler(e){
+    if(!document.getElementById('confirmPayBtn')){ document.removeEventListener('keydown',payKeyHandler); return; }
+    const tag=(e.target.tagName||'').toLowerCase();
+    if(tag==='input'||tag==='select'||tag==='textarea') return;
+    const key = e.key.toUpperCase();
+    const btn = document.querySelector('.pay-method-btn[data-key="'+key+'"]');
+    if(btn){ e.preventDefault(); btn.click(); }
+  }
+  document.addEventListener('keydown', payKeyHandler);
   document.getElementById('confirmPayBtn').onclick = ()=>{
     const memberId = selMember.value || null;
     const member = memberId ? state.members.find(m=>m.id===memberId) : null;
@@ -2165,6 +2278,7 @@ function openPaymentModal(mode, comandaId){
     const payments = tempPayments.map(p=>({...p}));
     const change = Math.max(0,received-finalTotal);
     if(change){ const cash = payments.find(p=>p.method==='dinheiro'); cash.received=cash.amount; cash.change=change; cash.amount-=change; }
+    document.removeEventListener('keydown', payKeyHandler);
     if(finalizeSale(mode, comandaId, memberId, payments, finalTotal)){
       if(mode==='balcao') document.getElementById('modalRoot').dataset.confirmPdv='false';
       closeModal();
@@ -2374,7 +2488,7 @@ function openComanda(id, keepRequester){
       </aside>
       <main class="cash-order-main">
         <div class="comanda-history-panel" style="margin:0;border:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="comanda-history-head"><b>Histórico da Comanda</b><span>Produto · valores · solicitante · operador · horário</span></div><div class="finance-grid" style="flex:1;min-height:0"><table><thead><tr><th>Horário</th><th>Produto</th><th>Qtd.</th><th>Valor Unit.</th><th>Solicitante</th><th>Adicionado por</th><th>Situação</th></tr></thead><tbody id="comandaAuditRows"></tbody></table></div></div>
-        <div class="cash-order-total"><span>Total</span><span class="mono" id="draftTotal">R$ 0,00</span></div>
+        <div id="draftTotalWrap">${renderTotalWithService(0)}</div>
       </main>
     </div>
     <div class="record-actions">
@@ -3018,8 +3132,8 @@ function gcSelectMember(memberId){
 
 /* ============ AGENDAMENTO DE PEDIDOS ============ */
 function typeLabel(t){ return t==='balcao'?'Balcão':t==='comanda'?'Comanda':t==='agendamento'?'Agendamento':t==='totem'?'Totem':t; }
-function methodLabel(m){ return m==='dinheiro'?'Dinheiro':m==='cartao'?'Cartão':m==='pix'?'Pix':m==='fiado'?'Fiado':m&&m.startsWith('outro:')?m.slice(6):m; }
-function methodBucket(m){ return (m==='dinheiro'||m==='cartao'||m==='pix'||m==='fiado') ? m : 'outros'; }
+function methodLabel(m){ return m==='dinheiro'?'Dinheiro':m==='credito'?'Crédito':m==='debito'?'Débito':m==='cartao'?'Cartão':m==='pix'?'Pix':m==='vale'?'Vale Refeição':m==='fiado'?'Fiado':m&&m.startsWith('outro:')?m.slice(6):m; }
+function methodBucket(m){ return (m==='dinheiro'||m==='pix'||m==='fiado') ? m : (m==='cartao'||m==='credito'||m==='debito') ? 'cartao' : 'outros'; }
 let scheduleMode='week';
 function setScheduleMode(mode){scheduleMode=mode;renderAgendamentos();}
 function renderAgendamentos(){
@@ -3305,7 +3419,7 @@ function renderCaixa(){
   el.innerHTML=`<div class="consumer-workspace"><section class="cash-window"><header class="cash-title">Caixa de ${h((s.operatorName||currentUser.name).toLowerCase())} — Id: ${h(caixaId)}</header><div class="cash-open-layout"><aside class="cash-open-side"><div class="cash-state opened">Caixa Aberto</div><div class="cash-readonly-label">Saldo inicial (dinheiro):</div><div class="cash-readonly-value">${fmt(s.openingAmount)}</div><div class="cash-readonly-label" style="margin-top:20px">Observação:</div><div class="cash-open-note">${h(s.openingNote||`Aberto às ${timeFmt(s.openedAt)} por ${s.operatorName||currentUser.name}`)}</div><div class="cash-open-date"><b>Data / Hora de abertura:</b><br>${new Date(s.openedAt).toLocaleString('pt-BR')}</div></aside><main class="cash-movement-area"><h2>Caixa de ${h((s.operatorName||currentUser.name).toLowerCase())}</h2><div class="cash-section-title">Movimentação</div><label class="cash-movement-filter"><input type="checkbox" id="cashShowReversed"> Exibir pagamentos estornados e descontos de pedidos</label><div class="cash-movement-table"><table><thead><tr><th>Data / Hora</th><th>Descrição</th><th>Entrada</th><th>Saída</th><th>Forma Pagto.</th></tr></thead><tbody>${movementRows.map(r=>`<tr><td>${new Date(r.at).toLocaleString('pt-BR')}</td><td>${h(r.description)}</td><td class="mono">${r.entry?fmt(r.entry):''}</td><td class="mono">${r.exit?fmt(r.exit):''}</td><td>${h(r.method)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="2"></td><td class="mono">${fmt((Number(s.openingAmount)||0)+totalVendido+suprimentos)}</td><td class="mono">${fmt(sangrias)}</td><td></td></tr></tfoot></table></div></main><aside class="cash-summary"><div class="cash-section-title">Resumo</div><div class="cash-summary-line">(+) SALDO INICIAL: <b class="mono">${fmt(s.openingAmount)}</b></div><div class="cash-summary-line">(+) ENTRADAS NO CAIXA</div>${totalVendido+suprimentos?`<div class="cash-summary-empty">Vendas: ${fmt(totalVendido)}<br>Entradas: ${fmt(suprimentos)}</div>`:'<div class="cash-summary-empty">Não há registros de entrada</div>'}<div class="cash-summary-line">(-) SAÍDAS DO CAIXA</div>${sangrias?`<div class="cash-summary-empty">Saídas: ${fmt(sangrias)}</div>`:'<div class="cash-summary-empty">Não há registros de saída</div>'}<div class="cash-summary-total"><div class="cash-summary-line">(=) SALDO FINAL</div><div class="cash-summary-line">Somente Dinheiro: <b class="mono">${fmt(esperadoDinheiro)}</b></div><div class="cash-summary-line">TUDO: <b class="mono">${fmt((Number(s.openingAmount)||0)+totalVendido+suprimentos-sangrias)}</b></div></div></aside><footer class="cash-window-actions"><button class="op-btn" onclick="openCashMovementModal()">＋ Novo Lançamento</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button><button class="op-btn" disabled>Excluir Lançamento</button><button class="op-btn primary" onclick="openCloseCashModal()">Fechar Caixa</button></footer></div></section>${renderCashHistoryPanel()}</div>`;
 }
 
-function paymentMethodLabel(method){if(method==='dinheiro')return'Dinheiro';if(method==='cartao')return'Cartão';if(method==='pix')return'Pix';if(method==='fiado')return'Fiado';return String(method||'Outro').replace(/^outro:/,'');}
+function paymentMethodLabel(method){if(method==='dinheiro')return'Dinheiro';if(method==='credito')return'Crédito';if(method==='debito')return'Débito';if(method==='cartao')return'Cartão';if(method==='pix')return'Pix';if(method==='vale')return'Vale Refeição';if(method==='fiado')return'Fiado';return String(method||'Outro').replace(/^outro:/,'');}
 function cashClosingSnapshot(){const s=state.cashSession;if(!s)return null;const sales=state.sales.filter(sl=>sl.status==='closed'&&sl.deliveryStatus!=='cancelado'&&new Date(sl.closedAt)>=new Date(s.openedAt));const totals={dinheiro:0,cartao:0,pix:0,fiado:0,outros:0};sales.forEach(sl=>(sl.payments||[]).forEach(p=>totals[methodBucket(p.method)]+=Number(p.amount)||0));const movements=state.cashMovements.filter(m=>m.cashSessionId===s.id),suprimentos=movements.filter(m=>m.type==='suprimento').reduce((a,m)=>a+(Number(m.amount)||0),0),sangrias=movements.filter(m=>m.type==='sangria').reduce((a,m)=>a+(Number(m.amount)||0),0),cashIn=movements.filter(m=>m.type==='suprimento'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+(Number(m.amount)||0),0),cashOut=movements.filter(m=>m.type==='sangria'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+(Number(m.amount)||0),0),totalVendido=Object.values(totals).reduce((a,b)=>a+b,0),money=(Number(s.openingAmount)||0)+totals.dinheiro+cashIn-cashOut,final=(Number(s.openingAmount)||0)+totalVendido+suprimentos-sangrias;return{s,totals,suprimentos,sangrias,totalVendido,money,final};}
 function openCloseCashModal(){const snap=cashClosingSnapshot();if(!snap)return;openModal('Fechamento do Caixa',`<div class="cash-close-body"><h2>Confirma o fechamento do seu caixa?</h2><p class="sub">Faça a conferência dos seguintes valores<br>na gaveta do seu caixa:</p><div class="cash-close-values"><div class="cash-close-value money">Apenas Dinheiro<strong>${fmt(snap.money)}</strong></div><div class="cash-close-value final">Saldo Final<strong>${fmt(snap.final)}</strong></div></div><p class="cash-close-note">Saldo final: dinheiro + pagamentos recebidos − saídas</p><div class="cash-close-actions"><button onclick="closeModal()">‹ &nbsp; Voltar</button><button onclick="finalizeCashSession(true)">▣ &nbsp; Finalizar e Imprimir</button><button onclick="finalizeCashSession(false)">✓ &nbsp; Finalizar</button></div></div>`);document.querySelector('#modalRoot .modal').classList.add('cash-close-modal');}
 function finalizeCashSession(printAfter){const snap=cashClosingSnapshot();if(!snap)return;const closed={...snap.s,status:'closed',closedAt:new Date().toISOString(),totals:snap.totals,suprimentos:snap.suprimentos,sangrias:snap.sangrias,countedAmount:snap.money,expectedAmount:snap.money,diff:0,closedBy:currentUser.name};state.cashHistory.unshift(closed);state.cashSession=null;save('cashHistory');save('cashSession');document.getElementById('modalRoot').innerHTML='';logAction('Caixa fechado');renderAll();toast('Caixa fechado.');if(printAfter)setTimeout(()=>window.print(),100);}
