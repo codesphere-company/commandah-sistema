@@ -1808,6 +1808,34 @@ function extractCotaFromName(rawName){
   const trailing = m[3].trim();
   return { name: trailing ? `${cleanName} (${trailing})` : cleanName, code: cota };
 }
+function fixExistingMemberCotas(){
+  memberOptionsOpen=false;
+  const candidates = state.members.filter(m=>!m.code && /^(.*?)\s*-\s*\d+/.test(m.name||''));
+  if(!candidates.length){ toast('Nenhum cliente com esse padrão pendente de correção foi encontrado.'); return; }
+  const preview = candidates.slice(0,5).map(m=>{ const r=extractCotaFromName(m.name); return `${h(m.name)} → <b>${h(r.name)}</b> (cota ${h(r.code)})`; }).join('<br>');
+  openModal('Corrigir Cota nos Nomes Já Importados', `
+    <p class="sub">Encontrados <b>${candidates.length}</b> clientes sem cota cadastrada, cujo nome parece ter o código no final (ex: "Fabricio - 1801"). Isso corrige o cadastro que já existe — não cria clientes novos.</p>
+    <div class="panel" style="background:var(--cream);font-size:12.5px;line-height:1.8;padding:12px">${preview}${candidates.length>5?`<br><i>... e mais ${candidates.length-5}.</i>`:''}</div>
+    <div class="row" style="margin-top:16px">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmFixExistingMemberCotas()">Corrigir ${candidates.length} cliente(s)</button>
+    </div>
+  `);
+}
+function confirmFixExistingMemberCotas(){
+  const candidates = state.members.filter(m=>!m.code && /^(.*?)\s*-\s*\d+/.test(m.name||''));
+  let fixed=0;
+  candidates.forEach(m=>{
+    const r = extractCotaFromName(m.name);
+    if(!r.code) return;
+    const dup = state.members.find(x=>x.id!==m.id && x.code===r.code);
+    if(dup) return;
+    m.name = r.name; m.code = r.code; fixed++;
+  });
+  save('members'); closeModal(); renderAll();
+  toast(fixed+' cliente(s) corrigido(s).');
+  logAction('Correção de cota aplicada em '+fixed+' clientes já cadastrados');
+}
 function startMappedMembersImport(){
   const colIndex = name => importMembersHeaders.indexOf(name);
   const idx = {}; Object.keys(importMembersMapping).forEach(k=>idx[k]=colIndex(importMembersMapping[k]));
@@ -1857,7 +1885,7 @@ function renderAssociados(){
   const el = document.getElementById('view-associados');
   const activeMembers=state.members.filter(m=>!m.archived);
   const rows=activeMembers.length?activeMembers.map(m=>{const sales=state.sales.filter(s=>s.memberId===m.id&&s.status==='closed').sort((a,b)=>new Date(b.closedAt)-new Date(a.closedAt));const address=[m.address,m.addressNumber,m.district].filter(Boolean).join(', ');return `<tr data-member-id="${m.id}" data-search="${h(([m.name,m.phone,m.email,address,m.code,...(m.tags||[])].join(' ')).toLowerCase())}" class="${selectedMemberId===m.id?'selected':''}" onclick="selectMemberRow('${m.id}')" ondblclick="editMember('${m.id}')"><td>${h(m.name)}</td><td>${h(m.phone||'—')}</td><td>${h(address||'—')}</td><td>${h(m.addressNumber||'—')}</td><td>${h(m.district||'—')}</td><td>${h(m.email||'—')}</td><td class="mono">${sales.length}</td><td>${sales.length?new Date(sales[0].closedAt).toLocaleDateString('pt-BR'):'—'}</td>${memberShowMore?`<td>${h(m.code||'—')}</td><td class="mono">${fmt(m.debt)}</td>`:''}</tr>`}).join(''):`<tr><td colspan="${memberShowMore?10:8}" class="empty">Não há registros para mostrar</td></tr>`;
-  el.innerHTML=`<div class="workspace-gray"><section class="op-window"><header class="op-titlebar"><span>Clientes</span><span class="op-controls"><span>□</span><span>×</span></span></header><div class="op-toolbar"><div class="op-search"><input id="memberSearch" placeholder="Pesquisar cliente..."></div><select class="op-btn" id="memberSearchType"><option>Busca Padrão</option><option>Nome</option><option>Telefone</option><option>Endereço</option></select><button class="op-btn" onclick="filterMemberRows()"><span class="op-ico">⌕</span> Buscar</button><div class="op-toolbar-spacer"></div><div class="pdv-menu-wrap"><button class="op-btn" onclick="toggleMemberOptions()">••• &nbsp; Opções ▾</button>${memberOptionsOpen?`<div class="pdv-menu" style="top:48px;min-width:210px"><button onclick="memberShowMore=!memberShowMore;memberOptionsOpen=false;renderAssociados()">▦ &nbsp; Mais Colunas</button><button onclick="window.print()">▣ &nbsp; Imprimir</button><button onclick="exportMembersCsv()">⇩ &nbsp; Exportar CSV</button><button onclick="openMembersImportWizard()">⇧ &nbsp; Importar Clientes…</button><button onclick="openMemberTagManager()">⚙ &nbsp; Gerenciar Tags</button><button onclick="openMemberTagFilter()">▽ &nbsp; Filtrar Tags</button><button onclick="openMemberArchiveManager()">▤ &nbsp; Clientes Arquivados</button></div>`:''}</div><button class="op-btn" onclick="editSelectedMember()" ${selectedMemberId?'':'disabled'}><span class="op-ico">✎</span> Editar</button><button class="op-btn primary" onclick="openMemberModal()"><span class="op-ico">＋</span> Novo</button></div><div class="op-grid"><table style="min-width:1200px"><thead><tr><th>Nome</th><th>Telefone Principal</th><th>Endereço</th><th>Núm.</th><th>Bairro</th><th>E-mail</th><th>Qtd. Pedidos</th><th>Últ. Pedido</th>${memberShowMore?'<th>Cota/Código</th><th>Saldo Devedor</th>':''}</tr></thead><tbody id="memberRows">${rows}</tbody></table></div><footer class="op-footer"><button class="op-mini" onclick="openMemberArchiveManager()">Arquivados: ${state.members.length-activeMembers.length}</button><span>Mostrando ${activeMembers.length} de ${state.members.length} registros.</span></footer></section></div>`;
+  el.innerHTML=`<div class="workspace-gray"><section class="op-window"><header class="op-titlebar"><span>Clientes</span><span class="op-controls"><span>□</span><span>×</span></span></header><div class="op-toolbar"><div class="op-search"><input id="memberSearch" placeholder="Pesquisar cliente..."></div><select class="op-btn" id="memberSearchType"><option>Busca Padrão</option><option>Nome</option><option>Telefone</option><option>Endereço</option></select><button class="op-btn" onclick="filterMemberRows()"><span class="op-ico">⌕</span> Buscar</button><div class="op-toolbar-spacer"></div><div class="pdv-menu-wrap"><button class="op-btn" onclick="toggleMemberOptions()">••• &nbsp; Opções ▾</button>${memberOptionsOpen?`<div class="pdv-menu" style="top:48px;min-width:210px"><button onclick="memberShowMore=!memberShowMore;memberOptionsOpen=false;renderAssociados()">▦ &nbsp; Mais Colunas</button><button onclick="window.print()">▣ &nbsp; Imprimir</button><button onclick="exportMembersCsv()">⇩ &nbsp; Exportar CSV</button><button onclick="openMembersImportWizard()">⇧ &nbsp; Importar Clientes…</button><button onclick="fixExistingMemberCotas()">✎ &nbsp; Corrigir Cota nos Nomes Já Importados</button><button onclick="openMemberTagManager()">⚙ &nbsp; Gerenciar Tags</button><button onclick="openMemberTagFilter()">▽ &nbsp; Filtrar Tags</button><button onclick="openMemberArchiveManager()">▤ &nbsp; Clientes Arquivados</button></div>`:''}</div><button class="op-btn" onclick="editSelectedMember()" ${selectedMemberId?'':'disabled'}><span class="op-ico">✎</span> Editar</button><button class="op-btn primary" onclick="openMemberModal()"><span class="op-ico">＋</span> Novo</button></div><div class="op-grid"><table style="min-width:1200px"><thead><tr><th>Nome</th><th>Telefone Principal</th><th>Endereço</th><th>Núm.</th><th>Bairro</th><th>E-mail</th><th>Qtd. Pedidos</th><th>Últ. Pedido</th>${memberShowMore?'<th>Cota/Código</th><th>Saldo Devedor</th>':''}</tr></thead><tbody id="memberRows">${rows}</tbody></table></div><footer class="op-footer"><button class="op-mini" onclick="openMemberArchiveManager()">Arquivados: ${state.members.length-activeMembers.length}</button><span>Mostrando ${activeMembers.length} de ${state.members.length} registros.</span></footer></section></div>`;
   document.getElementById('memberSearch').oninput=filterMemberRows;
 }
 function openMemberModal(id){
