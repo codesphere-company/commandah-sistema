@@ -1709,6 +1709,7 @@ function openMembersImportWizard(){
     </div>
     <div id="importMembersTabConfig">
       <button class="btn" onclick="pickImportMembersExcelFile()">📊 &nbsp; Abrir Arquivo Excel...</button>
+      <label class="comp-switch" style="margin:10px 0 0"><input type="checkbox" id="impMemExtractCota" onchange="updateImportMembersStartState()"><span></span> Extrair cota do final do nome (ex: "Fabricio - 1801")</label>
       <div class="row" style="margin-top:16px;align-items:flex-start;gap:20px">
         <div style="width:170px;flex-shrink:0">
           <label class="np-label">Planilha selecionada</label>
@@ -1799,15 +1800,29 @@ function updateImportMembersStartState(){
   const btn=document.getElementById('impMemStartBtn'); if(!btn) return;
   btn.disabled = !(importMembersMapping.name && importMembersRows.length);
 }
+function extractCotaFromName(rawName){
+  const m = String(rawName||'').trim().match(/^(.*?)\s*-\s*(\d+)\s*-?\s*(.*)$/);
+  if(!m) return { name: String(rawName||'').trim(), code:'' };
+  const cleanName = m[1].trim();
+  const cota = m[2].trim();
+  const trailing = m[3].trim();
+  return { name: trailing ? `${cleanName} (${trailing})` : cleanName, code: cota };
+}
 function startMappedMembersImport(){
   const colIndex = name => importMembersHeaders.indexOf(name);
   const idx = {}; Object.keys(importMembersMapping).forEach(k=>idx[k]=colIndex(importMembersMapping[k]));
   const val = (r,k) => idx[k]>=0 ? r[idx[k]] : '';
+  const extractCota = document.getElementById('impMemExtractCota')?.checked;
   let count=0;
   importMembersRows.forEach(r=>{
-    const name = String(val(r,'name')||'').trim();
+    let name = String(val(r,'name')||'').trim();
+    let code = String(val(r,'code')||'').trim();
     if(!name) return;
-    const code = String(val(r,'code')||'').trim();
+    if(extractCota){
+      const extracted = extractCotaFromName(name);
+      name = extracted.name;
+      if(!code) code = extracted.code;
+    }
     const document_ = String(val(r,'document')||'').trim();
     const existing = state.members.find(m=>(code && m.code===code) || (document_ && m.document===document_));
     const data = {
