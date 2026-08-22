@@ -1685,19 +1685,164 @@ function openMemberArchiveManager(){memberOptionsOpen=false;const archived=state
 function restoreMember(id){const member=state.members.find(m=>m.id===id);if(!member)return;member.archived=false;delete member.archivedAt;delete member.archivedBy;save('members');closeModal();renderAll();toast('Cliente restaurado.');}
 function exportMembersCsv(){const cols=['Nome','Telefone','E-mail','Endereço','Número','Bairro','Cidade','UF','CPF/CNPJ','Cota','Saldo devedor'];const csv=[cols,...state.members.map(m=>[m.name,m.phone||'',m.email||'',m.address||'',m.addressNumber||'',m.district||'',m.city||'',m.uf||'',m.document||'',m.code||'',Number(m.debt)||0])].map(row=>row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';')).join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='clientes-'+todayStr()+'.csv';a.click();URL.revokeObjectURL(a.href);logAction('Clientes exportados em CSV');}
 function filterMemberRows(){const q=(document.getElementById('memberSearch').value||'').toLowerCase(),type=(document.getElementById('memberSearchType')||{}).value||'Busca Padrão';document.querySelectorAll('#memberRows tr[data-search]').forEach(r=>{const cells=r.cells,text=type==='Nome'?cells[0]?.textContent:type==='Telefone'?cells[1]?.textContent:type==='Endereço'?[cells[2]?.textContent,cells[3]?.textContent,cells[4]?.textContent].join(' '):r.dataset.search;r.style.display=String(text||'').toLowerCase().includes(q)?'':'none';});}
+const IMPORT_MEMBER_FIELDS = [
+  {key:'name', label:'Nome', required:true, guesses:['Nome','Cliente']},
+  {key:'phone', label:'Telefone', required:false, guesses:['Telefone','Telefone Principal','Celular']},
+  {key:'email', label:'E-mail', required:false, guesses:['E-mail','Email']},
+  {key:'address', label:'Endereço', required:false, guesses:['Endereço','Endereco','Rua']},
+  {key:'addressNumber', label:'Número', required:false, guesses:['Número','Numero','Núm.','Num.']},
+  {key:'district', label:'Bairro', required:false, guesses:['Bairro']},
+  {key:'city', label:'Cidade', required:false, guesses:['Cidade']},
+  {key:'uf', label:'UF', required:false, guesses:['UF','Estado']},
+  {key:'document', label:'CPF/CNPJ', required:false, guesses:['CPF','CNPJ','CPF/CNPJ','Documento']},
+  {key:'code', label:'Cota/Código', required:false, guesses:['Cota','Código','Codigo','Cota/Código']},
+  {key:'debt', label:'Saldo Devedor', required:false, guesses:['Saldo Devedor','Débito','Debito','Saldo']}
+];
+let importMembersWorkbook=null, importMembersSheetName='', importMembersHeaders=[], importMembersRows=[], importMembersMapping={};
+function openMembersImportWizard(){
+  memberOptionsOpen=false;
+  importMembersWorkbook=null; importMembersSheetName=''; importMembersHeaders=[]; importMembersRows=[]; importMembersMapping={};
+  openModal('Importar Clientes', `
+    <div class="import-tabs">
+      <button class="import-tab active" id="impMemTabConfigBtn" onclick="switchImportMembersTab('config')">Configurar Importação</button>
+      <button class="import-tab" id="impMemTabPreviewBtn" onclick="switchImportMembersTab('preview')">Visualizar Registros da Planilha <span id="impMemRowCount"></span></button>
+    </div>
+    <div id="importMembersTabConfig">
+      <button class="btn" onclick="pickImportMembersExcelFile()">📊 &nbsp; Abrir Arquivo Excel...</button>
+      <div class="row" style="margin-top:16px;align-items:flex-start;gap:20px">
+        <div style="width:170px;flex-shrink:0">
+          <label class="np-label">Planilha selecionada</label>
+          <div id="importMembersSheetList" class="import-sheet-list"><p class="sub">Abra um arquivo para ver as planilhas.</p></div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <label class="np-label">Mapear colunas</label>
+          <table class="finance-grid" style="width:100%"><thead><tr><th style="width:80px">Obrigat.</th><th>Campo no Commandah</th><th>Coluna na Planilha</th></tr></thead><tbody id="importMembersMapRows"><tr><td colspan="3" class="empty">Abra um arquivo Excel para mapear as colunas.</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+    <div id="importMembersTabPreview" style="display:none">
+      <div class="finance-grid" style="max-height:360px;overflow:auto"><table><thead><tr id="importMembersPreviewHead"></tr></thead><tbody id="importMembersPreviewRows"></tbody></table></div>
+    </div>
+    <div class="record-actions">
+      <button class="op-btn" onclick="closeModal()">〈 &nbsp; Voltar</button>
+      <button class="op-btn primary" id="impMemStartBtn" disabled onclick="startMappedMembersImport()">▷ &nbsp; Iniciar Importação</button>
+    </div>
+  `, true);
+  const modal=document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal'); modal.style.width='860px';
+}
+function switchImportMembersTab(tab){
+  document.getElementById('impMemTabConfigBtn').classList.toggle('active', tab==='config');
+  document.getElementById('impMemTabPreviewBtn').classList.toggle('active', tab==='preview');
+  document.getElementById('importMembersTabConfig').style.display = tab==='config'?'block':'none';
+  document.getElementById('importMembersTabPreview').style.display = tab==='preview'?'block':'none';
+}
+function pickImportMembersExcelFile(){
+  if(!window.XLSX){ toast('Não foi possível carregar o leitor de planilhas — verifique sua conexão e tente de novo.'); return; }
+  const input=document.createElement('input'); input.type='file'; input.accept='.xlsx,.xls';
+  input.onchange=()=>{
+    const file=input.files&&input.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        importMembersWorkbook = XLSX.read(reader.result,{type:'array'});
+        importMembersSheetName = importMembersWorkbook.SheetNames[0];
+        renderImportMembersSheetList();
+        loadImportMembersSheet();
+      }catch(e){ toast('Não foi possível ler esse arquivo.'); }
+    };
+    reader.onerror=()=>toast('Não foi possível ler o arquivo.');
+    reader.readAsArrayBuffer(file);
+  };
+  input.click();
+}
+function renderImportMembersSheetList(){
+  const el=document.getElementById('importMembersSheetList'); if(!el) return;
+  el.innerHTML = importMembersWorkbook.SheetNames.map(name=>`<button class="import-sheet-item ${name===importMembersSheetName?'active':''}" onclick="selectImportMembersSheet('${h(name).replace(/'/g,"\\'")}')">${h(name)}</button>`).join('');
+}
+function selectImportMembersSheet(name){ importMembersSheetName=name; renderImportMembersSheetList(); loadImportMembersSheet(); }
+function loadImportMembersSheet(){
+  const sheet = importMembersWorkbook.Sheets[importMembersSheetName];
+  const raw = XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+  if(!raw.length){ importMembersHeaders=[]; importMembersRows=[]; }
+  else{
+    importMembersHeaders = raw[0].map(c=>String(c||'').trim()).filter(Boolean);
+    importMembersRows = raw.slice(1).filter(r=>r.some(v=>String(v||'').trim()) && !r.some(v=>/^total\s*(itens|registros)/i.test(String(v||''))));
+  }
+  IMPORT_MEMBER_FIELDS.forEach(f=>{
+    const guess = importMembersHeaders.find(col=>f.guesses.some(g=>g.toLowerCase()===col.toLowerCase()));
+    importMembersMapping[f.key] = guess || '';
+  });
+  renderImportMembersMapTable();
+  renderImportMembersPreview();
+  updateImportMembersStartState();
+}
+function renderImportMembersMapTable(){
+  const el=document.getElementById('importMembersMapRows'); if(!el) return;
+  if(!importMembersHeaders.length){ el.innerHTML='<tr><td colspan="3" class="empty">Abra um arquivo Excel para mapear as colunas.</td></tr>'; return; }
+  el.innerHTML = IMPORT_MEMBER_FIELDS.map(f=>`<tr>
+    <td style="text-align:center">${f.required?'<span style="color:var(--red);font-size:18px">●</span>':''}</td>
+    <td>${h(f.label)}</td>
+    <td><select onchange="importMembersMapping['${f.key}']=this.value;updateImportMembersStartState()">
+      <option value="">— Selecione uma coluna —</option>
+      ${importMembersHeaders.map(col=>`<option value="${h(col)}" ${importMembersMapping[f.key]===col?'selected':''}>${h(col)}</option>`).join('')}
+    </select></td>
+  </tr>`).join('');
+}
+function renderImportMembersPreview(){
+  const head=document.getElementById('importMembersPreviewHead'), body=document.getElementById('importMembersPreviewRows'), countEl=document.getElementById('impMemRowCount');
+  if(countEl) countEl.textContent = importMembersRows.length ? '('+importMembersRows.length+')' : '';
+  if(!head||!body) return;
+  head.innerHTML = importMembersHeaders.map(c=>`<th>${h(c)}</th>`).join('');
+  body.innerHTML = importMembersRows.length ? importMembersRows.slice(0,200).map(r=>`<tr>${importMembersHeaders.map((c,i)=>`<td>${h(String(r[i]!==undefined?r[i]:''))}</td>`).join('')}</tr>`).join('') : '<tr><td class="empty">Nenhum registro.</td></tr>';
+}
+function updateImportMembersStartState(){
+  const btn=document.getElementById('impMemStartBtn'); if(!btn) return;
+  btn.disabled = !(importMembersMapping.name && importMembersRows.length);
+}
+function startMappedMembersImport(){
+  const colIndex = name => importMembersHeaders.indexOf(name);
+  const idx = {}; Object.keys(importMembersMapping).forEach(k=>idx[k]=colIndex(importMembersMapping[k]));
+  const val = (r,k) => idx[k]>=0 ? r[idx[k]] : '';
+  let count=0;
+  importMembersRows.forEach(r=>{
+    const name = String(val(r,'name')||'').trim();
+    if(!name) return;
+    const code = String(val(r,'code')||'').trim();
+    const document_ = String(val(r,'document')||'').trim();
+    const existing = state.members.find(m=>(code && m.code===code) || (document_ && m.document===document_));
+    const data = {
+      name,
+      phone: String(val(r,'phone')||'').trim(),
+      email: String(val(r,'email')||'').trim(),
+      address: String(val(r,'address')||'').trim(),
+      addressNumber: String(val(r,'addressNumber')||'').trim(),
+      district: String(val(r,'district')||'').trim(),
+      city: String(val(r,'city')||'').trim(),
+      uf: String(val(r,'uf')||'').trim().toUpperCase(),
+      document: document_,
+      code
+    };
+    if(existing) Object.assign(existing,data);
+    else state.members.push({id:uid(), debt:Number(String(val(r,'debt')||0).toString().replace(',','.'))||0, tags:[], ...data});
+    count++;
+  });
+  save('members'); closeModal(); renderAll();
+  toast(count+' cliente(s) importado(s) ou atualizado(s).');
+  logAction('Clientes importados de '+(importMembersSheetName||'planilha selecionada'));
+}
 function importMembersCsv(){memberOptionsOpen=false;const input=document.createElement('input');input.type='file';input.accept='.csv,text/csv';input.onchange=()=>{const file=input.files&&input.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{const rows=String(reader.result||'').replace(/^\ufeff/,'').split(/\r?\n/).filter(Boolean).slice(1);let count=0;rows.forEach(line=>{const c=line.split(';').map(x=>x.replace(/^"|"$/g,'').replace(/""/g,'"'));if(!c[0])return;const existing=state.members.find(m=>(c[9]&&m.code===c[9])||(c[8]&&m.document===c[8]));const data={name:c[0],phone:c[1]||'',email:c[2]||'',address:c[3]||'',addressNumber:c[4]||'',district:c[5]||'',city:c[6]||'',uf:(c[7]||'').toUpperCase(),document:c[8]||'',code:c[9]||''};if(existing)Object.assign(existing,data);else state.members.push({id:uid(),debt:Number(String(c[10]||0).replace(',','.'))||0,tags:[],...data});count++;});save('members');renderAll();toast(count+' cliente(s) importado(s) ou atualizado(s).');};reader.readAsText(file,'UTF-8');};input.click();}
 function openMemberTagManager(){memberOptionsOpen=false;const tags=[...new Set([...(state.settings.memberTags||[]),...state.members.flatMap(m=>Array.isArray(m.tags)?m.tags:[])])].sort();openModal('Gerenciar Tags de Clientes',`<div class="consumer-form-frame"><div class="field"><label>Nova tag</label><div class="inline-create"><input id="newMemberTag"><button onclick="addMemberTag()">＋ Adicionar</button></div></div><div class="finance-grid" style="height:310px"><table><thead><tr><th>Tag</th><th>Clientes vinculados</th><th>Excluir</th></tr></thead><tbody>${tags.map(t=>`<tr><td>${h(t)}</td><td>${state.members.filter(m=>(m.tags||[]).includes(t)).length}</td><td><button class="op-mini" data-tag="${h(t)}" onclick="deleteMemberTag(this.dataset.tag)">✕</button></td></tr>`).join('')||'<tr><td colspan="3" class="empty">Nenhuma tag cadastrada.</td></tr>'}</tbody></table></div></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal');}
 function addMemberTag(){const tag=document.getElementById('newMemberTag').value.trim();if(!tag){toast('Informe a tag.');return;}state.settings.memberTags=[...new Set([...(state.settings.memberTags||[]),tag])];save('settings');closeModal();openMemberTagManager();}
 function deleteMemberTag(tag){if(!confirm('Remover esta tag de todos os clientes?'))return;state.members.forEach(m=>m.tags=(m.tags||[]).filter(x=>x!==tag));state.settings.memberTags=(state.settings.memberTags||[]).filter(x=>x!==tag);save('members');save('settings');closeModal();openMemberTagManager();}
 function openMemberTagFilter(){memberOptionsOpen=false;const tags=[...new Set([...(state.settings.memberTags||[]),...state.members.flatMap(m=>m.tags||[])])].sort();openModal('Filtrar por Tags',`<div class="consumer-form-frame"><div class="field"><label>Tag</label><select id="memberTagFilter"><option value="">Todas</option>${tags.map(t=>`<option>${h(t)}</option>`).join('')}</select></div></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="consumer-save" onclick="applyMemberTagFilter()">⌕ Filtrar</button></div>`);}
 function applyMemberTagFilter(){const tag=document.getElementById('memberTagFilter').value;closeModal();const input=document.getElementById('memberSearch');if(input)input.value=tag?`Tag: ${tag}`:'';document.querySelectorAll('#memberRows tr[data-member-id]').forEach(row=>{const member=state.members.find(m=>m.id===row.dataset.memberId);row.style.display=!tag||(member&&member.tags||[]).includes(tag)?'':'none';});}
-if(typeof document.addEventListener==='function')document.addEventListener('click',event=>{const button=event.target.closest&&event.target.closest('button');if(!button)return;const label=button.textContent.trim();if(label.includes('Importar Clientes')){event.preventDefault();event.stopImmediatePropagation();importMembersCsv();}else if(label.includes('Gerenciar Tags')){event.preventDefault();event.stopImmediatePropagation();openMemberTagManager();}else if(label.includes('Filtrar Tags')){event.preventDefault();event.stopImmediatePropagation();openMemberTagFilter();}},true);
+if(typeof document.addEventListener==='function')document.addEventListener('click',event=>{const button=event.target.closest&&event.target.closest('button');if(!button)return;const label=button.textContent.trim();if(label.includes('Importar Clientes')){event.preventDefault();event.stopImmediatePropagation();openMembersImportWizard();}else if(label.includes('Gerenciar Tags')){event.preventDefault();event.stopImmediatePropagation();openMemberTagManager();}else if(label.includes('Filtrar Tags')){event.preventDefault();event.stopImmediatePropagation();openMemberTagFilter();}},true);
 if(typeof document.addEventListener==='function')document.addEventListener('change',event=>{const checkbox=event.target.closest&&event.target.closest('#view-associados .op-footer input[type="checkbox"]');if(!checkbox)return;event.preventDefault();openMemberArchiveManager();checkbox.checked=false;});
 function renderAssociados(){
   const el = document.getElementById('view-associados');
   const activeMembers=state.members.filter(m=>!m.archived);
   const rows=activeMembers.length?activeMembers.map(m=>{const sales=state.sales.filter(s=>s.memberId===m.id&&s.status==='closed').sort((a,b)=>new Date(b.closedAt)-new Date(a.closedAt));const address=[m.address,m.addressNumber,m.district].filter(Boolean).join(', ');return `<tr data-member-id="${m.id}" data-search="${h(([m.name,m.phone,m.email,address,m.code,...(m.tags||[])].join(' ')).toLowerCase())}" class="${selectedMemberId===m.id?'selected':''}" onclick="selectMemberRow('${m.id}')" ondblclick="editMember('${m.id}')"><td>${h(m.name)}</td><td>${h(m.phone||'—')}</td><td>${h(address||'—')}</td><td>${h(m.addressNumber||'—')}</td><td>${h(m.district||'—')}</td><td>${h(m.email||'—')}</td><td class="mono">${sales.length}</td><td>${sales.length?new Date(sales[0].closedAt).toLocaleDateString('pt-BR'):'—'}</td>${memberShowMore?`<td>${h(m.code||'—')}</td><td class="mono">${fmt(m.debt)}</td>`:''}</tr>`}).join(''):`<tr><td colspan="${memberShowMore?10:8}" class="empty">Não há registros para mostrar</td></tr>`;
-  el.innerHTML=`<div class="workspace-gray"><section class="op-window"><header class="op-titlebar"><span>Clientes</span><span class="op-controls"><span>□</span><span>×</span></span></header><div class="op-toolbar"><div class="op-search"><input id="memberSearch" placeholder="Pesquisar cliente..."></div><select class="op-btn" id="memberSearchType"><option>Busca Padrão</option><option>Nome</option><option>Telefone</option><option>Endereço</option></select><button class="op-btn" onclick="filterMemberRows()"><span class="op-ico">⌕</span> Buscar</button><div class="op-toolbar-spacer"></div><div class="pdv-menu-wrap"><button class="op-btn" onclick="toggleMemberOptions()">••• &nbsp; Opções ▾</button>${memberOptionsOpen?`<div class="pdv-menu" style="top:48px;min-width:210px"><button onclick="memberShowMore=!memberShowMore;memberOptionsOpen=false;renderAssociados()">▦ &nbsp; Mais Colunas</button><button onclick="window.print()">▣ &nbsp; Imprimir</button><button onclick="exportMembersCsv()">⇩ &nbsp; Exportar CSV</button><button onclick="importMembersCsv()">⇧ &nbsp; Importar Clientes…</button><button onclick="openMemberTagManager()">⚙ &nbsp; Gerenciar Tags</button><button onclick="openMemberTagFilter()">▽ &nbsp; Filtrar Tags</button><button onclick="openMemberArchiveManager()">▤ &nbsp; Clientes Arquivados</button></div>`:''}</div><button class="op-btn" onclick="editSelectedMember()" ${selectedMemberId?'':'disabled'}><span class="op-ico">✎</span> Editar</button><button class="op-btn primary" onclick="openMemberModal()"><span class="op-ico">＋</span> Novo</button></div><div class="op-grid"><table style="min-width:1200px"><thead><tr><th>Nome</th><th>Telefone Principal</th><th>Endereço</th><th>Núm.</th><th>Bairro</th><th>E-mail</th><th>Qtd. Pedidos</th><th>Últ. Pedido</th>${memberShowMore?'<th>Cota/Código</th><th>Saldo Devedor</th>':''}</tr></thead><tbody id="memberRows">${rows}</tbody></table></div><footer class="op-footer"><button class="op-mini" onclick="openMemberArchiveManager()">Arquivados: ${state.members.length-activeMembers.length}</button><span>Mostrando ${activeMembers.length} de ${state.members.length} registros.</span></footer></section></div>`;
+  el.innerHTML=`<div class="workspace-gray"><section class="op-window"><header class="op-titlebar"><span>Clientes</span><span class="op-controls"><span>□</span><span>×</span></span></header><div class="op-toolbar"><div class="op-search"><input id="memberSearch" placeholder="Pesquisar cliente..."></div><select class="op-btn" id="memberSearchType"><option>Busca Padrão</option><option>Nome</option><option>Telefone</option><option>Endereço</option></select><button class="op-btn" onclick="filterMemberRows()"><span class="op-ico">⌕</span> Buscar</button><div class="op-toolbar-spacer"></div><div class="pdv-menu-wrap"><button class="op-btn" onclick="toggleMemberOptions()">••• &nbsp; Opções ▾</button>${memberOptionsOpen?`<div class="pdv-menu" style="top:48px;min-width:210px"><button onclick="memberShowMore=!memberShowMore;memberOptionsOpen=false;renderAssociados()">▦ &nbsp; Mais Colunas</button><button onclick="window.print()">▣ &nbsp; Imprimir</button><button onclick="exportMembersCsv()">⇩ &nbsp; Exportar CSV</button><button onclick="openMembersImportWizard()">⇧ &nbsp; Importar Clientes…</button><button onclick="openMemberTagManager()">⚙ &nbsp; Gerenciar Tags</button><button onclick="openMemberTagFilter()">▽ &nbsp; Filtrar Tags</button><button onclick="openMemberArchiveManager()">▤ &nbsp; Clientes Arquivados</button></div>`:''}</div><button class="op-btn" onclick="editSelectedMember()" ${selectedMemberId?'':'disabled'}><span class="op-ico">✎</span> Editar</button><button class="op-btn primary" onclick="openMemberModal()"><span class="op-ico">＋</span> Novo</button></div><div class="op-grid"><table style="min-width:1200px"><thead><tr><th>Nome</th><th>Telefone Principal</th><th>Endereço</th><th>Núm.</th><th>Bairro</th><th>E-mail</th><th>Qtd. Pedidos</th><th>Últ. Pedido</th>${memberShowMore?'<th>Cota/Código</th><th>Saldo Devedor</th>':''}</tr></thead><tbody id="memberRows">${rows}</tbody></table></div><footer class="op-footer"><button class="op-mini" onclick="openMemberArchiveManager()">Arquivados: ${state.members.length-activeMembers.length}</button><span>Mostrando ${activeMembers.length} de ${state.members.length} registros.</span></footer></section></div>`;
   document.getElementById('memberSearch').oninput=filterMemberRows;
 }
 function openMemberModal(id){
