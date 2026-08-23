@@ -738,6 +738,42 @@ let selectedPromotionId = null;
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function fmt(n){ return 'R$ ' + (Number(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function memberBlockedByDebt(member){ return !!member && Number(member.debt)>0; }
+function blockIfMemberInDebt(member){
+  if(!memberBlockedByDebt(member)) return false;
+  openModal('Consumo bloqueado', `
+    <p class="sub">${h(member.name)} está com uma pendência de <b style="color:var(--red)">${fmt(member.debt)}</b> e não pode consumir até quitar o débito.</p>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" onclick="closeModal()">Voltar</button>
+      <button class="btn btn-primary" onclick="closeModal();openWhatsAppCollection('${member.id}')">📱 &nbsp; Cobrar via WhatsApp</button>
+    </div>
+  `);
+  return true;
+}
+function whatsAppCollectionMessage(member){
+  const clubName = state.settings.clubName || 'o clube';
+  return `Olá, ${member.name}! Aqui é ${clubName}. Notamos uma pendência de ${fmt(member.debt)} em sua conta. Poderia regularizar quando possível? Assim que o pagamento for feito, o consumo é liberado normalmente. Obrigado!`;
+}
+function openWhatsAppCollection(memberId){
+  const m = state.members.find(x=>x.id===memberId); if(!m){ toast('Cliente não encontrado.'); return; }
+  if(!m.phone){ toast('Este cliente não tem telefone cadastrado.'); return; }
+  const phone = String(m.phone).replace(/\D/g,'');
+  const phoneWithCountry = phone.length<=11 ? '55'+phone : phone;
+  const text = encodeURIComponent(whatsAppCollectionMessage(m));
+  window.open('https://wa.me/'+phoneWithCountry+'?text='+text, '_blank');
+  logAction('Cobrança via WhatsApp enviada (abertura de conversa) para '+m.name);
+}
+function promptWhatsAppCollection(member){
+  setTimeout(()=>{
+    openModal('Pedido fechado com pendência', `
+      <p class="sub">${h(member.name)} ficou com saldo devedor de <b style="color:var(--red)">${fmt(member.debt)}</b>. O consumo dessa cota fica bloqueado automaticamente até o pagamento.</p>
+      <div class="row" style="margin-top:14px">
+        <button class="btn" onclick="closeModal()">Agora não</button>
+        <button class="btn btn-primary" onclick="closeModal();openWhatsAppCollection('${member.id}')">📱 &nbsp; Enviar cobrança via WhatsApp</button>
+      </div>
+    `);
+  }, 400);
+}
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 function timeFmt(d){ return new Date(d).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
 function h(value){ return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -2523,12 +2559,14 @@ function finalizeSale(mode, comandaId, memberId, payments, total){
     if(sch){ sch.status='entregue'; save('scheduled'); }
   }
   const fiadoTotal = payments.filter(p=>p.method==='fiado').reduce((a,p)=>a+p.amount,0);
+  let fiadoMemberForPrompt = null;
   if(fiadoTotal>0 && memberId){
     const m = state.members.find(x=>x.id===memberId);
-    if(m){ m.debt += fiadoTotal; save('members'); }
+    if(m){ m.debt += fiadoTotal; save('members'); fiadoMemberForPrompt = m; }
   }
   applyAutomaticLoyalty(memberId,total,sale.id);
   save('sales'); newDraft(mode); toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
+  if(fiadoMemberForPrompt) promptWhatsAppCollection(fiadoMemberForPrompt);
   return true;
 }
 
@@ -2755,13 +2793,14 @@ function openNovoPedidoModal(saleId){
   npCart = [];
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const requesterOptions = member
-    ? `<option value="">— Selecione —</option><option value="holder:${member.id}">Titular — ${h(member.name)}</option>${(member.dependents||[]).map(d=>`<option value="dependent:${d.id}" ${d.canOrder===false?'disabled':''}>Dependente — ${h(d.name)}${d.canOrder===false?' (bloqueado)':''}</option>`).join('')}`
+    ? `<option value="">— Selecione —</option><option value="holder:${member.id}" ${memberBlockedByDebt(member)?'disabled':''}>Titular — ${h(member.name)}${memberBlockedByDebt(member)?' (bloqueado — deve '+fmt(member.debt)+')':''}</option>${(member.dependents||[]).map(d=>`<option value="dependent:${d.id}" ${d.canOrder===false||memberBlockedByDebt(member)?'disabled':''}>Dependente — ${h(d.name)}${d.canOrder===false?' (bloqueado)':memberBlockedByDebt(member)?' (bloqueado — cota com pendência)':''}</option>`).join('')}`
     : `<option value="guest">${h(s.customerName||'Cliente avulso')}</option>`;
   const requesterSection = member ? `
     <div class="np-section">
       <label class="np-label">Quem está pedindo *</label>
       <select id="npRequester">${requesterOptions}</select>
       <p id="npRequesterWarn" class="sub" style="display:none;color:var(--red);margin:6px 0 0">Esta pessoa está bloqueada para consumir nesta cota.</p>
+      ${memberBlockedByDebt(member)?`<button class="btn btn-sm" style="margin-top:6px" onclick="openWhatsAppCollection('${member.id}')">📱 &nbsp; Cobrar via WhatsApp</button>`:''}
     </div>` : `<select id="npRequester" style="display:none">${requesterOptions}</select>`;
   openModal('Novo Pedido', `
     ${requesterSection}
@@ -3135,7 +3174,13 @@ function saveNewNamedComanda(){
     state.sales.push(s);save('sales');closeModal();renderAll();openNovoPedidoModal(s.id);
     return;
   }
-  const choice=window.selectedComandaAccount;if(!choice&&!customerName){toast('Busque e selecione uma cota ou informe o cliente avulso.');return;}if(choice&&choice.memberId){const existing=state.sales.find(x=>x.status==='open'&&x.memberId===choice.memberId);if(existing){closeModal();renderAll();toast('Essa cota já tem uma comanda aberta — abrindo ela.');openComanda(existing.id,true);return;}}const s={id:uid(),type:'comanda',tableNumber:null,orderNumber:nextOrderNumber(),memberId:choice&&choice.memberId||null,dependentId:null,dependentName:'',customerName:choice?choice.name:customerName,items:[],total:0,status:'open',payments:[],openedAt:new Date().toISOString()};state.sales.push(s);save('sales');closeModal();renderAll();openNovoPedidoModal(s.id);
+  const choice=window.selectedComandaAccount;if(!choice&&!customerName){toast('Busque e selecione uma cota ou informe o cliente avulso.');return;}
+  if(choice&&choice.memberId){
+    const member = state.members.find(x=>x.id===choice.memberId);
+    if(blockIfMemberInDebt(member)) return;
+    const existing=state.sales.find(x=>x.status==='open'&&x.memberId===choice.memberId);if(existing){closeModal();renderAll();toast('Essa cota já tem uma comanda aberta — abrindo ela.');openComanda(existing.id,true);return;}
+  }
+  const s={id:uid(),type:'comanda',tableNumber:null,orderNumber:nextOrderNumber(),memberId:choice&&choice.memberId||null,dependentId:null,dependentName:'',customerName:choice?choice.name:customerName,items:[],total:0,status:'open',payments:[],openedAt:new Date().toISOString()};state.sales.push(s);save('sales');closeModal();renderAll();openNovoPedidoModal(s.id);
 }
 
 /* ============ MODO GARÇOM (mobile) ============ */
@@ -3206,7 +3251,7 @@ function gcRenderCategories(){
   const info = comandaPersonData(s);
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const requesterOptions = member
-    ? `<option value="">— Selecione —</option><option value="holder:${member.id}">Titular — ${h(member.name)}</option>${(member.dependents||[]).map(d=>`<option value="dependent:${d.id}" ${d.canOrder===false?'disabled':''}>Dependente — ${h(d.name)}${d.canOrder===false?' (bloqueado)':''}</option>`).join('')}`
+    ? `<option value="">— Selecione —</option><option value="holder:${member.id}" ${memberBlockedByDebt(member)?'disabled':''}>Titular — ${h(member.name)}${memberBlockedByDebt(member)?' (bloqueado — deve '+fmt(member.debt)+')':''}</option>${(member.dependents||[]).map(d=>`<option value="dependent:${d.id}" ${d.canOrder===false||memberBlockedByDebt(member)?'disabled':''}>Dependente — ${h(d.name)}${d.canOrder===false?' (bloqueado)':memberBlockedByDebt(member)?' (bloqueado — cota com pendência)':''}</option>`).join('')}`
     : `<option value="guest">${h(s.customerName||'Cliente avulso')}</option>`;
   const cats = [...new Set(state.products.filter(p=>p.active!==false).map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   const screen = document.getElementById('gcScreen');
@@ -3232,7 +3277,7 @@ function gcSetRequester(value){
   const member = s.memberId?state.members.find(m=>m.id===s.memberId):null;
   if(!value){ gcRequester=null; return; }
   if(value==='guest'){ gcRequester={key:'guest',id:null,name:s.customerName||'Cliente avulso',type:'avulso',canOrder:true}; return; }
-  if(value.startsWith('holder:')){ gcRequester={key:value,id:member.id,name:member.name,type:'titular',canOrder:true}; return; }
+  if(value.startsWith('holder:')){ if(memberBlockedByDebt(member)){ toast('Titular com pendência de '+fmt(member.debt)+' — bloqueado até quitar.'); gcRequester=null; return; } gcRequester={key:value,id:member.id,name:member.name,type:'titular',canOrder:true}; return; }
   const depId=value.split(':')[1], dep=member&&(member.dependents||[]).find(d=>d.id===depId);
   if(dep && dep.canOrder===false){ toast('Este dependente está bloqueado para consumir nesta cota.'); gcRequester=null; return; }
   gcRequester={key:value,id:dep&&dep.id,name:dep&&dep.name||'Dependente',type:'dependente',canOrder:true};
@@ -3360,6 +3405,7 @@ function gcSelectMember(memberId){
   const m = state.members.find(x=>x.id===memberId); if(!m) return;
   const existing = state.sales.find(s=>s.status==='open' && s.memberId===memberId);
   if(existing){ gcOpenFlow(existing.id); return; }
+  if(memberBlockedByDebt(m)){ blockIfMemberInDebt(m); return; }
   const s = { id:uid(), type:'comanda', tableNumber:null, orderNumber:nextOrderNumber(), memberId:m.id, dependentId:null, dependentName:'', customerName:m.name, items:[], total:0, status:'open', payments:[], openedAt:new Date().toISOString(), operatorName:currentUser.name };
   state.sales.push(s); save('sales');
   gcOpenFlow(s.id);
@@ -4555,7 +4601,7 @@ function renderFiado(el){const customers=state.members||[],selected=customers.fi
 
 /* ============ CONTA CORRENTE (FIADO) — FLUXO COMPLETO ============ */
 let fiadoFilters={hideClients:false,showZero:true,showArchived:true};
-function renderFiado(el){const all=state.members||[],customers=all.filter(m=>(fiadoFilters.showZero||Number(m.debt||0)!==0)&&(fiadoFilters.showArchived||!m.archived)),selected=customers.find(m=>m.id===window.selectedFiadoMemberId)||customers[0];if(selected)window.selectedFiadoMemberId=selected.id;const customerRows=customers.length&&!fiadoFilters.hideClients?customers.map(m=>`<tr class="${selected&&selected.id===m.id?'selected':''}" onclick="window.selectedFiadoMemberId='${m.id}';renderContas()"><td>${h(m.name)}</td><td>${fmt(m.debt)}</td><td>${m.archived?'Arquivado':Number(m.debt)>0?'Devedor':'Regular'}</td><td>${fmt(m.creditLimit||0)}</td><td>${Number(m.creditLimit)?Math.min(100,Number(m.debt||0)/Number(m.creditLimit)*100).toFixed(0)+'%':'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="empty" style="height:380px">Nenhum cliente para mostrar.</td></tr>',history=selected&&Array.isArray(selected.debtHistory)?selected.debtHistory:[],historyRows=history.length?history.map(x=>`<tr class="${x.reversed?'reversed':''}"><td>${h(x.at?new Date(x.at).toLocaleString('pt-BR'):'—')}</td><td>${h(x.reason||'Lançamento')}${x.reversed?' (Estornado)':''}</td><td>${x.type==='debt'?fmt(x.value):''}</td><td>${x.type==='payment'?fmt(x.value):''}</td><td title="${h(x.info||x.user||'')}">ⓘ</td><td>${x.reversed?'':`<button class="op-mini" onclick="reverseFiadoEntry('${selected.id}','${x.id}')">↩</button>`}</td></tr>`).join(''):'<tr><td colspan="6" class="empty" style="height:340px">Nenhum lançamento para este cliente.</td></tr>';el.innerHTML=`<section class="finance-page"><div class="finance-top fiado-top"><div class="op-search"><input id="fiadoSearch" placeholder="Pesquisar cliente..."></div><label><input type="checkbox" ${fiadoFilters.hideClients?'checked':''} onchange="fiadoFilters.hideClients=this.checked;renderContas()"> Ocultar clientes</label><label><input type="checkbox" ${fiadoFilters.showZero?'checked':''} onchange="fiadoFilters.showZero=this.checked;renderContas()"> Saldo Zerado</label><label><input type="checkbox" ${fiadoFilters.showArchived?'checked':''} onchange="fiadoFilters.showArchived=this.checked;renderContas()"> Arquivados</label><div class="finance-actions"><button class="op-btn" onclick="toggleFiadoOptions(this)">••• &nbsp; Opções &nbsp; ▾</button><button class="op-btn" onclick="openFiadoEntry('debt')" ${selected?'':'disabled'}>⊖ &nbsp; Registrar Dívida</button><button class="op-btn" onclick="openFiadoEntry('payment')" ${selected&&Number(selected.debt)>0?'':'disabled'}>⊕ &nbsp; Registrar Pagamento</button></div></div><div class="fiado-grids"><div class="finance-grid"><table><thead><tr><th>Cliente</th><th>Saldo Atual</th><th>Situação</th><th>Limite</th><th>% Atingido</th></tr></thead><tbody id="fiadoCustomers">${customerRows}</tbody></table></div><div class="finance-grid fiado-history"><table><thead><tr><th>Data</th><th>Histórico</th><th>Fiado</th><th>Pago</th><th>Info</th><th>Estornar</th></tr></thead><tbody>${historyRows}</tbody></table></div></div><footer class="op-footer"><span>Clientes=${customers.length}</span><span>Saldo total=${fmt(customers.reduce((s,m)=>s+Number(m.debt||0),0))}</span></footer></section>`;document.getElementById('fiadoSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#fiadoCustomers tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none');};}
+function renderFiado(el){const all=state.members||[],customers=all.filter(m=>(fiadoFilters.showZero||Number(m.debt||0)!==0)&&(fiadoFilters.showArchived||!m.archived)),selected=customers.find(m=>m.id===window.selectedFiadoMemberId)||customers[0];if(selected)window.selectedFiadoMemberId=selected.id;const customerRows=customers.length&&!fiadoFilters.hideClients?customers.map(m=>`<tr class="${selected&&selected.id===m.id?'selected':''}" onclick="window.selectedFiadoMemberId='${m.id}';renderContas()"><td>${h(m.name)}</td><td>${fmt(m.debt)}</td><td>${m.archived?'Arquivado':Number(m.debt)>0?'Devedor':'Regular'}</td><td>${fmt(m.creditLimit||0)}</td><td>${Number(m.creditLimit)?Math.min(100,Number(m.debt||0)/Number(m.creditLimit)*100).toFixed(0)+'%':'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="empty" style="height:380px">Nenhum cliente para mostrar.</td></tr>',history=selected&&Array.isArray(selected.debtHistory)?selected.debtHistory:[],historyRows=history.length?history.map(x=>`<tr class="${x.reversed?'reversed':''}"><td>${h(x.at?new Date(x.at).toLocaleString('pt-BR'):'—')}</td><td>${h(x.reason||'Lançamento')}${x.reversed?' (Estornado)':''}</td><td>${x.type==='debt'?fmt(x.value):''}</td><td>${x.type==='payment'?fmt(x.value):''}</td><td title="${h(x.info||x.user||'')}">ⓘ</td><td>${x.reversed?'':`<button class="op-mini" onclick="reverseFiadoEntry('${selected.id}','${x.id}')">↩</button>`}</td></tr>`).join(''):'<tr><td colspan="6" class="empty" style="height:340px">Nenhum lançamento para este cliente.</td></tr>';el.innerHTML=`<section class="finance-page"><div class="finance-top fiado-top"><div class="op-search"><input id="fiadoSearch" placeholder="Pesquisar cliente..."></div><label><input type="checkbox" ${fiadoFilters.hideClients?'checked':''} onchange="fiadoFilters.hideClients=this.checked;renderContas()"> Ocultar clientes</label><label><input type="checkbox" ${fiadoFilters.showZero?'checked':''} onchange="fiadoFilters.showZero=this.checked;renderContas()"> Saldo Zerado</label><label><input type="checkbox" ${fiadoFilters.showArchived?'checked':''} onchange="fiadoFilters.showArchived=this.checked;renderContas()"> Arquivados</label><div class="finance-actions"><button class="op-btn" onclick="toggleFiadoOptions(this)">••• &nbsp; Opções &nbsp; ▾</button><button class="op-btn" onclick="openFiadoEntry('debt')" ${selected?'':'disabled'}>⊖ &nbsp; Registrar Dívida</button><button class="op-btn" onclick="openFiadoEntry('payment')" ${selected&&Number(selected.debt)>0?'':'disabled'}>⊕ &nbsp; Registrar Pagamento</button><button class="op-btn" onclick="${selected?`openWhatsAppCollection('${selected.id}')`:''}" ${selected&&Number(selected.debt)>0?'':'disabled'}>📱 &nbsp; Cobrar via WhatsApp</button></div></div><div class="fiado-grids"><div class="finance-grid"><table><thead><tr><th>Cliente</th><th>Saldo Atual</th><th>Situação</th><th>Limite</th><th>% Atingido</th></tr></thead><tbody id="fiadoCustomers">${customerRows}</tbody></table></div><div class="finance-grid fiado-history"><table><thead><tr><th>Data</th><th>Histórico</th><th>Fiado</th><th>Pago</th><th>Info</th><th>Estornar</th></tr></thead><tbody>${historyRows}</tbody></table></div></div><footer class="op-footer"><span>Clientes=${customers.length}</span><span>Saldo total=${fmt(customers.reduce((s,m)=>s+Number(m.debt||0),0))}</span></footer></section>`;document.getElementById('fiadoSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#fiadoCustomers tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none');};}
 function toggleFiadoOptions(button){let menu=button.parentElement.querySelector('.finance-options-menu');if(menu){menu.remove();return;}menu=document.createElement('div');menu.className='finance-options-menu fiado-options';menu.innerHTML=`<button onclick="window.print()">▣ &nbsp; Imprimir</button><button onclick="exportFiadoCsv()">▧ &nbsp; Exportar para Excel (CSV)</button><button onclick="toggleSelectedMemberArchived()">▤ &nbsp; Arquivar/Desarquivar cliente</button><button onclick="renderAll()">↻ &nbsp; Atualizar</button>`;button.parentElement.appendChild(menu);}
 function toggleFiadoOptions(button){let menu=button.parentElement.querySelector('.finance-options-menu');if(menu){menu.remove();return;}menu=document.createElement('div');menu.className='finance-options-menu fiado-options consumer-group-menu';menu.innerHTML=`<b>Lista de Clientes</b><button onclick="renderAll()">↻ &nbsp; Atualizar</button><button onclick="exportFiadoClientListCsv()">▧ &nbsp; Exportar para Excel</button><button onclick="printFiadoSection('clientes')">▣ &nbsp; Imprimir</button><b>Extrato</b><button onclick="renderAll()">↻ &nbsp; Atualizar</button><button onclick="exportFiadoStatementCsv()">▧ &nbsp; Exportar para Excel</button><button onclick="printFiadoSection('extrato')">▣ &nbsp; Imprimir</button><button onclick="openFiadoStatementOptions()">••• &nbsp; Mais Opções...</button>`;button.parentElement.appendChild(menu);}
 function openFiadoStatementOptions(){const settings=state.settings.fiadoStatement||{showUser:false,maxEntries:60};openModal('Opções do Extrato',`<div class="consumer-form-frame fiado-statement-options"><b>Exibir no Extrato</b><label><input id="fiadoShowUser" type="checkbox" ${settings.showUser?'checked':''}> Usuário que fez a movimentação</label><div class="field"><label>Quantidade máxima de lançamentos</label><input id="fiadoMaxEntries" type="number" min="1" max="1000" value="${Number(settings.maxEntries)||60}"></div></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button><button class="consumer-save" id="fiadoOptionsSave">↻ &nbsp; Atualizar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal','fiado-options-modal');document.getElementById('fiadoOptionsSave').onclick=()=>{state.settings.fiadoStatement={showUser:document.getElementById('fiadoShowUser').checked,maxEntries:Math.max(1,parseInt(document.getElementById('fiadoMaxEntries').value,10)||60)};save('settings');closeModal();renderAll();toast('Opções do extrato atualizadas.');};}
