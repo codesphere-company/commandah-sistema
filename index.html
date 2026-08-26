@@ -2946,6 +2946,22 @@ async function pingPrintAgent(base, timeoutMs){
 async function checkPrintAgentStatus(){
   const box = document.getElementById('agentStatusBox'); if(!box) return;
   if(!state.impressoras.length){ box.className='tag tag-gray'; box.textContent='Cadastre impressoras abaixo pra habilitar a checagem do agente.'; return; }
+  if(supabaseClient && getTenantId()){
+    box.className='tag tag-green';
+    box.innerHTML='● Usando fila de impressão via nuvem — funciona em qualquer aparelho (celular incluso), sem precisar liberar nada no navegador. Basta o agente estar rodando no computador com a impressora física.';
+    for(const imp of state.impressoras){
+      const cell = document.getElementById('impStatus-'+imp.id); if(!cell) continue;
+      try{
+        const since = new Date(Date.now()-2*60*1000).toISOString();
+        const targetName = imp.osName || imp.nome;
+        const url = `${SUPABASE_URL}/rest/v1/print_jobs?tenant_id=eq.${encodeURIComponent(getTenantId())}&printer_name=eq.${encodeURIComponent(targetName)}&status=eq.impresso&printed_at=gte.${since}&select=id&limit=1`;
+        const res = await fetch(url, { headers:{ apikey:SUPABASE_ANON_KEY, Authorization:'Bearer '+SUPABASE_ANON_KEY } });
+        const rows = res.ok ? await res.json() : [];
+        cell.innerHTML = rows.length ? '<span class="tag tag-green">● imprimiu recentemente</span>' : '<span class="tag tag-gray">○ aguardando (sem testes recentes)</span>';
+      }catch(e){ cell.innerHTML = '<span class="tag tag-gray">○ não verificado</span>'; }
+    }
+    return;
+  }
   const isHttpsPage = window.location.protocol==='https:';
   if(isHttpsPage) box.innerHTML='<span class="tag tag-amber">⚠ Site em HTTPS — o agente local roda em HTTP, então o navegador pode bloquear isso por padrão. Veja a explicação abaixo de cada impressora.</span>';
   else box.className='tag tag-gray', box.textContent='Verificando agentes de impressão...';
@@ -2988,8 +3004,14 @@ async function printSingleTicket(who, local, estacao, printer, items, orderNumbe
   if(printer){
     const imp = state.impressoras.find(p=>p.nome===printer);
     const targetName = imp&&imp.osName ? imp.osName : printer;
-    const base = printerAgentBase(imp);
     const text = buildTicketText(who, local, estacao, items, orderNumber);
+    if(supabaseClient && getTenantId()){
+      try{
+        const { error } = await supabaseClient.from('print_jobs').insert({ tenant_id: getTenantId(), printer_name: targetName, content: text, status: 'pendente' });
+        if(!error){ toast('Pedido enviado pra fila de impressão: '+printer); return; }
+      }catch(e){ /* cai pro modo antigo abaixo */ }
+    }
+    const base = printerAgentBase(imp);
     try{
       const ctrl = new AbortController();
       const t = setTimeout(()=>ctrl.abort(), 4000);
@@ -4127,7 +4149,8 @@ function openImpressoraModal(id){
   openModal((p?'Editar':'Nova')+' — Impressora', `
     <div class="field"><label>Nome da impressora (no sistema)</label><input id="impNome" value="${p?h(p.nome):''}" placeholder="Ex: Impressora Bar — App"></div>
     <div class="field"><label>Nome exato no Windows/Mac (opcional)</label><input id="impOsName" value="${p?h(p.osName||''):''}" placeholder="Ex: EPSON TM-T20X"><p class="sub">Se preenchido, o agente de impressão local usa esse nome exato pra imprimir sem abrir tela nenhuma. Deixe em branco pra usar o nome acima.</p></div>
-    <div class="field"><label>Endereço do agente na rede</label><input id="impAgentUrl" value="${p?h(p.agentUrl||''):''}" placeholder="Ex: 192.168.1.50:9123"><p class="sub">O IP do computador onde o agente de impressão está rodando e ligado nesta impressora (aparece no terminal do agente ao iniciar). Deixe em branco só se esse pedido for sempre feito no MESMO computador da impressora (ex: caixa que imprime a própria comanda).</p></div>
+    <div class="field"><label>Endereço do agente na rede (opcional, modo antigo)</label><input id="impAgentUrl" value="${p?h(p.agentUrl||''):''}" placeholder="Deixe em branco — não é mais necessário"><p class="sub">Com a fila de impressão via nuvem ativa, isso não é mais necessário — o agente encontra os pedidos sozinho, de qualquer aparelho. Só preencha se estiver usando o modo antigo sem Supabase.</p></div>
+    <div class="field"><label>Código do estabelecimento</label><input value="${h(getTenantId())}" readonly class="mono" onclick="this.select()"><p class="sub">Cole esse código no agente de impressão (ele pede na primeira vez que roda). Igual em todos os computadores.</p></div>
     <div class="field"><label>Estação</label><select id="impEstacao">
       <option value="cozinha" ${!p||p.estacao==='cozinha'?'selected':''}>Cozinha</option>
       <option value="bar" ${p&&p.estacao==='bar'?'selected':''}>Bar</option>
