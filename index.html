@@ -851,6 +851,11 @@ async function loadAll(){
     state.users.push({id:uid(), name:'Garçom App', username:'garcom', pin:'1234', role:'caixa', origem:'app'});
     await save('users');
   }
+  const usersMissingOrigem = state.users.filter(u=>!u.origem);
+  if(usersMissingOrigem.length){
+    usersMissingOrigem.forEach(u=>{ u.origem = u.username==='garcom' ? 'app' : 'caixa'; });
+    await save('users');
+  }
   if(!state.locais.length){
     ['Churrasqueira 1','Churrasqueira 2','Churrasqueira 3','Churrasqueira 4','Churrasqueira 5','Sinuca','Bolão','Quadra de Tênis','Salão de Festas','Piscina'].forEach(nome=>state.locais.push({id:uid(), nome}));
     await save('locais');
