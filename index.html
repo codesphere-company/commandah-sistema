@@ -2766,7 +2766,7 @@ function openComanda(id, keepRequester){
         </div>
       </aside>
       <main class="cash-order-main">
-        <div class="comanda-history-panel" style="margin:0;border:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="comanda-history-head"><b>Histórico da Comanda</b><span>Produto · valores · solicitante · operador · horário</span></div><div class="finance-grid" style="flex:1;min-height:0"><table><thead><tr><th>Horário</th><th>Produto</th><th>Qtd.</th><th>Valor Unit.</th><th>Solicitante</th><th>Adicionado por</th><th>Situação</th></tr></thead><tbody id="comandaAuditRows"></tbody></table></div></div>
+        <div class="comanda-history-panel" style="margin:0;border:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="comanda-history-head"><b>Histórico da Comanda</b><span>Produto · valores · solicitante · operador · horário</span></div><div class="finance-grid" style="flex:1;min-height:0"><table><thead><tr><th>Horário</th><th>Produto</th><th>Qtd.</th><th>Valor Unit.</th><th>Solicitante</th><th>Adicionado por</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="comandaAuditRows"></tbody></table></div></div>
         <div id="draftTotalWrap">${renderTotalWithService(0)}</div>
       </main>
     </div>
@@ -3074,7 +3074,18 @@ function renderComandaAuditHistory(){
     <td>${h(item.requesterName||currentSaleDraft.customerName||'Não registrado')}</td>
     <td>${h(item.addedBy||'Registro anterior')}</td>
     <td>${item.sent?'<span class="tag tag-blue">Enviado</span>':'<span class="tag tag-amber">Novo</span>'}</td>
-  </tr>`).join('') : '<tr><td colspan="7" class="empty">Nenhum item lançado nesta comanda.</td></tr>';
+    <td>${item.sent?`<button class="btn btn-sm" onclick="reprintComandaItem(${idx})">🖶 &nbsp; Reimprimir</button>`:'—'}</td>
+  </tr>`).join('') : '<tr><td colspan="8" class="empty">Nenhum item lançado nesta comanda.</td></tr>';
+}
+function reprintComandaItem(idx){
+  const item = (currentSaleDraft.items||[])[idx]; if(!item) return;
+  const product = state.products.find(p=>p.id===item.productId);
+  const estacao = item.estacao || (product&&product.estacao) || 'cozinha';
+  const origem = currentUser.origem || 'caixa';
+  const printer = resolvePrinterFor(estacao, origem);
+  const who = item.requesterName || currentSaleDraft.customerName || 'Cliente';
+  printSingleTicket(who, '', estacao, printer?printer.nome:null, [item], null);
+  toast('Reimpressão enviada.');
 }
 
 /* ============ MAIS OPÇÕES DA COMANDA ============ */
