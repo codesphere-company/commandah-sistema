@@ -4189,7 +4189,14 @@ function openImpressoraModal(id){
 }
 function deleteImpressora(id){ if(!confirm('Excluir esta impressora?')) return; state.impressoras=state.impressoras.filter(x=>x.id!==id); save('impressoras'); renderAll(); }
 function resolvePrinterFor(estacao, origem){
-  return state.impressoras.find(p=>p.estacao===estacao && p.origem===origem) || state.impressoras.find(p=>p.estacao===estacao && p.origem==='ambos') || null;
+  const exact = state.impressoras.find(p=>p.estacao===estacao && p.origem===origem);
+  if(exact) return exact;
+  const shared = state.impressoras.find(p=>p.estacao===estacao && p.origem==='ambos');
+  if(shared) return shared;
+  if(currentUser && currentUser.role==='admin'){
+    return state.impressoras.find(p=>p.estacao===estacao) || null;
+  }
+  return null;
 }
 
 /* ============ CONTAS A PAGAR / RECEBER ============ */
