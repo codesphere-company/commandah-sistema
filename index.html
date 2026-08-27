@@ -555,6 +555,7 @@ body.tv-mode main{padding:26px;}
     <div class="view" id="view-contascategorias"></div>
     <div class="view" id="view-locais"></div>
     <div class="view" id="view-impressoras"></div>
+    <div class="view" id="view-estacoes"></div>
     <div class="view" id="view-contas"></div>
     <div class="view" id="view-config-sistema"></div>
     <div class="view" id="view-backup"></div>
@@ -597,7 +598,7 @@ const STORE = {
   perguntas:'cantina2:perguntas',
   fornecedores:'cantina2:fornecedores', paymentMethods:'cantina2:paymentMethods', cardBrands:'cantina2:cardBrands', contaCategorias:'cantina2:contaCategorias',
   contas:'cantina2:contas', settings:'cantina2:settings', logs:'cantina2:logs', coupons:'cantina2:coupons', orderCounter:'cantina2:orderCounter',
-  stockMovements:'cantina2:stockMovements', eventQueue:'cantina2:eventQueue', locais:'cantina2:locais', impressoras:'cantina2:impressoras'
+  stockMovements:'cantina2:stockMovements', eventQueue:'cantina2:eventQueue', locais:'cantina2:locais', impressoras:'cantina2:impressoras', estacoes:'cantina2:estacoes'
 };
 const ICN = {
   lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
@@ -663,7 +664,7 @@ const RIBBON_TABS = [
           {label:'Cardápio Digital', icon:ICN.phone, view:'cardapio'}
       ]},
       { label:'Clientes', items:[ {label:'Clientes', icon:ICN.users, view:'associados'} ] },
-      { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },
+      { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Estações', icon:ICN.printer, view:'estacoes'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },
       { label:'Atendimento', items:[ {label:'Bot WhatsApp', icon:ICN.chat, action:'openWhatsAppBotConfig'} ] }
   ]},
   { id:'produtos', label:'Produtos', groups:[
@@ -711,16 +712,16 @@ const SIMPLE_RIBBON_COZINHA = [
 ];
 const ROLE_PERMS = {
   admin: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','produtos','insumos','usuarios','relatorios','cozinha',
-    'categorias','complementos','observacoes','perguntas','fornecedores','pagamentos','contascategorias','contas','locais','impressoras',
+    'categorias','complementos','observacoes','perguntas','fornecedores','pagamentos','contascategorias','contas','locais','impressoras','estacoes',
     'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr'],
-  caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','impressoras','relatorios','painel-senhas','totem','ajuda','mobile-qr'],
+  caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','impressoras','estacoes','relatorios','painel-senhas','totem','ajuda','mobile-qr'],
   cozinha: ['cozinha']
 };
 function rolePermissions(role){const custom=state&&state.settings&&state.settings.rolePermissions&&state.settings.rolePermissions[role];return Array.isArray(custom)?custom:(ROLE_PERMS[role]||[]);}
 const UNIT_OPTIONS = ['g','kg','ml','l','un'];
 
 let state = { users:[], insumos:[], products:[], members:[], sales:[], orders:[], requests:[], scheduled:[], cashSession:null, cashHistory:[], cashMovements:[],
-  categorias:[], complementos:[], observacoes:[], perguntas:[], fornecedores:[], paymentMethods:[], cardBrands:[], contaCategorias:[], contas:[], settings:{}, logs:[], coupons:[], orderCounter:0, stockMovements:[], eventQueue:[], locais:[], impressoras:[] };
+  categorias:[], complementos:[], observacoes:[], perguntas:[], fornecedores:[], paymentMethods:[], cardBrands:[], contaCategorias:[], contas:[], settings:{}, logs:[], coupons:[], orderCounter:0, stockMovements:[], eventQueue:[], locais:[], impressoras:[], estacoes:[] };
 let currentUser = null;
 let currentSaleDraft = null;
 let cardapioDraft = null;
@@ -868,6 +869,12 @@ async function loadAll(){
     state.impressoras.push({id:uid(), nome:'Impressora Churrasqueira — App', estacao:'churrasqueira', origem:'app'});
     await save('impressoras');
   }
+  if(!state.estacoes.length){
+    state.estacoes.push({id:uid(), chave:'cozinha', nome:'Cozinha', saida:'ambos'});
+    state.estacoes.push({id:uid(), chave:'bar', nome:'Bar', saida:'imprime'});
+    state.estacoes.push({id:uid(), chave:'churrasqueira', nome:'Churrasqueira', saida:'imprime'});
+    await save('estacoes');
+  }
   applyBranding();
   renderLogin();
 }
@@ -973,7 +980,7 @@ let activeViewRibbonTab = null, viewHistory = [];
 let activeRibbonAction = '';
 const VIEW_LABELS = {caixa:'Caixa',balcao:'Pedido Balcão',comandas:'Comandas',delivery:'Delivery','fila-atendimento':'Fila de Atendimento',agendamentos:'Agendamentos',cardapio:'Cardápio Digital',cozinha:'Monitor de Cozinha',produtos:'Produtos',insumos:'Insumos',associados:'Clientes',usuarios:'Usuários',relatorios:'Relatórios',
   categorias:'Categorias',complementos:'Complementos e Tamanhos',observacoes:'Observações',perguntas:'Perguntas',fornecedores:'Fornecedores',pagamentos:'Formas de Pagamento',
-  contascategorias:'Categorias de Contas',contas:'Contas a Pagar/Receber',locais:'Locais e Áreas do Clube',impressoras:'Impressoras','config-sistema':'Configurações do Sistema',backup:'Backup',logs:'Logs',
+  contascategorias:'Categorias de Contas',contas:'Contas a Pagar/Receber',locais:'Locais e Áreas do Clube',impressoras:'Impressoras',estacoes:'Estações','config-sistema':'Configurações do Sistema',backup:'Backup',logs:'Logs',
   'painel-senhas':'Painel de Senhas',ajuda:'Ajuda e Suporte',diagnostico:'Diagnóstico de Serviços',totem:'Totem de Autoatendimento',cupons:'Promoções e Cupons',modulos:'Central de Módulos','mobile-qr':'Acesso Mobile — Garçom'};
 function buildNav(){
   const allowed = rolePermissions(currentUser.role);
@@ -1145,6 +1152,7 @@ function renderAll(){
   if(allowed.includes('contascategorias')) renderCrudView('view-contascategorias','contaCategorias');
   if(allowed.includes('locais')) renderCrudView('view-locais','locais');
   if(allowed.includes('impressoras')) renderImpressoras();
+  if(allowed.includes('estacoes')) renderEstacoes();
   if(allowed.includes('contas')){ renderContas(); applyFiadoStatementSettings(); }
   if(allowed.includes('config-sistema')) renderConfigSistema();
   if(allowed.includes('backup')){renderBackup();enhanceBackupActions();}
@@ -1672,9 +1680,7 @@ function openProductModal(id){
         <div class="field" style="margin-top:12px"><label>Descrição</label><textarea id="pDescription" rows="2">${h(p?p.description||'':'')}</textarea></div>
         <div class="field"><label>Código personalizado / PDV</label><input id="pCustomCode" value="${h(p?p.pdvCode||'':'')}"></div>
         <div class="field"><label>Estação de preparo</label><select id="pEstacao">
-          <option value="cozinha" ${!p||!p.estacao||p.estacao==='cozinha'?'selected':''}>Cozinha</option>
-          <option value="bar" ${p&&p.estacao==='bar'?'selected':''}>Bar</option>
-          <option value="churrasqueira" ${p&&p.estacao==='churrasqueira'?'selected':''}>Churrasqueira</option>
+          ${state.estacoes.map(e=>`<option value="${h(e.chave)}" ${(p&&p.estacao===e.chave)||(!p&&e.chave==='cozinha')?'selected':''}>${h(e.nome)}</option>`).join('')}
           <option value="nenhuma" ${p&&p.estacao==='nenhuma'?'selected':''}>Não exige preparo (ex: água, refrigerante lacrado)</option>
         </select><p class="sub">Define pra qual impressora o pedido vai (Cozinha usa impressora única; Bar e Churrasqueira têm impressora diferente por origem do pedido).</p></div>
         <p style="font-size:12px;font-weight:700;margin:16px 0 6px">Disponibilizar este item para venda direta em</p><div class="channel-checks"><label><input type="checkbox" id="pChPdv" ${!p||!p.channels||p.channels.pdv!==false?'checked':''}> PDV Desktop</label><label><input type="checkbox" id="pChMobile" ${!p||!p.channels||p.channels.mobile!==false?'checked':''}> Comanda Mobile</label><label><input type="checkbox" id="pChQr" ${!p||!p.channels||p.channels.qr!==false?'checked':''}> Cardápio QR</label><label><input type="checkbox" id="pChOnline" ${!p||!p.channels||p.channels.online!==false?'checked':''}> Pedidos Online</label></div></div></div>
@@ -2070,8 +2076,8 @@ function consumeInsumosForItems(items){
   return true;
 }
 function saidaModoEstacao(estacao){
-  const cfg = (state.settings.saidaPorEstacao||{})[estacao];
-  return cfg || (estacao==='cozinha' ? 'ambos' : 'imprime');
+  const e = state.estacoes.find(x=>x.chave===estacao);
+  return e ? e.saida : (estacao==='cozinha' ? 'ambos' : 'imprime');
 }
 function saidaTemTela(estacao){ const m=saidaModoEstacao(estacao); return m==='ambos'||m==='tela'; }
 function saidaTemImpressao(estacao){ const m=saidaModoEstacao(estacao); return m==='ambos'||m==='imprime'; }
@@ -2997,7 +3003,7 @@ function buildTicketText(who, local, estacao, items, orderNumber){
   const wrap = t => t.length>W ? t.slice(0,W) : t;
   let out = '';
   out += line('=')+'\n';
-  out += wrap((ESTACAO_LABELS[estacao]||estacao||'').toUpperCase())+'\n';
+  out += wrap((estacaoLabel(estacao)||estacao||'').toUpperCase())+'\n';
   out += line('=')+'\n';
   out += 'Pedido '+(orderNumber?'#'+orderNumber:'')+'\n';
   out += new Date().toLocaleString('pt-BR')+'\n';
@@ -3039,7 +3045,7 @@ async function printSingleTicket(who, local, estacao, printer, items, orderNumbe
   const win = window.open('', '_blank', 'width=380,height=600');
   if(!win){ toast('Permita pop-ups no navegador para imprimir o pedido.'); return; }
   const total = items.reduce((a,i)=>a+i.price*i.qty,0);
-  win.document.write(`<html><head><title>Pedido — ${ESTACAO_LABELS[estacao]||estacao}</title><style>
+  win.document.write(`<html><head><title>Pedido — ${estacaoLabel(estacao)||estacao}</title><style>
     body{font-family:Arial,sans-serif;padding:16px;font-size:13px;color:#111}
     h1{font-size:16px;margin:0 0 4px}
     .muted{color:#666;font-size:11px;margin-bottom:12px}
@@ -3051,14 +3057,14 @@ async function printSingleTicket(who, local, estacao, printer, items, orderNumbe
     .printer{color:#666;font-size:11px;margin-top:8px}
     .warn{color:#c1443c;font-size:11px;margin-top:8px;font-weight:bold}
   </style></head><body>
-    <div class="estacao">${(ESTACAO_LABELS[estacao]||estacao).toUpperCase()}</div>
+    <div class="estacao">${(estacaoLabel(estacao)||estacao).toUpperCase()}</div>
     <h1>Pedido ${orderNumber?'#'+orderNumber:''}</h1>
     <div class="muted">${new Date().toLocaleString('pt-BR')}</div>
     <div><b>Solicitante:</b> ${h(who)}</div>
     ${local?`<div class="local">ENTREGAR EM: ${h(local)}</div>`:''}
     <table>${items.map(i=>`<tr><td>${i.qty}x ${h(i.name)}</td><td style="text-align:right">${fmt(i.price*i.qty)}</td></tr>`).join('')}</table>
     <div class="total">Total: ${fmt(total)}</div>
-    ${printer?`<div class="printer">Imprimir na: <b>${h(printer)}</b> (agente local não conectado — instale o agente pra imprimir automático)</div>`:`<div class="warn">Nenhuma impressora configurada para ${ESTACAO_LABELS[estacao]||estacao} nesta origem — encaminhar manualmente.</div>`}
+    ${printer?`<div class="printer">Imprimir na: <b>${h(printer)}</b> (agente local não conectado — instale o agente pra imprimir automático)</div>`:`<div class="warn">Nenhuma impressora configurada para ${estacaoLabel(estacao)||estacao} nesta origem — encaminhar manualmente.</div>`}
   </body></html>`);
   win.document.close(); win.focus();
   setTimeout(()=>{ win.print(); }, 300);
@@ -4149,42 +4155,76 @@ function deleteCrudItem(entityKey, id){
 }
 
 /* ============ IMPRESSORAS (estação + origem) ============ */
-const ESTACAO_LABELS = {cozinha:'Cozinha', bar:'Bar', churrasqueira:'Churrasqueira'};
+function estacaoLabel(chave){ const e=state.estacoes.find(x=>x.chave===chave); return e?e.nome:(chave||'—'); }
 const ORIGEM_LABELS = {caixa:'Caixa', app:'App do Garçom', ambos:'Caixa e App (compartilhada)'};
+function slugifyEstacao(nome){ return String(nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,40)||uid(); }
+function renderEstacoes(){
+  const el = document.getElementById('view-estacoes'); if(!el) return;
+  const rows = state.estacoes.length ? state.estacoes.map(e=>{
+    const emUso = state.products.some(p=>p.estacao===e.chave) || state.impressoras.some(p=>p.estacao===e.chave);
+    return `<tr><td><b>${h(e.nome)}</b><br><small class="mono" style="color:var(--muted)">${h(e.chave)}</small></td>
+    <td>${({imprime:'Só imprimir',tela:'Só tela (Monitor)',ambos:'Imprimir + Tela'})[e.saida]||e.saida}</td>
+    <td>${state.impressoras.filter(p=>p.estacao===e.chave).length} impressora(s)</td>
+    <td><button class="btn btn-sm" onclick="openEstacaoModal('${e.id}')">Editar</button>
+    <button class="btn btn-sm btn-danger" onclick="deleteEstacao('${e.id}')" ${emUso?'disabled title="Em uso por produtos ou impressoras — remova os vínculos primeiro"':''}>Excluir</button></td></tr>`;
+  }).join('') : `<tr><td colspan="4" class="empty">Nenhuma estação cadastrada.</td></tr>`;
+  el.innerHTML = `<div class="panel"><h2>Estações</h2>
+    <p class="sub">Uma estação é qualquer ponto de preparo do seu estabelecimento (Cozinha, Bar, Churrasqueira, Sobremesas, Confeitaria — o que fizer sentido pro seu negócio). Cada uma define se o pedido é impresso, mostrado num monitor/TV, ou os dois. Crie, edite ou remova estações livremente — produtos e impressoras se conectam a elas.</p>
+    <button class="btn btn-primary" onclick="openEstacaoModal()">+ Nova estação</button>
+    <table style="margin-top:14px"><tr><th>Estação</th><th>Modo de saída</th><th>Impressoras vinculadas</th><th>Ações</th></tr>${rows}</table>
+  </div>`;
+}
+function openEstacaoModal(id){
+  const e = id ? state.estacoes.find(x=>x.id===id) : null;
+  openModal(e?'Editar Estação':'Nova Estação', `
+    <div class="field"><label>Nome da estação</label><input id="estNome" value="${e?h(e.nome):''}" placeholder="Ex: Cozinha, Bar, Sobremesas, Confeitaria..."></div>
+    <div class="field"><label>Modo de saída</label><select id="estSaida">
+      <option value="imprime" ${!e||e.saida==='imprime'?'selected':''}>Só imprimir</option>
+      <option value="tela" ${e&&e.saida==='tela'?'selected':''}>Só tela (Monitor)</option>
+      <option value="ambos" ${e&&e.saida==='ambos'?'selected':''}>Imprimir + Tela</option>
+    </select><p class="sub">"Tela" mostra os pedidos dessa estação no Monitor de Produção (kanban tipo TV). "Imprimir" manda ticket pra impressora configurada.</p></div>
+    <button class="btn btn-primary btn-block" onclick="saveEstacao('${e?e.id:''}')">Salvar</button>
+  `);
+}
+function saveEstacao(id){
+  const nome = document.getElementById('estNome').value.trim();
+  if(!nome){ toast('Informe o nome da estação.'); return; }
+  const saida = document.getElementById('estSaida').value;
+  const existing = id ? state.estacoes.find(x=>x.id===id) : null;
+  if(existing){ existing.nome = nome; existing.saida = saida; }
+  else {
+    let chave = slugifyEstacao(nome);
+    if(state.estacoes.some(x=>x.chave===chave)) chave = chave+'-'+Math.random().toString(36).slice(2,5);
+    state.estacoes.push({id:uid(), chave, nome, saida});
+  }
+  save('estacoes'); closeModal(); renderAll(); toast('Estação salva.');
+}
+function deleteEstacao(id){
+  const e = state.estacoes.find(x=>x.id===id); if(!e) return;
+  const emUso = state.products.some(p=>p.estacao===e.chave) || state.impressoras.some(p=>p.estacao===e.chave);
+  if(emUso){ toast('Essa estação está em uso por produtos ou impressoras — remova os vínculos primeiro.'); return; }
+  if(!confirm('Excluir a estação "'+e.nome+'"?')) return;
+  state.estacoes = state.estacoes.filter(x=>x.id!==id);
+  save('estacoes'); renderAll(); toast('Estação excluída.');
+}
 function renderImpressoras(){
   const el = document.getElementById('view-impressoras');
   const rows = state.impressoras.length ? state.impressoras.map(p=>`
-    <tr><td>${h(p.nome)}${p.osName?`<br><small class="mono" style="color:var(--muted)">${h(p.osName)}</small>`:''}</td><td>${ESTACAO_LABELS[p.estacao]||'—'}</td><td>${ORIGEM_LABELS[p.origem]||'—'}</td>
+    <tr><td>${h(p.nome)}${p.osName?`<br><small class="mono" style="color:var(--muted)">${h(p.osName)}</small>`:''}</td><td>${estacaoLabel(p.estacao)||'—'}</td><td>${ORIGEM_LABELS[p.origem]||'—'}</td>
     <td>${p.agentUrl?`<span class="mono" style="font-size:11px">${h(p.agentUrl)}</span>`:'<span class="sub" style="font-size:11px">— (mesmo computador)</span>'}</td>
     <td id="impStatus-${p.id}"><span class="tag tag-gray">verificando...</span></td>
     <td><button class="btn btn-sm" onclick="openImpressoraModal('${p.id}')">Editar</button>
     <button class="btn btn-sm btn-danger" onclick="deleteImpressora('${p.id}')">Excluir</button></td></tr>`).join('')
     : `<tr><td colspan="6" class="empty">Nenhuma impressora cadastrada.</td></tr>`;
   el.innerHTML = `<div class="panel"><h2>Impressoras</h2>
-    <p class="sub">Cada impressora atende uma estação (Cozinha, Bar ou Churrasqueira). A de Cozinha normalmente é compartilhada (recebe de Caixa e App); Bar e Churrasqueira costumam ter uma impressora para pedidos do Caixa e outra para pedidos do App.</p>
-    <div class="settings-section" style="margin-bottom:16px">
-      <h3>Modo de saída por estação</h3>
-      <p class="sub">Define se cada estação imprime o pedido, mostra num monitor/TV (Monitor de Cozinha), ou os dois. Isso é configuração — não precisa mexer em código pra mudar.</p>
-      <div class="grid3">
-        ${['cozinha','bar','churrasqueira'].map(est=>`<div class="field"><label>${ESTACAO_LABELS[est]}</label><select onchange="setSaidaModoEstacao('${est}',this.value)">
-          <option value="imprime" ${saidaModoEstacao(est)==='imprime'?'selected':''}>Só imprimir</option>
-          <option value="tela" ${saidaModoEstacao(est)==='tela'?'selected':''}>Só tela (Monitor)</option>
-          <option value="ambos" ${saidaModoEstacao(est)==='ambos'?'selected':''}>Imprimir + Tela</option>
-        </select></div>`).join('')}
-      </div>
-    </div>
+    <p class="sub">Cada impressora atende uma estação. Gerencie quais estações existem e o modo de saída (imprimir/tela) de cada uma em <a href="#" onclick="switchView('estacoes');return false" style="color:var(--amber);font-weight:600">Áreas do Clube → Estações</a>.</p>
     <div id="agentStatusBox" class="tag tag-gray" style="margin-bottom:14px">Verificando agentes de impressão...</div>
     <button class="btn btn-primary" onclick="openImpressoraModal()">+ Nova impressora</button>
     <table style="margin-top:14px"><tr><th>Nome</th><th>Estação</th><th>Origem atendida</th><th>Agente (rede)</th><th>Status</th><th>Ações</th></tr>${rows}</table>
   </div>`;
   checkPrintAgentStatus();
 }
-function setSaidaModoEstacao(estacao, modo){
-  state.settings.saidaPorEstacao = state.settings.saidaPorEstacao || {};
-  state.settings.saidaPorEstacao[estacao] = modo;
-  save('settings');
-  toast(ESTACAO_LABELS[estacao]+' agora está em modo: '+({imprime:'Só imprimir',tela:'Só tela',ambos:'Imprimir + Tela'})[modo]);
-}
+
 function openImpressoraModal(id){
   const p = id ? state.impressoras.find(x=>x.id===id) : null;
   openModal((p?'Editar':'Nova')+' — Impressora', `
@@ -4193,9 +4233,7 @@ function openImpressoraModal(id){
     <div class="field"><label>Endereço do agente na rede (opcional, modo antigo)</label><input id="impAgentUrl" value="${p?h(p.agentUrl||''):''}" placeholder="Deixe em branco — não é mais necessário"><p class="sub">Com a fila de impressão via nuvem ativa, isso não é mais necessário — o agente encontra os pedidos sozinho, de qualquer aparelho. Só preencha se estiver usando o modo antigo sem Supabase.</p></div>
     <div class="field"><label>Código do estabelecimento</label><input value="${h(getTenantId())}" readonly class="mono" onclick="this.select()"><p class="sub">Cole esse código no agente de impressão (ele pede na primeira vez que roda). Igual em todos os computadores.</p></div>
     <div class="field"><label>Estação</label><select id="impEstacao">
-      <option value="cozinha" ${!p||p.estacao==='cozinha'?'selected':''}>Cozinha</option>
-      <option value="bar" ${p&&p.estacao==='bar'?'selected':''}>Bar</option>
-      <option value="churrasqueira" ${p&&p.estacao==='churrasqueira'?'selected':''}>Churrasqueira</option>
+      ${state.estacoes.map(e=>`<option value="${h(e.chave)}" ${(p&&p.estacao===e.chave)||(!p&&e.chave==='cozinha')?'selected':''}>${h(e.nome)}</option>`).join('')}
     </select></div>
     <div class="field"><label>Origem atendida</label><select id="impOrigem">
       <option value="caixa" ${p&&p.origem==='caixa'?'selected':''}>Só pedidos do Caixa</option>
