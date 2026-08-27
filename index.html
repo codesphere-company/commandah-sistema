@@ -2069,12 +2069,18 @@ function consumeInsumosForItems(items){
   save('insumos');save('stockMovements');
   return true;
 }
+function saidaModoEstacao(estacao){
+  const cfg = (state.settings.saidaPorEstacao||{})[estacao];
+  return cfg || (estacao==='cozinha' ? 'ambos' : 'imprime');
+}
+function saidaTemTela(estacao){ const m=saidaModoEstacao(estacao); return m==='ambos'||m==='tela'; }
+function saidaTemImpressao(estacao){ const m=saidaModoEstacao(estacao); return m==='ambos'||m==='imprime'; }
 function sendItemsToKitchen(saleId, items, who, source, local){
   if(!items.length) return false;
   if(!consumeInsumosForItems(items)){ toast('Estoque insuficiente para enviar todos os itens. Revise as quantidades.'); return false; }
-  const kitchenItems=items.filter(i=>{const product=state.products.find(p=>p.id===i.productId);return !product||(product.estacao?product.estacao==='cozinha':product.kitchenItem!==false);});
-  if(!kitchenItems.length) return true;
-  const order = { id:uid(), saleId, who, local: local||'', items: kitchenItems.map(i=>({productId:i.productId,name:i.name,qty:i.qty,price:i.price,notes:i.notes||'',customization:i.customization?JSON.parse(JSON.stringify(i.customization)):null})),
+  const monitorItems=items.filter(i=>{const product=state.products.find(p=>p.id===i.productId);const estacao=product&&product.estacao?product.estacao:'cozinha';return saidaTemTela(estacao);});
+  if(!monitorItems.length) return true;
+  const order = { id:uid(), saleId, who, local: local||'', items: monitorItems.map(i=>({productId:i.productId,name:i.name,qty:i.qty,price:i.price,notes:i.notes||'',customization:i.customization?JSON.parse(JSON.stringify(i.customization)):null})),
     status:'pendente', createdAt:new Date().toISOString(), source };
   state.orders.unshift(order); save('orders');
   return true;
@@ -2917,8 +2923,9 @@ function confirmNovoPedidoModal(saleId){
   closeModal(); openComanda(saleId, true);
 }
 function printNovoPedidoTickets(who, local, printJobs, orderNumber){
-  if(!printJobs.length) return;
-  printJobs.forEach((job, idx)=>{
+  const jobsToPrint = printJobs.filter(job=>saidaTemImpressao(job.estacao));
+  if(!jobsToPrint.length) return;
+  jobsToPrint.forEach((job, idx)=>{
     setTimeout(()=>printSingleTicket(who, local, job.estacao, job.printer, job.items, orderNumber), idx*700);
   });
 }
@@ -3081,6 +3088,7 @@ function reprintComandaItem(idx){
   const item = (currentSaleDraft.items||[])[idx]; if(!item) return;
   const product = state.products.find(p=>p.id===item.productId);
   const estacao = item.estacao || (product&&product.estacao) || 'cozinha';
+  if(!saidaTemImpressao(estacao)){ toast('Esta estação está configurada como "só tela" — não imprime.'); return; }
   const origem = currentUser.origem || 'caixa';
   const printer = resolvePrinterFor(estacao, origem);
   const who = item.requesterName || currentSaleDraft.customerName || 'Cliente';
@@ -4154,11 +4162,28 @@ function renderImpressoras(){
     : `<tr><td colspan="6" class="empty">Nenhuma impressora cadastrada.</td></tr>`;
   el.innerHTML = `<div class="panel"><h2>Impressoras</h2>
     <p class="sub">Cada impressora atende uma estação (Cozinha, Bar ou Churrasqueira). A de Cozinha normalmente é compartilhada (recebe de Caixa e App); Bar e Churrasqueira costumam ter uma impressora para pedidos do Caixa e outra para pedidos do App.</p>
+    <div class="settings-section" style="margin-bottom:16px">
+      <h3>Modo de saída por estação</h3>
+      <p class="sub">Define se cada estação imprime o pedido, mostra num monitor/TV (Monitor de Cozinha), ou os dois. Isso é configuração — não precisa mexer em código pra mudar.</p>
+      <div class="grid3">
+        ${['cozinha','bar','churrasqueira'].map(est=>`<div class="field"><label>${ESTACAO_LABELS[est]}</label><select onchange="setSaidaModoEstacao('${est}',this.value)">
+          <option value="imprime" ${saidaModoEstacao(est)==='imprime'?'selected':''}>Só imprimir</option>
+          <option value="tela" ${saidaModoEstacao(est)==='tela'?'selected':''}>Só tela (Monitor)</option>
+          <option value="ambos" ${saidaModoEstacao(est)==='ambos'?'selected':''}>Imprimir + Tela</option>
+        </select></div>`).join('')}
+      </div>
+    </div>
     <div id="agentStatusBox" class="tag tag-gray" style="margin-bottom:14px">Verificando agentes de impressão...</div>
     <button class="btn btn-primary" onclick="openImpressoraModal()">+ Nova impressora</button>
     <table style="margin-top:14px"><tr><th>Nome</th><th>Estação</th><th>Origem atendida</th><th>Agente (rede)</th><th>Status</th><th>Ações</th></tr>${rows}</table>
   </div>`;
   checkPrintAgentStatus();
+}
+function setSaidaModoEstacao(estacao, modo){
+  state.settings.saidaPorEstacao = state.settings.saidaPorEstacao || {};
+  state.settings.saidaPorEstacao[estacao] = modo;
+  save('settings');
+  toast(ESTACAO_LABELS[estacao]+' agora está em modo: '+({imprime:'Só imprimir',tela:'Só tela',ambos:'Imprimir + Tela'})[modo]);
 }
 function openImpressoraModal(id){
   const p = id ? state.impressoras.find(x=>x.id===id) : null;
