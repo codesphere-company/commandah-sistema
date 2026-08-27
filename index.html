@@ -2010,10 +2010,11 @@ function openUserModal(id){
       <option value="caixa" ${u&&u.role==='caixa'?'selected':''}>Operador de caixa</option>
       <option value="cozinha" ${u&&u.role==='cozinha'?'selected':''}>Cozinha</option>
     </select></div>
-    <div class="field"><label>Origem dos pedidos deste usuário</label><select id="uOrigem">
+    <div class="field"><label>Origem dos pedidos deste usuário</label><select id="uOrigem" onchange="document.getElementById('uCaixaPrinterBox').style.display=this.value==='caixa'?'block':'none'">
       <option value="caixa" ${!u||u.origem==='caixa'?'selected':''}>Caixa (pedidos lançados no balcão)</option>
       <option value="app" ${u&&u.origem==='app'?'selected':''}>Garçom / App (pedidos lançados no celular, andando pelo clube)</option>
     </select><p class="sub">Define para qual impressora o pedido vai quando esse usuário confirma um "Novo Pedido" (bar e churrasqueira têm impressoras diferentes por origem).</p></div>
+    <div class="field" id="uCaixaPrinterBox" style="display:${!u||u.origem==='caixa'?'block':'none'}"><label>Impressora deste caixa (nome exato no Windows)</label><input id="uCaixaPrinter" value="${h(u?u.caixaPrinterOsName||'':'')}" placeholder="Ex: POS-80C (Caixa 1)"><p class="sub">Se este é um dos caixas fixos do balcão, informe o nome exato da impressora ligada a este computador. Toda venda de balcão feita por este usuário imprime automaticamente aqui, além de ir pra cozinha/bar/churrasqueira normalmente.</p></div>
     <label class="item-line"><span>Colaborador ativo</span><input id="uActive" type="checkbox" ${!u||u.active!==false?'checked':''}></label><p class="sub">O perfil define quais módulos podem ser acessados. O PIN é usado para entrar e trocar de operador.</p></section><div class="record-actions"><button class="op-btn" onclick="closeModal()">Voltar</button><button class="op-btn primary" id="uSaveBtn">Salvar e Voltar</button></div></div>`,true);
   document.querySelector('#modalRoot .modal').classList.add('record-modal');
   document.getElementById('uSaveBtn').onclick = ()=>{
@@ -2021,7 +2022,7 @@ function openUserModal(id){
     const username = document.getElementById('uUsername').value.trim();
     const pin = document.getElementById('uPin').value.trim();
     if(!name || !username || !validPin(pin)){ toast('Preencha nome, usuário e um PIN numérico de 4 dígitos.'); return; }
-    const data = { name, username, pin, role:document.getElementById('uRole').value, origem:document.getElementById('uOrigem').value, email:document.getElementById('uEmail').value.trim(), phone:document.getElementById('uPhone').value.trim(), active:document.getElementById('uActive').checked };
+    const data = { name, username, pin, role:document.getElementById('uRole').value, origem:document.getElementById('uOrigem').value, caixaPrinterOsName:document.getElementById('uCaixaPrinter').value.trim(), email:document.getElementById('uEmail').value.trim(), phone:document.getElementById('uPhone').value.trim(), active:document.getElementById('uActive').checked };
     if(state.users.some(x=>x.id!==(u&&u.id)&&String(x.username).toLowerCase()===username.toLowerCase())){toast('Já existe um colaborador com este usuário.');return;}
     if(u&&u.id===currentUser.id&&!data.active){toast('Você não pode desativar o colaborador atualmente conectado.');return;}
     if(u&&u.role==='admin'&&(!data.active||data.role!=='admin')&&!state.users.some(x=>x.id!==u.id&&x.role==='admin'&&x.active!==false)){toast('Mantenha ao menos um administrador ativo.');return;}
@@ -2560,6 +2561,9 @@ function finalizeSale(mode, comandaId, memberId, payments, total){
         return { estacao, items:groups[estacao], printer: printer?printer.nome:null };
       });
       printNovoPedidoTickets(who, '', printJobs, sale.orderNumber);
+      if(currentUser.caixaPrinterOsName){
+        printCaixaReceipt(who, currentSaleDraft.items, sale.orderNumber, currentUser.caixaPrinterOsName);
+      }
     }
   } else if(mode==='agendamento'){
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
@@ -3017,6 +3021,22 @@ function buildTicketText(who, local, estacao, items, orderNumber){
   out += 'TOTAL: '+fmt(total)+'\n';
   out += line('=')+'\n\n\n';
   return out;
+}
+async function printCaixaReceipt(who, items, orderNumber, printerOsName){
+  const text = buildTicketText(who, '', 'caixa', items, orderNumber).replace('CAIXA','COMPROVANTE DE VENDA');
+  if(supabaseClient && getTenantId()){
+    try{
+      const { error } = await supabaseClient.from('print_jobs').insert({ tenant_id: getTenantId(), printer_name: printerOsName, content: text, status: 'pendente' });
+      if(!error) return;
+    }catch(e){ /* segue pro modo manual abaixo */ }
+  }
+  try{
+    const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 3000);
+    const res = await fetch(PRINT_AGENT_URL+'/print', { method:'POST', signal:ctrl.signal, headers:{'Content-Type':'application/json'}, body: JSON.stringify({ printer: printerOsName, text }) });
+    clearTimeout(t);
+    if(res.ok) return;
+  }catch(e){}
+  toast('Não foi possível enviar o comprovante do caixa pra fila — verifique a impressora deste usuário.');
 }
 async function printSingleTicket(who, local, estacao, printer, items, orderNumber){
   if(printer){
