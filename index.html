@@ -2982,10 +2982,10 @@ async function checkPrintAgentStatus(){
       try{
         const since = new Date(Date.now()-2*60*1000).toISOString();
         const targetName = imp.osName || imp.nome;
-        const url = `${SUPABASE_URL}/rest/v1/print_jobs?tenant_id=eq.${encodeURIComponent(getTenantId())}&printer_name=eq.${encodeURIComponent(targetName)}&status=eq.impresso&printed_at=gte.${since}&select=id&limit=1`;
-        const res = await fetch(url, { headers:{ apikey:SUPABASE_ANON_KEY, Authorization:'Bearer '+SUPABASE_ANON_KEY } });
-        const rows = res.ok ? await res.json() : [];
-        cell.innerHTML = rows.length ? '<span class="tag tag-green">● imprimiu recentemente</span>' : '<span class="tag tag-gray">○ aguardando (sem testes recentes)</span>';
+        const { data, error } = await supabaseClient.from('print_jobs').select('id')
+          .eq('tenant_id', getTenantId()).eq('printer_name', targetName).eq('status','impresso')
+          .gte('printed_at', since).limit(1);
+        cell.innerHTML = (!error && data && data.length) ? '<span class="tag tag-green">● imprimiu recentemente</span>' : '<span class="tag tag-gray">○ aguardando (sem testes recentes)</span>';
       }catch(e){ cell.innerHTML = '<span class="tag tag-gray">○ não verificado</span>'; }
     }
     return;
@@ -4289,10 +4289,37 @@ function renderImpressoras(){
   el.innerHTML = `<div class="panel"><h2>Impressoras</h2>
     <p class="sub">Cada impressora atende uma estação. Gerencie quais estações existem e o modo de saída (imprimir/tela) de cada uma em <a href="#" onclick="switchView('estacoes');return false" style="color:var(--amber);font-weight:600">Áreas do Clube → Estações</a>.</p>
     <div id="agentStatusBox" class="tag tag-gray" style="margin-bottom:14px">Verificando agentes de impressão...</div>
+    ${supabaseClient?`<div class="field" style="margin-bottom:14px"><label>Token do agente de impressão</label>
+      <div id="printTokenStatus" class="sub">Verificando...</div>
+      <button class="btn btn-sm" onclick="regeneratePrintAgentToken()">Gerar/Regenerar token</button>
+      <p class="sub">Cole esse token no agente de impressão local (ele pede na primeira vez que roda, ou quando você regenerar). Regenerar invalida o token anterior — os agentes já configurados param até você colar o novo.</p>
+    </div>`:''}
     <button class="btn btn-primary" onclick="openImpressoraModal()">+ Nova impressora</button>
     <table style="margin-top:14px"><tr><th>Nome</th><th>Estação</th><th>Origem atendida</th><th>Agente (rede)</th><th>Status</th><th>Ações</th></tr>${rows}</table>
   </div>`;
   checkPrintAgentStatus();
+  checkPrintTokenStatus();
+}
+async function checkPrintTokenStatus(){
+  const box = document.getElementById('printTokenStatus'); if(!box || !supabaseClient) return;
+  try{
+    const { data, error } = await supabaseClient.from('print_agent_tokens').select('rotated_at').maybeSingle();
+    if(error) throw error;
+    box.textContent = data ? ('Token ativo, gerado/renovado em '+new Date(data.rotated_at).toLocaleString('pt-BR')+'.') : 'Nenhum token gerado ainda — clique em "Gerar/Regenerar token".';
+  }catch(e){ box.textContent = 'Não foi possível checar o status do token.'; }
+}
+async function regeneratePrintAgentToken(){
+  if(!supabaseClient){ toast('Disponível só no modo nuvem (Supabase).'); return; }
+  if(!confirm('Gerar um novo token vai invalidar o token anterior — qualquer agente de impressão já configurado vai parar de funcionar até você colar o novo token nele. Continuar?')) return;
+  try{
+    const { data, error } = await supabaseClient.rpc('regenerate_print_agent_token');
+    if(error) throw error;
+    openModal('Token do agente de impressão', `
+      <p class="sub">Copie esse token agora e cole no agente de impressão (ele pede na primeira vez que roda, ou quando o token muda). Ele não será mostrado de novo — se perder, gere outro.</p>
+      <div class="field"><input value="${h(data)}" readonly class="mono" onclick="this.select()"></div>
+    `);
+    checkPrintTokenStatus();
+  }catch(e){ toast('Não foi possível gerar o token: '+(e.message||e)); }
 }
 
 function openImpressoraModal(id){
@@ -4301,7 +4328,6 @@ function openImpressoraModal(id){
     <div class="field"><label>Nome da impressora (no sistema)</label><input id="impNome" value="${p?h(p.nome):''}" placeholder="Ex: Impressora Bar — App"></div>
     <div class="field"><label>Nome exato no Windows/Mac (opcional)</label><input id="impOsName" value="${p?h(p.osName||''):''}" placeholder="Ex: EPSON TM-T20X"><p class="sub">Se preenchido, o agente de impressão local usa esse nome exato pra imprimir sem abrir tela nenhuma. Deixe em branco pra usar o nome acima.</p></div>
     <div class="field"><label>Endereço do agente na rede (opcional, modo antigo)</label><input id="impAgentUrl" value="${p?h(p.agentUrl||''):''}" placeholder="Deixe em branco — não é mais necessário"><p class="sub">Com a fila de impressão via nuvem ativa, isso não é mais necessário — o agente encontra os pedidos sozinho, de qualquer aparelho. Só preencha se estiver usando o modo antigo sem Supabase.</p></div>
-    <div class="field"><label>Código do estabelecimento</label><input value="${h(getTenantId())}" readonly class="mono" onclick="this.select()"><p class="sub">Cole esse código no agente de impressão (ele pede na primeira vez que roda). Igual em todos os computadores.</p></div>
     <div class="field"><label>Estação</label><select id="impEstacao">
       ${state.estacoes.map(e=>`<option value="${h(e.chave)}" ${(p&&p.estacao===e.chave)||(!p&&e.chave==='cozinha')?'selected':''}>${h(e.nome)}</option>`).join('')}
     </select></div>
