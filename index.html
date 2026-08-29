@@ -3031,12 +3031,12 @@ function buildTicketText(who, cota, local, estacao, items, orderNumber, columns,
   if(cota) out += wrap('Cota: '+cota)+'\n';
   out += line('-')+'\n';
   if(local){
-    const localLine = wrap('ENTREGAR EM: '+local);
-    // GS ! 0x10 = altura dobrada, largura normal (bit de altura é o nibble alto, não o
-    // baixo — 0x01 era largura, por isso não parecia maior antes) + ESC E 1 (negrito) —
-    // destaque médio, maior que o texto normal mas menor que o nome do produto (0x11,
-    // largura+altura dobradas).
-    out += (escPos ? '\x1B\x45\x01\x1D\x21\x10'+localLine+'\x1D\x21'+NUL_PLACEHOLDER+'\x1B\x45'+NUL_PLACEHOLDER : localLine) + '\n';
+    const localLabel = 'ENTREGAR EM: ';
+    const localValueW = Math.max(1, W-localLabel.length);
+    const localValue = local.length>localValueW ? local.slice(0,localValueW) : local;
+    // Só o nome do local fica em negrito (label continua no tamanho normal) — um pouco
+    // menos destaque que antes (tirei a altura dobrada, ficou só o negrito).
+    out += (escPos ? localLabel+'\x1B\x45\x01'+localValue+'\x1B\x45'+NUL_PLACEHOLDER : wrap(localLabel+local)) + '\n';
     out += line('-')+'\n';
   }
   const showPrices = estacao==='caixa'; // ticket de estação (cozinha/bar/etc) é só pra preparo, sem preço — o comprovante do caixa mantém
