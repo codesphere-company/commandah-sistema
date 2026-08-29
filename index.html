@@ -2544,7 +2544,9 @@ function openPaymentModal(mode, comandaId){
   };
 }
 function finalizeSale(mode, comandaId, memberId, payments, total){
-  const who = memberId ? (state.members.find(m=>m.id===memberId)||{}).name : (currentSaleDraft.customerName||'Cliente avulso');
+  const saleMember = memberId ? state.members.find(m=>m.id===memberId) : null;
+  const who = memberId ? (saleMember||{}).name : (currentSaleDraft.customerName||'Cliente avulso');
+  const cota = saleMember ? saleMember.code : '';
   const isExistingComanda = (mode==='comanda' && comandaId);
   const isExistingDelivery = (mode==='delivery' && comandaId);
   const sale = {
@@ -2566,9 +2568,9 @@ function finalizeSale(mode, comandaId, memberId, payments, total){
         const printer = resolvePrinterFor(estacao, origem);
         return { estacao, items:groups[estacao], printer: printer?printer.nome:null };
       });
-      printNovoPedidoTickets(who, '', printJobs, sale.orderNumber);
+      printNovoPedidoTickets(who, cota, '', printJobs, sale.orderNumber);
       if(currentUser.caixaPrinterOsName){
-        printCaixaReceipt(who, currentSaleDraft.items, sale.orderNumber, currentUser.caixaPrinterOsName);
+        printCaixaReceipt(who, cota, currentSaleDraft.items, sale.orderNumber, currentUser.caixaPrinterOsName);
       }
     }
   } else if(mode==='agendamento'){
@@ -2934,15 +2936,15 @@ function confirmNovoPedidoModal(saleId){
     return { estacao, items:groups[estacao], printer: printer?printer.nome:null };
   });
   logAction('Pedido registrado para '+who+(local?' — local: '+local:'')+' — origem: '+origemLabel(origem));
-  printNovoPedidoTickets(who, local, printJobs, s.orderNumber);
+  printNovoPedidoTickets(who, member?member.code:'', local, printJobs, s.orderNumber);
   toast('Pedido confirmado e enviado para a cozinha.');
   closeModal(); openComanda(saleId, true);
 }
-function printNovoPedidoTickets(who, local, printJobs, orderNumber){
+function printNovoPedidoTickets(who, cota, local, printJobs, orderNumber){
   const jobsToPrint = printJobs.filter(job=>saidaTemImpressao(job.estacao));
   if(!jobsToPrint.length) return;
   jobsToPrint.forEach((job, idx)=>{
-    setTimeout(()=>printSingleTicket(who, local, job.estacao, job.printer, job.items, orderNumber), idx*700);
+    setTimeout(()=>printSingleTicket(who, cota, local, job.estacao, job.printer, job.items, orderNumber), idx*700);
   });
 }
 const PRINT_AGENT_URL = 'http://localhost:9123';
@@ -3009,7 +3011,7 @@ async function checkPrintAgentStatus(){
 }
 function stripAccentsForPrint(s){ const lo=String.fromCharCode(0x0300), hi=String.fromCharCode(0x036f); return String(s||'').normalize('NFD').replace(new RegExp('['+lo+'-'+hi+']','g'),''); }
 function paperColumns(imp){ return imp && Number(imp.larguraPapel)===58 ? 32 : 48; }
-function buildTicketText(who, local, estacao, items, orderNumber, columns, escPos){
+function buildTicketText(who, cota, local, estacao, items, orderNumber, columns, escPos){
   const W = columns || 48;
   const line = ch=>ch.repeat(W);
   const wrap = t => t.length>W ? t.slice(0,W) : t;
@@ -3021,6 +3023,7 @@ function buildTicketText(who, local, estacao, items, orderNumber, columns, escPo
   out += new Date().toLocaleString('pt-BR')+'\n';
   out += line('-')+'\n';
   out += wrap('Solicitante: '+who)+'\n';
+  if(cota) out += wrap('Cota: '+cota)+'\n';
   if(local) out += wrap('ENTREGAR EM: '+local)+'\n';
   out += line('-')+'\n';
   let total = 0;
@@ -3036,8 +3039,8 @@ function buildTicketText(who, local, estacao, items, orderNumber, columns, escPo
   // byte nulo (\x00) em coluna de texto, quebraria o insert do print_jobs.
   return '\x1B\x40' + stripAccentsForPrint(out) + '\n\n\n\x1D\x56\x01';
 }
-async function printCaixaReceipt(who, items, orderNumber, printerOsName){
-  const text = buildTicketText(who, '', 'caixa', items, orderNumber, 48, false).replace('CAIXA','COMPROVANTE DE VENDA');
+async function printCaixaReceipt(who, cota, items, orderNumber, printerOsName){
+  const text = buildTicketText(who, cota, '', 'caixa', items, orderNumber, 48, false).replace('CAIXA','COMPROVANTE DE VENDA');
   if(supabaseClient && getTenantId()){
     try{
       const { error } = await supabaseClient.from('print_jobs').insert({ tenant_id: getTenantId(), printer_name: printerOsName, content: text, status: 'pendente' });
@@ -3052,12 +3055,12 @@ async function printCaixaReceipt(who, items, orderNumber, printerOsName){
   }catch(e){}
   toast('Não foi possível enviar o comprovante do caixa pra fila — verifique a impressora deste usuário.');
 }
-async function printSingleTicket(who, local, estacao, printer, items, orderNumber){
+async function printSingleTicket(who, cota, local, estacao, printer, items, orderNumber){
   if(printer){
     const imp = state.impressoras.find(p=>p.nome===printer);
     const targetName = imp&&imp.osName ? imp.osName : printer;
     const useEscPos = !!(imp && imp.ip);
-    const text = buildTicketText(who, local, estacao, items, orderNumber, paperColumns(imp), useEscPos);
+    const text = buildTicketText(who, cota, local, estacao, items, orderNumber, paperColumns(imp), useEscPos);
     if(supabaseClient && getTenantId()){
       try{
         const { error } = await supabaseClient.from('print_jobs').insert({ tenant_id: getTenantId(), printer_name: targetName, printer_ip: imp&&imp.ip||null, content: text, status: 'pendente' });
@@ -3096,6 +3099,7 @@ async function printSingleTicket(who, local, estacao, printer, items, orderNumbe
     <h1>Pedido ${orderNumber?'#'+orderNumber:''}</h1>
     <div class="muted">${new Date().toLocaleString('pt-BR')}</div>
     <div><b>Solicitante:</b> ${h(who)}</div>
+    ${cota?`<div><b>Cota:</b> ${h(cota)}</div>`:''}
     ${local?`<div class="local">ENTREGAR EM: ${h(local)}</div>`:''}
     <table>${items.map(i=>`<tr><td>${i.qty}x ${h(i.name)}</td><td style="text-align:right">${fmt(i.price*i.qty)}</td></tr>`).join('')}</table>
     <div class="total">Total: ${fmt(total)}</div>
@@ -3133,7 +3137,8 @@ function reprintComandaItem(idx){
   const origem = currentUser.origem || 'caixa';
   const printer = resolvePrinterFor(estacao, origem);
   const who = item.requesterName || currentSaleDraft.customerName || 'Cliente';
-  printSingleTicket(who, '', estacao, printer?printer.nome:null, [item], null);
+  const reprintMember = currentSaleDraft.memberId ? state.members.find(m=>m.id===currentSaleDraft.memberId) : null;
+  printSingleTicket(who, reprintMember?reprintMember.code:'', '', estacao, printer?printer.nome:null, [item], null);
   toast('Reimpressão enviada.');
 }
 
@@ -3484,7 +3489,8 @@ function gcConfirmOrder(){
     return { estacao, items:groups[estacao], printer: printer?printer.nome:null };
   });
   logAction('Pedido registrado para '+who+(local?' — local: '+local:'')+' — origem: '+origemLabel(origem));
-  printNovoPedidoTickets(who, local, printJobs, s.orderNumber);
+  const gcMember = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
+  printNovoPedidoTickets(who, gcMember?gcMember.code:'', local, printJobs, s.orderNumber);
   toast('Pedido confirmado e enviado!');
   gcRenderHome();
 }
