@@ -948,11 +948,31 @@ function pinPress(d){
   pinBuffer += d;
   updatePinDots();
   if(pinBuffer.length===4){
-    setTimeout(()=>{
-      if(pinBuffer===pinTargetUser.pin){ currentUser = pinTargetUser; afterLogin(); }
-      else { state.logs.unshift({id:uid(),at:new Date().toISOString(),user:pinTargetUser.name,action:'Tentativa de acesso com PIN incorreto'});save('logs');toast('PIN incorreto.'); pinBuffer=''; updatePinDots(); }
-    },150);
+    setTimeout(attemptPinLogin,150);
   }
+}
+function logPinFail(){ state.logs.unshift({id:uid(),at:new Date().toISOString(),user:pinTargetUser.name,action:'Tentativa de acesso com PIN incorreto'}); save('logs'); }
+async function attemptPinLogin(){
+  const pin = pinBuffer;
+  // Colaborador já migrado pro acesso seguro: o PIN é validado pela Edge Function
+  // (staff-auth), que também controla tentativas erradas com bloqueio de verdade.
+  if(supabaseClient && pinTargetUser.migratedAuth){
+    try{
+      const { data, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action:'login', staff_id:pinTargetUser.id, pin } });
+      if(error || !data || data.error){
+        logPinFail(); toast((data&&data.error)||'PIN incorreto.'); pinBuffer=''; updatePinDots();
+        return;
+      }
+      await supabaseClient.auth.setSession(data.session);
+      currentUser = pinTargetUser; afterLogin();
+    }catch(e){
+      toast('Não foi possível verificar o PIN agora. Tente de novo.'); pinBuffer=''; updatePinDots();
+    }
+    return;
+  }
+  // Ainda não migrado (ou modo local sem Supabase): confere o PIN como sempre foi.
+  if(pinBuffer===pinTargetUser.pin){ currentUser = pinTargetUser; afterLogin(); }
+  else { logPinFail(); toast('PIN incorreto.'); pinBuffer=''; updatePinDots(); }
 }
 function pinBackspace(){ pinBuffer = pinBuffer.slice(0,-1); updatePinDots(); }
 function updatePinDots(){
@@ -1996,10 +2016,10 @@ function settleDebt(id){
 function renderUsuarios(){
   const el = document.getElementById('view-usuarios');
   const rows = state.users.map(u=>`
-    <tr><td>${h(u.name)}</td><td>${h(u.username)}</td><td>${h(u.email||'—')}</td><td>${h(u.phone||'—')}</td><td><span class="tag tag-blue">${h(roleLabel(u.role))}</span></td><td>${u.active===false?'<span class="tag tag-gray">Inativo</span>':'<span class="tag tag-green">Ativo</span>'}</td>
+    <tr><td>${h(u.name)}</td><td>${h(u.username)}</td><td>${h(u.email||'—')}</td><td>${h(u.phone||'—')}</td><td><span class="tag tag-blue">${h(roleLabel(u.role))}</span></td><td>${u.active===false?'<span class="tag tag-gray">Inativo</span>':'<span class="tag tag-green">Ativo</span>'}${u.migratedAuth?' <span class="tag tag-green" title="Login verificado pelo servidor">🔒</span>':' <span class="tag tag-gray" title="Ainda no PIN local — salve o cadastro pra migrar">local</span>'}</td>
     <td><button class="btn btn-sm" onclick="editUser('${u.id}')">Editar</button>
     <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">Excluir</button></td></tr>`).join('');
-  el.innerHTML = `<div class="workspace-gray"><section class="op-window"><header class="op-titlebar">Colaboradores <span class="op-controls"><span>□</span><span>×</span></span></header><div class="op-toolbar"><div class="op-search"><input id="userSearch" placeholder="Pesquisar aqui..."></div><div class="op-toolbar-spacer"></div><div class="pdv-menu-wrap"><button class="op-btn" onclick="toggleUserOptions()">••• &nbsp; Opções ▾</button>${userOptionsOpen?`<div class="pdv-menu" style="top:48px;min-width:230px"><button onclick="window.print()">▣ &nbsp; Imprimir</button><button onclick="exportUsersCsv()">⇩ &nbsp; Exportar colaboradores</button><button onclick="openPermissionMatrix()">▦ &nbsp; Perfis e permissões</button><button onclick="openAccessLog()">▤ &nbsp; Histórico de acesso</button></div>`:''}</div><button class="op-btn primary" onclick="openUserModal()"><span class="op-ico">＋</span> Novo</button></div><div class="op-grid"><table><thead><tr><th>Nome</th><th>Usuário</th><th>E-mail</th><th>Telefone</th><th>Perfil</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="userRows">${rows||'<tr><td colspan="7" class="empty">Não há registros para mostrar</td></tr>'}</tbody></table></div><footer class="op-footer"><span>Total Itens=${state.users.length}</span><span>Controle de acesso e permissões</span></footer></section></div>`;
+  el.innerHTML = `<div class="workspace-gray"><section class="op-window"><header class="op-titlebar">Colaboradores <span class="op-controls"><span>□</span><span>×</span></span></header><div class="op-toolbar"><div class="op-search"><input id="userSearch" placeholder="Pesquisar aqui..."></div><div class="op-toolbar-spacer"></div><div class="pdv-menu-wrap"><button class="op-btn" onclick="toggleUserOptions()">••• &nbsp; Opções ▾</button>${userOptionsOpen?`<div class="pdv-menu" style="top:48px;min-width:230px"><button onclick="window.print()">▣ &nbsp; Imprimir</button><button onclick="exportUsersCsv()">⇩ &nbsp; Exportar colaboradores</button><button onclick="openPermissionMatrix()">▦ &nbsp; Perfis e permissões</button><button onclick="openAccessLog()">▤ &nbsp; Histórico de acesso</button>${supabaseClient?`<button onclick="migrateAllStaffAuth()">🔒 &nbsp; Migrar acesso seguro (todos)</button>`:''}</div>`:''}</div><button class="op-btn primary" onclick="openUserModal()"><span class="op-ico">＋</span> Novo</button></div><div class="op-grid"><table><thead><tr><th>Nome</th><th>Usuário</th><th>E-mail</th><th>Telefone</th><th>Perfil</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="userRows">${rows||'<tr><td colspan="7" class="empty">Não há registros para mostrar</td></tr>'}</tbody></table></div><footer class="op-footer"><span>Total Itens=${state.users.length}</span><span>Controle de acesso e permissões</span></footer></section></div>`;
   document.getElementById('userSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#userRows tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none');};
 }
 function toggleUserOptions(){userOptionsOpen=!userOptionsOpen;renderUsuarios();}
@@ -2029,7 +2049,7 @@ function openUserModal(id){
     <div class="field" id="uCaixaPrinterBox" style="display:${!u||u.origem!=='app'?'block':'none'}"><label>Impressora local deste usuário (nome exato no Windows)</label><input id="uCaixaPrinter" value="${h(u?u.caixaPrinterOsName||'':'')}" placeholder="Ex: POS-80C (Caixa 1)"><p class="sub">Se este usuário fica num ponto fixo com impressora própria (caixa, totem etc.), informe o nome exato dela. Toda venda de balcão feita por este usuário imprime automaticamente aqui, além de ir pra cozinha/bar/churrasqueira normalmente.</p></div>
     <label class="item-line"><span>Colaborador ativo</span><input id="uActive" type="checkbox" ${!u||u.active!==false?'checked':''}></label><p class="sub">O perfil define quais módulos podem ser acessados. O PIN é usado para entrar e trocar de operador.</p></section><div class="record-actions"><button class="op-btn" onclick="closeModal()">Voltar</button><button class="op-btn primary" id="uSaveBtn">Salvar e Voltar</button></div></div>`,true);
   document.querySelector('#modalRoot .modal').classList.add('record-modal');
-  document.getElementById('uSaveBtn').onclick = ()=>{
+  document.getElementById('uSaveBtn').onclick = async ()=>{
     const name = document.getElementById('uName').value.trim();
     const username = document.getElementById('uUsername').value.trim();
     const pin = document.getElementById('uPin').value.trim();
@@ -2038,9 +2058,46 @@ function openUserModal(id){
     if(state.users.some(x=>x.id!==(u&&u.id)&&String(x.username).toLowerCase()===username.toLowerCase())){toast('Já existe um colaborador com este usuário.');return;}
     if(u&&u.id===currentUser.id&&!data.active){toast('Você não pode desativar o colaborador atualmente conectado.');return;}
     if(u&&u.role==='admin'&&(!data.active||data.role!=='admin')&&!state.users.some(x=>x.id!==u.id&&x.role==='admin'&&x.active!==false)){toast('Mantenha ao menos um administrador ativo.');return;}
-    if(u){ Object.assign(u,data); } else { state.users.push({id:uid(), ...data}); }
+    const id = u ? u.id : uid();
+    await syncStaffAuth(id, u, data);
+    if(u){ Object.assign(u,data); } else { state.users.push({id, ...data}); }
     save('users'); closeModal(); renderAll(); toast('Usuário salvo.');
   };
+}
+// Mantém a conta de acesso real (Edge Function staff-auth) alinhada com o cadastro local.
+// Sem Supabase (modo local) ou sem sessão, só grava localmente como sempre — nada quebra.
+async function syncStaffAuth(id, existing, data){
+  if(!supabaseClient) return;
+  const needsCreateOrReset = !existing || !existing.migratedAuth || existing.pin!==data.pin;
+  if(needsCreateOrReset){
+    const action = (existing && existing.migratedAuth) ? 'reset_pin' : 'create_operator';
+    try{
+      const { data: fnData, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action, staff_id:id, name:data.name, role:data.role, pin:data.pin } });
+      if(error || !fnData || fnData.error) toast('Aviso: não foi possível configurar o acesso seguro agora ('+((fnData&&fnData.error)||'erro')+'). Salvo só localmente — tente salvar de novo depois.');
+      else data.migratedAuth = true;
+    }catch(e){ toast('Aviso: não foi possível configurar o acesso seguro agora. Salvo só localmente — tente salvar de novo depois.'); }
+  } else {
+    data.migratedAuth = true;
+  }
+  if(existing && existing.migratedAuth && (existing.active!==false) !== (data.active!==false)){
+    try{ await supabaseClient.functions.invoke('staff-auth', { body:{ action:'set_active', staff_id:id, active:data.active!==false } }); }catch(e){}
+  }
+}
+async function migrateAllStaffAuth(){
+  userOptionsOpen=false;
+  if(!supabaseClient){ toast('Disponível só no modo nuvem (Supabase).'); return; }
+  const pending = state.users.filter(u=>!u.migratedAuth);
+  if(!pending.length){ toast('Todos os colaboradores já estão com acesso seguro.'); renderUsuarios(); return; }
+  if(!confirm(`Migrar ${pending.length} colaborador(es) pro acesso seguro agora? Não muda os PINs — só passa a validá-los pelo servidor.`)) return;
+  let ok=0, fail=0;
+  for(const u of pending){
+    try{
+      const { data: fnData, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action:'create_operator', staff_id:u.id, name:u.name, role:u.role, pin:u.pin } });
+      if(error || !fnData || fnData.error) fail++; else { u.migratedAuth = true; ok++; }
+    }catch(e){ fail++; }
+  }
+  await save('users'); renderUsuarios();
+  toast(`Migração concluída: ${ok} colaborador(es) migrado(s)`+(fail?`, ${fail} falharam (tente de novo depois)`:'.'));
 }
 function editUser(id){ openUserModal(id); }
 function deleteUser(id){
