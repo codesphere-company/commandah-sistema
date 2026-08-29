@@ -3026,17 +3026,18 @@ function buildTicketText(who, cota, local, estacao, items, orderNumber, columns,
   if(cota) out += wrap('Cota: '+cota)+'\n';
   if(local) out += wrap('ENTREGAR EM: '+local)+'\n';
   out += line('-')+'\n';
+  const showPrices = estacao==='caixa'; // ticket de estação (cozinha/bar/etc) é só pra preparo, sem preço — o comprovante do caixa mantém
   let total = 0;
   items.forEach(i=>{
     total += i.price*i.qty;
     const nameLine = i.qty+'x '+i.name;
-    // GS ! 0x11 = letra dobrada (largura e altura) — só no modo ESC/POS, senão o driver
+    // GS ! 0x22 = letra triplicada (largura e altura) — só no modo ESC/POS, senão o driver
     // do Windows mostraria os bytes de controle como texto (impressora local não é ESC/POS puro).
-    out += (escPos ? '\x1D\x21\x11'+nameLine+'\x1D\x21\x00' : nameLine) + '\n';
-    out += fmt(i.price*i.qty)+'\n';
+    out += (escPos ? '\x1D\x21\x22'+nameLine+'\x1D\x21\x00' : nameLine) + '\n';
+    if(showPrices) out += fmt(i.price*i.qty)+'\n';
   });
   out += line('-')+'\n';
-  out += 'TOTAL: '+fmt(total)+'\n';
+  if(showPrices) out += 'TOTAL: '+fmt(total)+'\n';
   out += line('=')+'\n\n\n';
   if(!escPos) return out;
   // Modo ESC/POS (impressora de rede, via socket cru): sem driver do Windows no meio,
