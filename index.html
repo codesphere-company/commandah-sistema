@@ -3471,7 +3471,7 @@ function gcCartQty(idx,delta){
 function gcConfirmOrder(){
   const s = state.sales.find(x=>x.id===gcFlow.saleId); if(!s) return;
   if(!gcCart.length){ toast('Adicione ao menos um produto.'); return; }
-  const local = document.getElementById('gcLocal').value;
+  const local = document.getElementById('gcLocal')?.value || '';
   s.notes = (document.getElementById('gcObs')?.value||'').trim();
   s.peopleCount = Math.max(1, parseInt(document.getElementById('gcPeople')?.value,10)||1);
   const origem = currentUser.origem||'app';
