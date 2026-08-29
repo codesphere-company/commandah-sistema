@@ -146,7 +146,7 @@ tr:hover td{background:#faf7ef;}
 .tag{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
 .tag-green{background:var(--green-l);color:var(--green);}
 .tag-red{background:var(--red-l);color:var(--red);}
-.tag-amber{background:#fdf1de;color:var(--amber-dark);}
+.tag-amber{background:#fdf1de;color:#8F5A0E;}
 .tag-blue{background:var(--blue-l);color:var(--blue);}
 .tag-gray{background:#eee;color:#777;}
 
@@ -2193,12 +2193,12 @@ function renderCozinha(){
       const orders = state.orders.filter(o=>o.status===c.key).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
       return `<div class="kcol"><h3>${c.label} <span class="mono">${orders.length}</span></h3>
         ${orders.length? orders.map(o=>`
-          <div class="kcard" ondblclick="openKitchenOrder('${o.id}')">
+          <div class="kcard" onclick="openKitchenOrder('${o.id}')">
             <div class="kwho">${h(o.who)}</div>
             ${o.local?`<div class="klocal"><span class="icn">${ICN.mapPin}</span>${h(o.local)}</div>`:''}
             <div class="ktime">${timeFmt(o.createdAt)} · ${o.source==='cardapio'?'Cardápio digital':o.source==='balcao'?'Balcão':o.source==='agendamento'?'Agendamento':o.source==='totem'?'Totem':o.source==='pedido-avulso'?'Novo Pedido':'Comanda'}</div>
             <ul>${o.items.map(i=>`<li>${i.qty}x ${h(i.name)}${i.notes?`<small style="display:block;color:#687386">${h(i.notes)}</small>`:''}</li>`).join('')}</ul>
-            <div class="kbtns"><button class="btn btn-sm" onclick="openKitchenOrder('${o.id}')">Detalhes</button><button class="btn btn-sm btn-primary" onclick="advanceOrder('${o.id}','${c.next}')">${c.action}</button></div>
+            <div class="kbtns"><button class="btn btn-sm btn-primary" onclick="event.stopPropagation();advanceOrder('${o.id}','${c.next}')">${c.action}</button></div>
           </div>`).join('') : `<p class="empty">Vazio</p>`}
       </div>`;
     }).join('')}</div>
