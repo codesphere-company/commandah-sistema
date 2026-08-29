@@ -3027,7 +3027,14 @@ function buildTicketText(who, cota, local, estacao, items, orderNumber, columns,
   if(local) out += wrap('ENTREGAR EM: '+local)+'\n';
   out += line('-')+'\n';
   let total = 0;
-  items.forEach(i=>{ total += i.price*i.qty; out += (i.qty+'x '+i.name)+'\n'; out += fmt(i.price*i.qty)+'\n'; });
+  items.forEach(i=>{
+    total += i.price*i.qty;
+    const nameLine = i.qty+'x '+i.name;
+    // GS ! 0x11 = letra dobrada (largura e altura) — só no modo ESC/POS, senão o driver
+    // do Windows mostraria os bytes de controle como texto (impressora local não é ESC/POS puro).
+    out += (escPos ? '\x1D\x21\x11'+nameLine+'\x1D\x21\x00' : nameLine) + '\n';
+    out += fmt(i.price*i.qty)+'\n';
+  });
   out += line('-')+'\n';
   out += 'TOTAL: '+fmt(total)+'\n';
   out += line('=')+'\n\n\n';
