@@ -351,7 +351,20 @@ body.tv-mode main{padding:26px;}
 .op-tabs{display:flex;gap:0;padding:0 12px;border-bottom:1px solid #bfc3c6;background:#f8f8f8;}
 .op-tabs button{border:0;border-bottom:3px solid transparent;background:none;padding:11px 16px 9px;color:#4f5459;font-size:13px;}
 .op-tabs button.active{border-bottom-color:var(--blue);color:#252a2e;}
-.op-grid{flex:1;overflow:auto;background:#fff;min-height:360px;}
+.op-grid{flex:1;overflow:auto;min-height:360px;
+  /* Sombra nas bordas quando a tabela tem mais coluna do que cabe na tela —
+     some sozinha quando não há mais o que rolar pro lado, sem mexer em nenhuma tabela. */
+  background-color:#fff;
+  background-image:
+    linear-gradient(to right, #fff 30%, rgba(255,255,255,0)),
+    linear-gradient(to right, rgba(255,255,255,0), #fff 70%) 100% 0,
+    linear-gradient(to right, rgba(0,0,0,.14), rgba(0,0,0,0) 10px),
+    linear-gradient(to left, rgba(0,0,0,.14), rgba(0,0,0,0) 10px) 100% 0;
+  background-repeat:no-repeat;
+  background-size:40px 100%, 40px 100%, 14px 100%, 14px 100%;
+  background-position:0 0, 100% 0, 0 0, 100% 0;
+  background-attachment:local, local, scroll, scroll;
+}
 .op-grid table{min-width:1280px;font-size:12px;}
 .op-grid th{background:#f1f1f1;color:#555b60;border-right:1px solid #c6c9cc;border-bottom:1px solid #b9bdc0;padding:11px 8px;text-transform:none;letter-spacing:0;font-size:11.5px;white-space:nowrap;}
 .op-grid td{height:38px;border-right:1px solid #e0e2e4;white-space:nowrap;}
@@ -1723,7 +1736,7 @@ function openProductModal(id){
           ${state.estacoes.map(e=>`<option value="${h(e.chave)}" ${(p&&p.estacao===e.chave)||(!p&&e.chave==='cozinha')?'selected':''}>${h(e.nome)}</option>`).join('')}
           <option value="nenhuma" ${p&&p.estacao==='nenhuma'?'selected':''}>Não exige preparo (ex: água, refrigerante lacrado)</option>
         </select><p class="sub">Define pra qual impressora o pedido vai (Cozinha usa impressora única; Bar e Churrasqueira têm impressora diferente por origem do pedido).</p></div>
-        <p style="font-size:12px;font-weight:700;margin:16px 0 6px">Disponibilizar este item para venda direta em</p><div class="channel-checks"><label><input type="checkbox" id="pChPdv" ${!p||!p.channels||p.channels.pdv!==false?'checked':''}> PDV Desktop</label><label><input type="checkbox" id="pChMobile" ${!p||!p.channels||p.channels.mobile!==false?'checked':''}> Comanda Mobile</label><label><input type="checkbox" id="pChQr" ${!p||!p.channels||p.channels.qr!==false?'checked':''}> Cardápio QR</label><label><input type="checkbox" id="pChOnline" ${!p||!p.channels||p.channels.online!==false?'checked':''}> Pedidos Online</label></div></div></div>
+        <p style="font-size:12px;font-weight:700;margin:16px 0 6px">Disponibilizar este item para venda direta em</p><div class="channel-checks"><label><input type="checkbox" id="pChPdv" ${!p||!p.channels||p.channels.pdv!==false?'checked':''}> PDV Desktop</label><label><input type="checkbox" id="pChMobile" ${!p||!p.channels||p.channels.mobile!==false?'checked':''}> Comanda Mobile</label><label><input type="checkbox" id="pChQr" ${!p||!p.channels||p.channels.qr!==false?'checked':''}> Cardápio Digital (cliente)</label><label><input type="checkbox" id="pChOnline" ${!p||!p.channels||p.channels.online!==false?'checked':''}> Totem de Autoatendimento</label></div><p class="sub">"Cardápio Digital" e "Totem" são checkboxes independentes — desmarcar um não afeta o outro. Se o produto deve sumir dos dois, desmarque ambos.</p></div></div>
       </section>
       <section class="record-pane" data-pane="estoque"><div class="grid3"><div class="field"><label>Estoque mínimo (alerta)</label><input id="pMinStock" type="number" min="0" step="1" value="${p?Number(p.minStock)||0:0}"></div><div class="field"><label>Ordem de exibição</label><input id="pSortOrder" type="number" step="1" value="${p?Number(p.sortOrder)||0:state.products.length}"></div><div class="field"><label>Tipo do cadastro</label><select id="pKind"><option value="produto" ${productKind(p||{})==='produto'?'selected':''}>Produto</option><option value="tamanho" ${productKind(p||{})==='tamanho'?'selected':''}>Produto por tamanho</option><option value="combo" ${productKind(p||{})==='combo'?'selected':''}>Combo</option></select></div></div><p class="sub">O estoque disponível é calculado pela ficha técnica e baixado somente quando o item é enviado à cozinha.</p></section>
       <section class="record-pane" data-pane="ficha"><p class="sub">Insumos consumidos por unidade vendida. O custo estimado é recalculado automaticamente.</p><div id="recipeRowsList"></div><button class="btn btn-sm" onclick="addRecipeRow()">+ Adicionar insumo</button></section>
@@ -4792,8 +4805,9 @@ function renderTotem(){
     </div>
     <div class="op-toolbar"><div class="op-search"><input id="totemSearch" placeholder="Pesquisar produto..." oninput="filterTotemProducts()"></div><select id="totemCategory" onchange="filterTotemProducts()"><option value="">Todas as categorias</option>${categories.map(c=>`<option>${h(c)}</option>`).join('')}</select></div>
     <div id="totemProducts" style="margin:14px 0;display:flex;flex-direction:column;gap:8px">
-      ${available.map(p=>`<div class="menu-item" data-product="${h(p.id)}" data-category="${h(p.category||'Sem categoria')}"><div><div class="mi-name">${h(p.name)}</div><div class="mi-cat">${h(p.category||'Sem categoria')}</div></div>
-        <div style="display:flex;align-items:center;gap:10px"><span class="mono">${fmt(p.price)}</span>
+      ${available.map(p=>`<div class="menu-item" data-product="${h(p.id)}" data-category="${h(p.category||'Sem categoria')}">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0">${p.image?`<img src="${h(p.image)}" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0">`:''}<div style="min-width:0"><div class="mi-name">${h(p.name)}</div><div class="mi-cat">${h(p.category||'Sem categoria')}</div></div></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0"><span class="mono">${fmt(p.price)}</span>
         <button class="btn btn-sm btn-primary" onclick="addCardapioItem('${p.id}')">Adicionar</button></div></div>`).join('') || '<p class="empty">Cardápio ainda não cadastrado.</p>'}
     </div>
     <div class="panel" style="background:var(--cream)">
@@ -4821,8 +4835,16 @@ function submitTotemOrder(){
   sale.items.forEach(i=>i.sent=true);
   save('sales');
   cardapioDraft = { items:[], memberId:null, customerName:'', notes:'' };
-  toast('Pedido enviado! Aguarde ser chamado no painel de senhas.');
   renderAll();
+  // Totem é autoatendimento sem ninguém por perto pra confirmar verbalmente — precisa
+  // de uma tela que fique até o cliente tocar em "Novo pedido", não só um toast de 2,6s
+  // que some sozinho antes da pessoa conseguir anotar o número.
+  openModal('Pedido enviado!', `<div style="text-align:center;padding:20px 10px">
+      <div style="font-size:15px;color:var(--muted);margin-bottom:6px">Guarde o número do seu pedido</div>
+      <div style="font-size:64px;font-weight:800;font-family:'Oswald',sans-serif;color:var(--green)">#${sale.orderNumber}</div>
+      <p class="sub" style="margin-top:14px">Aguarde ser chamado no painel de senhas.</p>
+      <button class="btn btn-primary btn-block" style="margin-top:20px" onclick="closeModal();renderAll()">Novo pedido</button>
+    </div>`, false, true);
 }
 
 /* ============ CENTRAL DE MÓDULOS COMPLEMENTARES ============ */
