@@ -3010,6 +3010,11 @@ async function checkPrintAgentStatus(){
   if(!isHttpsPage){ box.className='tag tag-gray'; box.textContent='Status por impressora atualizado abaixo — cada impressora fala com o agente do computador onde ela está ligada.'; }
 }
 function stripAccentsForPrint(s){ const lo=String.fromCharCode(0x0300), hi=String.fromCharCode(0x036f); return String(s||'').normalize('NFD').replace(new RegExp('['+lo+'-'+hi+']','g'),''); }
+// Postgres nunca aceita byte nulo (0x00) em coluna de texto — mas vários comandos ESC/POS
+// (reset de tamanho de letra, corte total, etc.) precisam de um parâmetro 0x00. Guardamos
+// esse placeholder no banco, e só o agente (na hora de mandar pro socket da impressora,
+// fora do banco) troca pelo byte nulo de verdade. Ver printRawTcp no agente.
+const NUL_PLACEHOLDER = String.fromCharCode(0x01);
 function paperColumns(imp){ return imp && Number(imp.larguraPapel)===58 ? 32 : 48; }
 function buildTicketText(who, cota, local, estacao, items, orderNumber, columns, escPos){
   const W = columns || 48;
@@ -3033,7 +3038,7 @@ function buildTicketText(who, cota, local, estacao, items, orderNumber, columns,
     const nameLine = i.qty+'x '+i.name;
     // GS ! 0x22 = letra triplicada (largura e altura) — só no modo ESC/POS, senão o driver
     // do Windows mostraria os bytes de controle como texto (impressora local não é ESC/POS puro).
-    out += (escPos ? '\x1D\x21\x22'+nameLine+'\x1D\x21\x00' : nameLine) + '\n';
+    out += (escPos ? '\x1D\x21\x22'+nameLine+'\x1D\x21'+NUL_PLACEHOLDER : nameLine) + '\n';
     if(showPrices) out += fmt(i.price*i.qty)+'\n';
   });
   out += line('-')+'\n';
