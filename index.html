@@ -3032,9 +3032,10 @@ function buildTicketText(who, cota, local, estacao, items, orderNumber, columns,
   out += line('-')+'\n';
   if(local){
     const localLine = wrap('ENTREGAR EM: '+local);
-    // GS ! 0x01 = só altura dobrada (sem largura) — destaque médio, maior que o texto
-    // normal mas menor que o nome do produto (esse usa largura+altura, 0x11).
-    out += (escPos ? '\x1D\x21\x01'+localLine+'\x1D\x21'+NUL_PLACEHOLDER : localLine) + '\n';
+    // GS ! 0x01 = só altura dobrada (sem largura) + ESC E 1 (negrito) — destaque médio,
+    // maior/mais forte que o texto normal mas menor que o nome do produto (esse usa
+    // largura+altura, 0x11).
+    out += (escPos ? '\x1B\x45\x01\x1D\x21\x01'+localLine+'\x1D\x21'+NUL_PLACEHOLDER+'\x1B\x45'+NUL_PLACEHOLDER : localLine) + '\n';
     out += line('-')+'\n';
   }
   const showPrices = estacao==='caixa'; // ticket de estação (cozinha/bar/etc) é só pra preparo, sem preço — o comprovante do caixa mantém
