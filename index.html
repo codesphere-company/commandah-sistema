@@ -3007,8 +3007,10 @@ async function checkPrintAgentStatus(){
   }
   if(!isHttpsPage){ box.className='tag tag-gray'; box.textContent='Status por impressora atualizado abaixo — cada impressora fala com o agente do computador onde ela está ligada.'; }
 }
-function buildTicketText(who, local, estacao, items, orderNumber){
-  const W = 32;
+function stripAccentsForPrint(s){ const lo=String.fromCharCode(0x0300), hi=String.fromCharCode(0x036f); return String(s||'').normalize('NFD').replace(new RegExp('['+lo+'-'+hi+']','g'),''); }
+function paperColumns(imp){ return imp && Number(imp.larguraPapel)===58 ? 32 : 48; }
+function buildTicketText(who, local, estacao, items, orderNumber, columns, escPos){
+  const W = columns || 48;
   const line = ch=>ch.repeat(W);
   const wrap = t => t.length>W ? t.slice(0,W) : t;
   let out = '';
@@ -3026,10 +3028,14 @@ function buildTicketText(who, local, estacao, items, orderNumber){
   out += line('-')+'\n';
   out += 'TOTAL: '+fmt(total)+'\n';
   out += line('=')+'\n\n\n';
-  return out;
+  if(!escPos) return out;
+  // Modo ESC/POS (impressora de rede, via socket cru): sem driver do Windows no meio,
+  // então a gente mesmo controla início/corte do papel — e evita acentuação (o code
+  // page da impressora térmica é incerto; texto puro ASCII imprime certo em qualquer uma).
+  return '\x1B\x40' + stripAccentsForPrint(out) + '\n\n\n\x1D\x56\x00';
 }
 async function printCaixaReceipt(who, items, orderNumber, printerOsName){
-  const text = buildTicketText(who, '', 'caixa', items, orderNumber).replace('CAIXA','COMPROVANTE DE VENDA');
+  const text = buildTicketText(who, '', 'caixa', items, orderNumber, 48, false).replace('CAIXA','COMPROVANTE DE VENDA');
   if(supabaseClient && getTenantId()){
     try{
       const { error } = await supabaseClient.from('print_jobs').insert({ tenant_id: getTenantId(), printer_name: printerOsName, content: text, status: 'pendente' });
@@ -3048,10 +3054,11 @@ async function printSingleTicket(who, local, estacao, printer, items, orderNumbe
   if(printer){
     const imp = state.impressoras.find(p=>p.nome===printer);
     const targetName = imp&&imp.osName ? imp.osName : printer;
-    const text = buildTicketText(who, local, estacao, items, orderNumber);
+    const useEscPos = !!(imp && imp.ip);
+    const text = buildTicketText(who, local, estacao, items, orderNumber, paperColumns(imp), useEscPos);
     if(supabaseClient && getTenantId()){
       try{
-        const { error } = await supabaseClient.from('print_jobs').insert({ tenant_id: getTenantId(), printer_name: targetName, content: text, status: 'pendente' });
+        const { error } = await supabaseClient.from('print_jobs').insert({ tenant_id: getTenantId(), printer_name: targetName, printer_ip: imp&&imp.ip||null, content: text, status: 'pendente' });
         if(!error){ toast('Pedido enviado pra fila de impressão: '+printer); return; }
       }catch(e){ /* cai pro modo antigo abaixo */ }
     }
@@ -4280,7 +4287,7 @@ function deleteEstacao(id){
 function renderImpressoras(){
   const el = document.getElementById('view-impressoras');
   const rows = state.impressoras.length ? state.impressoras.map(p=>`
-    <tr><td>${h(p.nome)}${p.osName?`<br><small class="mono" style="color:var(--muted)">${h(p.osName)}</small>`:''}</td><td>${estacaoLabel(p.estacao)||'—'}</td><td>${origemLabel(p.origem)||'—'}</td>
+    <tr><td>${h(p.nome)}${p.osName?`<br><small class="mono" style="color:var(--muted)">${h(p.osName)}</small>`:''}${p.ip?`<br><small class="mono" style="color:var(--muted)">rede: ${h(p.ip)}</small>`:''}</td><td>${estacaoLabel(p.estacao)||'—'}</td><td>${origemLabel(p.origem)||'—'}</td>
     <td>${p.agentUrl?`<span class="mono" style="font-size:11px">${h(p.agentUrl)}</span>`:'<span class="sub" style="font-size:11px">— (mesmo computador)</span>'}</td>
     <td id="impStatus-${p.id}"><span class="tag tag-gray">verificando...</span></td>
     <td><button class="btn btn-sm" onclick="openImpressoraModal('${p.id}')">Editar</button>
@@ -4327,6 +4334,11 @@ function openImpressoraModal(id){
   openModal((p?'Editar':'Nova')+' — Impressora', `
     <div class="field"><label>Nome da impressora (no sistema)</label><input id="impNome" value="${p?h(p.nome):''}" placeholder="Ex: Impressora Bar — App"></div>
     <div class="field"><label>Nome exato no Windows/Mac (opcional)</label><input id="impOsName" value="${p?h(p.osName||''):''}" placeholder="Ex: EPSON TM-T20X"><p class="sub">Se preenchido, o agente de impressão local usa esse nome exato pra imprimir sem abrir tela nenhuma. Deixe em branco pra usar o nome acima.</p></div>
+    <div class="field"><label>IP da impressora de rede (opcional)</label><input id="impIp" value="${p?h(p.ip||''):''}" placeholder="Ex: 192.168.110.112"><p class="sub">Preencha só se for impressora de rede (RJ45/Wi-Fi) — o agente manda direto pro IP, na porta 9100, sem instalar no Windows e sem depender de driver. Deixe em branco pra impressora local (USB), que usa o nome do Windows acima.</p></div>
+    <div class="field"><label>Largura do papel</label><select id="impLargura">
+      <option value="80" ${!p||Number(p.larguraPapel)!==58?'selected':''}>80mm (48 colunas)</option>
+      <option value="58" ${p&&Number(p.larguraPapel)===58?'selected':''}>58mm (32 colunas)</option>
+    </select></div>
     <div class="field"><label>Endereço do agente na rede (opcional, modo antigo)</label><input id="impAgentUrl" value="${p?h(p.agentUrl||''):''}" placeholder="Deixe em branco — não é mais necessário"><p class="sub">Com a fila de impressão via nuvem ativa, isso não é mais necessário — o agente encontra os pedidos sozinho, de qualquer aparelho. Só preencha se estiver usando o modo antigo sem Supabase.</p></div>
     <div class="field"><label>Estação</label><select id="impEstacao">
       ${state.estacoes.map(e=>`<option value="${h(e.chave)}" ${(p&&p.estacao===e.chave)||(!p&&e.chave==='cozinha')?'selected':''}>${h(e.nome)}</option>`).join('')}
@@ -4340,7 +4352,7 @@ function openImpressoraModal(id){
   document.getElementById('impSaveBtn').onclick = ()=>{
     const nome = document.getElementById('impNome').value.trim();
     if(!nome){ toast('Informe o nome da impressora.'); return; }
-    const data = { nome, osName:document.getElementById('impOsName').value.trim(), agentUrl:document.getElementById('impAgentUrl').value.trim().replace(/^https?:\/\//,'').replace(/\/$/,''), estacao:document.getElementById('impEstacao').value, origem:document.getElementById('impOrigem').value };
+    const data = { nome, osName:document.getElementById('impOsName').value.trim(), ip:document.getElementById('impIp').value.trim(), larguraPapel:Number(document.getElementById('impLargura').value), agentUrl:document.getElementById('impAgentUrl').value.trim().replace(/^https?:\/\//,'').replace(/\/$/,''), estacao:document.getElementById('impEstacao').value, origem:document.getElementById('impOrigem').value };
     if(p){ Object.assign(p,data); } else { state.impressoras.push({id:uid(), ...data}); }
     save('impressoras'); closeModal(); renderAll(); toast('Impressora salva.');
   };
