@@ -253,7 +253,7 @@ tr:hover td{background:#faf7ef;}
 .item-line .qty-ctrl{display:flex;align-items:center;gap:6px;}
 .item-line .qty-ctrl button{width:22px;height:22px;border:1px solid var(--line);background:#fff;border-radius:4px;font-size:13px;line-height:1;}
 
-.toast{position:fixed;bottom:20px;right:20px;background:var(--navy);color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;z-index:100;box-shadow:0 4px 14px rgba(0,0,0,.25);}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--navy);color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;z-index:300;box-shadow:0 4px 14px rgba(0,0,0,.25);}
 
 .stat{background:var(--navy);color:#fff;border-radius:8px;padding:16px;}
 .stat .lbl{font-size:11px;color:#9fb0cc;text-transform:uppercase;letter-spacing:.04em;}
@@ -960,7 +960,13 @@ async function attemptPinLogin(){
     try{
       const { data, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action:'login', staff_id:pinTargetUser.id, pin } });
       if(error || !data || data.error){
-        logPinFail(); toast((data&&data.error)||'PIN incorreto.'); pinBuffer=''; updatePinDots();
+        // supabase-js não traz o corpo do erro em "data" quando o status HTTP não é 2xx
+        // (401 PIN errado, 423 bloqueado) — o texto real vem em error.context (a Response).
+        let msg = data&&data.error;
+        if(!msg && error&&error.context&&typeof error.context.json==='function'){
+          try{ const body = await error.context.json(); msg = body&&body.error; }catch(e){}
+        }
+        logPinFail(); toast(msg||'PIN incorreto.'); pinBuffer=''; updatePinDots();
         return;
       }
       await supabaseClient.auth.setSession(data.session);
