@@ -3017,6 +3017,9 @@ function stripAccentsForPrint(s){ const lo=String.fromCharCode(0x0300), hi=Strin
 const NUL_PLACEHOLDER = String.fromCharCode(0x01);
 function paperColumns(imp){ return imp && Number(imp.larguraPapel)===58 ? 32 : 48; }
 function buildTicketText(who, cota, local, estacao, items, orderNumber, columns, escPos){
+  const cfg = state.settings.ticketConfig || {};
+  const nameSizeByte = {normal:NUL_PLACEHOLDER, grande:'\x11', extra:'\x22'}[cfg.nomeProdutoTamanho] || '\x11';
+  const entregaDestaque = cfg.entregaDestaque!==false;
   const W = columns || 48;
   const line = ch=>ch.repeat(W);
   const wrap = t => t.length>W ? t.slice(0,W) : t;
@@ -3034,19 +3037,22 @@ function buildTicketText(who, cota, local, estacao, items, orderNumber, columns,
     const localLabel = 'ENTREGAR EM: ';
     const localValueW = Math.max(1, W-localLabel.length);
     const localValue = local.length>localValueW ? local.slice(0,localValueW) : local;
-    // Só o nome do local fica em negrito (label continua no tamanho normal) — um pouco
-    // menos destaque que antes (tirei a altura dobrada, ficou só o negrito).
-    out += (escPos ? localLabel+'\x1B\x45\x01'+localValue+'\x1B\x45'+NUL_PLACEHOLDER : wrap(localLabel+local)) + '\n';
+    // Só o nome do local fica em negrito (label continua no tamanho normal) — configurável
+    // em Impressoras > Formatação dos tickets.
+    const boldOn = entregaDestaque ? '\x1B\x45\x01' : '';
+    const boldOff = entregaDestaque ? '\x1B\x45'+NUL_PLACEHOLDER : '';
+    out += (escPos ? localLabel+boldOn+localValue+boldOff : wrap(localLabel+local)) + '\n';
     out += line('-')+'\n';
   }
-  const showPrices = estacao==='caixa'; // ticket de estação (cozinha/bar/etc) é só pra preparo, sem preço — o comprovante do caixa mantém
+  const showPrices = estacao==='caixa' || !!cfg.mostrarPrecoProducao; // comprovante do caixa sempre mostra; estação é configurável
   let total = 0;
   items.forEach(i=>{
     total += i.price*i.qty;
     const nameLine = i.qty+'x '+i.name;
-    // GS ! 0x11 = letra dobrada (largura e altura) — só no modo ESC/POS, senão o driver
-    // do Windows mostraria os bytes de controle como texto (impressora local não é ESC/POS puro).
-    out += (escPos ? '\x1D\x21\x11'+nameLine+'\x1D\x21'+NUL_PLACEHOLDER : nameLine) + '\n';
+    // GS ! (tamanho da letra) — configurável em Impressoras > Formatação dos tickets.
+    // Só no modo ESC/POS, senão o driver do Windows mostraria os bytes de controle como
+    // texto (impressora local não é ESC/POS puro).
+    out += (escPos ? '\x1D\x21'+nameSizeByte+nameLine+'\x1D\x21'+NUL_PLACEHOLDER : nameLine) + '\n';
     if(showPrices) out += fmt(i.price*i.qty)+'\n';
   });
   out += line('-')+'\n';
@@ -4330,11 +4336,37 @@ function renderImpressoras(){
       <button class="btn btn-sm" onclick="regeneratePrintAgentToken()">Gerar/Regenerar token</button>
       <p class="sub">Cole esse token no agente de impressão local (ele pede na primeira vez que roda, ou quando você regenerar). Regenerar invalida o token anterior — os agentes já configurados param até você colar o novo.</p>
     </div>`:''}
+    ${renderTicketConfigHtml()}
     <button class="btn btn-primary" onclick="openImpressoraModal()">+ Nova impressora</button>
     <table style="margin-top:14px"><tr><th>Nome</th><th>Estação</th><th>Origem atendida</th><th>Agente (rede)</th><th>Status</th><th>Ações</th></tr>${rows}</table>
   </div>`;
   checkPrintAgentStatus();
   checkPrintTokenStatus();
+}
+function renderTicketConfigHtml(){
+  const cfg = state.settings.ticketConfig || {};
+  const tamanho = cfg.nomeProdutoTamanho || 'grande';
+  return `<div class="field" style="margin-bottom:14px;border:1px solid var(--border,#ddd);border-radius:8px;padding:12px">
+    <label style="font-weight:600">Formatação dos tickets (impressora de rede)</label>
+    <p class="sub" style="margin-top:2px">Só afeta impressoras com IP cadastrado (ESC/POS direto) — impressora local via Windows continua em texto simples.</p>
+    <div class="field"><label>Tamanho do nome do produto</label><select id="cfgNomeProdutoTamanho">
+      <option value="normal" ${tamanho==='normal'?'selected':''}>Normal</option>
+      <option value="grande" ${tamanho==='grande'?'selected':''}>Grande (2x)</option>
+      <option value="extra" ${tamanho==='extra'?'selected':''}>Extra grande (3x)</option>
+    </select></div>
+    <label class="row" style="align-items:center;gap:6px"><input type="checkbox" id="cfgEntregaDestaque" ${cfg.entregaDestaque!==false?'checked':''}> Destacar nome do local de entrega em negrito</label>
+    <label class="row" style="align-items:center;gap:6px"><input type="checkbox" id="cfgMostrarPrecoProducao" ${cfg.mostrarPrecoProducao?'checked':''}> Mostrar preço no ticket de produção (cozinha/bar/churrasqueira) — o comprovante do caixa sempre mostra</label>
+    <button class="btn btn-sm" onclick="saveTicketConfig()">Salvar formatação</button>
+  </div>`;
+}
+function saveTicketConfig(){
+  state.settings.ticketConfig = {
+    nomeProdutoTamanho: document.getElementById('cfgNomeProdutoTamanho').value,
+    entregaDestaque: document.getElementById('cfgEntregaDestaque').checked,
+    mostrarPrecoProducao: document.getElementById('cfgMostrarPrecoProducao').checked
+  };
+  save('settings');
+  toast('Formatação dos tickets salva.');
 }
 async function checkPrintTokenStatus(){
   const box = document.getElementById('printTokenStatus'); if(!box || !supabaseClient) return;
