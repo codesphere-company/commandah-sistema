@@ -3032,7 +3032,9 @@ function buildTicketText(who, local, estacao, items, orderNumber, columns, escPo
   // Modo ESC/POS (impressora de rede, via socket cru): sem driver do Windows no meio,
   // então a gente mesmo controla início/corte do papel — e evita acentuação (o code
   // page da impressora térmica é incerto; texto puro ASCII imprime certo em qualquer uma).
-  return '\x1B\x40' + stripAccentsForPrint(out) + '\n\n\n\x1D\x56\x00';
+  // GS V usa corte PARCIAL (parâmetro 1), não total (parâmetro 0) — Postgres não aceita
+  // byte nulo (\x00) em coluna de texto, quebraria o insert do print_jobs.
+  return '\x1B\x40' + stripAccentsForPrint(out) + '\n\n\n\x1D\x56\x01';
 }
 async function printCaixaReceipt(who, items, orderNumber, printerOsName){
   const text = buildTicketText(who, '', 'caixa', items, orderNumber, 48, false).replace('CAIXA','COMPROVANTE DE VENDA');
