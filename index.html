@@ -754,11 +754,12 @@ let selectedPromotionId = null;
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function fmt(n){ return 'R$ ' + (Number(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function memberBlockedByDebt(member){ return !!member && Number(member.debt)>0; }
+function memberBlockedByDebt(member){ return !!member && Number(member.debt) > Number(member.creditLimit||0); }
+function memberLimitSuffix(member){ return Number(member.creditLimit)>0 ? ` (limite de crédito: ${fmt(member.creditLimit)})` : ''; }
 function blockIfMemberInDebt(member){
   if(!memberBlockedByDebt(member)) return false;
   openModal('Consumo bloqueado', `
-    <p class="sub">${h(member.name)} está com uma pendência de <b style="color:var(--red)">${fmt(member.debt)}</b> e não pode consumir até quitar o débito.</p>
+    <p class="sub">${h(member.name)} está com uma pendência de <b style="color:var(--red)">${fmt(member.debt)}</b>${memberLimitSuffix(member)} e não pode consumir até quitar o débito.</p>
     <div class="row" style="margin-top:14px">
       <button class="btn" onclick="closeModal()">Voltar</button>
       <button class="btn btn-primary" onclick="closeModal();openWhatsAppCollection('${member.id}')">📱 &nbsp; Cobrar via WhatsApp</button>
@@ -782,7 +783,7 @@ function openWhatsAppCollection(memberId){
 function promptWhatsAppCollection(member){
   setTimeout(()=>{
     openModal('Pedido fechado com pendência', `
-      <p class="sub">${h(member.name)} ficou com saldo devedor de <b style="color:var(--red)">${fmt(member.debt)}</b>. O consumo dessa cota fica bloqueado automaticamente até o pagamento.</p>
+      <p class="sub">${h(member.name)} ficou com saldo devedor de <b style="color:var(--red)">${fmt(member.debt)}</b>${memberLimitSuffix(member)}. O consumo dessa cota fica bloqueado automaticamente até o pagamento.</p>
       <div class="row" style="margin-top:14px">
         <button class="btn" onclick="closeModal()">Agora não</button>
         <button class="btn btn-primary" onclick="closeModal();openWhatsAppCollection('${member.id}')">📱 &nbsp; Enviar cobrança via WhatsApp</button>
@@ -854,11 +855,13 @@ let storageApi = null;
 async function loadAll(){
   const scalarDefaults = { cashSession:null, settings:{clubName:'', pixKey:'', receiptFooter:'Obrigado pela preferência!'}, orderCounter:0 };
   for(const key of Object.keys(STORE)){
+    if(key==='members') continue;
     try{
       const r = await storageApi.get(STORE[key]);
       state[key] = r ? JSON.parse(r.value) : (key in scalarDefaults ? scalarDefaults[key] : []);
     }catch(e){ state[key] = (key in scalarDefaults ? scalarDefaults[key] : []); }
   }
+  try{ state.members = await MembersStore.load(); }catch(e){ state.members = []; }
   if(!state.users.length){
     state.users.push({id:uid(), name:'Administrador', username:'admin', pin:'1234', role:'admin', origem:'caixa'});
     state.users.push({id:uid(), name:'Garçom App', username:'garcom', pin:'1234', role:'caixa', origem:'app'});
@@ -907,6 +910,247 @@ async function save(key){
   try{ await operation; return true; }
   catch(e){ toast('Erro ao salvar dados. A operação pode não ter sido registrada.'); return false; }
 }
+
+/* ============ MEMBERS (sócios) — tabelas relacionais em modo nuvem, blob em modo local ============ */
+function isCloudMode(){ return storageApi && storageApi.mode==='Nuvem (Supabase)'; }
+function memberFromRow(row, dependents, debtHistory){
+  return {
+    id: row.id, name: row.name, code: row.code||'', phone: row.phone||'', email: row.email||'',
+    gender: row.gender||'', document: row.document||'', registry: row.registry||'',
+    birthDate: row.birth_date||'', zip: row.zip||'', address: row.address||'',
+    addressNumber: row.address_number||'', addressComplement: row.address_complement||'',
+    district: row.district||'', city: row.city||'', uf: row.uf||'', reference: row.reference||'',
+    ibge: row.ibge||'', tags: row.tags||[], notes: row.notes||'',
+    points: Number(row.points)||0, pointsHistory: row.points_history||[],
+    debt: Number(row.debt)||0, creditLimit: Number(row.credit_limit)||0,
+    active: row.active!==false, archived: !!row.archived,
+    archivedAt: row.archived_at||undefined, archivedBy: row.archived_by||undefined,
+    latitude: row.latitude==null?undefined:row.latitude, longitude: row.longitude==null?undefined:row.longitude,
+    geoStatus: row.geo_status||undefined,
+    dependents: dependents||[], debtHistory: debtHistory||[]
+  };
+}
+function memberDependentFromRow(row){
+  return { id: row.id, name: row.name, relationship: row.relationship||'', document: row.document||'', canOrder: row.can_order!==false };
+}
+function debtEntryFromRow(row){
+  return { id: row.id, type: row.type, value: Number(row.value)||0, reason: row.reason||'', info: row.info||'',
+    method: row.method||'', at: row.at, user: row.created_by||'', reversed: !!row.reversed,
+    reversedAt: row.reversed_at||undefined, reversedBy: row.reversed_by||undefined };
+}
+function memberFieldsToRow(data){
+  return {
+    name: data.name, code: data.code||null, phone: data.phone||null, email: data.email||null,
+    gender: data.gender||null, document: data.document||null, registry: data.registry||null,
+    birth_date: data.birthDate||null, zip: data.zip||null, address: data.address||null,
+    address_number: data.addressNumber||null, address_complement: data.addressComplement||null,
+    district: data.district||null, city: data.city||null, uf: data.uf||null,
+    reference: data.reference||null, ibge: data.ibge||null, tags: data.tags||[], notes: data.notes||null,
+    updated_at: new Date().toISOString()
+  };
+}
+function recalcMemberDebtLocal(member){
+  const debt = (member.debtHistory||[]).reduce((sum,x)=>{
+    if(x.reversed) return sum;
+    return sum + (x.type==='debt'?Number(x.value)||0:-(Number(x.value)||0));
+  },0);
+  member.debt = Math.max(0, debt);
+}
+const MembersStore = {
+  async load(){
+    if(isCloudMode()){
+      const tenantId = storageApi.tenantId;
+      const [{data:rows,error:mErr},{data:deps,error:dErr},{data:entries,error:eErr}] = await Promise.all([
+        supabaseClient.from('members').select('*').eq('tenant_id', tenantId),
+        supabaseClient.from('member_dependents').select('*').eq('tenant_id', tenantId),
+        supabaseClient.from('member_debt_entries').select('*').eq('tenant_id', tenantId).order('at',{ascending:false})
+      ]);
+      if(mErr) throw mErr; if(dErr) throw dErr; if(eErr) throw eErr;
+      const depsByMember = {}, entriesByMember = {};
+      (deps||[]).forEach(d=>{ (depsByMember[d.member_id] = depsByMember[d.member_id]||[]).push(memberDependentFromRow(d)); });
+      (entries||[]).forEach(e=>{ (entriesByMember[e.member_id] = entriesByMember[e.member_id]||[]).push(debtEntryFromRow(e)); });
+      return (rows||[]).map(r=>memberFromRow(r, depsByMember[r.id], entriesByMember[r.id]));
+    }
+    const r = await storageApi.get(STORE.members);
+    return r ? JSON.parse(r.value) : [];
+  },
+  async create(data){
+    if(isCloudMode()){
+      const id = uid();
+      const row = { id, tenant_id: storageApi.tenantId, ...memberFieldsToRow(data), credit_limit: Number(data.creditLimit)||0, created_at: new Date().toISOString() };
+      const { error } = await supabaseClient.from('members').insert(row);
+      if(error) throw error;
+      const member = memberFromRow({...row, debt:0, points:0, points_history:[], active:true, archived:false}, [], []);
+      state.members.push(member);
+      return member;
+    }
+    const member = { id: uid(), debt:0, ...data };
+    state.members.push(member);
+    await save('members');
+    return member;
+  },
+  async update(id, data){
+    const member = state.members.find(x=>x.id===id);
+    if(!member) return null;
+    if(isCloudMode()){
+      const row = memberFieldsToRow(data);
+      if('creditLimit' in data) row.credit_limit = Number(data.creditLimit)||0;
+      const { error } = await supabaseClient.from('members').update(row).eq('id', id);
+      if(error) throw error;
+    }
+    Object.assign(member, data);
+    if(!isCloudMode()) await save('members');
+    return member;
+  },
+  async saveDependents(memberId, dependents){
+    const member = state.members.find(x=>x.id===memberId);
+    if(!member) return;
+    if(isCloudMode()){
+      const { error: delErr } = await supabaseClient.from('member_dependents').delete().eq('member_id', memberId);
+      if(delErr) throw delErr;
+      if(dependents.length){
+        const rows = dependents.map(d=>({
+          id: d.id||uid(), tenant_id: storageApi.tenantId, member_id: memberId,
+          name: d.name, relationship: d.relationship||null, document: d.document||null,
+          can_order: d.canOrder!==false
+        }));
+        const { error: insErr } = await supabaseClient.from('member_dependents').insert(rows);
+        if(insErr) throw insErr;
+        member.dependents = rows.map(memberDependentFromRow);
+      } else {
+        member.dependents = [];
+      }
+    } else {
+      member.dependents = dependents;
+      await save('members');
+    }
+  },
+  async archive(id, archivedBy){
+    const member = state.members.find(x=>x.id===id);
+    if(!member) return;
+    const archivedAt = new Date().toISOString();
+    if(isCloudMode()){
+      const { error } = await supabaseClient.from('members').update({ archived:true, archived_at:archivedAt, archived_by:archivedBy, updated_at:archivedAt }).eq('id', id);
+      if(error) throw error;
+    }
+    member.archived = true; member.archivedAt = archivedAt; member.archivedBy = archivedBy;
+    if(!isCloudMode()) await save('members');
+  },
+  async restore(id){
+    const member = state.members.find(x=>x.id===id);
+    if(!member) return;
+    if(isCloudMode()){
+      const { error } = await supabaseClient.from('members').update({ archived:false, archived_at:null, archived_by:null, updated_at:new Date().toISOString() }).eq('id', id);
+      if(error) throw error;
+    }
+    member.archived = false; delete member.archivedAt; delete member.archivedBy;
+    if(!isCloudMode()) await save('members');
+  },
+  async setArchived(id, archived, archivedBy){
+    return archived ? this.archive(id, archivedBy) : this.restore(id);
+  },
+  async recordDebtEntry(memberId, type, value, extra){
+    extra = extra||{};
+    const member = state.members.find(x=>x.id===memberId);
+    if(!member) return;
+    const at = extra.at || new Date().toISOString();
+    const createdBy = extra.createdBy || (currentUser&&currentUser.name) || '';
+    if(isCloudMode()){
+      const row = {
+        id: uid(), tenant_id: storageApi.tenantId, member_id: memberId, type, value: Number(value),
+        reason: extra.reason||null, info: extra.info||null, method: extra.method||null,
+        sale_id: extra.saleId||null, created_by: createdBy, at
+      };
+      const { error } = await supabaseClient.from('member_debt_entries').insert(row);
+      if(error) throw error;
+      member.debtHistory = member.debtHistory||[];
+      member.debtHistory.unshift(debtEntryFromRow(row));
+    } else {
+      member.debtHistory = Array.isArray(member.debtHistory)?member.debtHistory:[];
+      member.debtHistory.unshift({ id:uid(), type, value:Number(value), reason:extra.reason||'', info:extra.info||'', method:extra.method||'', at, user:createdBy, reversed:false });
+      await save('members');
+    }
+    recalcMemberDebtLocal(member);
+  },
+  async reverseDebtEntry(memberId, entryId, reversedBy){
+    const member = state.members.find(x=>x.id===memberId);
+    if(!member) return;
+    const entry = (member.debtHistory||[]).find(x=>x.id===entryId);
+    if(!entry || entry.reversed) return;
+    const reversedAt = new Date().toISOString();
+    if(isCloudMode()){
+      const { error } = await supabaseClient.from('member_debt_entries').update({ reversed:true, reversed_at:reversedAt, reversed_by:reversedBy }).eq('id', entryId);
+      if(error) throw error;
+    }
+    entry.reversed = true; entry.reversedAt = reversedAt; entry.reversedBy = reversedBy;
+    if(!isCloudMode()) await save('members');
+    recalcMemberDebtLocal(member);
+  },
+  async bulkImport(newMembers){
+    if(isCloudMode()){
+      const now = new Date().toISOString();
+      const rows = newMembers.map(data=>({ id: data.id||uid(), tenant_id: storageApi.tenantId, ...memberFieldsToRow(data), created_at: now }));
+      for(let i=0;i<rows.length;i+=500){
+        const { error } = await supabaseClient.from('members').insert(rows.slice(i,i+500));
+        if(error) throw error;
+      }
+      const debtRows = [];
+      newMembers.forEach((data,i)=>{
+        const value = Number(data.debt)||0;
+        if(value>0) debtRows.push({ id: uid(), tenant_id: storageApi.tenantId, member_id: rows[i].id, type:'debt', value, reason:'Saldo inicial (importação de planilha)', at: now });
+      });
+      for(let i=0;i<debtRows.length;i+=500){
+        const { error } = await supabaseClient.from('member_debt_entries').insert(debtRows.slice(i,i+500));
+        if(error) throw error;
+      }
+      state.members = await this.load();
+    } else {
+      newMembers.forEach(data=>state.members.push({ id: uid(), debt:0, tags:[], ...data }));
+      await save('members');
+    }
+  },
+  async setCode(id, code){
+    return this.update(id, { code });
+  },
+  async removeTagEverywhere(tag){
+    const affected = state.members.filter(m=>(m.tags||[]).includes(tag));
+    if(isCloudMode()){
+      await Promise.all(affected.map(m=>{
+        const newTags = (m.tags||[]).filter(x=>x!==tag);
+        return supabaseClient.from('members').update({ tags:newTags, updated_at:new Date().toISOString() }).eq('id', m.id);
+      }));
+    }
+    affected.forEach(m=>{ m.tags = (m.tags||[]).filter(x=>x!==tag); });
+    if(!isCloudMode()) await save('members');
+  },
+  async saveGeo(memberId, geo){
+    const member = state.members.find(x=>x.id===memberId);
+    if(!member) return;
+    if(isCloudMode()){
+      const { error } = await supabaseClient.from('members').update({ latitude:geo.latitude, longitude:geo.longitude, geo_status:geo.geoStatus, updated_at:new Date().toISOString() }).eq('id', memberId);
+      if(error) throw error;
+    }
+    Object.assign(member, geo);
+    if(!isCloudMode()) await save('members');
+  },
+  async bulkSetGeoStatus(members, geoStatus){
+    if(isCloudMode()){
+      await Promise.all(members.map(m=>supabaseClient.from('members').update({ geo_status:geoStatus, updated_at:new Date().toISOString() }).eq('id', m.id)));
+    }
+    members.forEach(m=>{ m.geoStatus = geoStatus; });
+    if(!isCloudMode()) await save('members');
+  },
+  async setPoints(memberId, points, pointsHistory){
+    const member = state.members.find(x=>x.id===memberId);
+    if(!member) return;
+    if(isCloudMode()){
+      const { error } = await supabaseClient.from('members').update({ points, points_history:pointsHistory, updated_at:new Date().toISOString() }).eq('id', memberId);
+      if(error) throw error;
+    }
+    member.points = points; member.pointsHistory = pointsHistory;
+    if(!isCloudMode()) await save('members');
+  }
+};
 function toast(msg){
   const el = document.createElement('div'); el.className='toast'; el.textContent=msg;
   document.getElementById('toastRoot').appendChild(el);
@@ -1114,10 +1358,10 @@ function openCallHistory(){const list=state.settings.callHistory||[],rows=list.m
 function openCallRecord(id){closeModal();const list=state.settings.callHistory||[],item=id?list.find(x=>x.id===id):null;openModal(item?'Editar Chamada':'Registrar Chamada',`<div class="consumer-form-frame"><div class="row"><div class="field"><label>Data e hora</label><input id="callAt" type="datetime-local" value="${item?new Date(item.at).toISOString().slice(0,16):new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)}"></div><div class="field"><label>Telefone</label><input id="callPhone" value="${h(item&&item.phone||'')}"></div></div><div class="field"><label>Cliente</label><input id="callCustomer" value="${h(item&&item.customer||'')}"></div><div class="row"><div class="field"><label>Duração</label><input id="callDuration" type="time" step="1" value="${h(item&&item.duration||'00:00:00')}"></div><div class="field"><label>Status</label><select id="callStatus">${['Recebida','Não atendida','Retornada','Bloqueada'].map(x=>`<option ${item&&item.status===x?'selected':''}>${x}</option>`).join('')}</select></div></div><div class="field"><label>Observações</label><textarea id="callNotes">${h(item&&item.notes||'')}</textarea></div></div><div class="consumer-modal-actions"><button onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="saveCallRecord('${id||''}')">✓ Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal');}
 function saveCallRecord(id){const phone=document.getElementById('callPhone').value.trim(),at=document.getElementById('callAt').value;if(!phone||!at){toast('Informe data e telefone.');return;}state.settings.callHistory=state.settings.callHistory||[];const item=state.settings.callHistory.find(x=>x.id===id),data={phone,at:new Date(at).toISOString(),customer:document.getElementById('callCustomer').value.trim(),duration:document.getElementById('callDuration').value,status:document.getElementById('callStatus').value,notes:document.getElementById('callNotes').value.trim()};if(item)Object.assign(item,data);else state.settings.callHistory.unshift({id:uid(),...data});save('settings');closeModal();toast('Chamada registrada.');}
 function openMapKeyConfig(){openModal('Definir Chave Para Mapas',`<div class="app-config-body"><div class="field"><label>Provedor</label><select id="mapProvider"><option>Google Maps</option><option>OpenStreetMap</option></select></div><div class="field"><label>Chave de acesso</label><input id="mapKey" type="password" value="${h(state.settings.mapKey||'')}"></div><p class="sub">A geocodificação externa depende de uma chave válida e das condições do provedor escolhido.</p></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="state.settings.mapKey=document.getElementById('mapKey').value.trim();save('settings');closeModal();toast('Chave de mapas salva.')">✓ Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
-function reprocessMemberGeolocation(){const withAddress=state.members.filter(m=>m.address),configured=!!state.settings.mapKey;withAddress.forEach(m=>{m.geoStatus=configured?'Pendente de consulta ao provedor':'Aguardando chave do provedor';});save('members');toast(`${withAddress.length} cliente(s) colocado(s) na fila de geolocalização.`);}
+async function reprocessMemberGeolocation(){const withAddress=state.members.filter(m=>m.address),configured=!!state.settings.mapKey;await MembersStore.bulkSetGeoStatus(withAddress, configured?'Pendente de consulta ao provedor':'Aguardando chave do provedor');toast(`${withAddress.length} cliente(s) colocado(s) na fila de geolocalização.`);}
 function openCustomerMap(){const rows=state.members.map(m=>`<tr><td>${h(m.name)}</td><td>${h([m.address,m.addressNumber].filter(Boolean).join(', ')||'—')}</td><td>${h(m.district||'—')}</td><td>${m.latitude&&m.longitude?`${m.latitude}, ${m.longitude}`:h(m.geoStatus||'Sem coordenadas')}</td><td><button class="op-mini" onclick="openMemberCoordinates('${m.id}')">✎</button></td></tr>`).join('');openModal('Mapa de Clientes',`<div class="app-config-body"><div class="op-toolbar"><div class="op-search"><input placeholder="Pesquisar cliente..." oninput="filterModalTable(this.value)"></div><span class="op-toolbar-spacer"></span><button class="op-btn" onclick="reprocessMemberGeolocation()">↻ Reprocessar</button></div><div class="finance-grid" style="height:390px;margin-top:12px"><table><thead><tr><th>Cliente</th><th>Endereço</th><th>Bairro</th><th>Coordenadas / Situação</th><th>Editar</th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="empty">Nenhum cliente cadastrado.</td></tr>'}</tbody></table></div></div>`);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
 function openMemberCoordinates(id){closeModal();const m=state.members.find(x=>x.id===id);if(!m)return;openModal('Coordenadas — '+m.name,`<div class="consumer-form-frame"><p>${h([m.address,m.addressNumber,m.district,m.city,m.uf].filter(Boolean).join(', '))}</p><div class="row"><div class="field"><label>Latitude</label><input id="memberLatitude" type="number" step="any" value="${h(m.latitude||'')}"></div><div class="field"><label>Longitude</label><input id="memberLongitude" type="number" step="any" value="${h(m.longitude||'')}"></div></div></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="consumer-save" onclick="saveMemberCoordinates('${id}')">✓ Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal');}
-function saveMemberCoordinates(id){const m=state.members.find(x=>x.id===id),lat=parseFloat(document.getElementById('memberLatitude').value),lng=parseFloat(document.getElementById('memberLongitude').value);if(!m||!Number.isFinite(lat)||!Number.isFinite(lng)||lat<-90||lat>90||lng<-180||lng>180){toast('Informe latitude e longitude válidas.');return;}m.latitude=lat;m.longitude=lng;m.geoStatus='Localizado manualmente';save('members');closeModal();toast('Coordenadas salvas.');}
+async function saveMemberCoordinates(id){const m=state.members.find(x=>x.id===id),lat=parseFloat(document.getElementById('memberLatitude').value),lng=parseFloat(document.getElementById('memberLongitude').value);if(!m||!Number.isFinite(lat)||!Number.isFinite(lng)||lat<-90||lat>90||lng<-180||lng>180){toast('Informe latitude e longitude válidas.');return;}await MembersStore.saveGeo(id,{latitude:lat,longitude:lng,geoStatus:'Localizado manualmente'});closeModal();toast('Coordenadas salvas.');}
 function openScaleConfig(){const c=state.settings.scale||{};openModal('Configuração da Balança',`<div class="scale-config"><h4>Configurar</h4><label><input id="scaleCertified" type="checkbox" ${c.certified!==false?'checked':''}> Mostrar somente modelos homologados</label><div class="field"><label>Modelo</label><select id="scaleModel"><option value="">Selecione...</option><option>Toledo</option><option>Filizola</option><option>Urano</option><option>Elgin</option></select></div><div class="row"><div class="field"><label>Intervalo (ms)</label><input id="scaleInterval" type="number" value="${Number(c.interval)||1000}"></div><div class="field"><label>Timeout (ms)</label><input id="scaleTimeout" type="number" value="${Number(c.timeout)||3000}"></div></div><div class="row"><div class="field"><label>Porta</label><select id="scalePort"><option></option><option>COM1</option><option>COM2</option><option>COM3</option></select></div><div class="field"><label>Baud</label><select id="scaleBaud"><option>9600</option><option>19200</option><option>115200</option></select></div></div><div class="row"><div class="field"><label>Data Bits</label><select id="scaleData"><option>8</option><option>7</option></select></div><div class="field"><label>Stop Bits</label><select id="scaleStop"><option>1</option><option>2</option></select></div></div><div class="field" style="width:50%"><label>Paridade</label><select id="scaleParity"><option>Nenhuma</option><option>Par</option><option>Ímpar</option></select></div><h4>Método de captura do peso na tela do pedido:</h4><div class="scale-capture"><label><input type="radio" name="scaleCapture" value="manual" ${c.capture!=='auto'?'checked':''}> <span><b>Padrão (Recomendado)</b> — captura ao confirmar o peso.</span></label><label><input type="radio" name="scaleCapture" value="auto" ${c.capture==='auto'?'checked':''}> <span><b>Automático</b> — detecta o peso ao pesar o item.</span></label></div><h4>Ativar</h4><label><input id="scaleEnabled" type="checkbox" ${c.enabled?'checked':''}> Integração com a balança</label><p class="sub">A ativação real exige balança conectada e driver compatível.</p></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="saveScaleConfig()">✓ Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('scale-config-modal');}
 function saveScaleConfig(){state.settings.scale={certified:document.getElementById('scaleCertified').checked,model:document.getElementById('scaleModel').value,interval:Number(document.getElementById('scaleInterval').value)||1000,timeout:Number(document.getElementById('scaleTimeout').value)||3000,port:document.getElementById('scalePort').value,baud:document.getElementById('scaleBaud').value,dataBits:document.getElementById('scaleData').value,stopBits:document.getElementById('scaleStop').value,parity:document.getElementById('scaleParity').value,capture:document.querySelector('input[name="scaleCapture"]:checked').value,enabled:document.getElementById('scaleEnabled').checked};save('settings');closeModal();toast('Configuração da balança salva.');}
 function openAppModuleConfig(name){const modules=state.settings.appModules||{},c=modules[name]||{},profiles={'Mobile':{fields:['Código do estabelecimento','Chave de sincronização'],options:['Sincronizar produtos','Sincronizar clientes','Permitir lançamento de pedidos']},'Connect':{fields:['Endereço do servidor','Token de acesso'],options:['Sincronizar automaticamente','Registrar falhas na fila de eventos']},'Emissão Fiscal':{fields:['CNPJ do emitente','Série fiscal'],options:['Ambiente de homologação','Enviar documento após finalizar pedido']},'TEF':{fields:['Código da loja','Terminal lógico'],options:['Exigir confirmação da operadora','Imprimir comprovante']}}[name]||{fields:['Identificador','Credencial'],options:['Ativar sincronização']};openModal(name,`<div class="app-config-body"><div class="app-status"><b>${h(name)}</b><span class="tag ${c.enabled?'tag-green':'tag-gray'}">${c.enabled?'Configurado':'Não configurado'}</span></div><p>Este módulo depende de licença, serviço externo ou equipamento compatível.</p>${profiles.fields.map((label,i)=>`<div class="field"><label>${label}</label><input id="appField${i}" ${i?'type="password"':''} value="${h((c.fields||[])[i]||'')}"></div>`).join('')}<div class="field"><label>Ambiente</label><select id="appEnvironment"><option ${c.environment==='Homologação'?'selected':''}>Homologação</option><option ${c.environment==='Produção'?'selected':''}>Produção</option></select></div>${profiles.options.map((label,i)=>`<label style="display:block;margin:10px 0"><input class="appOption" type="checkbox" ${c.options&&c.options[i]?'checked':''}> ${label}</label>`).join('')}<label style="display:block;margin-top:16px"><input id="appEnabled" type="checkbox" ${c.enabled?'checked':''}> Ativar após validar licença, credenciais e equipamento</label><p class="sub">A configuração é armazenada localmente; nenhuma comunicação externa será simulada sem credenciais e contrato válidos.</p></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="op-btn" onclick="testAppModuleConfig('${name}')">Testar requisitos</button><button class="consumer-save" onclick="saveAppModuleConfig('${name}',${profiles.fields.length})">✓ Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
@@ -1787,14 +2031,21 @@ function deleteProduct(id){
 }
 
 /* ============ ASSOCIADOS ============ */
-let selectedMemberId=null, memberOptionsOpen=false, memberShowMore=false;
+let selectedMemberId=null, memberOptionsOpen=false, memberShowMore=false, memberSearchQuery='', memberSearchTypeValue='Busca Padrão';
 function selectMemberRow(id){selectedMemberId=id;renderAssociados();}
 function toggleMemberOptions(){memberOptionsOpen=!memberOptionsOpen;renderAssociados();}
+if(typeof document.addEventListener==='function')document.addEventListener('click',event=>{
+  if(!memberOptionsOpen) return;
+  const path = typeof event.composedPath==='function' ? event.composedPath() : [];
+  if(path.some(node=>node.classList && node.classList.contains('pdv-menu-wrap'))) return;
+  memberOptionsOpen=false; renderAssociados();
+});
 function editSelectedMember(){if(!selectedMemberId){toast('Selecione um cliente para editar.');return;}openMemberModal(selectedMemberId);}
+function archiveSelectedMember(){if(!selectedMemberId){toast('Selecione um cliente para arquivar.');return;}deleteMember(selectedMemberId);}
 function openMemberArchiveManager(){memberOptionsOpen=false;const archived=state.members.filter(m=>m.archived);openModal('Clientes Arquivados',`<div class="finance-grid" style="height:390px"><table><thead><tr><th>Cliente</th><th>Arquivado em</th><th>Arquivado por</th><th>Ação</th></tr></thead><tbody>${archived.map(m=>`<tr><td>${h(m.name)}</td><td>${reportDateTime(m.archivedAt)}</td><td>${h(m.archivedBy||'—')}</td><td><button class="op-mini" onclick="restoreMember('${m.id}')">Restaurar</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Nenhum cliente arquivado.</td></tr>'}</tbody></table></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
-function restoreMember(id){const member=state.members.find(m=>m.id===id);if(!member)return;member.archived=false;delete member.archivedAt;delete member.archivedBy;save('members');closeModal();renderAll();toast('Cliente restaurado.');}
+async function restoreMember(id){const member=state.members.find(m=>m.id===id);if(!member)return;await MembersStore.restore(id);closeModal();renderAll();toast('Cliente restaurado.');}
 function exportMembersCsv(){const cols=['Nome','Telefone','E-mail','Endereço','Número','Bairro','Cidade','UF','CPF/CNPJ','Cota','Saldo devedor'];const csv=[cols,...state.members.map(m=>[m.name,m.phone||'',m.email||'',m.address||'',m.addressNumber||'',m.district||'',m.city||'',m.uf||'',m.document||'',m.code||'',Number(m.debt)||0])].map(row=>row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';')).join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='clientes-'+todayStr()+'.csv';a.click();URL.revokeObjectURL(a.href);logAction('Clientes exportados em CSV');}
-function filterMemberRows(){const q=(document.getElementById('memberSearch').value||'').toLowerCase(),type=(document.getElementById('memberSearchType')||{}).value||'Busca Padrão';document.querySelectorAll('#memberRows tr[data-search]').forEach(r=>{const cells=r.cells,text=type==='Nome'?cells[0]?.textContent:type==='Telefone'?cells[1]?.textContent:type==='Endereço'?[cells[2]?.textContent,cells[3]?.textContent,cells[4]?.textContent].join(' '):r.dataset.search;r.style.display=String(text||'').toLowerCase().includes(q)?'':'none';});}
+function filterMemberRows(){memberSearchQuery=document.getElementById('memberSearch').value||'';memberSearchTypeValue=(document.getElementById('memberSearchType')||{}).value||'Busca Padrão';const q=memberSearchQuery.toLowerCase(),type=memberSearchTypeValue;document.querySelectorAll('#memberRows tr[data-search]').forEach(r=>{const cells=r.cells,text=type==='Nome'?cells[0]?.textContent:type==='Telefone'?cells[1]?.textContent:type==='Endereço'?[cells[2]?.textContent,cells[3]?.textContent,cells[4]?.textContent].join(' '):r.dataset.search;r.style.display=String(text||'').toLowerCase().includes(q)?'':'none';});}
 const IMPORT_MEMBER_FIELDS = [
   {key:'name', label:'Nome', required:true, guesses:['Nome','Cliente']},
   {key:'phone', label:'Telefone', required:false, guesses:['Telefone','Telefone Principal','Celular']},
@@ -1932,26 +2183,30 @@ function fixExistingMemberCotas(){
     </div>
   `);
 }
-function confirmFixExistingMemberCotas(){
+async function confirmFixExistingMemberCotas(){
   const candidates = state.members.filter(m=>!m.code && /^(.*?)\s*-\s*\d+/.test(m.name||''));
   let fixed=0;
+  const updates=[];
   candidates.forEach(m=>{
     const r = extractCotaFromName(m.name);
     if(!r.code) return;
     const dup = state.members.find(x=>x.id!==m.id && x.code===r.code);
     if(dup) return;
-    m.name = r.name; m.code = r.code; fixed++;
+    updates.push(MembersStore.update(m.id, { name:r.name, code:r.code }));
+    fixed++;
   });
-  save('members'); closeModal(); renderAll();
+  await Promise.all(updates);
+  closeModal(); renderAll();
   toast(fixed+' cliente(s) corrigido(s).');
   logAction('Correção de cota aplicada em '+fixed+' clientes já cadastrados');
 }
-function startMappedMembersImport(){
+async function startMappedMembersImport(){
   const colIndex = name => importMembersHeaders.indexOf(name);
   const idx = {}; Object.keys(importMembersMapping).forEach(k=>idx[k]=colIndex(importMembersMapping[k]));
   const val = (r,k) => idx[k]>=0 ? r[idx[k]] : '';
   const extractCota = document.getElementById('impMemExtractCota')?.checked;
   let count=0;
+  const newMembers=[]; const updates=[];
   importMembersRows.forEach(r=>{
     let name = String(val(r,'name')||'').trim();
     let code = String(val(r,'code')||'').trim();
@@ -1975,18 +2230,20 @@ function startMappedMembersImport(){
       document: document_,
       code
     };
-    if(existing) Object.assign(existing,data);
-    else state.members.push({id:uid(), debt:Number(String(val(r,'debt')||0).toString().replace(',','.'))||0, tags:[], ...data});
+    if(existing) updates.push(MembersStore.update(existing.id, data));
+    else newMembers.push({ debt:Number(String(val(r,'debt')||0).toString().replace(',','.'))||0, tags:[], ...data });
     count++;
   });
-  save('members'); closeModal(); renderAll();
+  await Promise.all(updates);
+  if(newMembers.length) await MembersStore.bulkImport(newMembers);
+  closeModal(); renderAll();
   toast(count+' cliente(s) importado(s) ou atualizado(s).');
   logAction('Clientes importados de '+(importMembersSheetName||'planilha selecionada'));
 }
-function importMembersCsv(){memberOptionsOpen=false;const input=document.createElement('input');input.type='file';input.accept='.csv,text/csv';input.onchange=()=>{const file=input.files&&input.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{const rows=String(reader.result||'').replace(/^\ufeff/,'').split(/\r?\n/).filter(Boolean).slice(1);let count=0;rows.forEach(line=>{const c=line.split(';').map(x=>x.replace(/^"|"$/g,'').replace(/""/g,'"'));if(!c[0])return;const existing=state.members.find(m=>(c[9]&&m.code===c[9])||(c[8]&&m.document===c[8]));const data={name:c[0],phone:c[1]||'',email:c[2]||'',address:c[3]||'',addressNumber:c[4]||'',district:c[5]||'',city:c[6]||'',uf:(c[7]||'').toUpperCase(),document:c[8]||'',code:c[9]||''};if(existing)Object.assign(existing,data);else state.members.push({id:uid(),debt:Number(String(c[10]||0).replace(',','.'))||0,tags:[],...data});count++;});save('members');renderAll();toast(count+' cliente(s) importado(s) ou atualizado(s).');};reader.readAsText(file,'UTF-8');};input.click();}
+function importMembersCsv(){memberOptionsOpen=false;const input=document.createElement('input');input.type='file';input.accept='.csv,text/csv';input.onchange=()=>{const file=input.files&&input.files[0];if(!file)return;const reader=new FileReader();reader.onload=async ()=>{const rows=String(reader.result||'').replace(/^\ufeff/,'').split(/\r?\n/).filter(Boolean).slice(1);let count=0;const newMembers=[];const updates=[];rows.forEach(line=>{const c=line.split(';').map(x=>x.replace(/^"|"$/g,'').replace(/""/g,'"'));if(!c[0])return;const existing=state.members.find(m=>(c[9]&&m.code===c[9])||(c[8]&&m.document===c[8]));const data={name:c[0],phone:c[1]||'',email:c[2]||'',address:c[3]||'',addressNumber:c[4]||'',district:c[5]||'',city:c[6]||'',uf:(c[7]||'').toUpperCase(),document:c[8]||'',code:c[9]||''};if(existing)updates.push(MembersStore.update(existing.id,data));else newMembers.push({debt:Number(String(c[10]||0).replace(',','.'))||0,tags:[],...data});count++;});await Promise.all(updates);if(newMembers.length)await MembersStore.bulkImport(newMembers);renderAll();toast(count+' cliente(s) importado(s) ou atualizado(s).');};reader.readAsText(file,'UTF-8');};input.click();}
 function openMemberTagManager(){memberOptionsOpen=false;const tags=[...new Set([...(state.settings.memberTags||[]),...state.members.flatMap(m=>Array.isArray(m.tags)?m.tags:[])])].sort();openModal('Gerenciar Tags de Clientes',`<div class="consumer-form-frame"><div class="field"><label>Nova tag</label><div class="inline-create"><input id="newMemberTag"><button onclick="addMemberTag()">＋ Adicionar</button></div></div><div class="finance-grid" style="height:310px"><table><thead><tr><th>Tag</th><th>Clientes vinculados</th><th>Excluir</th></tr></thead><tbody>${tags.map(t=>`<tr><td>${h(t)}</td><td>${state.members.filter(m=>(m.tags||[]).includes(t)).length}</td><td><button class="op-mini" data-tag="${h(t)}" onclick="deleteMemberTag(this.dataset.tag)">✕</button></td></tr>`).join('')||'<tr><td colspan="3" class="empty">Nenhuma tag cadastrada.</td></tr>'}</tbody></table></div></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal');}
 function addMemberTag(){const tag=document.getElementById('newMemberTag').value.trim();if(!tag){toast('Informe a tag.');return;}state.settings.memberTags=[...new Set([...(state.settings.memberTags||[]),tag])];save('settings');closeModal();openMemberTagManager();}
-function deleteMemberTag(tag){if(!confirm('Remover esta tag de todos os clientes?'))return;state.members.forEach(m=>m.tags=(m.tags||[]).filter(x=>x!==tag));state.settings.memberTags=(state.settings.memberTags||[]).filter(x=>x!==tag);save('members');save('settings');closeModal();openMemberTagManager();}
+async function deleteMemberTag(tag){if(!confirm('Remover esta tag de todos os clientes?'))return;await MembersStore.removeTagEverywhere(tag);state.settings.memberTags=(state.settings.memberTags||[]).filter(x=>x!==tag);save('settings');closeModal();openMemberTagManager();}
 function openMemberTagFilter(){memberOptionsOpen=false;const tags=[...new Set([...(state.settings.memberTags||[]),...state.members.flatMap(m=>m.tags||[])])].sort();openModal('Filtrar por Tags',`<div class="consumer-form-frame"><div class="field"><label>Tag</label><select id="memberTagFilter"><option value="">Todas</option>${tags.map(t=>`<option>${h(t)}</option>`).join('')}</select></div></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="consumer-save" onclick="applyMemberTagFilter()">⌕ Filtrar</button></div>`);}
 function applyMemberTagFilter(){const tag=document.getElementById('memberTagFilter').value;closeModal();const input=document.getElementById('memberSearch');if(input)input.value=tag?`Tag: ${tag}`:'';document.querySelectorAll('#memberRows tr[data-member-id]').forEach(row=>{const member=state.members.find(m=>m.id===row.dataset.memberId);row.style.display=!tag||(member&&member.tags||[]).includes(tag)?'':'none';});}
 if(typeof document.addEventListener==='function')document.addEventListener('click',event=>{const button=event.target.closest&&event.target.closest('button');if(!button)return;const label=button.textContent.trim();if(label.includes('Importar Clientes')){event.preventDefault();event.stopImmediatePropagation();openMembersImportWizard();}else if(label.includes('Gerenciar Tags')){event.preventDefault();event.stopImmediatePropagation();openMemberTagManager();}else if(label.includes('Filtrar Tags')){event.preventDefault();event.stopImmediatePropagation();openMemberTagFilter();}},true);
@@ -1995,42 +2252,32 @@ function renderAssociados(){
   const el = document.getElementById('view-associados');
   const activeMembers=state.members.filter(m=>!m.archived);
   const rows=activeMembers.length?activeMembers.map(m=>{const sales=state.sales.filter(s=>s.memberId===m.id&&s.status==='closed').sort((a,b)=>new Date(b.closedAt)-new Date(a.closedAt));const address=[m.address,m.addressNumber,m.district].filter(Boolean).join(', ');return `<tr data-member-id="${m.id}" data-search="${h(([m.name,m.phone,m.email,address,m.code,...(m.tags||[])].join(' ')).toLowerCase())}" class="${selectedMemberId===m.id?'selected':''}" onclick="selectMemberRow('${m.id}')" ondblclick="editMember('${m.id}')"><td>${h(m.name)}</td><td>${h(m.phone||'—')}</td><td>${h(address||'—')}</td><td>${h(m.addressNumber||'—')}</td><td>${h(m.district||'—')}</td><td>${h(m.email||'—')}</td><td class="mono">${sales.length}</td><td>${sales.length?new Date(sales[0].closedAt).toLocaleDateString('pt-BR'):'—'}</td>${memberShowMore?`<td>${h(m.code||'—')}</td><td class="mono">${fmt(m.debt)}</td>`:''}</tr>`}).join(''):`<tr><td colspan="${memberShowMore?10:8}" class="empty">Não há registros para mostrar</td></tr>`;
-  el.innerHTML=`<div class="workspace-gray"><section class="op-window"><header class="op-titlebar"><span>Clientes</span><span class="op-controls"><span onclick="closeOperationalWindow()" style="cursor:pointer" title="Fechar">×</span></span></header><div class="op-toolbar"><div class="op-search"><input id="memberSearch" placeholder="Pesquisar cliente..."></div><select class="op-btn" id="memberSearchType"><option>Busca Padrão</option><option>Nome</option><option>Telefone</option><option>Endereço</option></select><button class="op-btn" onclick="filterMemberRows()"><span class="op-ico">⌕</span> Buscar</button><div class="op-toolbar-spacer"></div><div class="pdv-menu-wrap"><button class="op-btn" onclick="toggleMemberOptions()">••• &nbsp; Opções ▾</button>${memberOptionsOpen?`<div class="pdv-menu" style="top:48px;min-width:210px"><button onclick="memberShowMore=!memberShowMore;memberOptionsOpen=false;renderAssociados()">▦ &nbsp; Mais Colunas</button><button onclick="window.print()">▣ &nbsp; Imprimir</button><button onclick="exportMembersCsv()">⇩ &nbsp; Exportar CSV</button><button onclick="openMembersImportWizard()">⇧ &nbsp; Importar Clientes…</button><button onclick="fixExistingMemberCotas()">✎ &nbsp; Corrigir Cota nos Nomes Já Importados</button><button onclick="openMemberTagManager()">⚙ &nbsp; Gerenciar Tags</button><button onclick="openMemberTagFilter()">▽ &nbsp; Filtrar Tags</button><button onclick="openMemberArchiveManager()">▤ &nbsp; Clientes Arquivados</button></div>`:''}</div><button class="op-btn" onclick="editSelectedMember()" ${selectedMemberId?'':'disabled'}><span class="op-ico">✎</span> Editar</button><button class="op-btn primary" onclick="openMemberModal()"><span class="op-ico">＋</span> Novo</button></div><div class="op-grid"><table style="min-width:1200px"><thead><tr><th>Nome</th><th>Telefone Principal</th><th>Endereço</th><th>Núm.</th><th>Bairro</th><th>E-mail</th><th>Qtd. Pedidos</th><th>Últ. Pedido</th>${memberShowMore?'<th>Cota/Código</th><th>Saldo Devedor</th>':''}</tr></thead><tbody id="memberRows">${rows}</tbody></table></div><footer class="op-footer"><button class="op-mini" onclick="openMemberArchiveManager()">Arquivados: ${state.members.length-activeMembers.length}</button><span>Mostrando ${activeMembers.length} de ${state.members.length} registros.</span></footer></section></div>`;
+  el.innerHTML=`<div class="workspace-gray"><section class="op-window"><header class="op-titlebar"><span>Clientes</span><span class="op-controls"><span onclick="closeOperationalWindow()" style="cursor:pointer" title="Fechar">×</span></span></header><div class="op-toolbar"><div class="op-search"><input id="memberSearch" placeholder="Pesquisar cliente..." value="${h(memberSearchQuery)}"></div><select class="op-btn" id="memberSearchType">${['Busca Padrão','Nome','Telefone','Endereço'].map(x=>`<option ${memberSearchTypeValue===x?'selected':''}>${x}</option>`).join('')}</select><button class="op-btn" onclick="filterMemberRows()"><span class="op-ico">⌕</span> Buscar</button><div class="op-toolbar-spacer"></div><div class="pdv-menu-wrap"><button class="op-btn" onclick="toggleMemberOptions()">••• &nbsp; Opções ▾</button>${memberOptionsOpen?`<div class="pdv-menu" style="top:48px;min-width:210px"><button onclick="memberShowMore=!memberShowMore;memberOptionsOpen=false;renderAssociados()">▦ &nbsp; Mais Colunas</button><button onclick="window.print()">▣ &nbsp; Imprimir</button><button onclick="exportMembersCsv()">⇩ &nbsp; Exportar CSV</button><button onclick="openMembersImportWizard()">⇧ &nbsp; Importar Clientes…</button><button onclick="fixExistingMemberCotas()">✎ &nbsp; Corrigir Cota nos Nomes Já Importados</button><button onclick="openMemberTagManager()">⚙ &nbsp; Gerenciar Tags</button><button onclick="openMemberTagFilter()">▽ &nbsp; Filtrar Tags</button><button onclick="openMemberArchiveManager()">▤ &nbsp; Clientes Arquivados</button></div>`:''}</div><button class="op-btn" onclick="editSelectedMember()" ${selectedMemberId?'':'disabled'}><span class="op-ico">✎</span> Editar</button><button class="op-btn" onclick="archiveSelectedMember()" ${selectedMemberId?'':'disabled'}><span class="op-ico">▤</span> Arquivar</button><button class="op-btn primary" onclick="openMemberModal()"><span class="op-ico">＋</span> Novo</button></div><div class="op-grid"><table style="min-width:1200px"><thead><tr><th>Nome</th><th>Telefone Principal</th><th>Endereço</th><th>Núm.</th><th>Bairro</th><th>E-mail</th><th>Qtd. Pedidos</th><th>Últ. Pedido</th>${memberShowMore?'<th>Cota/Código</th><th>Saldo Devedor</th>':''}</tr></thead><tbody id="memberRows">${rows}</tbody></table></div><footer class="op-footer"><button class="op-mini" onclick="openMemberArchiveManager()">Arquivados: ${state.members.length-activeMembers.length}</button><span>Mostrando ${activeMembers.length} de ${state.members.length} registros.</span></footer></section></div>`;
   document.getElementById('memberSearch').oninput=filterMemberRows;
+  document.getElementById('memberSearchType').onchange=filterMemberRows;
+  filterMemberRows();
 }
 function openMemberModal(id){
   const m = id ? state.members.find(x=>x.id===id) : null;
-  openModal(m?'Editar Cliente':'Novo Cliente', `<div class="record-body"><div class="record-tabs"><button data-tab="principal" class="active" onclick="setProductModalTab('principal')">Dados Principais</button><button data-tab="secundarios" onclick="setProductModalTab('secundarios')">Dados Secundários</button></div><section class="record-pane active" data-pane="principal"><div class="field"><label>Nome</label><input id="mName" value="${h(m?m.name:'')}"></div><div class="grid3"><div class="field"><label>Telefone Principal</label><input id="mPhone" value="${h(m?m.phone||'':'')}"></div><div class="field"><label>E-mail</label><input id="mEmail" type="email" value="${h(m?m.email||'':'')}"></div><div class="field"><label>Sexo</label><select id="mGender"><option value="">—</option><option ${m&&m.gender==='Feminino'?'selected':''}>Feminino</option><option ${m&&m.gender==='Masculino'?'selected':''}>Masculino</option><option ${m&&m.gender==='Outro'?'selected':''}>Outro</option></select></div></div><div class="grid3"><div class="field"><label>CPF ou CNPJ</label><input id="mDocument" value="${h(m?m.document||'':'')}"></div><div class="field"><label>RG ou IE</label><input id="mRegistry" value="${h(m?m.registry||'':'')}"></div><div class="field"><label>Data de Nascimento</label><input id="mBirth" type="date" value="${h(m?m.birthDate||'':'')}"></div></div><h3 style="font-size:13px;border-bottom:1px solid #ccc;padding-bottom:8px">Endereço Principal</h3><div class="grid4"><div class="field"><label>CEP</label><input id="mZip" value="${h(m?m.zip||'':'')}"></div><div class="field" style="grid-column:span 2"><label>Endereço</label><input id="mAddress" value="${h(m?m.address||'':'')}"></div><div class="field"><label>Número</label><input id="mNumber" value="${h(m?m.addressNumber||'':'')}"></div></div><div class="grid4"><div class="field"><label>Complemento</label><input id="mComplement" value="${h(m?m.addressComplement||'':'')}"></div><div class="field"><label>Bairro</label><input id="mDistrict" value="${h(m?m.district||'':'')}"></div><div class="field"><label>Cidade</label><input id="mCity" value="${h(m?m.city||'São Paulo':'São Paulo')}"></div><div class="field"><label>UF</label><input id="mUf" maxlength="2" value="${h(m?m.uf||'SP':'SP')}"></div></div><div class="row"><div class="field"><label>Ponto de Referência</label><input id="mReference" value="${h(m?m.reference||'':'')}"></div><div class="field"><label>Código IBGE</label><input id="mIbge" value="${h(m?m.ibge||'':'')}"></div></div></section><section class="record-pane" data-pane="secundarios"><div class="grid3"><div class="field"><label>Cota / Código</label><input id="mCode" value="${h(m?m.code||'':'')}"></div><div class="field"><label>Tags</label><input id="mTags" value="${h(m?(m.tags||[]).join(', '):'')}" placeholder="VIP, delivery, clube"></div><div class="field"><label>Pontos de fidelidade</label><input value="${Number(m&&m.points)||0}" disabled></div></div><div class="field"><label>Observações</label><textarea id="mNotes" rows="5">${h(m?m.notes||'':'')}</textarea></div><p class="sub">Saldo devedor atual: <b>${fmt(m?m.debt:0)}</b>. A quitação continua disponível na listagem financeira.</p></section><div class="record-actions"><button class="op-btn" onclick="closeModal()">Voltar</button><button class="op-btn primary" id="mSaveBtn">Salvar e Voltar</button></div></div>`,true);
+  openModal(m?'Editar Cliente':'Novo Cliente', `<div class="record-body"><div class="record-tabs"><button data-tab="principal" class="active" onclick="setProductModalTab('principal')">Dados Principais</button><button data-tab="secundarios" onclick="setProductModalTab('secundarios')">Dados Secundários</button></div><section class="record-pane active" data-pane="principal"><div class="field"><label>Nome</label><input id="mName" value="${h(m?m.name:'')}"></div><div class="grid3"><div class="field"><label>Telefone Principal</label><input id="mPhone" value="${h(m?m.phone||'':'')}"></div><div class="field"><label>E-mail</label><input id="mEmail" type="email" value="${h(m?m.email||'':'')}"></div><div class="field"><label>Sexo</label><select id="mGender"><option value="">—</option><option ${m&&m.gender==='Feminino'?'selected':''}>Feminino</option><option ${m&&m.gender==='Masculino'?'selected':''}>Masculino</option><option ${m&&m.gender==='Outro'?'selected':''}>Outro</option></select></div></div><div class="grid3"><div class="field"><label>CPF ou CNPJ</label><input id="mDocument" value="${h(m?m.document||'':'')}"></div><div class="field"><label>RG ou IE</label><input id="mRegistry" value="${h(m?m.registry||'':'')}"></div><div class="field"><label>Data de Nascimento</label><input id="mBirth" type="date" value="${h(m?m.birthDate||'':'')}"></div></div><h3 style="font-size:13px;border-bottom:1px solid #ccc;padding-bottom:8px">Endereço Principal</h3><div class="grid4"><div class="field"><label>CEP</label><input id="mZip" value="${h(m?m.zip||'':'')}"></div><div class="field" style="grid-column:span 2"><label>Endereço</label><input id="mAddress" value="${h(m?m.address||'':'')}"></div><div class="field"><label>Número</label><input id="mNumber" value="${h(m?m.addressNumber||'':'')}"></div></div><div class="grid4"><div class="field"><label>Complemento</label><input id="mComplement" value="${h(m?m.addressComplement||'':'')}"></div><div class="field"><label>Bairro</label><input id="mDistrict" value="${h(m?m.district||'':'')}"></div><div class="field"><label>Cidade</label><input id="mCity" value="${h(m?m.city||'São Paulo':'São Paulo')}"></div><div class="field"><label>UF</label><input id="mUf" maxlength="2" value="${h(m?m.uf||'SP':'SP')}"></div></div><div class="row"><div class="field"><label>Ponto de Referência</label><input id="mReference" value="${h(m?m.reference||'':'')}"></div><div class="field"><label>Código IBGE</label><input id="mIbge" value="${h(m?m.ibge||'':'')}"></div></div></section><section class="record-pane" data-pane="secundarios"><div class="grid3"><div class="field"><label>Cota / Código</label><input id="mCode" value="${h(m?m.code||'':'')}"></div><div class="field"><label>Tags</label><input id="mTags" value="${h(m?(m.tags||[]).join(', '):'')}" placeholder="VIP, delivery, clube"></div><div class="field"><label>Pontos de fidelidade</label><input value="${Number(m&&m.points)||0}" disabled></div></div><div class="field"><label>Observações</label><textarea id="mNotes" rows="5">${h(m?m.notes||'':'')}</textarea></div><div class="field"><label>Limite de crédito</label><input id="mCreditLimit" type="number" min="0" step="0.01" value="${Number(m&&m.creditLimit)||0}"></div><p class="sub">Saldo devedor atual: <b>${fmt(m?m.debt:0)}</b>. Consumo é bloqueado quando o saldo passa do limite de crédito. Lançamentos ficam em Financeiro → Fiado.</p></section><div class="record-actions"><button class="op-btn" onclick="closeModal()">Voltar</button><button class="op-btn primary" id="mSaveBtn">Salvar e Voltar</button></div></div>`,true);
   document.querySelector('#modalRoot .modal').classList.add('record-modal');
-  document.getElementById('mSaveBtn').onclick = ()=>{
+  document.getElementById('mSaveBtn').onclick = async ()=>{
     const name = document.getElementById('mName').value.trim();
     if(!name){ toast('Informe o nome do associado.'); return; }
-    const data = { name, code:document.getElementById('mCode').value.trim(), phone:document.getElementById('mPhone').value.trim(),email:document.getElementById('mEmail').value.trim(),gender:document.getElementById('mGender').value,document:document.getElementById('mDocument').value.trim(),registry:document.getElementById('mRegistry').value.trim(),birthDate:document.getElementById('mBirth').value,zip:document.getElementById('mZip').value.trim(),address:document.getElementById('mAddress').value.trim(),addressNumber:document.getElementById('mNumber').value.trim(),addressComplement:document.getElementById('mComplement').value.trim(),district:document.getElementById('mDistrict').value.trim(),city:document.getElementById('mCity').value.trim(),uf:document.getElementById('mUf').value.trim().toUpperCase(),reference:document.getElementById('mReference').value.trim(),ibge:document.getElementById('mIbge').value.trim(),tags:document.getElementById('mTags').value.split(',').map(x=>x.trim()).filter(Boolean),notes:document.getElementById('mNotes').value.trim() };
-    if(m){ Object.assign(m,data); } else { state.members.push({id:uid(), debt:0, ...data}); }
-    save('members'); closeModal(); renderAll(); toast('Associado salvo.');
+    const data = { name, code:document.getElementById('mCode').value.trim(), phone:document.getElementById('mPhone').value.trim(),email:document.getElementById('mEmail').value.trim(),gender:document.getElementById('mGender').value,document:document.getElementById('mDocument').value.trim(),registry:document.getElementById('mRegistry').value.trim(),birthDate:document.getElementById('mBirth').value,zip:document.getElementById('mZip').value.trim(),address:document.getElementById('mAddress').value.trim(),addressNumber:document.getElementById('mNumber').value.trim(),addressComplement:document.getElementById('mComplement').value.trim(),district:document.getElementById('mDistrict').value.trim(),city:document.getElementById('mCity').value.trim(),uf:document.getElementById('mUf').value.trim().toUpperCase(),reference:document.getElementById('mReference').value.trim(),ibge:document.getElementById('mIbge').value.trim(),tags:document.getElementById('mTags').value.split(',').map(x=>x.trim()).filter(Boolean),notes:document.getElementById('mNotes').value.trim(),creditLimit:Math.max(0,parseFloat(document.getElementById('mCreditLimit').value)||0) };
+    const saved = m ? await MembersStore.update(m.id, data) : await MembersStore.create(data);
+    closeModal(); renderAll(); toast('Associado salvo.');
+    return saved;
   };
 }
 const openMemberModalBase=openMemberModal;
-openMemberModal=function(id){openMemberModalBase(id);const member=id?state.members.find(x=>x.id===id):null;window.memberDependentsDraft=Array.isArray(member&&member.dependents)?member.dependents.map(d=>({...d})):[];const tabs=document.querySelector('#modalRoot .record-tabs'),actions=document.querySelector('#modalRoot .record-actions'),body=actions&&actions.parentElement;if(!tabs||!actions||!body)return;tabs.insertAdjacentHTML('beforeend','<button data-tab="dependentes" onclick="setProductModalTab(\'dependentes\');renderMemberDependents()">Dependentes</button>');actions.insertAdjacentHTML('beforebegin','<section class="record-pane" data-pane="dependentes"><div class="op-toolbar" style="padding:0 0 10px"><div><b>Dependentes vinculados à cota</b><p class="sub">Controle individualmente quem pode fazer pedidos.</p></div><span class="op-toolbar-spacer"></span><button type="button" class="op-btn primary" onclick="addMemberDependentRow()">＋ Novo Dependente</button></div><div class="finance-grid" style="height:350px"><table><thead><tr><th>Nome</th><th>Parentesco</th><th>Documento/Identificação</th><th>Pode pedir</th><th>Excluir</th></tr></thead><tbody id="memberDependentRows"></tbody></table></div></section>');const saveButton=document.getElementById('mSaveBtn'),originalSave=saveButton.onclick;saveButton.onclick=()=>{syncMemberDependentsDraft();const name=document.getElementById('mName').value.trim();originalSave();const saved=member||state.members.slice().reverse().find(x=>x.name===name);if(saved){saved.dependents=window.memberDependentsDraft.map(d=>({...d,name:String(d.name||'').trim()})).filter(d=>d.name);save('members');}};renderMemberDependents();};
+openMemberModal=function(id){openMemberModalBase(id);const member=id?state.members.find(x=>x.id===id):null;window.memberDependentsDraft=Array.isArray(member&&member.dependents)?member.dependents.map(d=>({...d})):[];const tabs=document.querySelector('#modalRoot .record-tabs'),actions=document.querySelector('#modalRoot .record-actions'),body=actions&&actions.parentElement;if(!tabs||!actions||!body)return;tabs.insertAdjacentHTML('beforeend','<button data-tab="dependentes" onclick="setProductModalTab(\'dependentes\');renderMemberDependents()">Dependentes</button>');actions.insertAdjacentHTML('beforebegin','<section class="record-pane" data-pane="dependentes"><div class="op-toolbar" style="padding:0 0 10px"><div><b>Dependentes vinculados à cota</b><p class="sub">Controle individualmente quem pode fazer pedidos.</p></div><span class="op-toolbar-spacer"></span><button type="button" class="op-btn primary" onclick="addMemberDependentRow()">＋ Novo Dependente</button></div><div class="finance-grid" style="height:350px"><table><thead><tr><th>Nome</th><th>Parentesco</th><th>Documento/Identificação</th><th>Pode pedir</th><th>Excluir</th></tr></thead><tbody id="memberDependentRows"></tbody></table></div></section>');const saveButton=document.getElementById('mSaveBtn'),originalSave=saveButton.onclick;saveButton.onclick=async ()=>{syncMemberDependentsDraft();const saved=await originalSave();if(saved){const dependents=window.memberDependentsDraft.map(d=>({...d,name:String(d.name||'').trim()})).filter(d=>d.name);await MembersStore.saveDependents(saved.id,dependents);}};renderMemberDependents();};
 function renderMemberDependents(){const body=document.getElementById('memberDependentRows');if(!body)return;body.innerHTML=(window.memberDependentsDraft||[]).map((d,index)=>`<tr data-dependent-index="${index}"><td><input class="dep-name" value="${h(d.name||'')}" placeholder="Nome completo"></td><td><input class="dep-relationship" value="${h(d.relationship||'')}" placeholder="Filho, cônjuge..."></td><td><input class="dep-document" value="${h(d.document||'')}"></td><td style="text-align:center"><label><input class="dep-can-order" type="checkbox" ${d.canOrder!==false?'checked':''}> <span>${d.canOrder!==false?'Autorizado':'Bloqueado'}</span></label></td><td><button type="button" class="op-mini" onclick="removeMemberDependent(${index})">✕</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">Nenhum dependente cadastrado.</td></tr>';body.querySelectorAll('.dep-can-order').forEach(input=>input.onchange=()=>{input.nextElementSibling.textContent=input.checked?'Autorizado':'Bloqueado';});}
 function syncMemberDependentsDraft(){document.querySelectorAll('#memberDependentRows tr[data-dependent-index]').forEach(row=>{const d=window.memberDependentsDraft[Number(row.dataset.dependentIndex)];if(!d)return;d.name=row.querySelector('.dep-name').value.trim();d.relationship=row.querySelector('.dep-relationship').value.trim();d.document=row.querySelector('.dep-document').value.trim();d.canOrder=row.querySelector('.dep-can-order').checked;});}
 function addMemberDependentRow(){syncMemberDependentsDraft();window.memberDependentsDraft.push({id:uid(),name:'',relationship:'',document:'',canOrder:true});renderMemberDependents();setTimeout(()=>document.querySelector('#memberDependentRows tr:last-child .dep-name')?.focus(),0);}
 function removeMemberDependent(index){syncMemberDependentsDraft();window.memberDependentsDraft.splice(index,1);renderMemberDependents();}
 function editMember(id){ openMemberModal(id); }
-function deleteMember(id){const member=state.members.find(m=>m.id===id);if(!member)return;if(Number(member.debt)>0){toast('Quite o saldo devedor antes de arquivar este cliente.');return;}if(!confirm('Arquivar este cliente? O histórico de pedidos será preservado.'))return;member.archived=true;member.archivedAt=new Date().toISOString();member.archivedBy=currentUser.name;save('members');selectedMemberId=null;renderAll();toast('Cliente arquivado.');}
-function toggleSelectedMemberArchived(){const member=state.members.find(m=>m.id===selectedMemberId);if(!member){toast('Selecione um cliente.');return;}if(!member.archived&&Number(member.debt)>0){toast('Quite o saldo devedor antes de arquivar este cliente.');return;}member.archived=!member.archived;if(member.archived){member.archivedAt=new Date().toISOString();member.archivedBy=currentUser.name;}else{delete member.archivedAt;delete member.archivedBy;}save('members');renderAll();toast(member.archived?'Cliente arquivado.':'Cliente restaurado.');}
-function settleDebt(id){
-  const m = state.members.find(x=>x.id===id);
-  openModal('Registrar pagamento — '+m.name, `
-    <p class="sub">Saldo devedor atual: <b>${fmt(m.debt)}</b></p>
-    <div class="field"><label>Valor pago</label><input id="payAmount" type="number" step="0.01" value="${m.debt}"></div>
-    <button class="btn btn-primary btn-block" id="paySaveBtn">Confirmar pagamento</button>`);
-  document.getElementById('paySaveBtn').onclick = ()=>{
-    const v = parseFloat(document.getElementById('payAmount').value);
-    if(isNaN(v)||v<=0){ toast('Informe um valor válido.'); return; }
-    m.debt = Math.max(0, m.debt - v); save('members'); closeModal(); renderAll(); toast('Pagamento registrado.');
-  };
-}
+async function deleteMember(id){const member=state.members.find(m=>m.id===id);if(!member)return;if(Number(member.debt)>0){toast('Quite o saldo devedor antes de arquivar este cliente.');return;}if(!confirm('Arquivar este cliente? O histórico de pedidos será preservado.'))return;await MembersStore.archive(id,currentUser.name);selectedMemberId=null;renderAll();toast('Cliente arquivado.');}
 
 /* ============ USUÁRIOS ============ */
 function renderUsuarios(){
@@ -2441,7 +2688,7 @@ function closePdvClientSheet(){document.getElementById('pdvClientSheet')?.classL
 function filterPdvClients(q){const value=String(q).trim().toLowerCase(),tips=document.getElementById('pdvClientTips'),results=document.getElementById('pdvClientResults');if(!results)return;if(!value){tips.style.display='block';results.innerHTML='';return;}tips.style.display='none';const list=state.members.filter(m=>[m.name,m.phone,m.document,m.email,m.address,m.code].some(v=>String(v||'').toLowerCase().includes(value)));results.innerHTML=list.map(m=>`<div class="pdv-client-row"><div><b>${h(m.name)}</b><div class="sub">${h(m.phone||m.email||m.code||'Sem contato')}</div></div><button class="op-btn" onclick="selectPdvClient('${m.id}')">Vincular</button></div>`).join('')||'<p class="empty">Nenhum cliente encontrado.</p>';}
 function selectPdvClient(id){const m=state.members.find(x=>x.id===id);if(!m)return;currentSaleDraft.memberId=m.id;currentSaleDraft.customerName=m.name;closePdvClientSheet();toast('Cliente vinculado: '+m.name);}
 function openPdvQuickClient(){document.getElementById('pdvClientTips').style.display='none';document.getElementById('pdvClientResults').innerHTML='';document.getElementById('pdvQuickClient').classList.add('visible');document.getElementById('pdvNewClientName').focus();}
-function savePdvQuickClient(){const name=document.getElementById('pdvNewClientName').value.trim();if(!name){toast('Informe o nome do cliente.');return;}const m={id:uid(),name,phone:document.getElementById('pdvNewClientPhone').value.trim(),code:document.getElementById('pdvNewClientCode').value.trim(),debt:0,points:0};state.members.push(m);save('members');selectPdvClient(m.id);}
+async function savePdvQuickClient(){const name=document.getElementById('pdvNewClientName').value.trim();if(!name){toast('Informe o nome do cliente.');return;}const m=await MembersStore.create({name,phone:document.getElementById('pdvNewClientPhone').value.trim(),code:document.getElementById('pdvNewClientCode').value.trim()});selectPdvClient(m.id);}
 function togglePdvOrderOptions(force){const el=document.getElementById('pdvOrderOptions');if(el)el.classList.toggle('visible',force===undefined?!el.classList.contains('visible'):!!force);}
 function recalculatePdvOrder(){renderDraftItems();togglePdvOrderOptions(false);toast('Pedido recalculado.');}
 function printPdvConsumption(){window.print();}
@@ -2482,7 +2729,7 @@ function openPaymentModal(mode, comandaId){
   if(!currentSaleDraft.items.length){ toast('Adicione ao menos um item.'); return; }
   const subtotal = draftTotal();
   const applyService = mode==='comanda' && serviceRatePct()>0;
-  const memberOptions = state.members.filter(m=>!m.archived).map(m=>`<option value="${m.id}" ${m.debt>0?'data-blocked="1"':''}>${h((m.code?m.code+' — ':'')+m.name+(m.debt>0?' (deve '+fmt(m.debt)+')':''))}</option>`).join('');
+  const memberOptions = state.members.filter(m=>!m.archived).map(m=>`<option value="${m.id}" ${memberBlockedByDebt(m)?'data-blocked="1"':''}>${h((m.code?m.code+' — ':'')+m.name+(m.debt>0?' (deve '+fmt(m.debt)+')':''))}</option>`).join('');
   const preselected = currentSaleDraft.memberId || '';
   const methods = methodConfig();
   openModal('Pagamento', `
@@ -2582,7 +2829,7 @@ function openPaymentModal(mode, comandaId){
     const method = currentMethod().method; const amount = parseFloat(document.getElementById('payPartAmount').value);
     const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
     if(!amount || amount<=0){ toast('Informe o valor desta forma de pagamento.'); return; }
-    if(method==='fiado' && (!member || member.debt>0)){ toast(!member?'Selecione um associado para usar fiado.':'Associado com pendência não pode usar fiado.'); return; }
+    if(method==='fiado' && (!member || memberBlockedByDebt(member))){ toast(!member?'Selecione um associado para usar fiado.':'Associado com pendência não pode usar fiado.'); return; }
     tempPayments.push({method,amount}); renderPaymentParts();
   };
   document.getElementById('payPartAmount').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('addPaymentBtn').click(); } });
@@ -2606,12 +2853,12 @@ function openPaymentModal(mode, comandaId){
     if(btn){ e.preventDefault(); btn.click(); }
   }
   document.addEventListener('keydown', payKeyHandler);
-  document.getElementById('confirmPayBtn').onclick = ()=>{
+  document.getElementById('confirmPayBtn').onclick = async ()=>{
     const memberId = selMember.value || null;
     const member = memberId ? state.members.find(m=>m.id===memberId) : null;
     if(tempPayments.some(p=>p.method==='fiado')){
       if(!member){ toast('Selecione um associado para usar fiado.'); return; }
-      if(member.debt>0){ toast('Associado com pendência não pode usar fiado.'); return; }
+      if(memberBlockedByDebt(member)){ toast('Associado com pendência não pode usar fiado.'); return; }
     }
     const received = tempPayments.reduce((a,p)=>a+p.amount,0);
     if(received+0.009<finalTotal){ toast('Ainda falta '+fmt(finalTotal-received)+'.'); return; }
@@ -2620,13 +2867,13 @@ function openPaymentModal(mode, comandaId){
     const change = Math.max(0,received-finalTotal);
     if(change){ const cash = payments.find(p=>p.method==='dinheiro'); cash.received=cash.amount; cash.change=change; cash.amount-=change; }
     document.removeEventListener('keydown', payKeyHandler);
-    if(finalizeSale(mode, comandaId, memberId, payments, finalTotal)){
+    if(await finalizeSale(mode, comandaId, memberId, payments, finalTotal)){
       if(mode==='balcao') document.getElementById('modalRoot').dataset.confirmPdv='false';
       closeModal();
     }
   };
 }
-function finalizeSale(mode, comandaId, memberId, payments, total){
+async function finalizeSale(mode, comandaId, memberId, payments, total){
   const saleMember = memberId ? state.members.find(m=>m.id===memberId) : null;
   const who = memberId ? (saleMember||{}).name : (currentSaleDraft.customerName||'Cliente avulso');
   const cota = saleMember ? saleMember.code : '';
@@ -2674,9 +2921,9 @@ function finalizeSale(mode, comandaId, memberId, payments, total){
   let fiadoMemberForPrompt = null;
   if(fiadoTotal>0 && memberId){
     const m = state.members.find(x=>x.id===memberId);
-    if(m){ m.debt += fiadoTotal; save('members'); fiadoMemberForPrompt = m; }
+    if(m){ await MembersStore.recordDebtEntry(m.id, 'debt', fiadoTotal, { reason:'Venda #'+sale.id, saleId: sale.id }); fiadoMemberForPrompt = m; }
   }
-  applyAutomaticLoyalty(memberId,total,sale.id);
+  await applyAutomaticLoyalty(memberId,total,sale.id);
   save('sales'); newDraft(mode); toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
   if(fiadoMemberForPrompt) promptWhatsAppCollection(fiadoMemberForPrompt);
   return true;
@@ -4575,15 +4822,6 @@ function addMonthsToDate(date,months){const d=new Date(date+'T12:00:00');d.setMo
 function savePayableAccount(id,saveAndNew){const item=id?state.contas.find(c=>c.id===id):null,descricao=document.getElementById('payableDescription').value.trim(),valor=parseFloat(document.getElementById('payableValue').value),vencimento=document.getElementById('payableDue').value,categoriaId=document.getElementById('payableCategory').value||null,fornecedorId=document.getElementById('payableSupplier').value||null;if(!categoriaId||!descricao||!Number.isFinite(valor)||valor<=0||!vencimento){toast('Informe categoria, descrição, vencimento e valor.');return;}const pago=document.getElementById('payablePaid').checked,base={tipo:'pagar',descricao,valor,vencimento,categoriaId,fornecedorId,lancamento:todayStr(),pago,dataPagamento:pago?document.getElementById('payablePaidAt').value:'',desconto:pago?(parseFloat(document.getElementById('payableDiscount').value)||0):0,juros:pago?(parseFloat(document.getElementById('payableInterest').value)||0):0,valorPago:pago?(parseFloat(document.getElementById('payablePaidValue').value)||0):0,frequencia:document.getElementById('payableFrequency').value};if(item)Object.assign(item,base);else{const count=Math.max(1,parseInt(document.getElementById('payableRepeats').value,10)||1);for(let i=0;i<count;i++)state.contas.push({id:uid(),...base,vencimento:i?addMonthsToDate(vencimento,i):vencimento,repetitionIndex:i+1,repetitionCount:count,createdAt:new Date().toISOString()});}save('contas');renderAll();if(saveAndNew&&!item){const keep=document.getElementById('payableKeep').checked,cat=keep?categoriaId:'',forn=keep?fornecedorId:'';openPayableAccountModal();document.getElementById('payableCategory').value=cat;document.getElementById('payableSupplier').value=forn;toast('Conta salva. Cadastre a próxima.');}else{closeModal();toast('Conta a pagar salva.');}}
 function quitarConta(id){ const c = state.contas.find(x=>x.id===id); if(!c) return; c.pago=true;c.valorPago=Number(c.valor)||0;c.dataPagamento=todayStr(); save('contas'); renderAll(); logAction('Conta quitada: '+c.descricao); }
 function deleteConta(id){ if(!confirm('Excluir esta conta?')) return; state.contas = state.contas.filter(x=>x.id!==id); save('contas'); renderAll(); }
-function renderFiadoLegacy(el){
-  const customers=state.members||[];const selected=customers.find(m=>m.id===window.selectedFiadoMemberId)||customers[0];if(selected)window.selectedFiadoMemberId=selected.id;
-  const customerRows=customers.length?customers.map(m=>`<tr class="${selected&&selected.id===m.id?'selected':''}" onclick="window.selectedFiadoMemberId='${m.id}';renderContas()"><td>${h(m.name)}</td><td>${fmt(m.debt)}</td><td>${Number(m.debt)>0?'Devedor':'Regular'}</td><td>${fmt(m.creditLimit||0)}</td><td>${Number(m.creditLimit)?Math.min(100,Number(m.debt||0)/Number(m.creditLimit)*100).toFixed(0)+'%':'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">Nenhum cliente cadastrado.</td></tr>';
-  const history=(selected&&Array.isArray(selected.debtHistory)?selected.debtHistory:[]).map(x=>`<tr><td>${h(x.at?new Date(x.at).toLocaleString('pt-BR'):'—')}</td><td>${h(x.reason||x.type||'Lançamento')}</td><td>${x.type==='debt'?fmt(x.value):'—'}</td><td>${x.type==='payment'?fmt(x.value):'—'}</td><td>${h(x.info||'—')}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Nenhum lançamento para este cliente.</td></tr>';
-  el.innerHTML=`<div class="workspace-gray"><section class="op-window"><header class="op-titlebar"><span>Conta Corrente para Clientes (Fiado)</span><span class="op-controls"><span>□</span><button onclick="closeOperationalWindow()">×</button></span></header><div class="op-toolbar"><div class="op-search"><input id="fiadoSearch" placeholder="Pesquisar cliente..."></div><label><input id="hideZero" type="checkbox"> Ocultar saldo zerado</label><div class="op-toolbar-spacer"></div><button class="op-btn" onclick="window.print()">••• &nbsp; Opções</button><button class="op-btn" onclick="openFiadoEntry('debt')">Registrar Dívida</button><button class="op-btn primary" onclick="openFiadoEntry('payment')">Registrar Pagamento</button></div><div style="display:grid;grid-template-columns:45% 55%;min-height:510px"><div class="op-grid"><table><thead><tr><th>Cliente</th><th>Saldo Atual</th><th>Situação</th><th>Limite</th><th>% Atingido</th></tr></thead><tbody id="fiadoCustomers">${customerRows}</tbody></table></div><div class="op-grid"><table><thead><tr><th>Data</th><th>Histórico</th><th>Fiado</th><th>Pago</th><th>Info</th></tr></thead><tbody>${history}</tbody></table></div></div><footer class="op-footer"><span>Clientes=${customers.length}</span><span>Saldo total=${fmt(customers.reduce((s,m)=>s+Number(m.debt||0),0))}</span></footer></section></div>`;
-  document.getElementById('fiadoSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#fiadoCustomers tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none');};document.getElementById('hideZero').onchange=e=>document.querySelectorAll('#fiadoCustomers tr').forEach(r=>{const m=customers.find(x=>r.textContent.includes(x.name));if(m)r.style.display=e.target.checked&&Number(m.debt||0)===0?'none':'';});
-}
-function openFiadoEntry(type){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId);if(!m){toast('Selecione um cliente.');return;}openModal((type==='debt'?'Registrar Dívida':'Registrar Pagamento')+' — '+m.name,`<div class="field"><label>Valor</label><input id="fiadoValue" type="number" min="0.01" step="0.01"></div><div class="field"><label>Histórico / Motivo</label><input id="fiadoReason"></div><button class="btn btn-primary btn-block" id="fiadoSave">Confirmar</button>`);document.getElementById('fiadoSave').onclick=()=>{const value=parseFloat(document.getElementById('fiadoValue').value),reason=document.getElementById('fiadoReason').value.trim();if(!Number.isFinite(value)||value<=0||!reason){toast('Informe valor e motivo.');return;}if(type==='payment'&&value>Number(m.debt||0)){toast('O pagamento não pode superar o saldo devedor.');return;}m.debt=Math.max(0,Number(m.debt||0)+(type==='debt'?value:-value));m.debtHistory=Array.isArray(m.debtHistory)?m.debtHistory:[];m.debtHistory.unshift({id:uid(),type,value,reason,at:new Date().toISOString(),user:currentUser.name});save('members');logAction(`${type==='debt'?'Dívida':'Pagamento de fiado'}: ${m.name} — ${fmt(value)}`);closeModal();renderAll();toast('Conta corrente atualizada.');};}
-
 /* ============ CONFIGURAÇÕES DO SISTEMA ============ */
 let settingsPane='geral';
 function setSettingsPane(pane){settingsPane=pane;renderConfigSistema();}
@@ -4916,9 +5154,9 @@ function renderFidelidade(){
 }
 function openLoyaltyConfig(){const cfg=state.settings.loyalty||{};openModal('Configurar Fidelidade',`<div class="consumer-form-frame"><label><input id="loyaltyActive" type="checkbox" ${cfg.active?'checked':''}> Creditar pontos automaticamente nas vendas identificadas</label><div class="row" style="margin-top:15px"><div class="field"><label>Valor gasto para cada ponto</label><input id="loyaltyValuePerPoint" type="number" min="0.01" step="0.01" value="${Number(cfg.valuePerPoint)||1}"></div><div class="field"><label>Compra mínima</label><input id="loyaltyMinimum" type="number" min="0" step="0.01" value="${Number(cfg.minimum)||0}"></div></div><div class="field"><label>Arredondamento</label><select id="loyaltyRounding"><option value="floor" ${cfg.rounding!=='round'?'selected':''}>Para baixo</option><option value="round" ${cfg.rounding==='round'?'selected':''}>Mais próximo</option></select></div><p class="sub">Os pontos são aplicados somente quando um cliente está vinculado ao pedido finalizado.</p></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="consumer-save" onclick="saveLoyaltyConfig()">✓ Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal');}
 function saveLoyaltyConfig(){const valuePerPoint=parseFloat(document.getElementById('loyaltyValuePerPoint').value),minimum=Math.max(0,parseFloat(document.getElementById('loyaltyMinimum').value)||0);if(!Number.isFinite(valuePerPoint)||valuePerPoint<=0){toast('Informe um valor válido para cada ponto.');return;}state.settings.loyalty={active:document.getElementById('loyaltyActive').checked,valuePerPoint,minimum,rounding:document.getElementById('loyaltyRounding').value};save('settings');closeModal();renderAll();toast('Regras de fidelidade salvas.');}
-function applyAutomaticLoyalty(memberId,total,saleId){const cfg=state.settings.loyalty||{},member=state.members.find(x=>x.id===memberId),value=Number(total)||0;if(!cfg.active||!member||value<Number(cfg.minimum||0))return 0;const raw=value/Math.max(0.01,Number(cfg.valuePerPoint)||1),points=cfg.rounding==='round'?Math.round(raw):Math.floor(raw);if(points<=0)return 0;member.points=(Number(member.points)||0)+points;member.pointsHistory=Array.isArray(member.pointsHistory)?member.pointsHistory:[];member.pointsHistory.unshift({id:uid(),type:'credit',points,reason:'Venda finalizada',saleId,at:new Date().toISOString(),user:currentUser.name});save('members');return points;}
+async function applyAutomaticLoyalty(memberId,total,saleId){const cfg=state.settings.loyalty||{},member=state.members.find(x=>x.id===memberId),value=Number(total)||0;if(!cfg.active||!member||value<Number(cfg.minimum||0))return 0;const raw=value/Math.max(0.01,Number(cfg.valuePerPoint)||1),points=cfg.rounding==='round'?Math.round(raw):Math.floor(raw);if(points<=0)return 0;const newPoints=(Number(member.points)||0)+points;const history=Array.isArray(member.pointsHistory)?member.pointsHistory:[];history.unshift({id:uid(),type:'credit',points,reason:'Venda finalizada',saleId,at:new Date().toISOString(),user:currentUser.name});await MembersStore.setPoints(member.id,newPoints,history);return points;}
 function openPointsHistory(memberId){const m=state.members.find(x=>x.id===memberId);if(!m)return;const history=Array.isArray(m.pointsHistory)?m.pointsHistory:[];openModal('Extrato de pontos — '+m.name,`<div class="app-status"><b>Saldo atual</b><span class="mono">${Number(m.points)||0} ponto(s)</span></div><div class="finance-grid" style="height:390px"><table><thead><tr><th>Data</th><th>Movimento</th><th>Pontos</th><th>Motivo</th><th>Usuário</th></tr></thead><tbody>${history.map(x=>`<tr><td>${reportDateTime(x.at)}</td><td>${x.type==='credit'?'Crédito':'Resgate'}</td><td class="mono">${x.type==='credit'?'+':'−'}${Number(x.points)||0}</td><td>${h(x.reason||'—')}</td><td>${h(x.user||'—')}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Nenhuma movimentação registrada.</td></tr>'}</tbody></table></div><div class="consumer-modal-actions"><button onclick="window.print()">▣ Imprimir</button><button onclick="closeModal()">Voltar</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
-function openPointsModal(memberId,direction){const m=state.members.find(x=>x.id===memberId);if(!m)return;const adding=direction>0;openModal((adding?'Adicionar':'Resgatar')+' pontos — '+m.name,`<p class="sub">Saldo atual: <b>${Number(m.points)||0} ponto(s)</b></p><div class="field"><label>Quantidade</label><input id="ptQty" type="number" min="1" step="1"></div><div class="field"><label>Motivo</label><input id="ptReason" placeholder="Compra, cortesia ou resgate"></div><button class="btn btn-primary btn-block" id="ptSave">Confirmar</button>`);document.getElementById('ptSave').onclick=()=>{const qty=parseInt(document.getElementById('ptQty').value,10);const reason=document.getElementById('ptReason').value.trim();if(!Number.isFinite(qty)||qty<=0||!reason){toast('Informe quantidade e motivo.');return;}const current=Number(m.points)||0;if(!adding&&qty>current){toast('Saldo de pontos insuficiente.');return;}m.points=current+direction*qty;m.pointsHistory=Array.isArray(m.pointsHistory)?m.pointsHistory:[];m.pointsHistory.unshift({id:uid(),type:adding?'credit':'redeem',points:qty,reason,at:new Date().toISOString(),user:currentUser.name,manual:true});save('members');logAction(`${adding?'Crédito':'Resgate'} de ${qty} ponto(s) — ${m.name}: ${reason}`);closeModal();renderAll();toast('Pontos atualizados.');};}
+function openPointsModal(memberId,direction){const m=state.members.find(x=>x.id===memberId);if(!m)return;const adding=direction>0;openModal((adding?'Adicionar':'Resgatar')+' pontos — '+m.name,`<p class="sub">Saldo atual: <b>${Number(m.points)||0} ponto(s)</b></p><div class="field"><label>Quantidade</label><input id="ptQty" type="number" min="1" step="1"></div><div class="field"><label>Motivo</label><input id="ptReason" placeholder="Compra, cortesia ou resgate"></div><button class="btn btn-primary btn-block" id="ptSave">Confirmar</button>`);document.getElementById('ptSave').onclick=async ()=>{const qty=parseInt(document.getElementById('ptQty').value,10);const reason=document.getElementById('ptReason').value.trim();if(!Number.isFinite(qty)||qty<=0||!reason){toast('Informe quantidade e motivo.');return;}const current=Number(m.points)||0;if(!adding&&qty>current){toast('Saldo de pontos insuficiente.');return;}const newPoints=current+direction*qty;const history=Array.isArray(m.pointsHistory)?m.pointsHistory:[];history.unshift({id:uid(),type:adding?'credit':'redeem',points:qty,reason,at:new Date().toISOString(),user:currentUser.name,manual:true});await MembersStore.setPoints(m.id,newPoints,history);logAction(`${adding?'Crédito':'Resgate'} de ${qty} ponto(s) — ${m.name}: ${reason}`);closeModal();renderAll();toast('Pontos atualizados.');};}
 function openCouponModal(id){
   const item=id?state.coupons.find(c=>c.id===id&&c.mode!=='promotion'):null;
   openModal(item?'Editar cupom':'Novo cupom', `
@@ -4954,21 +5192,18 @@ function selectCardBrand(id){selectedCardBrandId=id;renderPaymentMethods(documen
 function editSelectedPaymentMethod(){const item=state.paymentMethods.find(x=>x.id===selectedPaymentMethodId);if(!item){toast('As formas padrão do sistema não podem ser alteradas.');return;}openPaymentMethodModal(item.id);}
 function editSelectedCardBrand(){const item=state.cardBrands.find(x=>x.id===selectedCardBrandId);if(!item){toast('Cadastre uma bandeira própria para editá-la.');return;}openCardBrandModal(item.id);}
 function updatePaymentBrandLink(brandId,key,value){state.settings.paymentBrandLinks=state.settings.paymentBrandLinks||{};const links=state.settings.paymentBrandLinks[selectedPaymentMethodId]||(state.settings.paymentBrandLinks[selectedPaymentMethodId]={});const link=links[brandId]||(links[brandId]={});link[key]=key==='enabled'?Boolean(value):Math.max(0,Number(value)||0);save('settings');}
-function renderFiado(el){const customers=state.members||[],selected=customers.find(m=>m.id===window.selectedFiadoMemberId)||customers[0];if(selected)window.selectedFiadoMemberId=selected.id;const customerRows=customers.length?customers.map(m=>`<tr class="${selected&&selected.id===m.id?'selected':''}" onclick="window.selectedFiadoMemberId='${m.id}';renderContas()"><td>${h(m.name)}</td><td>${fmt(m.debt)}</td><td>${Number(m.debt)>0?'Devedor':'Regular'}</td><td>${fmt(m.creditLimit||0)}</td><td>${Number(m.creditLimit)?Math.min(100,Number(m.debt||0)/Number(m.creditLimit)*100).toFixed(0)+'%':'—'}</td></tr>`).join(''):'<tr><td colspan="5" style="height:380px"></td></tr>',history=(selected&&Array.isArray(selected.debtHistory)?selected.debtHistory:[]).map(x=>`<tr><td>${h(x.at?new Date(x.at).toLocaleString('pt-BR'):'—')}</td><td>${h(x.reason||'Lançamento')}</td><td>${x.type==='debt'?fmt(x.value):''}</td><td>${x.type==='payment'?fmt(x.value):''}</td><td>${h(x.info||'—')}</td><td></td></tr>`).join('')||'<tr><td colspan="6" style="height:380px"></td></tr>';el.innerHTML=`<section class="finance-page"><div class="finance-top" style="height:74px;align-items:center;padding:0 14px"><div class="op-search" style="width:345px"><input id="fiadoSearch" placeholder="Pesquisar cliente..."></div><label><input type="checkbox"> Ocultar clientes</label><label><input type="checkbox" checked> Saldo Zerado</label><label><input type="checkbox" checked> Arquivados</label><div class="finance-actions" style="margin-left:auto;padding:0"><button class="op-btn" onclick="toggleFinanceOptions(this)">••• &nbsp; Opções &nbsp; ▾</button><button class="op-btn" onclick="openFiadoEntry('debt')" ${selected?'':'disabled'}>⊖ &nbsp; Registrar Dívida</button><button class="op-btn" onclick="openFiadoEntry('payment')" ${selected?'':'disabled'}>⊕ &nbsp; Registrar Pagamento</button></div></div><div style="display:grid;grid-template-columns:61% 39%;gap:12px;padding:0 14px;height:calc(100vh - 322px)"><div class="finance-grid"><table><thead><tr><th>Cliente</th><th>Saldo Atual</th><th>Situação</th><th>Limite</th><th>% Atingido</th></tr></thead><tbody id="fiadoCustomers">${customerRows}</tbody></table></div><div class="finance-grid" style="padding-top:55px"><table><thead><tr><th>Data</th><th>Histórico</th><th>Fiado</th><th>Pago</th><th>Info</th><th>Estornar</th></tr></thead><tbody>${history}</tbody></table></div></div></section>`;document.getElementById('fiadoSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#fiadoCustomers tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none');};}
-
 /* ============ CONTA CORRENTE (FIADO) — FLUXO COMPLETO ============ */
 let fiadoFilters={hideClients:false,showZero:true,showArchived:true};
 function renderFiado(el){const all=state.members||[],customers=all.filter(m=>(fiadoFilters.showZero||Number(m.debt||0)!==0)&&(fiadoFilters.showArchived||!m.archived)),selected=customers.find(m=>m.id===window.selectedFiadoMemberId)||customers[0];if(selected)window.selectedFiadoMemberId=selected.id;const customerRows=customers.length&&!fiadoFilters.hideClients?customers.map(m=>`<tr class="${selected&&selected.id===m.id?'selected':''}" onclick="window.selectedFiadoMemberId='${m.id}';renderContas()"><td>${h(m.name)}</td><td>${fmt(m.debt)}</td><td>${m.archived?'Arquivado':Number(m.debt)>0?'Devedor':'Regular'}</td><td>${fmt(m.creditLimit||0)}</td><td>${Number(m.creditLimit)?Math.min(100,Number(m.debt||0)/Number(m.creditLimit)*100).toFixed(0)+'%':'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="empty" style="height:380px">Nenhum cliente para mostrar.</td></tr>',history=selected&&Array.isArray(selected.debtHistory)?selected.debtHistory:[],historyRows=history.length?history.map(x=>`<tr class="${x.reversed?'reversed':''}"><td>${h(x.at?new Date(x.at).toLocaleString('pt-BR'):'—')}</td><td>${h(x.reason||'Lançamento')}${x.reversed?' (Estornado)':''}</td><td>${x.type==='debt'?fmt(x.value):''}</td><td>${x.type==='payment'?fmt(x.value):''}</td><td title="${h(x.info||x.user||'')}">ⓘ</td><td>${x.reversed?'':`<button class="op-mini" onclick="reverseFiadoEntry('${selected.id}','${x.id}')">↩</button>`}</td></tr>`).join(''):'<tr><td colspan="6" class="empty" style="height:340px">Nenhum lançamento para este cliente.</td></tr>';el.innerHTML=`<section class="finance-page"><div class="finance-top fiado-top"><div class="op-search"><input id="fiadoSearch" placeholder="Pesquisar cliente..."></div><label><input type="checkbox" ${fiadoFilters.hideClients?'checked':''} onchange="fiadoFilters.hideClients=this.checked;renderContas()"> Ocultar clientes</label><label><input type="checkbox" ${fiadoFilters.showZero?'checked':''} onchange="fiadoFilters.showZero=this.checked;renderContas()"> Saldo Zerado</label><label><input type="checkbox" ${fiadoFilters.showArchived?'checked':''} onchange="fiadoFilters.showArchived=this.checked;renderContas()"> Arquivados</label><div class="finance-actions"><button class="op-btn" onclick="toggleFiadoOptions(this)">••• &nbsp; Opções &nbsp; ▾</button><button class="op-btn" onclick="openFiadoEntry('debt')" ${selected?'':'disabled'}>⊖ &nbsp; Registrar Dívida</button><button class="op-btn" onclick="openFiadoEntry('payment')" ${selected&&Number(selected.debt)>0?'':'disabled'}>⊕ &nbsp; Registrar Pagamento</button><button class="op-btn" onclick="${selected?`openWhatsAppCollection('${selected.id}')`:''}" ${selected&&Number(selected.debt)>0?'':'disabled'}>📱 &nbsp; Cobrar via WhatsApp</button></div></div><div class="fiado-grids"><div class="finance-grid"><table><thead><tr><th>Cliente</th><th>Saldo Atual</th><th>Situação</th><th>Limite</th><th>% Atingido</th></tr></thead><tbody id="fiadoCustomers">${customerRows}</tbody></table></div><div class="finance-grid fiado-history"><table><thead><tr><th>Data</th><th>Histórico</th><th>Fiado</th><th>Pago</th><th>Info</th><th>Estornar</th></tr></thead><tbody>${historyRows}</tbody></table></div></div><footer class="op-footer"><span>Clientes=${customers.length}</span><span>Saldo total=${fmt(customers.reduce((s,m)=>s+Number(m.debt||0),0))}</span></footer></section>`;document.getElementById('fiadoSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#fiadoCustomers tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none');};}
-function toggleFiadoOptions(button){let menu=button.parentElement.querySelector('.finance-options-menu');if(menu){menu.remove();return;}menu=document.createElement('div');menu.className='finance-options-menu fiado-options';menu.innerHTML=`<button onclick="window.print()">▣ &nbsp; Imprimir</button><button onclick="exportFiadoCsv()">▧ &nbsp; Exportar para Excel (CSV)</button><button onclick="toggleSelectedMemberArchived()">▤ &nbsp; Arquivar/Desarquivar cliente</button><button onclick="renderAll()">↻ &nbsp; Atualizar</button>`;button.parentElement.appendChild(menu);}
 function toggleFiadoOptions(button){let menu=button.parentElement.querySelector('.finance-options-menu');if(menu){menu.remove();return;}menu=document.createElement('div');menu.className='finance-options-menu fiado-options consumer-group-menu';menu.innerHTML=`<b>Lista de Clientes</b><button onclick="renderAll()">↻ &nbsp; Atualizar</button><button onclick="exportFiadoClientListCsv()">▧ &nbsp; Exportar para Excel</button><button onclick="printFiadoSection('clientes')">▣ &nbsp; Imprimir</button><b>Extrato</b><button onclick="renderAll()">↻ &nbsp; Atualizar</button><button onclick="exportFiadoStatementCsv()">▧ &nbsp; Exportar para Excel</button><button onclick="printFiadoSection('extrato')">▣ &nbsp; Imprimir</button><button onclick="openFiadoStatementOptions()">••• &nbsp; Mais Opções...</button>`;button.parentElement.appendChild(menu);}
 function openFiadoStatementOptions(){const settings=state.settings.fiadoStatement||{showUser:false,maxEntries:60};openModal('Opções do Extrato',`<div class="consumer-form-frame fiado-statement-options"><b>Exibir no Extrato</b><label><input id="fiadoShowUser" type="checkbox" ${settings.showUser?'checked':''}> Usuário que fez a movimentação</label><div class="field"><label>Quantidade máxima de lançamentos</label><input id="fiadoMaxEntries" type="number" min="1" max="1000" value="${Number(settings.maxEntries)||60}"></div></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button><button class="consumer-save" id="fiadoOptionsSave">↻ &nbsp; Atualizar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal','fiado-options-modal');document.getElementById('fiadoOptionsSave').onclick=()=>{state.settings.fiadoStatement={showUser:document.getElementById('fiadoShowUser').checked,maxEntries:Math.max(1,parseInt(document.getElementById('fiadoMaxEntries').value,10)||60)};save('settings');closeModal();renderAll();toast('Opções do extrato atualizadas.');};}
 function exportFiadoClientListCsv(){const rows=[['Cliente','Saldo Atual','Situação','Limite','% Atingido'],...state.members.map(m=>[m.name,Number(m.debt||0).toFixed(2),m.archived?'Arquivado':Number(m.debt)>0?'Devedor':'Regular',Number(m.creditLimit||0).toFixed(2),Number(m.creditLimit)?(Number(m.debt||0)/Number(m.creditLimit)*100).toFixed(2)+'%':''])];downloadCsv('lista-clientes-fiado.csv',rows);}
 function exportFiadoStatementCsv(){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId);if(!m){toast('Selecione um cliente.');return;}const limit=Number(state.settings.fiadoStatement&&state.settings.fiadoStatement.maxEntries)||60,showUser=!!(state.settings.fiadoStatement&&state.settings.fiadoStatement.showUser),header=['Data','Histórico','Fiado','Pago','Info',...(showUser?['Usuário']:[])],rows=[header,...(m.debtHistory||[]).slice(0,limit).map(x=>[new Date(x.at).toLocaleString('pt-BR'),x.reason||'',x.type==='debt'?Number(x.value).toFixed(2):'',x.type==='payment'?Number(x.value).toFixed(2):'',x.info||'',...(showUser?[x.user||'']:[])])];downloadCsv('extrato-fiado-'+String(m.name).replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'.csv',rows);}
 function printFiadoSection(section){document.body.dataset.printFiado=section;window.print();setTimeout(()=>delete document.body.dataset.printFiado,200);}
 function applyFiadoStatementSettings(){if(contasTab!=='fiado')return;const table=document.querySelector('.fiado-history table');if(!table)return;const settings=state.settings.fiadoStatement||{showUser:false,maxEntries:60},rows=[...table.querySelectorAll('tbody tr')];rows.forEach((row,index)=>{if(index>=Number(settings.maxEntries||60))row.remove();if(settings.showUser&&row.cells.length>=5){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId),entry=m&&m.debtHistory&&m.debtHistory[index];if(entry&&entry.user)row.cells[4].textContent=entry.user;}});}
-function openFiadoEntry(type){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId);if(!m){toast('Selecione um cliente.');return;}const paymentMethods=['Dinheiro','Cartão','Pix',...(state.paymentMethods||[]).map(p=>p.nome)];openModal(type==='debt'?'Registrar Dívida':'Registrar Pagamento',`<div class="fiado-entry"><div class="fiado-client-summary"><b>${h(m.name)}</b><span>Saldo atual: <strong>${fmt(m.debt)}</strong></span><span>Limite: <strong>${fmt(m.creditLimit||0)}</strong></span></div><div class="row"><div class="field"><label>Data / Hora</label><input id="fiadoAt" type="datetime-local" value="${new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)}"></div><div class="field"><label>Valor</label><input id="fiadoValue" type="number" min="0.01" step="0.01"></div></div>${type==='payment'?`<div class="field"><label>Forma de Pagamento</label><select id="fiadoMethod">${paymentMethods.map(x=>`<option>${h(x)}</option>`).join('')}</select></div>`:''}<div class="field"><label>Histórico / Motivo</label><input id="fiadoReason" placeholder="Informe a descrição do lançamento"></div><div class="field"><label>Observação</label><textarea id="fiadoInfo"></textarea></div></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button><button class="consumer-save" id="fiadoSave">✓ &nbsp; Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal','fiado-entry-modal');document.getElementById('fiadoSave').onclick=()=>{const value=parseFloat(document.getElementById('fiadoValue').value),reason=document.getElementById('fiadoReason').value.trim(),at=document.getElementById('fiadoAt').value;if(!Number.isFinite(value)||value<=0||!reason||!at){toast('Informe data, valor e histórico.');return;}if(type==='payment'&&value>Number(m.debt||0)){toast('O pagamento não pode superar o saldo devedor.');return;}m.debt=Math.max(0,Number(m.debt||0)+(type==='debt'?value:-value));m.debtHistory=Array.isArray(m.debtHistory)?m.debtHistory:[];m.debtHistory.unshift({id:uid(),type,value,reason,at:new Date(at).toISOString(),info:document.getElementById('fiadoInfo').value.trim(),method:type==='payment'?document.getElementById('fiadoMethod').value:'',user:currentUser.name,reversed:false});save('members');logAction(`${type==='debt'?'Dívida':'Pagamento de fiado'}: ${m.name} — ${fmt(value)}`);closeModal();renderAll();toast('Conta corrente atualizada.');};}
-function reverseFiadoEntry(memberId,entryId){const m=state.members.find(x=>x.id===memberId),entry=m&&Array.isArray(m.debtHistory)?m.debtHistory.find(x=>x.id===entryId):null;if(!entry||entry.reversed)return;if(!confirm('Estornar este lançamento?'))return;m.debt=Math.max(0,Number(m.debt||0)+(entry.type==='debt'?-Number(entry.value):Number(entry.value)));entry.reversed=true;entry.reversedAt=new Date().toISOString();entry.reversedBy=currentUser.name;save('members');logAction('Estorno de fiado: '+m.name+' — '+fmt(entry.value));renderAll();toast('Lançamento estornado.');}
-function toggleSelectedMemberArchived(){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId);if(!m){toast('Selecione um cliente.');return;}m.archived=!m.archived;save('members');renderAll();toast(m.archived?'Cliente arquivado.':'Cliente desarquivado.');}
+function openFiadoEntry(type){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId);if(!m){toast('Selecione um cliente.');return;}const paymentMethods=['Dinheiro','Cartão','Pix',...(state.paymentMethods||[]).map(p=>p.nome)];openModal(type==='debt'?'Registrar Dívida':'Registrar Pagamento',`<div class="fiado-entry"><div class="fiado-client-summary"><b>${h(m.name)}</b><span>Saldo atual: <strong>${fmt(m.debt)}</strong></span><span>Limite: <strong>${fmt(m.creditLimit||0)}</strong></span></div><div class="row"><div class="field"><label>Data / Hora</label><input id="fiadoAt" type="datetime-local" value="${new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)}"></div><div class="field"><label>Valor</label><input id="fiadoValue" type="number" min="0.01" step="0.01"></div></div>${type==='payment'?`<div class="field"><label>Forma de Pagamento</label><select id="fiadoMethod">${paymentMethods.map(x=>`<option>${h(x)}</option>`).join('')}</select></div>`:''}<div class="field"><label>Histórico / Motivo</label><input id="fiadoReason" placeholder="Informe a descrição do lançamento"></div><div class="field"><label>Observação</label><textarea id="fiadoInfo"></textarea></div></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button><button class="consumer-save" id="fiadoSave">✓ &nbsp; Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal','fiado-entry-modal');document.getElementById('fiadoSave').onclick=async ()=>{const value=parseFloat(document.getElementById('fiadoValue').value),reason=document.getElementById('fiadoReason').value.trim(),at=document.getElementById('fiadoAt').value;if(!Number.isFinite(value)||value<=0||!reason||!at){toast('Informe data, valor e histórico.');return;}if(type==='payment'&&value>Number(m.debt||0)){toast('O pagamento não pode superar o saldo devedor.');return;}await MembersStore.recordDebtEntry(m.id,type,value,{reason,info:document.getElementById('fiadoInfo').value.trim(),method:type==='payment'?document.getElementById('fiadoMethod').value:'',at:new Date(at).toISOString()});logAction(`${type==='debt'?'Dívida':'Pagamento de fiado'}: ${m.name} — ${fmt(value)}`);closeModal();renderAll();toast('Conta corrente atualizada.');};}
+async function reverseFiadoEntry(memberId,entryId){const m=state.members.find(x=>x.id===memberId),entry=m&&Array.isArray(m.debtHistory)?m.debtHistory.find(x=>x.id===entryId):null;if(!entry||entry.reversed)return;if(!confirm('Estornar este lançamento?'))return;await MembersStore.reverseDebtEntry(memberId,entryId,currentUser.name);logAction('Estorno de fiado: '+m.name+' — '+fmt(entry.value));renderAll();toast('Lançamento estornado.');}
+async function toggleSelectedMemberArchived(){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId);if(!m){toast('Selecione um cliente.');return;}await MembersStore.setArchived(m.id,!m.archived,currentUser.name);renderAll();toast(m.archived?'Cliente arquivado.':'Cliente desarquivado.');}
 function exportFiadoCsv(){const rows=[['Cliente','Saldo Atual','Situação','Limite'],...state.members.map(m=>[m.name,Number(m.debt||0).toFixed(2),Number(m.debt)>0?'Devedor':'Regular',Number(m.creditLimit||0).toFixed(2)])];downloadCsv('conta-corrente-fiado.csv',rows);}
 function downloadCsv(filename,rows){const csv='\uFEFF'+rows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 
