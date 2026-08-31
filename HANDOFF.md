@@ -40,7 +40,7 @@ Commandah é o sistema de comanda/PDV do **Clube Olímpico** (Maringá — negó
 - Decisão explícita do usuário: **não** dividir o `index.html` em múltiplos arquivos por enquanto — o próprio relatório de arquitetura não recomendava isso agora.
 - **Fase 1 do roadmap (sócios em tabela relacional + limite de crédito real) — implementada, em teste, ainda não commitada** (ver seção própria abaixo).
 
-### Fase 1 — Sócios em tabela relacional + limite de crédito real (2026-08-30, aguardando QA final)
+### Fase 1 — Sócios em tabela relacional + limite de crédito real (2026-08-30/31, concluída)
 - **Banco**: sócios saíram do blob JSON (`app_data` / chave `cantina2:members`) pra três tabelas relacionais reais — `members`, `member_dependents` e `member_debt_entries` (ledger de débito/pagamento com estorno, no lugar do array `debtHistory` solto). Um trigger (`recalc_member_debt`) recalcula `members.debt` sempre a partir da soma dos lançamentos não estornados — o saldo nunca é escrito direto pelo frontend. RLS igual ao padrão já usado em `app_data`/`print_jobs` (`tenant_id = current_tenant_id()`). Os 1000 sócios que já existiam foram migrados e a migração foi conferida por SQL (contagem batendo, um registro de teste com lançamentos reconciliando certo).
 - **Limite de crédito**: campo `creditLimit` já existia meio pronto (usado só de leitura na tela Financeiro → Fiado, sem nenhum jeito de definir) — agora é editável no cadastro do sócio (aba "Dados Secundários"). O bloqueio de consumo trocou de `saldo devedor > 0` pra `saldo devedor > limite de crédito` em todo lugar que checava isso (PDV, comanda, delivery, seleção de titular).
 - **Frontend**: criado um objeto `MembersStore` (perto da função `save()`, por volta da linha 910 do `index.html`) que centraliza toda leitura/escrita de sócio — os ~20 pontos do código que antes reescreviam o array inteiro (`state.members.push(...)` + `save('members')`) agora chamam métodos dele (`create`, `update`, `archive/restore`, `saveDependents`, `recordDebtEntry`, `reverseDebtEntry`, `bulkImport`, etc.). Continua funcionando em modo local (sem Supabase, só `localStorage`) e em modo nuvem (tabelas relacionais de verdade), sem duplicar essa lógica em cada função.
@@ -48,11 +48,45 @@ Commandah é o sistema de comanda/PDV do **Clube Olímpico** (Maringá — negó
 - **Achados de UX corrigidos no caminho** (relatados pelo Fabricio testando): não existia botão de arquivar sócio na tela Clientes (só escondido em Financeiro → Fiado) — adicionado; a busca de clientes se perdia toda vez que você selecionava/editava um cliente (bug pré-existente, o filtro era só visual e sumia no re-render) — corrigido; o menu "•••  Opções" da tela Clientes não fechava sozinho ao clicar fora — corrigido.
 - **Status**: commitado e enviado (`2f672ae`, 2026-08-31) — já publicado em produção via GitHub Pages. Fabricio testou na conta de dono e na de operador antes de commitar; um bloqueio de PIN de operador (5 tentativas erradas → 15 min, mecanismo da Fase 2, não relacionado a esta mudança) não afeta o login por e-mail/senha do dono.
 
-## Pendências (próximos passos)
+### Time de agentes especializado + diagnóstico completo (2026-08-31)
+Foi criado um time de 13 agentes específicos do Commandah em `.claude/agents/` (cto-arquiteto, backend-senior, frontend-senior, mobile-senior, dba-dados, devops-infra, qa-testes, ux-ui-designer, product-manager, security-specialist, fiscal-tributario, tech-writer, scrum-master — ver `.claude/agents/README.md`). Passamos a trabalhar tarefa por tarefa acionando o agente certo pra cada parte, cada um lendo o código/banco real antes de opinar (não é só "escrever bonito", eles fazem Grep/Read/SQL de verdade).
 
-1. Fases 3–6 do roadmap de arquitetura (extração de pedidos/vendas + sessões de caixa por estação, Pix real, fiscal/TEF, KDS/controle de acesso/delivery em tempo real) — só mapeadas no relatório, sem planejamento ainda.
-2. Apertar RLS por papel (follow-up da Fase 2, deixado pra depois de validar o login por operador em produção por um tempo).
-3. Fidelidade/pontos (`points`/`pointsHistory`) ficou de fora da Fase 1 de propósito — migrada como coluna simples na tabela `members`, sem virar tabela relacional própria. Se quiser isso relacional também (com ledger de auditoria igual ao de débito), é uma fase separada.
+Rodamos um diagnóstico completo (todos os 8 agentes relevantes + scrum-master pra sequenciar) que gerou um backlog priorizado em ondas (Fase 0 = bloqueante/risco ativo, Fase 1 = fundação, Fase 2 = RLS por papel, Fase 3 = migração de vendas pro relacional, Fase 4 = evolução). Esse diagnóstico achou coisas sérias que auditorias anteriores não tinham pego — ver "Fase 0" abaixo.
+
+**Achados-chave do diagnóstico** (pra não perder o porquê de cada item do backlog):
+- Sistema é mais completo do que parecia: comandas/mesas, PDV, estoque com ficha técnica, financeiro, fidelidade, ~12 relatórios, delivery e cardápio digital já prontos.
+- **Fiscal é inexistente** (zero NFC-e/NCM/CFOP, só um card decorativo) e **provavelmente é obrigatório** — Paraná não tem isenção de ICMS pra clube, e o fato gerador é a saída da mercadoria, não o pagamento (ou seja, cada venda "fiado" já deveria gerar nota na hora do consumo). Precisa do contador do Fabricio antes de qualquer código — ver Pendências.
+- `sales`/`orders`/`cashSession`/`orderCounter` continuam como blob JSON reescrito inteiro a cada save → last-write-wins entre dois dispositivos simultâneos (comanda de um pode sobrescrever a do outro, silenciosamente). É o risco estrutural nº1, ainda não resolvido — fica pra Fase 3 (migrar pro relacional, mesmo padrão da Fase 1).
+- `supabase/migrations/` não existe versionado no repo — todo SQL de produção só existe no banco, sem histórico. Fica pra Fase 1 (próxima).
+
+### Fase 0 — bloqueante/risco ativo, CONCLUÍDA em 2026-08-31 (itens 1-4; item 5 é ação humana, não código)
+1. **PIN de operador em texto puro** (`app_data.cantina2:users`) — colaborador já migrado pro login seguro (Fase 2) continuava com PIN legível por qualquer operador do tenant, anulando o bcrypt (caixa lia o PIN do admin e virava admin). Corrigido em `index.html` (formulário de Colaboradores para de gravar/exibir PIN de migrado) + SQL rodado pelo Fabricio limpando o que já estava no banco. Commit `9a88147`.
+2. **Segredo do Pix exposto no cliente** (`app_data.cantina2:settings.pixOnline.secret`) — removido o campo do formulário (não existe integração real de Pix hoje, e não tem pra onde mandar esse segredo com segurança nesta arquitetura sem Edge Function própria). Campo estava vazio em produção, sem dado a limpar. Achado irmão não resolvido: `waToken` do Bot WhatsApp tem a mesma exposição (também vazio hoje) — próximo candidato óbvio. Commit `b5430a1`.
+3. **`save()` falhando silenciosamente** — de ~195 chamadas, só 1 conferia o retorno; falha mostrava um toast que sumia em 2,6s. Agora mostra um banner vermelho persistente (`saveFailBanner`, não some sozinho) com retry manual. Decisão de escopo: não reverte o `state` em memória (exigiria mudar os ~195 call sites, projeto sem testes automatizados) — fica pra quando `sales`/`orders` virarem relacional com RPC idempotente (Fase 3). Commit `866b597`.
+4. **Fallback silencioso pro modo Local** — se o SDK do Supabase não carrega em 6s (rede ruim do clube), o sistema virava `localStorage` sem avisar; a noite inteira de vendas podia ficar presa num aparelho só. Agora mostra banner âmbar persistente com botão de recarregar. Decisão de produto confirmada com o Fabricio: **só avisa, não bloqueia** o PDV (não pode parar de vender numa sexta cheia por wi-fi instável). Ressalva registrada pelo frontend-senior: o aviso resolve a visibilidade, mas vendas feitas em modo Local não sobem sozinhas pro Supabase quando a conexão volta — não existe fila de sincronização, isso seria escopo maior. Commit `acf16b5`.
+5. **Falar com o contador do clube sobre NFC-e/fiado** — não é código, é decisão externa do Fabricio (ver achado fiscal acima). Ainda pendente, é ação dele, não da IA.
+
+## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
+
+**Fase 1 — fundação (próxima):**
+1. Versionar `supabase/migrations/` — pré-requisito de qualquer mudança de schema futura (dba-dados + cto-arquiteto).
+2. Limpar PII órfã (`cantina2:members` legado ainda vivo pós-Fase-1, 2 tenants mortos com dado residual) (dba-dados + security-specialist).
+3. `finalizeSale`/numeração de pedido/baixa de estoque atômicos via RPC — hoje são read-modify-write no cliente, quebram sob concorrência (backend-senior, depende do item 1).
+
+**Fase 2 — depois da Fase 1:**
+4. RLS por papel com enforcement real (backend-senior + security-specialist) — a pendência que já estava documentada aqui; o diagnóstico confirmou que só faz sentido depois do item 1 da Fase 0 (PIN em claro), senão é reforçar a porta da frente com a dos fundos aberta. Isso já foi feito.
+5. Auditoria append-only — hoje `cantina2:logs` é blob editável por qualquer operador, fraude interna não fica rastreável (security-specialist).
+
+**Fase 3 — arquitetura de dados (médio prazo):**
+6. Migrar `sales`/`orders`/`cashSession`/`orderCounter` de blob pra tabelas relacionais — resolve o last-write-wins entre dispositivos (cto-arquiteto + backend-senior + dba-dados).
+7. Substituir o poll de 6s (compara JSON inteiro de orders+sales) por Realtime (frontend-senior).
+
+**Fase 4 — evolução, não bloqueante:**
+8. Unificar as 5 implementações de carrinho duplicadas (frontend-senior).
+9. LGPD formal — aviso de privacidade, base legal, exclusão de titular (security-specialist + product-manager).
+10. NFC-e via Edge Function nova, só se o contador confirmar obrigatoriedade (backend-senior + fiscal-tributario).
+11. Avaliar PWA/offline pro "app do garçom" (que hoje é só o navegador responsivo, sem app nativo) — só depois que o item 3 da Fase 0 provou que o `save()` online nem finge sucesso hoje (mobile-senior).
+12. Fidelidade/pontos (`points`/`pointsHistory`) ficou de fora da Fase 1 de propósito — migrada como coluna simples na tabela `members`, sem virar tabela relacional própria. Se quiser isso relacional também (com ledger de auditoria igual ao de débito), é uma fase separada.
 
 ## Preferências de trabalho do usuário (Fabricio)
 
@@ -65,4 +99,4 @@ Commandah é o sistema de comanda/PDV do **Clube Olímpico** (Maringá — negó
 ## Onde achar mais contexto
 
 - Os dois relatórios publicados (links acima) têm o detalhamento completo de cada achado e correção.
-- Existe uma pasta `.claude/` no repo (gitignorada) que é um **vault pessoal de outro projeto** (MRNT/Together), misturado aqui por engano — não é deste projeto, não deve ser tratada como fonte de convenções do Commandah.
+- A pasta `.claude/agents/` (gitignorada) tem o time de 13 agentes do Commandah — fonte real de convenções pra esse time (ver seção "Time de agentes" acima). O resto de `.claude/` (skills, `dev-learning/`, etc.) ainda é o **vault pessoal de outro projeto** (MRNT/Together) misturado aqui por engano — só os arquivos de agente do Commandah devem ser tratados como deste projeto.
