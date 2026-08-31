@@ -255,6 +255,22 @@ tr:hover td{background:#faf7ef;}
 
 .toast{position:fixed;bottom:20px;right:20px;background:var(--navy);color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;z-index:300;box-shadow:0 4px 14px rgba(0,0,0,.25);}
 
+/* Aviso PERSISTENTE de falha ao salvar — nao some sozinho, so sai apos salvar de verdade */
+#saveFailRoot{position:fixed;top:0;left:0;right:0;z-index:400;display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 12px 0;pointer-events:none;}
+#saveFailRoot:empty{display:none;}
+.save-fail{pointer-events:auto;width:100%;max-width:560px;display:flex;align-items:center;gap:12px;background:var(--red);color:#fff;border-radius:10px;padding:12px 14px;box-shadow:0 6px 20px rgba(0,0,0,.32);cursor:pointer;text-align:left;}
+.save-fail-ico{flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;line-height:1;}
+.save-fail-txt{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.save-fail-title{font-size:13.5px;font-weight:700;line-height:1.25;}
+.save-fail-sub{font-size:12px;font-weight:500;opacity:.92;line-height:1.25;}
+.save-fail-btn{flex:0 0 auto;background:#fff;color:var(--red);border:0;border-radius:8px;padding:9px 14px;font-size:12.5px;font-weight:700;min-height:38px;}
+.save-fail[data-state="saving"]{cursor:progress;}
+.save-fail[data-state="saving"] .save-fail-btn{background:rgba(255,255,255,.6);}
+.save-fail.shake{animation:saveFailShake .45s ease;}
+@keyframes saveFailShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+@media (prefers-reduced-motion:reduce){.save-fail.shake{animation:none}}
+@media (max-width:560px){.save-fail{flex-wrap:wrap}.save-fail-btn{width:100%}}
+
 .stat{background:var(--navy);color:#fff;border-radius:8px;padding:16px;}
 .stat .lbl{font-size:11px;color:#9fb0cc;text-transform:uppercase;letter-spacing:.04em;}
 .stat .val{font-family:'Space Mono';font-size:22px;font-weight:700;color:var(--amber);margin-top:4px;}
@@ -601,6 +617,7 @@ body.tv-mode main{padding:26px;}
 
 <div id="modalRoot"></div>
 <div id="toastRoot"></div>
+<div id="saveFailRoot"></div>
 
 <script>
 /* ============ CONFIG ============ */
@@ -907,8 +924,92 @@ async function save(key){
   const previous = saveQueues[key] || Promise.resolve(true);
   const operation = previous.catch(()=>false).then(()=>storageApi.set(STORE[key], payload));
   saveQueues[key] = operation;
-  try{ await operation; return true; }
-  catch(e){ toast('Erro ao salvar dados. A operação pode não ter sido registrada.'); return false; }
+  try{ await operation; clearSaveFailBanner(key); return true; }
+  catch(e){ saveFailBanner(key); return false; }
+}
+
+/* ============ AVISO PERSISTENTE DE FALHA AO SALVAR ============
+   O toast some em 2,6s e no salão cheio ninguém vê. Aqui o aviso FICA na tela
+   até o dado ser gravado de verdade (por retry manual ou por um save seguinte
+   da mesma chave que der certo). Um banner por chave, sem duplicar. */
+const SAVE_FAIL_LABELS = {
+  sales:'a venda', orders:'o pedido', requests:'a solicitação', scheduled:'o agendamento',
+  members:'o cadastro do cliente', products:'o produto', insumos:'o insumo',
+  stockMovements:'a movimentação de estoque', cashSession:'o caixa',
+  cashMovements:'a movimentação de caixa', cashHistory:'o fechamento de caixa',
+  contas:'a conta', coupons:'o cupom', settings:'as configurações', users:'o usuário'
+};
+const saveFailBanners = new Map();
+function saveFailText(entry, state_){
+  const what = SAVE_FAIL_LABELS[entry.key] || 'os dados';
+  const title = entry.el.querySelector('.save-fail-title');
+  const sub = entry.el.querySelector('.save-fail-sub');
+  const btn = entry.el.querySelector('.save-fail-btn');
+  entry.el.dataset.state = state_;
+  if(state_==='saving'){
+    title.textContent = `Salvando ${what}...`;
+    sub.textContent = 'Aguarde, tentando gravar de novo.';
+    btn.textContent = 'Enviando...'; btn.disabled = true;
+  }else{
+    title.textContent = state_==='again'
+      ? `Ainda não foi possível salvar ${what}.`
+      : `Não foi possível salvar ${what}.`;
+    sub.textContent = 'Toque aqui para tentar de novo.';
+    btn.textContent = 'Tentar de novo'; btn.disabled = false;
+  }
+}
+function saveFailShake(entry){
+  entry.el.classList.remove('shake');
+  void entry.el.offsetWidth;
+  entry.el.classList.add('shake');
+}
+function saveFailBanner(key){
+  const root = document.getElementById('saveFailRoot');
+  if(!root){ toast('Erro ao salvar dados. A operação pode não ter sido registrada.'); return; }
+  const existing = saveFailBanners.get(key);
+  if(existing && existing.el.isConnected){
+    // Já tem banner desta chave: não duplica. Se está no meio de um retry,
+    // quem manda no texto final é retrySaveFail().
+    if(!existing.retrying){ saveFailText(existing, 'idle'); saveFailShake(existing); }
+    return;
+  }
+  const el = document.createElement('div');
+  el.className = 'save-fail';
+  el.setAttribute('role','alert');
+  el.innerHTML = '<div class="save-fail-ico" aria-hidden="true">!</div>'
+    + '<div class="save-fail-txt"><span class="save-fail-title"></span><span class="save-fail-sub"></span></div>'
+    + '<button type="button" class="save-fail-btn"></button>';
+  const entry = { key, el, retrying:false };
+  el.addEventListener('click', ()=>retrySaveFail(key));
+  root.appendChild(el);
+  saveFailBanners.set(key, entry);
+  saveFailText(entry, 'idle');
+}
+function clearSaveFailBanner(key){
+  const entry = saveFailBanners.get(key);
+  if(!entry) return;
+  saveFailBanners.delete(key);
+  entry.el.remove();
+}
+async function retrySaveFail(key){
+  const entry = saveFailBanners.get(key);
+  if(!entry || entry.retrying) return;
+  entry.retrying = true;
+  saveFailText(entry, 'saving');
+  // Reenvia o state[key] ATUAL (pode ter mudado desde a falha) — é o melhor
+  // possível sem snapshot por ponto de chamada.
+  let ok = false;
+  try{ ok = await save(key); }catch(e){ ok = false; }
+  if(ok){
+    clearSaveFailBanner(key);
+    toast('Dados salvos com sucesso.');
+    return;
+  }
+  entry.retrying = false;
+  if(saveFailBanners.get(key)===entry && entry.el.isConnected){
+    saveFailText(entry, 'again');
+    saveFailShake(entry);
+  }
 }
 
 /* ============ MEMBERS (sócios) — tabelas relacionais em modo nuvem, blob em modo local ============ */
