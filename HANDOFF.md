@@ -80,39 +80,50 @@ Rodamos um diagnóstico completo (todos os 8 agentes relevantes + scrum-master p
    - **Achado durante a investigação, não corrigido (fora de escopo)**: `openNewComandaModal` tem uma definição morta/sombreada — `function openNewComandaModal(tableNumber){...}` (linha ~3271) é imediatamente sobrescrita por `openNewComandaModal=function(){...}` (linha ~3817, fluxo de comanda nominal). É o mesmo padrão de "função duplicada viva" que o `cto-arquiteto` já tinha achado em outro lugar do código numa rodada anterior — não afeta a correção desta sessão (a versão realmente usada já passa pelo `saveNewNamedComanda`, que foi corrigido), mas é candidato a limpeza futura.
    - **Ainda não testado numa venda real de ponta a ponta em produção** — recomendo abrir uma comanda, lançar item, fechar com pagamento (inclusive um teste com fiado) antes de confiar 100% nisso no meio de um expediente cheio.
 
-### Fase 2 — RLS por papel + auditoria append-only — EM ANDAMENTO, iniciada em 2026-08-31 (NÃO aplicada ainda)
+### Fase 2 — RLS por papel + auditoria append-only — CÓDIGO PRONTO em 2026-08-31, AINDA NÃO PUBLICADO NEM APLICADO
 
-**O que já está pronto (investigação + rascunho, feito pelo agente `backend-senior`):**
-- Leu o código real (não só o menu client-side) e achou 3 problemas mais graves que o previsto, que tornam a Fase 2 inútil se não forem corrigidos primeiro:
-  1. **O filtro de menu (`ROLE_PERMS`) tem buraco**: item de ribbon com `action:` (em vez de `view:`) é liberado pra qualquer papel, sem checagem nenhuma. Hoje o caixa já clica em Configurações do Sistema, Logs, Contas a Pagar, Bot WhatsApp (grava token), Pix Online (grava client secret), Cupons, Alterar em Lote, etc. — nada disso passa pelo `ROLE_PERMS`.
-  2. **Risco de apagar dado real**: `storageApi.get()` não distingue "RLS bloqueou a leitura" de "a linha não existe" — os dois casos viram `state[key] = []`, e `loadAll()` SEMEIA um valor padrão nesse caso e grava por cima (`users`, `locais`, `impressoras`, `estacoes`, `origens`). Se uma RLS nova negasse leitura sem cuidado, o próximo save reescreveria dado de produção com o seed vazio. Invariante travada no design: *se o papel pode escrever, ele tem que poder ler*.
-  3. **RLS por papel seria cosmética hoje**: `resolveTenantId()` só reconhece sessão do dono (não reconhece sessão de staff no boot) e `btnLogout` não faz `supabaseClient.auth.signOut()` de verdade — a sessão do operador anterior pode continuar ativa. Sem corrigir os dois, a política nova só valeria depois do PIN ser digitado, e mal.
-- Rascunho de migration em `supabase/migrations/DRAFT_20260901000000_rls_por_papel.sql` (prefixo `DRAFT_` proposital — Supabase CLI ignora esse nome, não roda por engano). Conteúdo: `current_staff_role()` + `is_admin_like()`, classificação das chaves de `app_data` em catálogo/pedidos/operacional/auditoria/admin (default fail-closed pra chave nova desconhecida), policies por comando (select/insert/update separados, sem delete) pra `app_data`/`members`/`member_dependents`/`member_debt_entries`/`print_jobs`, tabela nova `public.audit_log` (append-only de verdade — sem policy de update/delete, nem pro dono) e plano de rollback colável (<1min, sem deploy de frontend).
-- **Confirmado**: nenhuma restrição proposta trava o fluxo de venda do caixa em operação normal (abrir comanda, lançar item, cozinha, fechar venda, fiado, sangria/suprimento, impressão continuam idênticos).
-- **Assumido de propósito, não resolvido nesta fase** (registrado no próprio arquivo, seção 8):
-  - As RPCs de venda (`close_sale`, `consume_insumos`, `next_order_number`) são `SECURITY INVOKER` — o caixa continua precisando de UPDATE direto em `cantina2:sales`/`insumos`/`orderCounter`, então pelo devtools ainda dá pra forjar venda/zerar estoque. Virar isso `SECURITY DEFINER` com checagem interna de papel é a **Fase 2b**, feita separada de propósito (policy nova e reversível ≠ reescrever a função que fecha a venda).
-  - `cantina2:settings` mistura branding com segredo de integração (token do WhatsApp, client secret do Pix, token de SMS, de backup, dos canais digitais). RLS por linha não resolve — todo operador que abre o PDV precisa ler `settings` pra montar tela/ticket, então continua lendo os tokens. Segredo tem que sair de `app_data` pra Edge Function/Vault — isso é Fase 3, não RLS.
-  - Não existe operador `cozinha` cadastrado em produção hoje (`tenant_staff` tem 1 admin + 1 caixa, ambos migrados) — as policies de cozinha entram sem teste em campo. Criar um operador cozinha de teste antes de confiar nelas.
+Feito pelo agente `backend-senior` (investigação + implementação, mesma sessão). **Nada commitado, nada publicado no GitHub Pages, nada rodado no banco** — só arquivos modificados localmente, aguardando revisão do Fabricio.
 
-**O que fica pra próxima sessão (implementação, EM ANDAMENTO quando a sessão foi encerrada):**
-Pedi pro mesmo agente `backend-senior` (com todo o contexto da investigação) implementar de verdade, nesta ordem:
-1. Os 4 pré-requisitos no `index.html` antes de qualquer coisa no banco: gate de permissão por item de ação no `renderRibbonToolbar()` (cuidado: todo token novo tem que entrar em `ROLE_PERMS.admin` também, senão o próprio admin se tranca fora); guarda no seed do `loadAll()`; `resolveTenantId()` reconhecendo sessão de staff; `btnLogout` chamando `signOut()` de verdade; gate das 5 telas que hoje o caixa usa pra gravar `cantina2:settings`; troca de `logAction()`/`logPinFail()` pra gravar em `public.audit_log` (fire-and-forget, nunca trava a ação sendo logada) e `openLogsView` virando admin-only.
-2. Só depois disso: renomear o arquivo tirando o prefixo `DRAFT_`.
-3. Sem rodar nada no banco e sem commitar — isso fica pra eu revisar com o Fabricio.
+**O problema que motivou tudo:** a RLS de hoje só pergunta "esse dado é do meu tenant?", nunca "esse usuário tem papel pra isso?". Um operador de caixa (ou cozinha) autenticado conseguia abrir o devtools e ler/escrever qualquer coisa que a RLS deixasse passar — e o filtro de menu (`ROLE_PERMS`) nem cobria isso direito no client (ver achados abaixo).
 
-**Verificado por leitura ao final desta sessão**: `git status` mostra só o arquivo `DRAFT_...sql` como novo — o agente **ainda não tinha terminado** de editar o `index.html` quando a sessão foi encerrada a pedido do Fabricio. Ou seja, **nada da implementação do item acima está feito ainda**, só a investigação e o rascunho de SQL.
+**3 achados que tiveram que ser corrigidos ANTES da RLS fazer sentido** (senão a Fase 2 seria cosmética ou, pior, destrutiva):
+1. **Buraco no filtro de menu**: item de ribbon com `action:` (em vez de `view:`) era liberado pra qualquer papel sem checagem nenhuma — o caixa já clicava em Configurações do Sistema, Logs, Contas a Pagar, Bot WhatsApp (grava token), Pix Online (grava client secret), Cupons, Alterar em Lote, etc.
+2. **Risco de apagar dado real**: `storageApi.get()` não distingue "RLS bloqueou a leitura" de "a linha não existe" — os dois casos viram vazio, e `loadAll()` semeava um valor padrão nesse caso e gravava por cima (users, locais, impressoras, estações, origens). Invariante adotada: *se o papel pode escrever, ele tem que poder ler*.
+3. **RLS por papel seria cosmética**: sessão de operador não resolvia o tenant no boot (aparelho ficava preso na sessão do dono, que não tem papel e passa por tudo) e o logout não derrubava a sessão do Supabase de verdade (sessão do operador anterior sobrevivia).
 
-**Próxima sessão, começar por aqui:**
-1. Retomar o agente `backend-senior` (ou relançar a mesma tarefa se ele não persistiu em background) e conferir se ele terminou a implementação — o pedido completo está registrado no histórico desta conversa.
-2. Revisar o diff do `index.html` item por item, com atenção especial na tabela de permissão nova por item de ação (nenhum token novo pode faltar em `ROLE_PERMS.admin`).
-3. Testar na conta de admin E na de caixa antes de cogitar aplicar a migration (login, logout, menu, um ciclo de venda completo).
-4. Só então renomear a migration, aplicar no Supabase (Fabricio roda no SQL Editor, fora de horário de pico, nunca sexta à noite) e confirmar por leitura.
+**O que foi implementado no `index.html`** (234 linhas adicionadas, 58 removidas — arquivo modificado, não commitado):
+- `renderRibbonToolbar()`: os 39 itens de ação agora declaram `perm:`; item sem `perm` é **negado por padrão** (fail-closed), não liberado.
+- `loadAll()`: seed de dado padrão só roda quando dá pra provar que a escrita é segura (fora da nuvem, ou sessão de dono) — operador nunca semeia, e chave cuja leitura falhou por erro de rede também nunca é semeada.
+- `resolveTenantId()` virou `resolveTenantSession()`: reconhece sessão de dono E de staff (via RPC `current_tenant_id()`, já que `tenant_staff` tem RLS sem nenhuma policy).
+- `btnLogout` e `gcLogout` (app do garçom): agora chamam `supabaseClient.auth.signOut()` de verdade.
+- `logAction`/`logPinFail`: em modo nuvem gravam (fire-and-forget) na tabela nova `public.audit_log`; `openLogsView` passou a exigir permissão de admin.
+- Achou e corrigiu de passagem 2 bugs preexistentes: `savePermissionMatrix` apagava silenciosamente 5 permissões do caixa (locais/impressoras/estações/origens/mobile-qr) ao salvar a matriz; falha de PIN não aparecia na tela de Logs por divergência de nome de campo.
+
+**Tabela de permissão nova, decisões que o Fabricio ainda precisa confirmar** (nenhuma bloqueante, mas mudam o que o caixa pode fazer sozinho):
+- 5 fluxos que hoje o caixa usa pra configurar coisas (formatação de ticket, config. da fila de atendimento, painel de senhas, tags de cliente, canal do cardápio digital) passam a exigir permissão de admin — ficou uniforme com o que a RLS vai impor no banco.
+- Cupons/Fidelidade/SMS/Disparador Inteligente agrupados sob a mesma permissão (reaproveitou o token `cupons` já existente, só mudou o rótulo na matriz).
+- Os 12 relatórios continuam liberados pro caixa (confirmado que nenhum lê `contas`, então não vaza dado financeiro de retaguarda).
+- Verificado por script: admin não perde acesso a nenhum item; todo token novo introduzido está em `ROLE_PERMS.admin`.
+
+**Migration pronta**: `supabase/migrations/20260901000000_rls_por_papel.sql` (já promovida, sem prefixo `DRAFT_`) — `current_staff_role()`/`is_admin_like()`, classificação de todas as chaves de `app_data` em catálogo/pedidos/operacional/auditoria/admin (default fail-closed pra chave nova desconhecida), policies por comando (select/insert/update separados, sem delete) em `app_data`/`members`/`member_dependents`/`member_debt_entries`/`print_jobs`, tabela `public.audit_log` append-only de verdade (sem policy de update/delete nem pro dono), checklist de reteste pós-aplicação (seção 9 — passo a passo do fluxo de caixa que não pode quebrar + o que tem que aparecer bloqueado) e rollback colável (seção 10).
+
+**Assumido de propósito, não resolvido nesta fase:**
+- As RPCs de venda (`close_sale`, `consume_insumos`, `next_order_number`) são `SECURITY INVOKER` — o caixa ainda precisa de UPDATE direto nesses blobs pra fechar venda, então pelo devtools ainda dá pra forjar venda/zerar estoque. Virar isso `SECURITY DEFINER` com checagem interna de papel é a **Fase 2b**, feita separada de propósito.
+- `cantina2:settings` mistura branding com segredo de integração (token WhatsApp, client secret Pix, token SMS/backup/canais digitais) — todo operador que abre o PDV precisa ler `settings`, então continua lendo os tokens. RLS por linha não resolve isso; segredo tem que sair pra Edge Function/Vault — Fase 3.
+- Não existe operador `cozinha` em produção hoje (`tenant_staff` = 1 admin + 1 caixa, ambos migrados) — as policies de cozinha entram sem teste em campo.
+
+**⚠️ Ordem de deploy é fixa, não pular etapa:**
+1. Revisar o diff do `index.html` (ver decisões acima) e commitar.
+2. Publicar (push em `main`) e conferir login de admin E de caixa já no ar, com o menu se comportando certo.
+3. Só então aplicar a migration no Supabase (Fabricio roda no SQL Editor, fora de horário de pico, nunca sexta à noite).
+4. Rodar o checklist de reteste da seção 9 da migration na hora, com o bar fechado/vazio. Qualquer item que falhar = rollback imediato (seção 10 da migration).
+5. Antes de confiar nas policies de cozinha: criar um operador cozinha de teste (não existe nenhum em produção).
 
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
 **Fase 1 — fundação:** concluída (itens 1-3, ver seção própria acima).
 
-**Fase 2 — RLS por papel + auditoria append-only:** EM ANDAMENTO (ver seção própria acima) — investigação e rascunho prontos, implementação no `index.html` ainda não terminada.
+**Fase 2 — RLS por papel + auditoria append-only:** código pronto, aguardando revisão/commit/deploy do Fabricio (ver seção própria acima e a ordem de deploy fixa).
 
 **Fase 2b — depois da Fase 2 estar aplicada e validada em produção:**
 - Tornar `close_sale`/`consume_insumos`/`next_order_number` `SECURITY DEFINER` com checagem interna de papel, fechando o buraco de devtools que a Fase 2 conscientemente deixou aberto (ver seção Fase 2 acima).
