@@ -2563,7 +2563,23 @@ function canFulfillItems(items){
     return ins && Number(ins.stock)>=qty-1e-9;
   });
 }
-function consumeInsumosForItems(items){
+async function consumeInsumosForItems(items){
+  const required = requiredInsumosForItems(items);
+  if(!Object.keys(required).length) return true;
+  if(isCloudMode()){
+    // Baixa atomica no servidor (RPC consume_insumos): trava a linha de cantina2:insumos,
+    // confere se da pra atender TUDO antes de descontar (tudo ou nada), e devolve os
+    // numeros de antes/depois reais pra montar o log de auditoria sem recalcular no cliente.
+    const { data, error } = await supabaseClient.rpc('consume_insumos', { p_consumptions: required });
+    if(error) return false;
+    (data||[]).forEach(m=>{
+      const ins = state.insumos.find(x=>x.id===m.insumoId);
+      if(ins) ins.stock = m.after;
+      state.stockMovements.unshift({id:uid(),insumoId:m.insumoId,name:ins?ins.name:'',unit:ins?ins.unit:'',type:'saida',operation:'Baixa por venda',before:m.before,qty:m.qty,after:m.after,user:currentUser?currentUser.name:'—',at:new Date().toISOString()});
+    });
+    save('stockMovements');
+    return true;
+  }
   if(!canFulfillItems(items)) return false;
   items.forEach(it=>{
     const p = state.products.find(x=>x.id===it.productId);
@@ -2588,9 +2604,9 @@ function saidaModoEstacao(estacao){
 }
 function saidaTemTela(estacao){ const m=saidaModoEstacao(estacao); return m==='ambos'||m==='tela'; }
 function saidaTemImpressao(estacao){ const m=saidaModoEstacao(estacao); return m==='ambos'||m==='imprime'; }
-function sendItemsToKitchen(saleId, items, who, source, local){
+async function sendItemsToKitchen(saleId, items, who, source, local){
   if(!items.length) return false;
-  if(!consumeInsumosForItems(items)){ toast('Estoque insuficiente para enviar todos os itens. Revise as quantidades.'); return false; }
+  if(!await consumeInsumosForItems(items)){ toast('Estoque insuficiente para enviar todos os itens. Revise as quantidades.'); return false; }
   const monitorItems=items.filter(i=>{const product=state.products.find(p=>p.id===i.productId);const estacao=product&&product.estacao?product.estacao:'cozinha';return saidaTemTela(estacao);});
   if(!monitorItems.length) return true;
   const order = { id:uid(), saleId, who, local: local||'', items: monitorItems.map(i=>({productId:i.productId,name:i.name,qty:i.qty,price:i.price,notes:i.notes||'',customization:i.customization?JSON.parse(JSON.stringify(i.customization)):null})),
@@ -3049,8 +3065,12 @@ async function finalizeSale(mode, comandaId, memberId, payments, total){
   const cota = saleMember ? saleMember.code : '';
   const isExistingComanda = (mode==='comanda' && comandaId);
   const isExistingDelivery = (mode==='delivery' && comandaId);
+  let orderNumber = null;
+  if(!isExistingComanda && !isExistingDelivery){
+    try{ orderNumber = await nextOrderNumber(); }catch(e){ return false; }
+  }
   const sale = {
-    id: (isExistingComanda||isExistingDelivery) ? comandaId : uid(), type: mode, orderNumber: (isExistingComanda||isExistingDelivery) ? null : nextOrderNumber(), memberId, customerName: currentSaleDraft.customerName||'',
+    id: (isExistingComanda||isExistingDelivery) ? comandaId : uid(), type: mode, orderNumber, memberId, customerName: currentSaleDraft.customerName||'',
     items: currentSaleDraft.items, total, status:'closed', notes:currentSaleDraft.notes||'',
     payments, operatorId: currentUser.id, operatorName: currentUser.name,
     openedAt: new Date().toISOString(), closedAt: new Date().toISOString()
@@ -3059,7 +3079,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total){
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
     if(unsent.length){
       const unsentWithEstacao = unsent.map(i=>{ const prod=state.products.find(p=>p.id===i.productId); return {...i, estacao: i.estacao || (prod&&prod.estacao) || 'cozinha'}; });
-      if(!sendItemsToKitchen(sale.id, unsentWithEstacao, who, mode)) return false;
+      if(!await sendItemsToKitchen(sale.id, unsentWithEstacao, who, mode)) return false;
       unsent.forEach(i=>i.sent=true);
       const origem = currentUser.origem||'caixa';
       const groups = {};
@@ -3075,14 +3095,35 @@ async function finalizeSale(mode, comandaId, memberId, payments, total){
     }
   } else if(mode==='agendamento'){
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
-    if(unsent.length && !sendItemsToKitchen(sale.id, unsent, who, mode)) return false;
+    if(unsent.length && !await sendItemsToKitchen(sale.id, unsent, who, mode)) return false;
     unsent.forEach(i=>i.sent=true);
   }
-  if(mode==='comanda' && comandaId){
-    const idx = state.sales.findIndex(s=>s.id===comandaId);
-    if(idx>-1) state.sales[idx] = {...state.sales[idx], items:currentSaleDraft.items, total, status:'closed', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt};
-  } else if(isExistingDelivery){const idx=state.sales.findIndex(s=>s.id===comandaId);if(idx>-1)state.sales[idx]={...state.sales[idx],memberId,customerName:currentSaleDraft.customerName||state.sales[idx].customerName,items:currentSaleDraft.items,total,status:'closed',deliveryStatus:'entregue',payments:sale.payments,operatorId:sale.operatorId,operatorName:sale.operatorName,closedAt:sale.closedAt};}
-  else { state.sales.push(sale); }
+  if(isCloudMode()){
+    // Grava a venda no servidor via RPC close_sale — atomica (trava a linha de
+    // cantina2:sales, sem last-write-wins entre dois dispositivos) e idempotente
+    // (um retry de rede com o mesmo sale.id devolve o resultado ja gravado em vez
+    // de duplicar a venda).
+    let patch;
+    if(isExistingComanda){
+      patch = { items:currentSaleDraft.items, total, status:'closed', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt };
+    } else if(isExistingDelivery){
+      const current = state.sales.find(s=>s.id===comandaId);
+      patch = { memberId, customerName:currentSaleDraft.customerName||(current?current.customerName:''), items:currentSaleDraft.items, total, status:'closed', deliveryStatus:'entregue', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt };
+    } else {
+      patch = sale;
+    }
+    const { data: savedSale, error } = await supabaseClient.rpc('close_sale', { p_sale_id: sale.id, p_existing: !!(isExistingComanda||isExistingDelivery), p_sale_patch: patch });
+    if(error){ toast('Não foi possível registrar a venda agora. Tente de novo.'); return false; }
+    const idx = state.sales.findIndex(s=>s.id===sale.id);
+    if(idx>-1) state.sales[idx] = savedSale; else state.sales.push(savedSale);
+  } else {
+    if(mode==='comanda' && comandaId){
+      const idx = state.sales.findIndex(s=>s.id===comandaId);
+      if(idx>-1) state.sales[idx] = {...state.sales[idx], items:currentSaleDraft.items, total, status:'closed', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt};
+    } else if(isExistingDelivery){const idx=state.sales.findIndex(s=>s.id===comandaId);if(idx>-1)state.sales[idx]={...state.sales[idx],memberId,customerName:currentSaleDraft.customerName||state.sales[idx].customerName,items:currentSaleDraft.items,total,status:'closed',deliveryStatus:'entregue',payments:sale.payments,operatorId:sale.operatorId,operatorName:sale.operatorName,closedAt:sale.closedAt};}
+    else { state.sales.push(sale); }
+    save('sales');
+  }
   if(mode==='agendamento' && comandaId){
     const sch = state.scheduled.find(x=>x.id===comandaId);
     if(sch){ sch.status='entregue'; save('scheduled'); }
@@ -3094,7 +3135,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total){
     if(m){ await MembersStore.recordDebtEntry(m.id, 'debt', fiadoTotal, { reason:'Venda #'+sale.id, saleId: sale.id }); fiadoMemberForPrompt = m; }
   }
   await applyAutomaticLoyalty(memberId,total,sale.id);
-  save('sales'); newDraft(mode); toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
+  newDraft(mode); toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
   if(fiadoMemberForPrompt) promptWhatsAppCollection(fiadoMemberForPrompt);
   return true;
 }
@@ -3170,10 +3211,10 @@ function openDeliveryOrderOptions(){
   </div>`);
   const modal=document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal'); modal.style.width='340px';
 }
-function duplicateDeliveryOrder(id){const source=state.sales.find(x=>x.id===id);if(!source)return;const copy={...JSON.parse(JSON.stringify(source)),id:uid(),orderNumber:nextOrderNumber(),status:'open',payments:[],openedAt:new Date().toISOString(),deliveryStatus:'iniciado',deliveryStatusAt:new Date().toISOString()};copy.items=(copy.items||[]).map(i=>({...i,sent:false}));state.sales.push(copy);save('sales');selectedDeliveryId=copy.id;renderAll();openDeliveryModal(copy.id);toast('Pedido duplicado. Revise antes de enviar.');}
+async function duplicateDeliveryOrder(id){const source=state.sales.find(x=>x.id===id);if(!source)return;let orderNumber;try{orderNumber=await nextOrderNumber();}catch(e){return;}const copy={...JSON.parse(JSON.stringify(source)),id:uid(),orderNumber,status:'open',payments:[],openedAt:new Date().toISOString(),deliveryStatus:'iniciado',deliveryStatusAt:new Date().toISOString()};copy.items=(copy.items||[]).map(i=>({...i,sent:false}));state.sales.push(copy);save('sales');selectedDeliveryId=copy.id;renderAll();openDeliveryModal(copy.id);toast('Pedido duplicado. Revise antes de enviar.');}
 function transferDeliveryToCounter(id){const sale=state.sales.find(x=>x.id===id);if(!sale||sale.status!=='open')return;if(!confirm('Transferir este pedido para o Caixa / PDV?'))return;sale.type='balcao';sale.origin='Delivery';delete sale.deliveryStatus;save('sales');renderAll();switchView('balcao');toast('Pedido transferido para o Caixa / PDV.');}
 if(typeof document.addEventListener==='function')document.addEventListener('click',event=>{const button=event.target.closest&&event.target.closest('.delivery-modal .delivery-locate');if(!button||!button.textContent.includes('Mais Opções'))return;event.preventDefault();event.stopImmediatePropagation();openDeliveryOrderOptions();},true);
-function saveDeliveryOrder(id){const existing=id?state.sales.find(s=>s.id===id):null;if(!currentSaleDraft.items.length){toast('Adicione ao menos um produto.');return;}const address=document.getElementById('delAddress').value.trim(),deliveryLocal=document.getElementById('delLocal')?.value||'',customer=document.getElementById('delCustomer').value.trim(),areaId=document.getElementById('delArea')?.value||null,area=(state.settings.deliveryAreas||[]).find(a=>a.id===areaId),itemsValue=currentSaleDraft.items.reduce((s,i)=>s+Number(i.price||0)*Number(i.qty||0),0);if(!customer){toast('Informe o cliente.');return;}if(!address&&!deliveryLocal){toast('Informe o local de entrega no clube ou o endereço.');return;}if(area&&itemsValue<Number(area.minimum||0)){toast('O pedido não atingiu o valor mínimo de '+fmt(area.minimum)+' para esta área.');return;}const unsent=currentSaleDraft.items.filter(i=>!i.sent),saleId=existing?existing.id:uid();if(unsent.length&&!sendItemsToKitchen(saleId,unsent,customer,'delivery',deliveryLocal))return;unsent.forEach(i=>i.sent=true);const data={type:'delivery',memberId:window.selectedDeliveryMemberId||null,customerName:customer,address,deliveryLocal,deliveryReference:document.getElementById('delReference').value.trim(),deliveryAreaId:areaId,estimatedMinutes:area?Number(area.minutes)||0:0,notes:document.getElementById('delNotes').value.trim(),driver:document.getElementById('delDriver').value.trim(),deliveryFee:Math.max(0,Number(document.getElementById('delFee').value)||0),items:currentSaleDraft.items,total:draftTotal(),deliveryStatus:existing?(existing.deliveryStatus||'iniciado'):'iniciado',deliveryStatusAt:new Date().toISOString()};if(existing)Object.assign(existing,data);else state.sales.push({id:saleId,orderNumber:nextOrderNumber(),status:'open',payments:[],operatorId:currentUser.id,operatorName:currentUser.name,openedAt:new Date().toISOString(),...data});save('sales');closeModal();selectedDeliveryId=saleId;renderAll();toast(existing?'Delivery atualizado.':'Pedido Delivery criado e enviado para preparo.');}
+async function saveDeliveryOrder(id){const existing=id?state.sales.find(s=>s.id===id):null;if(!currentSaleDraft.items.length){toast('Adicione ao menos um produto.');return;}const address=document.getElementById('delAddress').value.trim(),deliveryLocal=document.getElementById('delLocal')?.value||'',customer=document.getElementById('delCustomer').value.trim(),areaId=document.getElementById('delArea')?.value||null,area=(state.settings.deliveryAreas||[]).find(a=>a.id===areaId),itemsValue=currentSaleDraft.items.reduce((s,i)=>s+Number(i.price||0)*Number(i.qty||0),0);if(!customer){toast('Informe o cliente.');return;}if(!address&&!deliveryLocal){toast('Informe o local de entrega no clube ou o endereço.');return;}if(area&&itemsValue<Number(area.minimum||0)){toast('O pedido não atingiu o valor mínimo de '+fmt(area.minimum)+' para esta área.');return;}const unsent=currentSaleDraft.items.filter(i=>!i.sent),saleId=existing?existing.id:uid();if(unsent.length&&!await sendItemsToKitchen(saleId,unsent,customer,'delivery',deliveryLocal))return;unsent.forEach(i=>i.sent=true);const data={type:'delivery',memberId:window.selectedDeliveryMemberId||null,customerName:customer,address,deliveryLocal,deliveryReference:document.getElementById('delReference').value.trim(),deliveryAreaId:areaId,estimatedMinutes:area?Number(area.minutes)||0:0,notes:document.getElementById('delNotes').value.trim(),driver:document.getElementById('delDriver').value.trim(),deliveryFee:Math.max(0,Number(document.getElementById('delFee').value)||0),items:currentSaleDraft.items,total:draftTotal(),deliveryStatus:existing?(existing.deliveryStatus||'iniciado'):'iniciado',deliveryStatusAt:new Date().toISOString()};if(existing)Object.assign(existing,data);else{let orderNumber;try{orderNumber=await nextOrderNumber();}catch(e){return;}state.sales.push({id:saleId,orderNumber,status:'open',payments:[],operatorId:currentUser.id,operatorName:currentUser.name,openedAt:new Date().toISOString(),...data});}save('sales');closeModal();selectedDeliveryId=saleId;renderAll();toast(existing?'Delivery atualizado.':'Pedido Delivery criado e enviado para preparo.');}
 function setDeliveryStatus(id,status){if(!id){toast('Crie o pedido antes de alterar o status.');return;}const s=state.sales.find(x=>x.id===id);if(!s||s.status==='closed')return;s.deliveryStatus=status;s.deliveryStatusAt=new Date().toISOString();save('sales');logAction('Delivery #'+(s.orderNumber||'')+' — '+deliveryStatusLabel(status));openDeliveryModal(id);renderAll();}
 function openDeliveryPayment(id){const s=state.sales.find(x=>x.id===id);if(!s)return;if(!state.cashSession||state.cashSession.status!=='open'){toast('Abra o caixa antes de receber o pedido Delivery.');return;}currentSaleDraft={items:JSON.parse(JSON.stringify(s.items||[])),memberId:s.memberId||null,customerName:s.customerName||'',type:'delivery',deliveryFee:Number(s.deliveryFee)||0};openPaymentModal('delivery',id);}
 function cancelDelivery(id){const s=state.sales.find(x=>x.id===id);if(!s||s.status==='closed')return;if(!confirm('Cancelar este Delivery e devolver os insumos enviados ao estoque?'))return;(s.items||[]).filter(i=>i.sent).forEach(it=>{const p=state.products.find(x=>x.id===it.productId);(p&&p.recipe||[]).forEach(r=>{const ins=state.insumos.find(x=>x.id===r.insumoId);if(ins){const qty=(Number(r.qty)||0)*(Number(it.qty)||0),before=Number(ins.stock)||0;ins.stock+=qty;state.stockMovements.unshift({id:uid(),insumoId:ins.id,name:ins.name,unit:ins.unit,type:'entrada',operation:'Estorno de Delivery cancelado',before,qty,after:ins.stock,user:currentUser.name,at:new Date().toISOString()});}});});s.status='closed';s.deliveryStatus='cancelado';s.deliveryStatusAt=new Date().toISOString();s.closedAt=s.deliveryStatusAt;state.orders.filter(o=>o.saleId===id&&o.status!=='entregue').forEach(o=>o.status='cancelado');save('insumos');save('stockMovements');save('orders');save('sales');logAction('Delivery #'+(s.orderNumber||'')+' cancelado');closeModal();renderAll();toast('Delivery cancelado e estoque devolvido.');}
@@ -3233,7 +3274,7 @@ function openNewComandaModal(tableNumber){
     <div class="field"><label>Titular ou dependente (por cota)</label><select id="ncMember"><option value="">— Não informado —</option>${memberOptions}</select><p class="sub">Dependentes bloqueados não podem ser selecionados para abrir pedidos.</p></div>
     <div class="field"><label>Nome do cliente avulso (se não for associado)</label><input id="ncCustomer" placeholder="Ex: Visitante João"></div>
     <button class="btn btn-primary btn-block" id="ncSaveBtn">Abrir comanda</button>`);
-  document.getElementById('ncSaveBtn').onclick = ()=>{
+  document.getElementById('ncSaveBtn').onclick = async ()=>{
     const selected=document.getElementById('ncMember').value,parts=selected.split('::'),memberId=parts[0]||null,dependentId=parts[1]||null,member=memberId?state.members.find(x=>x.id===memberId):null,dependent=dependentId&&member?(member.dependents||[]).find(x=>x.id===dependentId):null;
     const customerName = document.getElementById('ncCustomer').value.trim();
     if(!memberId && !customerName){ toast('Informe um associado ou o nome do cliente.'); return; }
@@ -3247,7 +3288,7 @@ function openNewComandaModal(tableNumber){
         return;
       }
     }
-    const s = { id:uid(), type:'comanda', tableNumber:tableNumber||null, orderNumber:nextOrderNumber(), memberId,dependentId,dependentName:dependent&&dependent.name||'', customerName:dependent&&dependent.name||customerName||member&&member.name||'', items:[], total:0, status:'open', payments:[], openedAt:new Date().toISOString() };
+    const s = { id:uid(), type:'comanda', tableNumber:tableNumber||null, orderNumber:await nextOrderNumber(), memberId,dependentId,dependentName:dependent&&dependent.name||'', customerName:dependent&&dependent.name||customerName||member&&member.name||'', items:[], total:0, status:'open', payments:[], openedAt:new Date().toISOString() };
     state.sales.push(s); save('sales'); closeModal(); renderAll(); openNovoPedidoModal(s.id);
   };
 }
@@ -3305,10 +3346,10 @@ function openComanda(id, keepRequester){
     s.items = currentSaleDraft.items; s.total = draftTotal();
     save('sales'); closeModal(); renderAll(); toast('Comanda salva.');
   };
-  document.getElementById('btnCloseComanda').onclick = ()=>{
+  document.getElementById('btnCloseComanda').onclick = async ()=>{
     if(s.locked){ toast('Este pedido está bloqueado. Desbloqueie antes de fechar.'); return; }
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
-    if(unsent.length){ if(!sendItemsToKitchen(s.id, unsent, who, 'comanda')) return; unsent.forEach(i=>i.sent=true); }
+    if(unsent.length){ if(!await sendItemsToKitchen(s.id, unsent, who, 'comanda')) return; unsent.forEach(i=>i.sent=true); }
     s.items = currentSaleDraft.items; s.total = draftTotal(); save('sales');
     closeModal(); openPaymentModal('comanda', s.id);
   };
@@ -3409,7 +3450,7 @@ function renderNpCart(){
   const totEl = document.getElementById('npCartTotal'); if(totEl) totEl.textContent = fmt(npCart.reduce((a,i)=>a+i.price*i.qty,0));
   const countEl = document.getElementById('npItemCount'); if(countEl){ const n=npCart.reduce((a,i)=>a+i.qty,0); countEl.textContent = n?n+' item'+(n===1?'':'s'):''; }
 }
-function confirmNovoPedidoModal(saleId){
+async function confirmNovoPedidoModal(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const reqValue = document.getElementById('npRequester').value;
@@ -3424,7 +3465,7 @@ function confirmNovoPedidoModal(saleId){
   const origem = currentUser.origem||'caixa';
   const who = requester.name;
   const items = npCart.map(i=>({...i, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, requesterId:requester.id, requesterName:who, requesterType:requester.type}));
-  if(!sendItemsToKitchen(saleId, items, who, 'comanda', local)) return;
+  if(!await sendItemsToKitchen(saleId, items, who, 'comanda', local)) return;
   items.forEach(i=>i.sent=true);
   s.items = [...s.items, ...items];
   s.total = s.items.reduce((a,i)=>a+i.price*i.qty,0);
@@ -3785,11 +3826,11 @@ openNewComandaModal=function(){
 function filterComandaAccountChoices(value){const q=String(value||'').trim().toLowerCase(),box=document.getElementById('ncAccountResults');if(!box)return;if(!q){box.innerHTML='<p class="empty">Digite ao menos parte do nome ou da cota para pesquisar.</p>';return;}const choices=comandaAccountChoices().filter(x=>[x.name,x.quota].join(' ').toLowerCase().includes(q)).slice(0,30);box.innerHTML=choices.map(x=>`<button type="button" class="comanda-account-choice" onclick="selectComandaAccount('${x.key}')"><b>${h(x.name)}</b><span>Titular${x.quota?' · Cota '+h(x.quota):''}</span></button>`).join('')||'<p class="empty">Nenhum titular ou cota encontrado.</p>';}
 function clearSelectedComandaAccount(keepSearch){window.selectedComandaAccount=null;const selected=document.getElementById('ncSelectedAccount');if(selected){selected.hidden=true;selected.innerHTML='';}if(!keepSearch){const customer=document.getElementById('ncCustomer');if(customer)customer.value='';}}
 function selectComandaAccount(key){const choice=comandaAccountChoices().find(x=>x.key===key);if(!choice||!choice.canOrder)return;window.selectedComandaAccount=choice;document.getElementById('ncAccountSearch').value=choice.quota?choice.name+' — Cota '+choice.quota:choice.name;document.getElementById('ncAccountResults').innerHTML='';const selected=document.getElementById('ncSelectedAccount');selected.hidden=false;selected.innerHTML=`<b>${h(choice.name)}</b><p class="sub">${choice.dependentId?'Dependente de '+h(choice.owner):'Titular da conta'}${choice.quota?' · Cota '+h(choice.quota):''}</p>`;document.getElementById('ncCustomer').value='';}
-function saveNewNamedComanda(){
+async function saveNewNamedComanda(){
   const customerName=document.getElementById('ncCustomer').value.trim();
   if((state.settings.operationMode||'clube')==='bar'){
     if(!customerName){ toast('Informe a mesa ou o nome do cliente.'); return; }
-    const s={id:uid(),type:'comanda',tableNumber:null,orderNumber:nextOrderNumber(),memberId:null,dependentId:null,dependentName:'',customerName,items:[],total:0,status:'open',payments:[],openedAt:new Date().toISOString(),operatorName:currentUser.name};
+    const s={id:uid(),type:'comanda',tableNumber:null,orderNumber:await nextOrderNumber(),memberId:null,dependentId:null,dependentName:'',customerName,items:[],total:0,status:'open',payments:[],openedAt:new Date().toISOString(),operatorName:currentUser.name};
     state.sales.push(s);save('sales');closeModal();renderAll();openNovoPedidoModal(s.id);
     return;
   }
@@ -3799,7 +3840,7 @@ function saveNewNamedComanda(){
     if(blockIfMemberInDebt(member)) return;
     const existing=state.sales.find(x=>x.status==='open'&&x.memberId===choice.memberId);if(existing){closeModal();renderAll();toast('Essa cota já tem uma comanda aberta — abrindo ela.');openComanda(existing.id,true);return;}
   }
-  const s={id:uid(),type:'comanda',tableNumber:null,orderNumber:nextOrderNumber(),memberId:choice&&choice.memberId||null,dependentId:null,dependentName:'',customerName:choice?choice.name:customerName,items:[],total:0,status:'open',payments:[],openedAt:new Date().toISOString()};state.sales.push(s);save('sales');closeModal();renderAll();openNovoPedidoModal(s.id);
+  const s={id:uid(),type:'comanda',tableNumber:null,orderNumber:await nextOrderNumber(),memberId:choice&&choice.memberId||null,dependentId:null,dependentName:'',customerName:choice?choice.name:customerName,items:[],total:0,status:'open',payments:[],openedAt:new Date().toISOString()};state.sales.push(s);save('sales');closeModal();renderAll();openNovoPedidoModal(s.id);
 }
 
 /* ============ MODO GARÇOM (mobile) ============ */
@@ -3824,10 +3865,10 @@ function gcRenderHome(){
     </div>`;
   gcRenderOpenTiles();
 }
-function gcOpenBarComanda(){
+async function gcOpenBarComanda(){
   const name = (document.getElementById('gcSearch')?.value||'').trim();
   if(!name){ toast('Digite o número da mesa ou o nome do cliente na busca acima.'); return; }
-  const s = { id:uid(), type:'comanda', tableNumber:null, orderNumber:nextOrderNumber(), memberId:null, dependentId:null, dependentName:'', customerName:name, items:[], total:0, status:'open', payments:[], openedAt:new Date().toISOString(), operatorName:currentUser.name };
+  const s = { id:uid(), type:'comanda', tableNumber:null, orderNumber:await nextOrderNumber(), memberId:null, dependentId:null, dependentName:'', customerName:name, items:[], total:0, status:'open', payments:[], openedAt:new Date().toISOString(), operatorName:currentUser.name };
   state.sales.push(s); save('sales');
   gcOpenFlow(s.id);
 }
@@ -3995,7 +4036,7 @@ function gcCartQty(idx,delta){
   if(!gcCart.length){ gcRenderProducts(); return; }
   gcRenderReviewList();
 }
-function gcConfirmOrder(){
+async function gcConfirmOrder(){
   const s = state.sales.find(x=>x.id===gcFlow.saleId); if(!s) return;
   if(!gcCart.length){ toast('Adicione ao menos um produto.'); return; }
   const local = document.getElementById('gcLocal')?.value || '';
@@ -4004,7 +4045,7 @@ function gcConfirmOrder(){
   const origem = currentUser.origem||'app';
   const who = gcRequester.name;
   const items = gcCart.map(i=>({...i, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, requesterId:gcRequester.id, requesterName:who, requesterType:gcRequester.type}));
-  if(!sendItemsToKitchen(s.id, items, who, 'comanda', local)) return;
+  if(!await sendItemsToKitchen(s.id, items, who, 'comanda', local)) return;
   items.forEach(i=>i.sent=true);
   s.items = [...s.items, ...items];
   s.total = s.items.reduce((a,i)=>a+i.price*i.qty,0);
@@ -4021,12 +4062,12 @@ function gcConfirmOrder(){
   toast('Pedido confirmado e enviado!');
   gcRenderHome();
 }
-function gcSelectMember(memberId){
+async function gcSelectMember(memberId){
   const m = state.members.find(x=>x.id===memberId); if(!m) return;
   const existing = state.sales.find(s=>s.status==='open' && s.memberId===memberId);
   if(existing){ gcOpenFlow(existing.id); return; }
   if(memberBlockedByDebt(m)){ blockIfMemberInDebt(m); return; }
-  const s = { id:uid(), type:'comanda', tableNumber:null, orderNumber:nextOrderNumber(), memberId:m.id, dependentId:null, dependentName:'', customerName:m.name, items:[], total:0, status:'open', payments:[], openedAt:new Date().toISOString(), operatorName:currentUser.name };
+  const s = { id:uid(), type:'comanda', tableNumber:null, orderNumber:await nextOrderNumber(), memberId:m.id, dependentId:null, dependentName:'', customerName:m.name, items:[], total:0, status:'open', payments:[], openedAt:new Date().toISOString(), operatorName:currentUser.name };
   state.sales.push(s); save('sales');
   gcOpenFlow(s.id);
 }
@@ -4084,7 +4125,7 @@ function openNewAgendamentoModal(){
   document.querySelector('#modalRoot .modal').classList.add('scheduled-record-modal');
   if(editing&&editing.memberId)document.getElementById('agMember').value=editing.memberId;
   renderProductPicker('agendaPicker'); renderDraftItems();
-  document.getElementById('agSaveBtn').onclick = ()=>{
+  document.getElementById('agSaveBtn').onclick = async ()=>{
     if(!currentSaleDraft.items.length){ toast('Adicione ao menos um item.'); return; }
     const memberId = document.getElementById('agMember').value || null;
     const customerName = document.getElementById('agCustomer').value.trim();
@@ -4092,15 +4133,15 @@ function openNewAgendamentoModal(){
     if(!memberId && !customerName){ toast('Informe um associado ou o nome do cliente.'); return; }
     if(!pickupVal){ toast('Informe a data e hora de retirada.'); return; }
     if(editing)Object.assign(editing,{memberId,customerName,items:currentSaleDraft.items,pickupAt:new Date(pickupVal).toISOString()});
-    else state.scheduled.push({id:uid(),orderNumber:nextOrderNumber(),memberId,customerName,items:currentSaleDraft.items,pickupAt:new Date(pickupVal).toISOString(),status:'agendado',createdAt:new Date().toISOString()});
+    else state.scheduled.push({id:uid(),orderNumber:await nextOrderNumber(),memberId,customerName,items:currentSaleDraft.items,pickupAt:new Date(pickupVal).toISOString(),status:'agendado',createdAt:new Date().toISOString()});
     save('scheduled'); closeModal(); renderAll(); toast('Pedido agendado.');
   };
 }
-function sendScheduledToKitchen(id){
+async function sendScheduledToKitchen(id){
   const s = state.scheduled.find(x=>x.id===id); if(!s) return;
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const who = member ? member.name : (s.customerName||'Avulso');
-  if(!sendItemsToKitchen(s.id, s.items, who, 'agendamento')) return;
+  if(!await sendItemsToKitchen(s.id, s.items, who, 'agendamento')) return;
   s.items.forEach(i=>i.sent=true);
   s.status='enviado';s.statusAt=new Date().toISOString();s.statusHistory=s.statusHistory||[];s.statusHistory.push({status:'Enviado à cozinha',at:s.statusAt,user:currentUser.name}); save('scheduled');logAction('Pedido agendado #'+(s.orderNumber||'')+' enviado à cozinha');renderAll(); toast('Pedido enviado para a cozinha.');
 }
@@ -4166,7 +4207,7 @@ function renderCardapioEquipe(){
 }
 function openRequestDetail(id){const r=state.requests.find(x=>x.id===id);if(!r)return;const member=r.memberId?state.members.find(m=>m.id===r.memberId):null,who=member?member.name:(r.customerName||'Avulso'),rows=(r.items||[]).map(i=>`<tr><td>${Number(i.qty)||0}</td><td>${h(i.name)}</td><td>${fmt(i.price)}</td><td>${fmt(Number(i.qty||0)*Number(i.price||0))}</td><td>${h(i.notes||i.customization&&i.customization.summary||'—')}</td></tr>`).join(''),history=r.statusHistory||[];openModal('Solicitação do Cardápio Digital',`<div class="consumer-form-frame"><div class="app-status"><b>${h(who)}</b><span class="tag ${r.status==='aceito'?'tag-green':r.status==='recusado'?'tag-red':'tag-amber'}">${h(r.status||'pendente')}</span></div><div class="grid3"><p><b>Recebido em</b><br>${reportDateTime(r.createdAt)}</p><p><b>Canal</b><br>${h(r.channel||'cardápio digital')}</p><p><b>Total</b><br>${fmt(r.total||(r.items||[]).reduce((a,i)=>a+Number(i.price||0)*Number(i.qty||0),0))}</p></div><div class="finance-grid" style="height:260px"><table><thead><tr><th>Qtd.</th><th>Produto</th><th>Unitário</th><th>Total</th><th>Observação</th></tr></thead><tbody>${rows}</tbody></table></div>${r.notes?`<p><b>Observação geral:</b> ${h(r.notes)}</p>`:''}${r.rejectionReason?`<p><b>Motivo da recusa:</b> ${h(r.rejectionReason)}</p>`:''}<div class="settings-section"><b>Histórico</b>${history.map(x=>`<p class="sub">${reportDateTime(x.at)} · ${h(x.status)} · ${h(x.user||'Sistema')}${x.note?' · '+h(x.note):''}</p>`).join('')||'<p class="sub">Aguardando atendimento.</p>'}</div></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button>${r.status==='pendente'?`<button class="consumer-delete" onclick="closeModal();openRejectRequest('${r.id}')">Recusar</button><button class="consumer-save" onclick="closeModal();acceptRequest('${r.id}')">✓ Aceitar</button>`:''}</div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
 function openRejectRequest(id){const r=state.requests.find(x=>x.id===id);if(!r||r.status!=='pendente')return;openModal('Recusar Solicitação',`<div class="consumer-form-frame"><p>Informe o motivo para manter o histórico do atendimento.</p><div class="field"><label>Motivo da recusa</label><select id="requestRejectPreset"><option value="">Selecione...</option><option>Produto indisponível</option><option>Estoque insuficiente</option><option>Fora do horário de atendimento</option><option>Não foi possível confirmar o cliente</option><option>Outro motivo</option></select></div><div class="field"><label>Detalhes</label><textarea id="requestRejectNote" rows="4"></textarea></div></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="consumer-delete" onclick="rejectRequest('${id}')">✕ Confirmar recusa</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal');}
-function acceptRequest(id){
+async function acceptRequest(id){
   const r = state.requests.find(x=>x.id===id); if(!r) return;
   let sale = state.sales.find(s=>s.status==='open' && ((r.memberId && s.memberId===r.memberId) || (!r.memberId && s.customerName===r.customerName)));
   const createdSale = !sale;
@@ -4180,13 +4221,13 @@ function acceptRequest(id){
   if(r.notes)sale.notes=[sale.notes,r.notes].filter(Boolean).join(' · ');
   const member = r.memberId ? state.members.find(m=>m.id===r.memberId) : null;
   const who = member ? member.name : (r.customerName||'Avulso');
-  if(!sendItemsToKitchen(sale.id, newItems, who, 'cardapio')){
+  if(!await sendItemsToKitchen(sale.id, newItems, who, 'cardapio')){
     sale.items=sale.items.filter(i=>!newItems.includes(i));
     sale.total=sale.items.reduce((a,i)=>a+i.price*i.qty,0);
     if(createdSale) state.sales=state.sales.filter(s=>s.id!==sale.id);
     return;
   }
-  if(createdSale) sale.orderNumber=nextOrderNumber();
+  if(createdSale) sale.orderNumber=await nextOrderNumber();
   newItems.forEach(i=>i.sent=true);
   r.status='aceito';
   r.statusAt=new Date().toISOString();r.statusHistory=r.statusHistory||[];r.statusHistory.push({status:'Aceito',at:r.statusAt,user:currentUser.name,note:'Enviado para a cozinha'});
@@ -5064,7 +5105,19 @@ function clearBackgroundImage(){state.settings.backgroundImage='';save('settings
 function selectBrandLogo(){const input=document.getElementById('brandLogoFile');if(!input)return;input.onchange=()=>{const file=input.files&&input.files[0];if(!file)return;if(!file.type.startsWith('image/')||file.size>700000){toast('Escolha uma imagem de até 700 KB.');return;}const reader=new FileReader();reader.onload=()=>{state.settings.brandLogo=reader.result;save('settings');applyBranding();renderConfigSistema();toast('Logotipo atualizado.');};reader.readAsDataURL(file);};input.click();}
 function clearBrandLogo(){state.settings.brandLogo='';save('settings');applyBranding();renderConfigSistema();toast('Logotipo removido.');}
 function resetBrandColors(){state.settings.brandPrimary='';state.settings.brandAccent='';save('settings');applyBranding();renderConfigSistema();toast('Cores restauradas para o padrão Commandah.');}
-function nextOrderNumber(){const start=state.settings.customNumbering?Math.max(1,Number(state.settings.numberingStart)||1):1;state.orderCounter=Math.max(Number(state.orderCounter)||0,start-1)+1;save('orderCounter');return state.orderCounter;}
+async function nextOrderNumber(){
+  const start=state.settings.customNumbering?Math.max(1,Number(state.settings.numberingStart)||1):1;
+  if(isCloudMode()){
+    // Incremento atomico no servidor (RPC next_order_number): INSERT...ON CONFLICT DO UPDATE
+    // trava a linha de cantina2:orderCounter, sem o risco de dois dispositivos lerem o mesmo
+    // valor e gravarem o mesmo numero de pedido.
+    const { data, error } = await supabaseClient.rpc('next_order_number', { p_start: start });
+    if(error){ toast('Não foi possível gerar o número do pedido agora. Tente de novo.'); throw error; }
+    state.orderCounter = data;
+    return data;
+  }
+  state.orderCounter=Math.max(Number(state.orderCounter)||0,start-1)+1;save('orderCounter');return state.orderCounter;
+}
 
 /* ============ BACKUP ============ */
 const BACKUP_VERSION = 3;
@@ -5230,7 +5283,7 @@ function renderTotem(){
   document.getElementById('totNotes').oninput = e=>{ cardapioDraft.notes = e.target.value; };
   renderCardapioItems();
 }
-function submitTotemOrder(){
+async function submitTotemOrder(){
   if(!cardapioDraft.items.length){ toast('Selecione ao menos um item.'); return; }
   if(!cardapioDraft.memberId && !cardapioDraft.customerName.trim()){ toast('Informe sua cota de associado ou seu nome.'); return; }
   const member = cardapioDraft.memberId ? state.members.find(m=>m.id===cardapioDraft.memberId) : null;
@@ -5238,8 +5291,8 @@ function submitTotemOrder(){
   const sale = { id:uid(), type:'totem', memberId:cardapioDraft.memberId, customerName:cardapioDraft.customerName.trim(), notes:(cardapioDraft.notes||'').trim(),
     items:cardapioDraft.items, total:cardapioDraft.items.reduce((a,i)=>a+i.price*i.qty,0), status:'open', payments:[], openedAt:new Date().toISOString() };
   state.sales.push(sale);
-  if(!sendItemsToKitchen(sale.id, cardapioDraft.items, who, 'totem')){ state.sales=state.sales.filter(s=>s.id!==sale.id); return; }
-  sale.orderNumber=nextOrderNumber();
+  if(!await sendItemsToKitchen(sale.id, cardapioDraft.items, who, 'totem')){ state.sales=state.sales.filter(s=>s.id!==sale.id); return; }
+  sale.orderNumber=await nextOrderNumber();
   sale.items.forEach(i=>i.sent=true);
   save('sales');
   cardapioDraft = { items:[], memberId:null, customerName:'', notes:'' };
