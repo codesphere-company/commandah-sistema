@@ -1399,6 +1399,16 @@ function openChangePinModal(){
   document.querySelector('#modalRoot .modal').classList.add('record-modal');
   document.querySelector('#modalRoot .modal').style.maxWidth='415px';
   document.getElementById('pinSaveBtn').onclick = ()=>{
+    // Colaborador com login verificado pelo servidor: o PIN não fica guardado aqui, então esta
+    // tela não tem como conferir a senha atual nem trocá-la de verdade (ela só gravava no
+    // cadastro local, o que nem valia no login e ainda deixava o PIN legível pros outros
+    // operadores do tenant). A troca é feita em Colaboradores, que fala com o servidor.
+    if(currentUser && currentUser.migratedAuth){
+      toast(currentUser.role==='admin'
+        ? 'Seu PIN é verificado pelo servidor. Troque em Colaboradores → editar seu cadastro → novo PIN.'
+        : 'Seu PIN é verificado pelo servidor. Peça a um administrador para redefini-lo em Colaboradores.');
+      return;
+    }
     const current = document.getElementById('currentPin').value.trim();
     const p = document.getElementById('newPin').value.trim();
     const confirmation = document.getElementById('confirmPin').value.trim();
@@ -2300,11 +2310,16 @@ function filterAccessLog(){const q=(document.getElementById('accessLogSearch')?.
 function exportAccessLog(){downloadCsvFile('historico-acesso-'+todayStr()+'.csv',[['Data/Hora','Colaborador','Evento'],...accessLogEntries().map(x=>[reportDateTime(x.at||x.createdAt),x.user||x.userName||'',x.action||x.message||'Acesso'])]);logAction('Histórico de acesso exportado');}
 function openUserModal(id){
   const u = id ? state.users.find(x=>x.id===id) : null;
+  // Colaborador já migrado pro acesso seguro: o PIN existe só como hash (bcrypt) no servidor.
+  // Nunca trazemos PIN em texto puro pro formulário — campo vazio = "mantém o PIN atual",
+  // campo preenchido = "troca o PIN". Quem ainda não migrou continua como sempre foi.
+  const isMigrated = !!(u && u.migratedAuth);
   openModal(u?'Editar Colaborador':'Novo Colaborador', `<div class="record-body"><div class="record-tabs"><button data-tab="principal" class="active" onclick="setProductModalTab('principal')">Dados Principais</button><button data-tab="acesso" onclick="setProductModalTab('acesso')">Acesso e Permissões</button></div><section class="record-pane active" data-pane="principal">
     <div class="field"><label>Nome completo</label><input id="uName" value="${h(u?u.name:'')}"></div><div class="row"><div class="field"><label>E-mail</label><input id="uEmail" type="email" value="${h(u?u.email||'':'')}"></div><div class="field"><label>Telefone</label><input id="uPhone" value="${h(u?u.phone||'':'')}"></div></div></section><section class="record-pane" data-pane="acesso"><div class="row">
       <div class="field"><label>Usuário (login)</label><input id="uUsername" value="${h(u?u.username:'')}"></div>
-      <div class="field"><label>PIN (4 dígitos)</label><input id="uPin" inputmode="numeric" maxlength="4" value="${h(u?u.pin:'')}"></div>
+      <div class="field"><label>PIN (4 dígitos)</label><input id="uPin" inputmode="numeric" maxlength="4" autocomplete="off" value="${isMigrated?'':h(u?u.pin:'')}" placeholder="${isMigrated?'Manter atual':''}"></div>
     </div>
+    ${isMigrated?'<p class="sub">🔒 O PIN deste colaborador é verificado pelo servidor e não fica guardado aqui. Deixe o campo em branco pra manter o PIN atual — preencha só se quiser definir um PIN novo.</p>':''}
     <div class="field"><label>Perfil</label><select id="uRole">
       <option value="admin" ${u&&u.role==='admin'?'selected':''}>Administrador</option>
       <option value="caixa" ${u&&u.role==='caixa'?'selected':''}>Operador de caixa</option>
@@ -2320,14 +2335,23 @@ function openUserModal(id){
     const name = document.getElementById('uName').value.trim();
     const username = document.getElementById('uUsername').value.trim();
     const pin = document.getElementById('uPin').value.trim();
-    if(!name || !username || !validPin(pin)){ toast('Preencha nome, usuário e um PIN numérico de 4 dígitos.'); return; }
-    const data = { name, username, pin, role:document.getElementById('uRole').value, origem:document.getElementById('uOrigem').value, caixaPrinterOsName:document.getElementById('uCaixaPrinter').value.trim(), email:document.getElementById('uEmail').value.trim(), phone:document.getElementById('uPhone').value.trim(), active:document.getElementById('uActive').checked };
+    // PIN só é obrigatório pra colaborador novo ou pra quem ainda não migrou.
+    // Migrado com campo vazio = mantém o PIN que já está no servidor.
+    const changingPin = !isMigrated || pin!=='';
+    if(!name || !username){ toast('Preencha nome e usuário.'); return; }
+    if(changingPin && !validPin(pin)){ toast('Informe um PIN numérico de 4 dígitos.'); return; }
+    const data = { name, username, role:document.getElementById('uRole').value, origem:document.getElementById('uOrigem').value, caixaPrinterOsName:document.getElementById('uCaixaPrinter').value.trim(), email:document.getElementById('uEmail').value.trim(), phone:document.getElementById('uPhone').value.trim(), active:document.getElementById('uActive').checked };
+    if(changingPin) data.pin = pin;
     if(state.users.some(x=>x.id!==(u&&u.id)&&String(x.username).toLowerCase()===username.toLowerCase())){toast('Já existe um colaborador com este usuário.');return;}
     if(u&&u.id===currentUser.id&&!data.active){toast('Você não pode desativar o colaborador atualmente conectado.');return;}
     if(u&&u.role==='admin'&&(!data.active||data.role!=='admin')&&!state.users.some(x=>x.id!==u.id&&x.role==='admin'&&x.active!==false)){toast('Mantenha ao menos um administrador ativo.');return;}
     const id = u ? u.id : uid();
     await syncStaffAuth(id, u, data);
-    if(u){ Object.assign(u,data); } else { state.users.push({id, ...data}); }
+    // O blob app_data do tenant é legível por QUALQUER operador autenticado (a RLS isola por
+    // tenant, não por papel). Então, assim que o servidor passa a validar o PIN, ele não pode
+    // sobreviver aqui em texto puro — senão um caixa lê o PIN do admin e loga como admin.
+    if(data.migratedAuth) delete data.pin;
+    if(u){ Object.assign(u,data); if(u.migratedAuth) delete u.pin; } else { state.users.push({id, ...data}); }
     save('users'); closeModal(); renderAll(); toast('Usuário salvo.');
   };
 }
@@ -2335,9 +2359,13 @@ function openUserModal(id){
 // Sem Supabase (modo local) ou sem sessão, só grava localmente como sempre — nada quebra.
 async function syncStaffAuth(id, existing, data){
   if(!supabaseClient) return;
-  const needsCreateOrReset = !existing || !existing.migratedAuth || existing.pin!==data.pin;
+  const isMigrated = !!(existing && existing.migratedAuth);
+  // Antes se comparava existing.pin!==data.pin pra saber se o PIN mudou — era isso que
+  // obrigava a manter o PIN em texto puro no cadastro local. Agora quem manda é o formulário:
+  // em colaborador migrado, só mexe no PIN do servidor se o admin digitou um PIN novo.
+  const needsCreateOrReset = !isMigrated || !!data.pin;
   if(needsCreateOrReset){
-    const action = (existing && existing.migratedAuth) ? 'reset_pin' : 'create_operator';
+    const action = isMigrated ? 'reset_pin' : 'create_operator';
     try{
       const { data: fnData, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action, staff_id:id, name:data.name, role:data.role, pin:data.pin } });
       if(error || !fnData || fnData.error) toast('Aviso: não foi possível configurar o acesso seguro agora ('+((fnData&&fnData.error)||'erro')+'). Salvo só localmente — tente salvar de novo depois.');
@@ -2360,7 +2388,9 @@ async function migrateAllStaffAuth(){
   for(const u of pending){
     try{
       const { data: fnData, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action:'create_operator', staff_id:u.id, name:u.name, role:u.role, pin:u.pin } });
-      if(error || !fnData || fnData.error) fail++; else { u.migratedAuth = true; ok++; }
+      // Migrou: o PIN passa a viver como hash no servidor e sai do cadastro local,
+      // que é legível por qualquer operador do tenant.
+      if(error || !fnData || fnData.error) fail++; else { u.migratedAuth = true; delete u.pin; ok++; }
     }catch(e){ fail++; }
   }
   await save('users'); renderUsuarios();
