@@ -954,7 +954,7 @@ function recalcMemberDebtLocal(member){
     if(x.reversed) return sum;
     return sum + (x.type==='debt'?Number(x.value)||0:-(Number(x.value)||0));
   },0);
-  member.debt = Math.max(0, debt);
+  member.debt = debt;
 }
 const MembersStore = {
   async load(){
