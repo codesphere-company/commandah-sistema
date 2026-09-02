@@ -7,10 +7,12 @@ name: Backup Supabase DB
 #
 # Antes do primeiro run funcionar, cadastre o secret SUPABASE_DB_URL em
 # Settings -> Secrets and variables -> Actions -> New repository secret.
-# Valor: a connection string do Supabase (Project Settings -> Database ->
-# Connection string -> URI, usar a conexao direta na porta 5432, nao o
-# pooler de transacao 6543):
-#   postgresql://postgres:SENHA@db.ezfoymdesmarpunmixbs.supabase.co:5432/postgres
+# Valor: a connection string do "Session pooler" (botao Connect no painel
+# Supabase - aba Session pooler, NAO Direct connection nem Transaction
+# pooler). A conexao direta e IPv6-only e os runners do GitHub Actions nao
+# tem rede IPv6; o pooler de transacao (6543) nao suporta o tipo de sessao
+# que o pg_dump precisa. Formato (usuario muda pra postgres.<project-ref>):
+#   postgresql://postgres.ezfoymdesmarpunmixbs:SENHA@aws-0-<regiao>.pooler.supabase.com:5432/postgres
 
 on:
   schedule:
@@ -21,8 +23,15 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Instalar cliente Postgres
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Instalar cliente Postgres 17
+        # O apt padrao do Ubuntu instala o pg_dump 16, mas o servidor do
+        # Supabase esta na 17.x - pg_dump recusa dumpar servidor mais novo
+        # que ele mesmo. Usa o repositorio oficial da PostgreSQL pra pegar
+        # a versao certa.
+        run: |
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
 
       - name: Dump do schema public
         run: |
