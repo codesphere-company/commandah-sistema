@@ -1,0 +1,48 @@
+name: Backup Supabase DB
+
+# Backup noturno do schema public (members, app_data, print_jobs, audit_log etc.)
+# do Postgres do Supabase. O repo eh publico (GitHub Pages), entao o dump NUNCA
+# vai pra dentro do git - fica so como artifact privado do Actions, que expira
+# sozinho depois de retention-days.
+#
+# Antes do primeiro run funcionar, cadastre o secret SUPABASE_DB_URL em
+# Settings -> Secrets and variables -> Actions -> New repository secret.
+# Valor: a connection string do Supabase (Project Settings -> Database ->
+# Connection string -> URI, usar a conexao direta na porta 5432, nao o
+# pooler de transacao 6543):
+#   postgresql://postgres:SENHA@db.ezfoymdesmarpunmixbs.supabase.co:5432/postgres
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # 03:00 America/Sao_Paulo (UTC-3, Brasil nao tem mais horario de verao)
+  workflow_dispatch: {} # permite rodar manualmente em Actions -> Backup Supabase DB -> Run workflow
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar cliente Postgres
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Dump do schema public
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_DB_URL:-}" ]; then
+            echo "Secret SUPABASE_DB_URL nao configurado (Settings > Secrets and variables > Actions)." >&2
+            exit 1
+          fi
+          pg_dump "$SUPABASE_DB_URL" \
+            --schema=public \
+            --no-owner --no-acl \
+            --format=plain \
+            | gzip > "backup-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGCONNECT_TIMEOUT: '30'
+
+      - name: Upload como artifact privado
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup
+          path: backup-*.sql.gz
+          retention-days: 90
