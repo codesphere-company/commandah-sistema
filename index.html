@@ -711,59 +711,78 @@ const RIBBON_TABS = [
       ]},
       { label:'Clientes', items:[ {label:'Clientes', icon:ICN.users, view:'associados'} ] },
       { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Estações', icon:ICN.printer, view:'estacoes'}, {label:'Origens de Pedido', icon:ICN.printer, view:'origens'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },
-      { label:'Atendimento', items:[ {label:'Bot WhatsApp', icon:ICN.chat, action:'openWhatsAppBotConfig'} ] }
+      { label:'Atendimento', items:[ {label:'Bot WhatsApp', icon:ICN.chat, perm:'config-sistema', action:'openWhatsAppBotConfig'} ] }
   ]},
   { id:'produtos', label:'Produtos', groups:[
       { label:'Produtos', items:[ {label:'Produtos', icon:ICN.burger, view:'produtos'} ] },
       { label:'Organização de Produtos', items:[
-          {label:'Complementos', icon:ICN.plus, action:'openComplementsView'}, {label:'Observações', icon:ICN.doc, view:'observacoes'},
-          {label:'Categorias', icon:ICN.tag, view:'categorias'}, {label:'Tipos e Tamanhos', icon:ICN.resize, action:'openTypesSizesView'}, {label:'Perguntas', icon:ICN.question, view:'perguntas'}
+          {label:'Complementos', icon:ICN.plus, perm:'complementos', action:'openComplementsView'}, {label:'Observações', icon:ICN.doc, view:'observacoes'},
+          {label:'Categorias', icon:ICN.tag, view:'categorias'}, {label:'Tipos e Tamanhos', icon:ICN.resize, perm:'complementos', action:'openTypesSizesView'}, {label:'Perguntas', icon:ICN.question, view:'perguntas'}
       ]},
       { label:'Insumos', items:[ {label:'Insumos', icon:ICN.box, view:'insumos'} ] },
-      { label:'Estoque', items:[ {label:'Alterar em Lote', icon:ICN.editlist, action:'openBulkPriceModal'}, {label:'Alterar com NFe', icon:ICN.doc, action:'openNfeStockWindow'} ] }
+      { label:'Estoque', items:[ {label:'Alterar em Lote', icon:ICN.editlist, perm:'produtos', action:'openBulkPriceModal'}, {label:'Alterar com NFe', icon:ICN.doc, perm:'insumos', action:'openNfeStockWindow'} ] }
   ]},
   { id:'marketing', label:'Marketing', groups:[
-      { label:'Benefícios', items:[ {label:'Promoções', icon:ICN.tag, action:"openMarketingView", actionArg:'promocoes'}, {label:'Fidelidade', icon:ICN.heart, action:'toggleMarketingRibbonMenu', actionArg:'fidelidade'}, {label:'Cupons', icon:ICN.ticket, action:"openMarketingView", actionArg:'cupons'} ] },
-      { label:'Divulgação', items:[ {label:'SMS', icon:ICN.chat, action:'openSmsWindow'} ] },
-      { label:'Relacionamento', items:[ {label:'Disparador Inteligente', icon:ICN.megaphone, action:'toggleMarketingRibbonMenu', actionArg:'disparador'} ] }
+      { label:'Benefícios', items:[ {label:'Promoções', icon:ICN.tag, perm:'cupons', action:"openMarketingView", actionArg:'promocoes'}, {label:'Fidelidade', icon:ICN.heart, perm:'cupons', action:'toggleMarketingRibbonMenu', actionArg:'fidelidade'}, {label:'Cupons', icon:ICN.ticket, perm:'cupons', action:"openMarketingView", actionArg:'cupons'} ] },
+      { label:'Divulgação', items:[ {label:'SMS', icon:ICN.chat, perm:'cupons', action:'openSmsWindow'} ] },
+      { label:'Relacionamento', items:[ {label:'Disparador Inteligente', icon:ICN.megaphone, perm:'cupons', action:'toggleMarketingRibbonMenu', actionArg:'disparador'} ] }
   ]},
   { id:'financeiro', label:'Financeiro', groups:[
       { label:'Organização de Contas', items:[ {label:'Formas de Pagamento', icon:ICN.card, view:'pagamentos'}, {label:'Categoria de Contas', icon:ICN.tag, view:'contascategorias'}, {label:'Fornecedores', icon:ICN.truck, view:'fornecedores'} ] },
-      { label:'Contas a Pagar / Receber', items:[ {label:'Contas a Pagar', icon:ICN.arrowUpBox, action:'openFinancialView', actionArg:'pagar'}, {label:'Contas a Receber', icon:ICN.arrowDownBox, action:'openFinancialView', actionArg:'receber'} ] },
-      { label:'Fiado', items:[ {label:'Conta Corrente (Fiado)', icon:ICN.idcard, action:'openFinancialView', actionArg:'fiado'} ] },
-      { label:'Integrações', items:[ {label:'Pix Online', icon:ICN.link, action:'openPixOnlineConfig'} ] }
+      { label:'Contas a Pagar / Receber', items:[ {label:'Contas a Pagar', icon:ICN.arrowUpBox, perm:'contas', action:'openFinancialView', actionArg:'pagar'}, {label:'Contas a Receber', icon:ICN.arrowDownBox, perm:'contas', action:'openFinancialView', actionArg:'receber'} ] },
+      { label:'Fiado', items:[ {label:'Conta Corrente (Fiado)', icon:ICN.idcard, perm:'contas', action:'openFinancialView', actionArg:'fiado'} ] },
+      { label:'Integrações', items:[ {label:'Pix Online', icon:ICN.link, perm:'config-sistema', action:'openPixOnlineConfig'} ] }
   ]},
   { id:'relatorios', label:'Relatórios', groups:[
-      { label:'Vendas', items:[ {label:'Mais Vendidos', icon:ICN.trophy, action:'openReportView', actionArg:'Mais Vendidos'}, {label:'Histórico de Pedidos', icon:ICN.clock, action:'openReportView', actionArg:'Histórico de Pedidos'}, {label:'Histórico de Itens Vendidos', icon:ICN.clock, action:'openReportView', actionArg:'Histórico de Itens Vendidos'}, {label:'Ranking de Atendimentos', icon:ICN.chef, action:'openReportView', actionArg:'Ranking de Atendimentos'} ] },
-      { label:'Caixa', items:[ {label:'Histórico do Caixa', icon:ICN.clock, action:'openReportView', actionArg:'Histórico do Caixa'} ] },
-      { label:'Financeiro', items:[ {label:'Meu Negócio', icon:ICN.chart, action:'openReportView', actionArg:'Meu Negócio'}, {label:'Meu Delivery', icon:ICN.delivery, action:'openReportView', actionArg:'Meu Delivery'}, {label:'Recebimentos (Pedidos e Fiado)', icon:ICN.card, action:'openReportView', actionArg:'Recebimentos (Pedidos e Fiado)'}, {label:'Resumo Financeiro', icon:ICN.chart, action:'openReportView', actionArg:'Resumo Financeiro'}, {label:'DRE Simplificado', icon:ICN.receipt, action:'openReportView', actionArg:'DRE Simplificado'} ] },
-      { label:'Estoque', items:[ {label:'Entradas e Saídas', icon:ICN.swap, action:'openReportView', actionArg:'Entradas e Saídas'}, {label:'Posição por Data', icon:ICN.calendar, action:'openReportView', actionArg:'Posição por Data'} ] }
+      { label:'Vendas', items:[ {label:'Mais Vendidos', icon:ICN.trophy, perm:'relatorios', action:'openReportView', actionArg:'Mais Vendidos'}, {label:'Histórico de Pedidos', icon:ICN.clock, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Pedidos'}, {label:'Histórico de Itens Vendidos', icon:ICN.clock, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Itens Vendidos'}, {label:'Ranking de Atendimentos', icon:ICN.chef, perm:'relatorios', action:'openReportView', actionArg:'Ranking de Atendimentos'} ] },
+      { label:'Caixa', items:[ {label:'Histórico do Caixa', icon:ICN.clock, perm:'relatorios', action:'openReportView', actionArg:'Histórico do Caixa'} ] },
+      { label:'Financeiro', items:[ {label:'Meu Negócio', icon:ICN.chart, perm:'relatorios', action:'openReportView', actionArg:'Meu Negócio'}, {label:'Meu Delivery', icon:ICN.delivery, perm:'relatorios', action:'openReportView', actionArg:'Meu Delivery'}, {label:'Recebimentos (Pedidos e Fiado)', icon:ICN.card, perm:'relatorios', action:'openReportView', actionArg:'Recebimentos (Pedidos e Fiado)'}, {label:'Resumo Financeiro', icon:ICN.chart, perm:'relatorios', action:'openReportView', actionArg:'Resumo Financeiro'}, {label:'DRE Simplificado', icon:ICN.receipt, perm:'relatorios', action:'openReportView', actionArg:'DRE Simplificado'} ] },
+      { label:'Estoque', items:[ {label:'Entradas e Saídas', icon:ICN.swap, perm:'relatorios', action:'openReportView', actionArg:'Entradas e Saídas'}, {label:'Posição por Data', icon:ICN.calendar, perm:'relatorios', action:'openReportView', actionArg:'Posição por Data'} ] }
   ]},
   { id:'apps', label:'Apps', groups:[
-      { label:'Ferramentas', items:[ {label:'Bina', icon:ICN.phone, action:'toggleAppRibbonMenu', actionArg:'bina'}, {label:'Mapas', icon:ICN.mapPin, action:'toggleAppRibbonMenu', actionArg:'maps'}, {label:'Painel de Senhas', icon:ICN.grid, view:'painel-senhas'}, {label:'Balança', icon:ICN.scale, action:'openScaleConfig'} ] },
-      { label:'Módulos (Recursos Premium)', items:[ {label:'Mobile', icon:ICN.phone, view:'mobile-qr'}, {label:'Pedidos Online', icon:ICN.link, view:'cardapio'}, {label:'Totem', icon:ICN.monitor, view:'totem'}, {label:'Connect', icon:ICN.link, action:'openAppModuleConfig', actionArg:'Connect'}, {label:'Emissão Fiscal', icon:ICN.receipt, action:'openAppModuleConfig', actionArg:'Emissão Fiscal'}, {label:'TEF', icon:ICN.card, action:'openAppModuleConfig', actionArg:'TEF'} ] }
+      { label:'Ferramentas', items:[ {label:'Bina', icon:ICN.phone, perm:'config-sistema', action:'toggleAppRibbonMenu', actionArg:'bina'}, {label:'Mapas', icon:ICN.mapPin, perm:'config-sistema', action:'toggleAppRibbonMenu', actionArg:'maps'}, {label:'Painel de Senhas', icon:ICN.grid, view:'painel-senhas'}, {label:'Balança', icon:ICN.scale, perm:'config-sistema', action:'openScaleConfig'} ] },
+      { label:'Módulos (Recursos Premium)', items:[ {label:'Mobile', icon:ICN.phone, view:'mobile-qr'}, {label:'Pedidos Online', icon:ICN.link, view:'cardapio'}, {label:'Totem', icon:ICN.monitor, view:'totem'}, {label:'Connect', icon:ICN.link, perm:'modulos', action:'openAppModuleConfig', actionArg:'Connect'}, {label:'Emissão Fiscal', icon:ICN.receipt, perm:'modulos', action:'openAppModuleConfig', actionArg:'Emissão Fiscal'}, {label:'TEF', icon:ICN.card, perm:'modulos', action:'openAppModuleConfig', actionArg:'TEF'} ] }
   ]},
   { id:'config', label:'Configurações', groups:[
       { label:'Configurações', items:[
-          {label:'Configurações do Sistema', icon:ICN.gear, action:'openSystemSettings'}, {label:'Numeração de Pedidos', icon:ICN.hash, action:'openNumberingSettings'}, {label:'Impressora', icon:ICN.printer, action:'openPrinterSettings'},
-          {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios'}, {label:'Alterar Minha Senha', icon:ICN.key, action:'openChangePinModal'}, {label:'Backup', icon:ICN.save, view:'backup'}
+          {label:'Configurações do Sistema', icon:ICN.gear, perm:'config-sistema', action:'openSystemSettings'}, {label:'Numeração de Pedidos', icon:ICN.hash, perm:'config-sistema', action:'openNumberingSettings'}, {label:'Impressora', icon:ICN.printer, perm:'config-sistema', action:'openPrinterSettings'},
+          {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios'}, {label:'Alterar Minha Senha', icon:ICN.key, perm:'senha-propria', action:'openChangePinModal'}, {label:'Backup', icon:ICN.save, view:'backup'}
       ]},
-      { label:'Logs e Fila de Eventos', items:[ {label:'Logs', icon:ICN.scroll, action:'openLogsView', actionArg:'Logs'}, {label:'Fila de Eventos', icon:ICN.scroll, action:'openLogsView', actionArg:'Fila de Eventos'} ] },
-      { label:'Versão Premium', items:[ {label:'Minha Assinatura', icon:ICN.key, action:'openSubscriptionView'} ] },
+      { label:'Logs e Fila de Eventos', items:[ {label:'Logs', icon:ICN.scroll, perm:'logs', action:'openLogsView', actionArg:'Logs'}, {label:'Fila de Eventos', icon:ICN.scroll, perm:'logs', action:'openLogsView', actionArg:'Fila de Eventos'} ] },
+      { label:'Versão Premium', items:[ {label:'Minha Assinatura', icon:ICN.key, perm:'config-sistema', action:'openSubscriptionView'} ] },
       { label:'Ajuda e Suporte', items:[ {label:'Ajuda e Suporte', icon:ICN.headset, view:'ajuda'}, {label:'Diagnóstico de Serviços', icon:ICN.pulse, view:'diagnostico'} ] }
   ]}
 ];
 const SIMPLE_RIBBON_COZINHA = [
   { id:'cozinha_tab', label:'Cozinha', groups:[ { label:'Preparo', items:[ {label:'Monitor de Cozinha', icon:ICN.chef, view:'cozinha'} ] } ] }
 ];
+/* ROLE_PERMS — tokens de permissão de TELA (client-side).
+   ATENÇÃO: isto NÃO é a barreira de segurança. A barreira é a RLS por papel no
+   Postgres (ver supabase/migrations/*_rls_por_papel.sql). Este array existe pra
+   não mostrar botão que o banco vai recusar — os dois precisam andar juntos.
+   Quem escreve `cantina2:settings` exige 'config-sistema'; quem lê o log de
+   auditoria exige 'logs'; ambos são exclusivos de admin, igual à migration.
+   'senha-propria': token de autoatendimento (trocar o próprio PIN). Todo papel
+   tem, porque não depende de escrita administrativa — pra usuário migrado o
+   modal só informa que a troca é feita pelo servidor. */
 const ROLE_PERMS = {
   admin: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','produtos','insumos','usuarios','relatorios','cozinha',
     'categorias','complementos','observacoes','perguntas','fornecedores','pagamentos','contascategorias','contas','locais','impressoras','estacoes','origens',
-    'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr'],
-  caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','impressoras','estacoes','origens','relatorios','painel-senhas','totem','ajuda','mobile-qr'],
-  cozinha: ['cozinha']
+    'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr','senha-propria'],
+  caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','impressoras','estacoes','origens','relatorios','painel-senhas','totem','ajuda','mobile-qr','senha-propria'],
+  cozinha: ['cozinha','senha-propria']
 };
 function rolePermissions(role){const custom=state&&state.settings&&state.settings.rolePermissions&&state.settings.rolePermissions[role];return Array.isArray(custom)?custom:(ROLE_PERMS[role]||[]);}
+/* Guarda de permissão pra botão que vive DENTRO de uma tela permitida (não é
+   item de ribbon). Usada nos fluxos que gravam cantina2:settings, que passou a
+   ser escrita exclusiva de admin/dono na RLS — sem isto o caixa clicaria em
+   Salvar e tomaria erro de permissão do banco, com banner de falha ao salvar. */
+function hasPerm(token){ return !!currentUser && rolePermissions(currentUser.role).includes(token); }
+function requirePerm(token){
+  if(hasPerm(token)) return true;
+  toast('Sem permissão para o seu perfil. Fale com um administrador.');
+  return false;
+}
 const UNIT_OPTIONS = ['g','kg','ml','l','un'];
 
 let state = { users:[], insumos:[], products:[], members:[], sales:[], orders:[], requests:[], scheduled:[], cashSession:null, cashHistory:[], cashMovements:[],
@@ -860,10 +879,30 @@ function buildSupabaseStorageApi(client, tenantId){
     }
   };
 }
-async function resolveTenantId(userId){
-  const { data, error } = await supabaseClient.from('tenant_owners').select('tenant_id').eq('user_id', userId).maybeSingle();
-  if(error || !data) return null;
-  return data.tenant_id;
+/* Sessão atual é a do DONO do estabelecimento?
+   Vale ouro pra decidir o que o cliente pode fazer sem consultar o servidor:
+   o dono passa por todas as policies de RLS; o operador (staff) não. */
+let sessionIsOwner = false;
+
+/* Resolve o tenant da sessão atual, aceitando as DUAS formas de sessão:
+   - dono: linha em tenant_owners (o cliente lê direto, tem policy pra isso);
+   - operador: sessão criada pela Edge Function staff-auth. tenant_staff tem RLS
+     ligada e ZERO policies de propósito (guarda pin_hash), então o navegador NÃO
+     consegue consultá-la. Quem resolve é current_tenant_id(), SECURITY DEFINER,
+     já exposta como RPC pra anon/authenticated no baseline.
+   Antes daqui só existia o caminho do dono: uma sessão de operador não resolvia
+   tenant nenhum no boot e caía na tela de e-mail/senha do dono — resultado, o
+   aparelho vivia logado como DONO e a RLS por papel não valeria nada. */
+async function resolveTenantSession(userId){
+  try{
+    const { data } = await supabaseClient.from('tenant_owners').select('tenant_id').eq('user_id', userId).maybeSingle();
+    if(data && data.tenant_id) return { tenantId: data.tenant_id, isOwner: true };
+  }catch(e){}
+  try{
+    const { data: staffTenant } = await supabaseClient.rpc('current_tenant_id');
+    if(staffTenant) return { tenantId: staffTenant, isOwner: false };
+  }catch(e){}
+  return null;
 }
 async function createStorageAdapter(){
   if(window.storage && typeof window.storage.get==='function' && typeof window.storage.set==='function'){
@@ -885,32 +924,52 @@ let storageApi = null;
 /* ============ LOAD / SAVE ============ */
 async function loadAll(){
   const scalarDefaults = { cashSession:null, settings:{clubName:'', pixKey:'', receiptFooter:'Obrigado pela preferência!'}, orderCounter:0 };
+  /* readFailed[key] = a leitura ESTOUROU (rede/erro do servidor). Diferente de
+     "voltou vazio". Chave que falhou ao ler nunca pode ser semeada por cima. */
+  const readFailed = {};
   for(const key of Object.keys(STORE)){
     if(key==='members') continue;
     try{
       const r = await storageApi.get(STORE[key]);
       state[key] = r ? JSON.parse(r.value) : (key in scalarDefaults ? scalarDefaults[key] : []);
-    }catch(e){ state[key] = (key in scalarDefaults ? scalarDefaults[key] : []); }
+    }catch(e){ readFailed[key] = true; state[key] = (key in scalarDefaults ? scalarDefaults[key] : []); }
   }
   try{ state.members = await MembersStore.load(); }catch(e){ state.members = []; }
-  if(!state.users.length){
+
+  /* ---- SEMEADURA DE PADRÕES: quando é seguro gravar ----------------------
+     storageApi.get() usa .maybeSingle(): linha filtrada pela RLS volta como
+     `null`, SEM erro — exatamente igual a "essa chave ainda não existe". O
+     cliente não tem como distinguir os dois casos. Se a gente semeasse mesmo
+     assim, um operador sem permissão de leitura gravaria o padrão POR CIMA do
+     dado real: 2 usuários fake apagando o quadro de colaboradores, 10 locais
+     genéricos apagando as churrasqueiras do clube. Já aconteceria hoje; com a
+     RLS por papel viraria rotina.
+     Regra: só semeia quando dá pra PROVAR que a escrita é permitida —
+       - fora da nuvem (Local/Compartilhado): não existe RLS, comportamento antigo;
+       - na nuvem: só a sessão do DONO, que passa por todas as policies.
+     Operador (caixa/cozinha) nunca semeia. Se o banco estiver mesmo vazio, quem
+     faz a carga inicial é o dono no primeiro acesso — que é o fluxo real. */
+  const canSeed = !isCloudMode() || sessionIsOwner;
+  const seedable = (key)=> canSeed && !readFailed[key];
+
+  if(seedable('users') && !state.users.length){
     state.users.push({id:uid(), name:'Administrador', username:'admin', pin:'1234', role:'admin', origem:'caixa'});
     state.users.push({id:uid(), name:'Garçom App', username:'garcom', pin:'1234', role:'caixa', origem:'app'});
     await save('users');
-  } else if(!state.users.some(u=>u.username==='garcom')){
+  } else if(seedable('users') && !state.users.some(u=>u.username==='garcom')){
     state.users.push({id:uid(), name:'Garçom App', username:'garcom', pin:'1234', role:'caixa', origem:'app'});
     await save('users');
   }
   const usersMissingOrigem = state.users.filter(u=>!u.origem);
-  if(usersMissingOrigem.length){
+  if(seedable('users') && usersMissingOrigem.length){
     usersMissingOrigem.forEach(u=>{ u.origem = u.username==='garcom' ? 'app' : 'caixa'; });
     await save('users');
   }
-  if(!state.locais.length){
+  if(seedable('locais') && !state.locais.length){
     ['Churrasqueira 1','Churrasqueira 2','Churrasqueira 3','Churrasqueira 4','Churrasqueira 5','Sinuca','Bolão','Quadra de Tênis','Salão de Festas','Piscina'].forEach(nome=>state.locais.push({id:uid(), nome}));
     await save('locais');
   }
-  if(!state.impressoras.length){
+  if(seedable('impressoras') && !state.impressoras.length){
     state.impressoras.push({id:uid(), nome:'Impressora Cozinha', estacao:'cozinha', origem:'ambos'});
     state.impressoras.push({id:uid(), nome:'Impressora Bar — Caixa', estacao:'bar', origem:'caixa'});
     state.impressoras.push({id:uid(), nome:'Impressora Bar — App', estacao:'bar', origem:'app'});
@@ -918,13 +977,13 @@ async function loadAll(){
     state.impressoras.push({id:uid(), nome:'Impressora Churrasqueira — App', estacao:'churrasqueira', origem:'app'});
     await save('impressoras');
   }
-  if(!state.estacoes.length){
+  if(seedable('estacoes') && !state.estacoes.length){
     state.estacoes.push({id:uid(), chave:'cozinha', nome:'Cozinha', saida:'ambos'});
     state.estacoes.push({id:uid(), chave:'bar', nome:'Bar', saida:'imprime'});
     state.estacoes.push({id:uid(), chave:'churrasqueira', nome:'Churrasqueira', saida:'imprime'});
     await save('estacoes');
   }
-  if(!state.origens.length){
+  if(seedable('origens') && !state.origens.length){
     state.origens.push({id:uid(), chave:'caixa', nome:'Caixa'});
     state.origens.push({id:uid(), chave:'app', nome:'App do Garçom'});
     await save('origens');
@@ -1349,7 +1408,31 @@ function pinPress(d){
     setTimeout(attemptPinLogin,150);
   }
 }
-function logPinFail(){ state.logs.unshift({id:uid(),at:new Date().toISOString(),user:pinTargetUser.name,action:'Tentativa de acesso com PIN incorreto'}); save('logs'); }
+/* Tentativa de PIN errado. Duas correções de uma vez:
+   1. vai pro audit_log (append-only) em vez do blob;
+   2. o campo passa a ser `text`, não `action` — renderLogs() e exportLogsCsv()
+      filtram por l.text, então estas entradas simplesmente NÃO apareciam na tela
+      de Logs. Justamente as de acesso negado. accessLogEntries() olha
+      x.action||x.message, por isso o registro aqui carrega os dois nomes.
+   Roda ANTES do login, com currentUser ainda null: quem tentou é pinTargetUser.
+   OBS: na nuvem, nesse momento NÃO existe sessão (a tela de login vem depois do
+   signOut), então o insert no audit_log é recusado e fica só o registro local da
+   sessão. Isso é aceitável porque o registro que vale de PIN errado é o do
+   servidor: a Edge Function staff-auth incrementa failed_attempts e grava
+   locked_until em tenant_staff com service_role — inforjável pelo navegador. */
+function logPinFail(){
+  const nome = pinTargetUser ? pinTargetUser.name : '—';
+  const texto = 'Tentativa de acesso com PIN incorreto';
+  state.logs.unshift({ id:uid(), at:new Date().toISOString(), user:nome, text:texto, action:texto });
+  if(state.logs.length>300) state.logs = state.logs.slice(0,300);
+  if(isCloudMode() && supabaseClient){
+    supabaseClient.from('audit_log')
+      .insert({ action:texto, actor_name:nome, entity:'auth' })
+      .then(()=>{}, ()=>{});
+    return;
+  }
+  save('logs');
+}
 async function attemptPinLogin(){
   const pin = pinBuffer;
   // Colaborador já migrado pro acesso seguro: o PIN é validado pela Edge Function
@@ -1375,6 +1458,16 @@ async function attemptPinLogin(){
     return;
   }
   // Ainda não migrado (ou modo local sem Supabase): confere o PIN como sempre foi.
+  // Na NUVEM isso agora é um beco sem saída: como o logout derruba a sessão do
+  // Supabase, um usuário não migrado entraria sem sessão nenhuma (papel `anon`),
+  // com toda leitura e escrita recusada pela RLS — o app abriria quebrado, com
+  // banner de falha ao salvar a cada ação. Melhor barrar na porta e dizer o que
+  // fazer do que deixar entrar e falhar no meio da venda.
+  if(isCloudMode() && !pinTargetUser.migratedAuth){
+    toast('Este colaborador ainda não tem acesso seguro. Peça a um administrador para reabrir o cadastro dele em Colaboradores e salvar, que a conta é criada.');
+    pinBuffer=''; updatePinDots();
+    return;
+  }
   if(pinBuffer===pinTargetUser.pin){ currentUser = pinTargetUser; afterLogin(); }
   else { logPinFail(); toast('PIN incorreto.'); pinBuffer=''; updatePinDots(); }
 }
@@ -1407,7 +1500,19 @@ function afterLogin(){
   logAction('Login realizado');
   if(currentUser.username==='admin' && currentUser.pin==='1234') setTimeout(openForcedPinModal,0);
 }
-document.getElementById('btnLogout').onclick = ()=>{if(currentUser){logAction('Logout realizado');}currentUser=null;renderLogin();};
+/* Logout de verdade: derruba TAMBÉM a sessão do Supabase.
+   Antes só zerava currentUser — a sessão do operador que saiu continuava viva no
+   navegador, e o próximo operador herdava os privilégios dela até (e SE) um login
+   de usuário migrado trocasse a sessão. Com RLS por papel isso seria uma escalada
+   de privilégio silenciosa: sair como admin e entrar como cozinha mantinha o
+   acesso de admin no banco. */
+document.getElementById('btnLogout').onclick = async ()=>{
+  if(currentUser){ logAction('Logout realizado'); }
+  currentUser=null;
+  try{ if(supabaseClient) await supabaseClient.auth.signOut(); }catch(e){}
+  sessionIsOwner = false;
+  renderLogin();
+};
 document.getElementById('darkToggle').onchange = (e)=>{ document.documentElement.setAttribute('data-theme', e.target.checked?'dark':'light'); };
 
 /* ============ NAV (ribbon) ============ */
@@ -1446,7 +1551,17 @@ function renderRibbonToolbar(){
       <div class="rb-icons">${g.items.map(it=>{
         const hasAction = !!it.action;
         const hasView = !!it.view;
-        const permitted = hasView ? allowed.includes(it.view) : true;
+        // FAIL-CLOSED. Antes era `hasView ? allowed.includes(it.view) : true`, o que
+        // liberava os 39 itens de `action:` pra QUALQUER papel — o caixa via e clicava
+        // em Configurações do Sistema, Bot WhatsApp (grava token), Contas a Pagar,
+        // Logs, Cupons... sem precisar de devtools. Agora todo item de ação declara
+        // `perm:`; item de ação SEM `perm` é negado de propósito, pra que um item novo
+        // adicionado no futuro sem permissão apareça bloqueado em vez de aberto.
+        // Item sem `action` e sem `view` (módulo de referência: Connect, TEF, Emissão
+        // Fiscal) segue liberado — só abre um texto explicativo, não toca em dado.
+        const permitted = it.perm ? allowed.includes(it.perm)
+                        : hasView ? allowed.includes(it.view)
+                        : !hasAction;
         const enabled = permitted;
         const reason = !hasAction && !hasView ? 'Abrir detalhes e requisitos do módulo'
           : (!permitted ? 'Sem permissão para o seu perfil' : '');
@@ -1476,7 +1591,31 @@ function closeOperationalWindow(){
   const home=currentUser&&currentUser.role==='cozinha'?'cozinha':'comandas';activeRibbonTab=currentUser&&currentUser.role==='cozinha'?'cozinha_tab':'principal';activeRibbonAction='';activeView=home;activeViewRibbonTab=activeRibbonTab;renderRibbonTabs();document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById('view-'+home).classList.add('active');renderRibbonToolbar();updateTitle();renderAll();
 }
 function openReferenceModule(label){ activeModuleReference=label; switchView('modulos'); }
-function openLogsView(label){activeRibbonAction=label;switchView('logs');}
+/* Tela de Logs: exclusiva de admin/dono, coerente com o SELECT do audit_log ser
+   admin-only na RLS. Hidrata state.logs a partir da tabela ANTES de trocar de
+   view — sem isso a tela mostraria só o que foi logado nesta sessão do navegador,
+   já que o blob cantina2:logs está congelado (histórico morto, sem escrita nova). */
+async function openLogsView(label){
+  if(!requirePerm('logs')) return;
+  activeRibbonAction=label;
+  await loadAuditLog();
+  switchView('logs');
+}
+async function loadAuditLog(){
+  if(!isCloudMode() || !supabaseClient) return; // modo Local: state.logs já é o blob
+  try{
+    const { data, error } = await supabaseClient
+      .from('audit_log').select('id,at,actor_name,action')
+      .order('at',{ascending:false}).limit(500);
+    if(error || !Array.isArray(data)) return; // sem permissão ou rede fora: mantém o que tem
+    // Mapeia pro formato que renderLogs/exportLogsCsv/accessLogEntries já esperam.
+    const doServidor = data.map(r=>({ id:r.id, at:r.at, user:r.actor_name||'—', text:r.action||'', action:r.action||'' }));
+    // Mantém no fim o histórico congelado do blob antigo (só admin/dono lê), pra
+    // não perder de vista o que foi registrado antes da migração pra audit_log.
+    const doBlob = (state.logs||[]).filter(l=>l && !doServidor.some(x=>x.id===l.id));
+    state.logs = doServidor.concat(doBlob).slice(0,800);
+  }catch(e){}
+}
 function openWhatsAppBotConfig(){const c=state.settings.whatsappBot||{};openModal('Bot WhatsApp',`<div class="integration-form"><div class="app-status"><b>Atendimento automatizado</b><span class="tag ${c.enabled?'tag-green':'tag-gray'}">${c.enabled?'Ativo':'Pausado'}</span></div><div class="row"><div class="field"><label>Provedor</label><select id="waProvider"><option value="">Selecione...</option><option ${c.provider==='Meta Cloud API'?'selected':''}>Meta Cloud API</option><option ${c.provider==='Provedor homologado'?'selected':''}>Provedor homologado</option></select></div><div class="field"><label>Número do WhatsApp</label><input id="waPhone" value="${h(c.phone||'')}"></div></div><div class="field"><label>Identificador da conta</label><input id="waAccount" value="${h(c.account||'')}"></div><div class="field"><label>Token de acesso</label><input id="waToken" type="password" value="${h(c.token||'')}"></div><div class="field"><label>Mensagem de boas-vindas</label><textarea id="waGreeting" rows="4">${h(c.greeting||'Olá! Como podemos ajudar?')}</textarea></div><label><input id="waEnabled" type="checkbox" ${c.enabled?'checked':''}> Ativar após validar o provedor</label><p class="sub">A operação depende de conta oficial, credenciais válidas e consentimento dos clientes.</p></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="saveWhatsAppBotConfig()">✓ Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('integration-modal');}
 function saveWhatsAppBotConfig(){state.settings.whatsappBot={provider:document.getElementById('waProvider').value,phone:document.getElementById('waPhone').value.trim(),account:document.getElementById('waAccount').value.trim(),token:document.getElementById('waToken').value,greeting:document.getElementById('waGreeting').value.trim(),enabled:document.getElementById('waEnabled').checked};save('settings');closeModal();toast('Configuração do WhatsApp salva.');}
 function openPixOnlineConfig(){const c=state.settings.pixOnline||{};openModal('Pix Online',`<div class="integration-form"><div class="app-status"><b>Recebimentos Pix</b><span class="tag ${c.enabled?'tag-green':'tag-gray'}">${c.enabled?'Ativo':'Não configurado'}</span></div><div class="field"><label>Instituição / Provedor</label><select id="pixProvider"><option value="">Selecione...</option><option>Banco com API Pix</option><option>Intermediador de pagamentos</option></select></div><div class="field"><label>Chave Pix do estabelecimento</label><input id="pixKeyOnline" value="${h(c.key||state.settings.pixKey||'')}"></div><div class="row"><div class="field"><label>Client ID</label><input id="pixClient" value="${h(c.clientId||'')}"></div><div class="field"><label>Ambiente</label><select id="pixEnvironment"><option>Homologação</option><option>Produção</option></select></div></div><label><input id="pixEnabled" type="checkbox" ${c.enabled?'checked':''}> Ativar cobrança Pix online</label><p class="sub">A geração e confirmação automática exigem contrato e API do provedor.</p><p class="sub">O segredo (client secret / token de API) não é cadastrado aqui: tudo que é salvo nesta tela fica visível para qualquer operador logado. Quando a integração de Pix for ligada de verdade, a credencial vai ficar guardada no servidor, nunca no navegador.</p></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="savePixOnlineConfig()">✓ Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('integration-modal');}
@@ -2392,8 +2531,14 @@ async function startMappedMembersImport(){
 }
 function importMembersCsv(){memberOptionsOpen=false;const input=document.createElement('input');input.type='file';input.accept='.csv,text/csv';input.onchange=()=>{const file=input.files&&input.files[0];if(!file)return;const reader=new FileReader();reader.onload=async ()=>{const rows=String(reader.result||'').replace(/^\ufeff/,'').split(/\r?\n/).filter(Boolean).slice(1);let count=0;const newMembers=[];const updates=[];rows.forEach(line=>{const c=line.split(';').map(x=>x.replace(/^"|"$/g,'').replace(/""/g,'"'));if(!c[0])return;const existing=state.members.find(m=>(c[9]&&m.code===c[9])||(c[8]&&m.document===c[8]));const data={name:c[0],phone:c[1]||'',email:c[2]||'',address:c[3]||'',addressNumber:c[4]||'',district:c[5]||'',city:c[6]||'',uf:(c[7]||'').toUpperCase(),document:c[8]||'',code:c[9]||''};if(existing)updates.push(MembersStore.update(existing.id,data));else newMembers.push({debt:Number(String(c[10]||0).replace(',','.'))||0,tags:[],...data});count++;});await Promise.all(updates);if(newMembers.length)await MembersStore.bulkImport(newMembers);renderAll();toast(count+' cliente(s) importado(s) ou atualizado(s).');};reader.readAsText(file,'UTF-8');};input.click();}
 function openMemberTagManager(){memberOptionsOpen=false;const tags=[...new Set([...(state.settings.memberTags||[]),...state.members.flatMap(m=>Array.isArray(m.tags)?m.tags:[])])].sort();openModal('Gerenciar Tags de Clientes',`<div class="consumer-form-frame"><div class="field"><label>Nova tag</label><div class="inline-create"><input id="newMemberTag"><button onclick="addMemberTag()">＋ Adicionar</button></div></div><div class="finance-grid" style="height:310px"><table><thead><tr><th>Tag</th><th>Clientes vinculados</th><th>Excluir</th></tr></thead><tbody>${tags.map(t=>`<tr><td>${h(t)}</td><td>${state.members.filter(m=>(m.tags||[]).includes(t)).length}</td><td><button class="op-mini" data-tag="${h(t)}" onclick="deleteMemberTag(this.dataset.tag)">✕</button></td></tr>`).join('')||'<tr><td colspan="3" class="empty">Nenhuma tag cadastrada.</td></tr>'}</tbody></table></div></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal');}
-function addMemberTag(){const tag=document.getElementById('newMemberTag').value.trim();if(!tag){toast('Informe a tag.');return;}state.settings.memberTags=[...new Set([...(state.settings.memberTags||[]),tag])];save('settings');closeModal();openMemberTagManager();}
-async function deleteMemberTag(tag){if(!confirm('Remover esta tag de todos os clientes?'))return;await MembersStore.removeTagEverywhere(tag);state.settings.memberTags=(state.settings.memberTags||[]).filter(x=>x!==tag);save('settings');closeModal();openMemberTagManager();}
+/* Os 5 blocos abaixo gravam cantina2:settings, que na RLS por papel é escrita
+   exclusiva de admin/dono (classe 'catalogo'). Regra adotada, uniforme e fácil de
+   auditar: TODO botão que grava settings exige 'config-sistema'. Sem esta guarda o
+   caixa clicaria em Salvar dentro de uma tela que ele tem (Clientes, Fila de
+   Atendimento, Painel de Senhas, Impressoras, Cardápio Digital) e levaria erro de
+   permissão do banco, com banner de falha ao salvar pendurado na tela. */
+function addMemberTag(){if(!requirePerm('config-sistema'))return;const tag=document.getElementById('newMemberTag').value.trim();if(!tag){toast('Informe a tag.');return;}state.settings.memberTags=[...new Set([...(state.settings.memberTags||[]),tag])];save('settings');closeModal();openMemberTagManager();}
+async function deleteMemberTag(tag){if(!requirePerm('config-sistema'))return;if(!confirm('Remover esta tag de todos os clientes?'))return;await MembersStore.removeTagEverywhere(tag);state.settings.memberTags=(state.settings.memberTags||[]).filter(x=>x!==tag);save('settings');closeModal();openMemberTagManager();}
 function openMemberTagFilter(){memberOptionsOpen=false;const tags=[...new Set([...(state.settings.memberTags||[]),...state.members.flatMap(m=>m.tags||[])])].sort();openModal('Filtrar por Tags',`<div class="consumer-form-frame"><div class="field"><label>Tag</label><select id="memberTagFilter"><option value="">Todas</option>${tags.map(t=>`<option>${h(t)}</option>`).join('')}</select></div></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="consumer-save" onclick="applyMemberTagFilter()">⌕ Filtrar</button></div>`);}
 function applyMemberTagFilter(){const tag=document.getElementById('memberTagFilter').value;closeModal();const input=document.getElementById('memberSearch');if(input)input.value=tag?`Tag: ${tag}`:'';document.querySelectorAll('#memberRows tr[data-member-id]').forEach(row=>{const member=state.members.find(m=>m.id===row.dataset.memberId);row.style.display=!tag||(member&&member.tags||[]).includes(tag)?'':'none';});}
 if(typeof document.addEventListener==='function')document.addEventListener('click',event=>{const button=event.target.closest&&event.target.closest('button');if(!button)return;const label=button.textContent.trim();if(label.includes('Importar Clientes')){event.preventDefault();event.stopImmediatePropagation();openMembersImportWizard();}else if(label.includes('Gerenciar Tags')){event.preventDefault();event.stopImmediatePropagation();openMemberTagManager();}else if(label.includes('Filtrar Tags')){event.preventDefault();event.stopImmediatePropagation();openMemberTagFilter();}},true);
@@ -2441,11 +2586,11 @@ function renderUsuarios(){
 }
 function toggleUserOptions(){userOptionsOpen=!userOptionsOpen;renderUsuarios();}
 function exportUsersCsv(){userOptionsOpen=false;downloadCsvFile('colaboradores.csv',[['Nome','Usuario','Email','Telefone','Perfil','Situacao'],...state.users.map(u=>[u.name,u.username,u.email||'',u.phone||'',roleLabel(u.role),u.active===false?'Inativo':'Ativo'])]);renderUsuarios();}
-function openPermissionMatrix(){userOptionsOpen=false;const groups=[['Atendimento',[['Caixa e pedidos','caixa'],['Balcão','balcao'],['Mesas e comandas','comandas'],['Delivery','delivery'],['Fila de atendimento','fila-atendimento'],['Agendamentos','agendamentos'],['Cardápio digital','cardapio'],['Totem','totem'],['Cozinha','cozinha']]],['Cadastros',[['Clientes','associados'],['Produtos','produtos'],['Insumos','insumos'],['Categorias','categorias'],['Complementos','complementos'],['Observações','observacoes'],['Perguntas','perguntas'],['Fornecedores','fornecedores']]],['Financeiro e gestão',[['Formas de pagamento','pagamentos'],['Categorias de contas','contascategorias'],['Contas e fiado','contas'],['Relatórios','relatorios'],['Cupons e fidelidade','cupons']]],['Administração',[['Colaboradores','usuarios'],['Configurações','config-sistema'],['Backup','backup'],['Logs e eventos','logs'],['Painel de senhas','painel-senhas'],['Diagnóstico','diagnostico'],['Ajuda','ajuda'],['Módulos e aplicativos','modulos']]]],modules=groups.flatMap(g=>g[1]);openModal('Perfis e Permissões',`<div class="op-toolbar"><span class="op-toolbar-spacer"></span><button class="op-btn" onclick="setPermissionPreset('caixa')">Padrão Caixa</button><button class="op-btn" onclick="setPermissionPreset('cozinha')">Padrão Cozinha</button></div><div class="finance-grid" style="height:440px"><table><thead><tr><th>Grupo / Módulo</th><th>Administrador</th><th>Operador de caixa</th><th>Cozinha</th></tr></thead><tbody>${groups.map(([group,items])=>`<tr><td colspan="4"><b>${h(group)}</b></td></tr>${items.map(([name,key])=>`<tr><td style="padding-left:28px">${name}</td><td style="text-align:center"><input type="checkbox" checked disabled></td>${['caixa','cozinha'].map(role=>`<td style="text-align:center"><input class="permission-choice" type="checkbox" data-role="${role}" value="${key}" ${rolePermissions(role).includes(key)?'checked':''}></td>`).join('')}</tr>`).join('')}`).join('')}</tbody></table></div><p class="sub">As permissões são aplicadas imediatamente à navegação do perfil. O Administrador permanece completo por segurança.</p><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="savePermissionMatrix()">✓ Salvar</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');window.permissionMatrixModules=modules;}
+function openPermissionMatrix(){userOptionsOpen=false;const groups=[['Atendimento',[['Caixa e pedidos','caixa'],['Balcão','balcao'],['Mesas e comandas','comandas'],['Delivery','delivery'],['Fila de atendimento','fila-atendimento'],['Agendamentos','agendamentos'],['Cardápio digital','cardapio'],['Totem','totem'],['Cozinha','cozinha']]],['Cadastros',[['Clientes','associados'],['Produtos','produtos'],['Insumos','insumos'],['Categorias','categorias'],['Complementos','complementos'],['Observações','observacoes'],['Perguntas','perguntas'],['Fornecedores','fornecedores']]],['Áreas e dispositivos',[['Locais e áreas','locais'],['Impressoras','impressoras'],['Estações','estacoes'],['Origens de pedido','origens'],['Acesso mobile (garçom)','mobile-qr']]],['Financeiro e gestão',[['Formas de pagamento','pagamentos'],['Categorias de contas','contascategorias'],['Contas e fiado','contas'],['Relatórios','relatorios'],['Marketing (cupons, fidelidade, SMS)','cupons']]],['Administração',[['Colaboradores','usuarios'],['Configurações','config-sistema'],['Backup','backup'],['Logs e eventos','logs'],['Painel de senhas','painel-senhas'],['Diagnóstico','diagnostico'],['Ajuda','ajuda'],['Módulos e aplicativos','modulos'],['Trocar a própria senha','senha-propria']]]],modules=groups.flatMap(g=>g[1]);openModal('Perfis e Permissões',`<div class="op-toolbar"><span class="op-toolbar-spacer"></span><button class="op-btn" onclick="setPermissionPreset('caixa')">Padrão Caixa</button><button class="op-btn" onclick="setPermissionPreset('cozinha')">Padrão Cozinha</button></div><div class="finance-grid" style="height:440px"><table><thead><tr><th>Grupo / Módulo</th><th>Administrador</th><th>Operador de caixa</th><th>Cozinha</th></tr></thead><tbody>${groups.map(([group,items])=>`<tr><td colspan="4"><b>${h(group)}</b></td></tr>${items.map(([name,key])=>`<tr><td style="padding-left:28px">${name}</td><td style="text-align:center"><input type="checkbox" checked disabled></td>${['caixa','cozinha'].map(role=>`<td style="text-align:center"><input class="permission-choice" type="checkbox" data-role="${role}" value="${key}" ${rolePermissions(role).includes(key)?'checked':''}></td>`).join('')}</tr>`).join('')}`).join('')}</tbody></table></div><p class="sub">As permissões são aplicadas imediatamente à navegação do perfil. O Administrador permanece completo por segurança.</p><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="savePermissionMatrix()">✓ Salvar</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');window.permissionMatrixModules=modules;}
 function setPermissionPreset(role){document.querySelectorAll(`.permission-choice[data-role="${role}"]`).forEach(input=>input.checked=(ROLE_PERMS[role]||[]).includes(input.value));}
-function savePermissionMatrix(){state.settings.rolePermissions=state.settings.rolePermissions||{};['caixa','cozinha'].forEach(role=>{state.settings.rolePermissions[role]=[...document.querySelectorAll(`.permission-choice[data-role="${role}"]:checked`)].map(x=>x.value);});save('settings');closeModal();renderAll();logAction('Matriz de permissões atualizada');toast('Permissões salvas.');}
+function savePermissionMatrix(){if(!requirePerm('usuarios'))return;state.settings.rolePermissions=state.settings.rolePermissions||{};['caixa','cozinha'].forEach(role=>{state.settings.rolePermissions[role]=[...document.querySelectorAll(`.permission-choice[data-role="${role}"]:checked`)].map(x=>x.value);});save('settings');closeModal();renderAll();logAction('Matriz de permissões atualizada');toast('Permissões salvas.');}
 function accessLogEntries(){return(state.logs||[]).filter(x=>/login|logout|acesso|usuário|usuario|senha|pin/i.test(String(x.action||x.message||'')));}
-function openAccessLog(){userOptionsOpen=false;const entries=accessLogEntries(),users=[...new Set(entries.map(x=>x.user||x.userName).filter(Boolean))].sort(),rows=entries.map(x=>{const action=String(x.action||x.message||'Acesso'),status=/incorreto|falha|bloque/i.test(action)?'Falha':/logout|saída|saida/i.test(action)?'Saída':'Sucesso';return `<tr data-access-user="${h(x.user||x.userName||'')}" data-access-status="${status}" data-access-date="${reportDate(x.at||x.createdAt)}"><td>${reportDateTime(x.at||x.createdAt)}</td><td>${h(x.user||x.userName||'—')}</td><td>${h(action)}</td><td><span class="tag ${status==='Falha'?'tag-red':status==='Saída'?'tag-gray':'tag-green'}">${status}</span></td></tr>`}).join('');openModal('Histórico de Acesso',`<div class="op-toolbar"><div class="op-search"><input id="accessLogSearch" placeholder="Pesquisar evento..."></div><select id="accessLogUser" class="op-btn"><option value="">Todos os colaboradores</option>${users.map(u=>`<option>${h(u)}</option>`).join('')}</select><select id="accessLogStatus" class="op-btn"><option value="">Todos os eventos</option><option>Sucesso</option><option>Falha</option><option>Saída</option></select><button class="op-btn" onclick="exportAccessLog()">▧ Exportar CSV</button></div><div class="finance-grid" style="height:410px"><table><thead><tr><th>Data/Hora</th><th>Colaborador</th><th>Evento</th><th>Status</th></tr></thead><tbody id="accessLogRows">${rows||'<tr><td colspan="4" class="empty">Nenhum evento de acesso registrado.</td></tr>'}</tbody></table></div>`,true);const modal=document.querySelector('#modalRoot .modal');modal.classList.add('app-config-modal');['accessLogSearch','accessLogUser','accessLogStatus'].forEach(id=>document.getElementById(id).oninput=filterAccessLog);}
+async function openAccessLog(){userOptionsOpen=false;await loadAuditLog();const entries=accessLogEntries(),users=[...new Set(entries.map(x=>x.user||x.userName).filter(Boolean))].sort(),rows=entries.map(x=>{const action=String(x.action||x.message||'Acesso'),status=/incorreto|falha|bloque/i.test(action)?'Falha':/logout|saída|saida/i.test(action)?'Saída':'Sucesso';return `<tr data-access-user="${h(x.user||x.userName||'')}" data-access-status="${status}" data-access-date="${reportDate(x.at||x.createdAt)}"><td>${reportDateTime(x.at||x.createdAt)}</td><td>${h(x.user||x.userName||'—')}</td><td>${h(action)}</td><td><span class="tag ${status==='Falha'?'tag-red':status==='Saída'?'tag-gray':'tag-green'}">${status}</span></td></tr>`}).join('');openModal('Histórico de Acesso',`<div class="op-toolbar"><div class="op-search"><input id="accessLogSearch" placeholder="Pesquisar evento..."></div><select id="accessLogUser" class="op-btn"><option value="">Todos os colaboradores</option>${users.map(u=>`<option>${h(u)}</option>`).join('')}</select><select id="accessLogStatus" class="op-btn"><option value="">Todos os eventos</option><option>Sucesso</option><option>Falha</option><option>Saída</option></select><button class="op-btn" onclick="exportAccessLog()">▧ Exportar CSV</button></div><div class="finance-grid" style="height:410px"><table><thead><tr><th>Data/Hora</th><th>Colaborador</th><th>Evento</th><th>Status</th></tr></thead><tbody id="accessLogRows">${rows||'<tr><td colspan="4" class="empty">Nenhum evento de acesso registrado.</td></tr>'}</tbody></table></div>`,true);const modal=document.querySelector('#modalRoot .modal');modal.classList.add('app-config-modal');['accessLogSearch','accessLogUser','accessLogStatus'].forEach(id=>document.getElementById(id).oninput=filterAccessLog);}
 function filterAccessLog(){const q=(document.getElementById('accessLogSearch')?.value||'').toLowerCase(),user=document.getElementById('accessLogUser')?.value||'',status=document.getElementById('accessLogStatus')?.value||'';document.querySelectorAll('#accessLogRows tr[data-access-user]').forEach(row=>row.style.display=(!q||row.textContent.toLowerCase().includes(q))&&(!user||row.dataset.accessUser===user)&&(!status||row.dataset.accessStatus===status)?'':'none');}
 function exportAccessLog(){downloadCsvFile('historico-acesso-'+todayStr()+'.csv',[['Data/Hora','Colaborador','Evento'],...accessLogEntries().map(x=>[reportDateTime(x.at||x.createdAt),x.user||x.userName||'',x.action||x.message||'Acesso'])]);logAction('Histórico de acesso exportado');}
 function openUserModal(id){
@@ -3892,7 +4037,7 @@ function gcRenderHomeSearch(q){
   }).join('') : '<p class="gc-empty">Nenhum associado encontrado.</p>';
 }
 function gcToggleMenu(){ const p=document.getElementById('gcMenuPanel'); if(p) p.classList.toggle('open'); }
-function gcLogout(){ logAction('Logout realizado'); currentUser=null; document.getElementById('garcomApp').classList.remove('show'); renderLogin(); }
+async function gcLogout(){ logAction('Logout realizado'); currentUser=null; try{ if(supabaseClient) await supabaseClient.auth.signOut(); }catch(e){} sessionIsOwner=false; document.getElementById('garcomApp').classList.remove('show'); renderLogin(); }
 
 function gcOpenFlow(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
@@ -4176,7 +4321,7 @@ function renderFilaAtendimento(){
   el.innerHTML=`<div class="workspace-gray"><section class="op-window" style="display:grid;grid-template-columns:315px 1fr;min-height:610px"><header class="op-titlebar" style="grid-column:1/-1">Fila de Atendimento</header>${nav}${body}</section></div>`;
   el.querySelectorAll('[data-queue-pane]').forEach(button=>button.addEventListener('click',()=>setServiceQueuePane(button.dataset.queuePane)));
 }
-function saveServiceQueueSettings(){state.settings={...state.settings,queueAutoStart:document.getElementById('queueStart').checked,queueMute:document.getElementById('queueMute').checked};save('settings');toast('Configurações da fila salvas.');}
+function saveServiceQueueSettings(){if(!requirePerm('config-sistema'))return;state.settings={...state.settings,queueAutoStart:document.getElementById('queueStart').checked,queueMute:document.getElementById('queueMute').checked};save('settings');toast('Configurações da fila salvas.');}
 function clearServiceQueue(){if(!confirm('Remover da visualização os pedidos já aceitos, recusados ou cancelados? Pedidos pendentes serão preservados.'))return;state.requests=state.requests.filter(r=>r.status==='pendente');state.scheduled=state.scheduled.filter(s=>!['cancelado','entregue'].includes(s.status));save('requests');save('scheduled');renderAll();toast('Histórico encerrado da fila foi limpo.');}
 
 /* ============ CARDÁPIO DIGITAL ============ */
@@ -4189,8 +4334,8 @@ function renderCardapio(){
 }
 function openOwnDigitalMenu(mode='equipe'){cardapioSub=mode;const el=document.getElementById('view-cardapio');el.innerHTML=`<div class="workspace-gray"><section class="op-window"><header class="op-titlebar">Cardápio Digital — Canal Próprio <span class="op-controls"><span onclick="renderCardapio()">×</span></span></header><div class="record-tabs"><button class="${mode==='equipe'?'active':''}" onclick="openOwnDigitalMenu('equipe')">Pedidos recebidos</button><button class="${mode==='cliente'?'active':''}" onclick="openOwnDigitalMenu('cliente')">Visão do cliente (QR)</button></div><div id="cardapioBody" style="padding:18px;overflow:auto"></div></section></div>`;if(mode==='equipe')renderCardapioEquipe();else renderCardapioCliente();}
 function openDigitalChannelHelp(name){openModal('Manual — '+name,`<div class="consumer-form-frame"><h3>Etapas para ativação</h3><ol><li>Contrate ou cadastre uma conta no provedor escolhido.</li><li>Solicite as credenciais de integração.</li><li>Configure catálogo, modalidades e horários.</li><li>Valide o recebimento de um pedido de teste.</li></ol><p class="sub">A disponibilidade depende de contrato e credenciais do provedor.</p></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button></div>`);}
-function openDigitalChannelConfig(name){const all=state.settings.digitalChannels||{},c=all[name]||{};openModal('Configurar '+name,`<div class="consumer-form-frame"><div class="field"><label>Identificador da loja</label><input id="dcStore" value="${h(c.store||'')}"></div><div class="field"><label>Token / Credencial</label><input id="dcToken" type="password" value="${h(c.token||'')}"></div><div class="row"><div class="field"><label>Modalidade padrão</label><select id="dcMode"><option ${c.mode==='Entrega'?'selected':''}>Entrega</option><option ${c.mode==='Retirada'?'selected':''}>Retirada</option><option ${c.mode==='Ambas'?'selected':''}>Ambas</option></select></div><div class="field"><label>Tempo estimado (min)</label><input id="dcTime" type="number" min="1" value="${Number(c.time)||40}"></div></div><label><input id="dcAuto" type="checkbox" ${c.autoAccept?'checked':''}> Aceitar pedidos automaticamente</label><br><label><input id="dcEnabled" type="checkbox" ${c.enabled?'checked':''}> Ativar canal após validação</label><p class="sub">Sem credenciais válidas, o canal permanece apenas configurado localmente.</p></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="saveDigitalChannel('${name}')">✓ Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal');}
-function saveDigitalChannel(name){state.settings.digitalChannels=state.settings.digitalChannels||{};state.settings.digitalChannels[name]={store:document.getElementById('dcStore').value.trim(),token:document.getElementById('dcToken').value,mode:document.getElementById('dcMode').value,time:Math.max(1,parseInt(document.getElementById('dcTime').value,10)||40),autoAccept:document.getElementById('dcAuto').checked,enabled:document.getElementById('dcEnabled').checked};save('settings');closeModal();toast('Configuração do canal salva.');}
+function openDigitalChannelConfig(name){if(!requirePerm('config-sistema'))return;const all=state.settings.digitalChannels||{},c=all[name]||{};openModal('Configurar '+name,`<div class="consumer-form-frame"><div class="field"><label>Identificador da loja</label><input id="dcStore" value="${h(c.store||'')}"></div><div class="field"><label>Token / Credencial</label><input id="dcToken" type="password" value="${h(c.token||'')}"></div><div class="row"><div class="field"><label>Modalidade padrão</label><select id="dcMode"><option ${c.mode==='Entrega'?'selected':''}>Entrega</option><option ${c.mode==='Retirada'?'selected':''}>Retirada</option><option ${c.mode==='Ambas'?'selected':''}>Ambas</option></select></div><div class="field"><label>Tempo estimado (min)</label><input id="dcTime" type="number" min="1" value="${Number(c.time)||40}"></div></div><label><input id="dcAuto" type="checkbox" ${c.autoAccept?'checked':''}> Aceitar pedidos automaticamente</label><br><label><input id="dcEnabled" type="checkbox" ${c.enabled?'checked':''}> Ativar canal após validação</label><p class="sub">Sem credenciais válidas, o canal permanece apenas configurado localmente.</p></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="saveDigitalChannel('${name}')">✓ Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal');}
+function saveDigitalChannel(name){if(!requirePerm('config-sistema'))return;state.settings.digitalChannels=state.settings.digitalChannels||{};state.settings.digitalChannels[name]={store:document.getElementById('dcStore').value.trim(),token:document.getElementById('dcToken').value,mode:document.getElementById('dcMode').value,time:Math.max(1,parseInt(document.getElementById('dcTime').value,10)||40),autoAccept:document.getElementById('dcAuto').checked,enabled:document.getElementById('dcEnabled').checked};save('settings');closeModal();toast('Configuração do canal salva.');}
 function renderCardapioEquipe(){
   const el = document.getElementById('cardapioBody');
   const pending = state.requests.filter(r=>r.status==='pendente');
@@ -4506,10 +4651,34 @@ function renderRelatorios(){
   renderRelatoriosDashboard();
 }
 
-/* ============ LOGS ============ */
-function logAction(text){
+/* ============ LOGS / AUDITORIA ============
+   Por que saiu do blob: logAction() fazia unshift + slice(0,300) + save('logs'),
+   ou seja, toda gravação reescrevia a linha inteira e DESCARTAVA de propósito as
+   entradas antigas. Pro Postgres, "acrescentar um log" e "apagar o log de ontem"
+   eram o mesmo UPDATE, com a mesma cara — nenhuma policy de RLS consegue separar
+   os dois (WITH CHECK não enxerga a linha antiga). Log que o auditado pode
+   reescrever não é auditoria, é rascunho.
+   Agora: uma linha por evento em public.audit_log, INSERT-only, sem policy de
+   UPDATE nem de DELETE pra ninguém — nem pro dono pelo navegador. Quem é o autor
+   e quando aconteceu são carimbados por trigger no servidor, então um caixa não
+   consegue registrar ação em nome do admin.
+   FIRE-AND-FORGET: gravar log NUNCA pode travar nem atrasar a ação que está sendo
+   logada. Se o insert falhar (rede caiu no meio da venda), a entrada continua
+   visível na sessão local e a venda segue normalmente. */
+function logEntryLocal(text){
   state.logs.unshift({ id:uid(), text, user: currentUser? currentUser.name : '—', at:new Date().toISOString() });
   if(state.logs.length>300) state.logs = state.logs.slice(0,300);
+}
+function logAction(text){
+  logEntryLocal(text);
+  if(isCloudMode() && supabaseClient){
+    // Sem await de propósito. tenant_id/at/ator saem do trigger audit_log_stamp().
+    supabaseClient.from('audit_log')
+      .insert({ action:String(text||''), actor_name: currentUser? currentUser.name : null })
+      .then(()=>{}, ()=>{});
+    return;
+  }
+  // Modo Local/Compartilhado: não existe RLS nem servidor, mantém o blob de sempre.
   save('logs');
 }
 let logCategory='geral';
@@ -4873,6 +5042,9 @@ function renderImpressoras(){
   checkPrintTokenStatus();
 }
 function renderTicketConfigHtml(){
+  // Bloco só aparece pra quem pode gravar settings — não adianta mostrar um
+  // "Salvar formatação" que o banco vai recusar.
+  if(!hasPerm('config-sistema')) return '';
   const cfg = state.settings.ticketConfig || {};
   const tamanho = cfg.nomeProdutoTamanho || 'grande';
   return `<div class="field" style="margin-bottom:14px;border:1px solid var(--border,#ddd);border-radius:8px;padding:12px">
@@ -4889,6 +5061,7 @@ function renderTicketConfigHtml(){
   </div>`;
 }
 function saveTicketConfig(){
+  if(!requirePerm('config-sistema')) return;
   state.settings.ticketConfig = {
     nomeProdutoTamanho: document.getElementById('cfgNomeProdutoTamanho').value,
     entregaDestaque: document.getElementById('cfgEntregaDestaque').checked,
@@ -5199,7 +5372,7 @@ function renderPainelSenhas(){
 }
 function toggleScoreboardFullscreen(){const el=document.getElementById('view-painel-senhas');if(!document.fullscreenElement){el.requestFullscreen?.();}else document.exitFullscreen?.();}
 function openScoreboardSettings(){const c=state.settings.scoreboard||{};openModal('Configurar Painel de Senhas',`<div class="consumer-form-frame"><div class="field"><label>Título do painel</label><input id="scoreTitle" value="${h(c.title||'Pedidos prontos')}"></div><div class="row"><div class="field"><label>Tempo de permanência (min)</label><input id="scoreMinutes" type="number" min="1" value="${Number(c.minutes)||10}"></div><div class="field"><label>Atualização (seg)</label><input id="scoreRefresh" type="number" min="2" value="${Number(c.refresh)||10}"></div></div><label><input id="scoreSound" type="checkbox" ${c.sound?'checked':''}> Emitir aviso sonoro ao marcar como pronto</label><br><label><input id="scoreShowPreparing" type="checkbox" ${c.showPreparing!==false?'checked':''}> Exibir pedidos em preparo</label></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="consumer-save" onclick="saveScoreboardSettings()">✓ Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal');}
-function saveScoreboardSettings(){state.settings.scoreboard={title:document.getElementById('scoreTitle').value.trim(),minutes:Math.max(1,parseInt(document.getElementById('scoreMinutes').value,10)||10),refresh:Math.max(2,parseInt(document.getElementById('scoreRefresh').value,10)||10),sound:document.getElementById('scoreSound').checked,showPreparing:document.getElementById('scoreShowPreparing').checked};save('settings');closeModal();renderAll();toast('Painel configurado.');}
+function saveScoreboardSettings(){if(!requirePerm('config-sistema'))return;state.settings.scoreboard={title:document.getElementById('scoreTitle').value.trim(),minutes:Math.max(1,parseInt(document.getElementById('scoreMinutes').value,10)||10),refresh:Math.max(2,parseInt(document.getElementById('scoreRefresh').value,10)||10),sound:document.getElementById('scoreSound').checked,showPreparing:document.getElementById('scoreShowPreparing').checked};save('settings');closeModal();renderAll();toast('Painel configurado.');}
 
 /* ============ AJUDA E DIAGNÓSTICO ============ */
 function renderAjuda(){
@@ -5482,9 +5655,10 @@ async function tenantSignIn(){
   try{
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
     if(error){ showTenantError('E-mail ou senha incorretos.'); return; }
-    const tenantId = await resolveTenantId(data.user.id);
-    if(!tenantId){ showTenantError('Essa conta ainda não tem um estabelecimento vinculado.'); return; }
-    setTenantId(tenantId);
+    const resolved = await resolveTenantSession(data.user.id);
+    if(!resolved){ showTenantError('Essa conta ainda não tem um estabelecimento vinculado.'); return; }
+    sessionIsOwner = resolved.isOwner;
+    setTenantId(resolved.tenantId);
     document.getElementById('tenantSetupOverlay').style.display = 'none';
     startApp();
   } finally { btn.disabled=false; btn.textContent='Entrar'; }
@@ -5503,6 +5677,7 @@ async function tenantSignUp(){
     const tenantId = slugifyTenant(name) + '-' + Math.random().toString(36).slice(2,6);
     const { error: insertErr } = await supabaseClient.from('tenant_owners').insert({ user_id: data.user.id, tenant_id: tenantId, business_name: name });
     if(insertErr){ showTenantError('Conta criada, mas houve erro ao vincular o estabelecimento: '+insertErr.message); return; }
+    sessionIsOwner = true; // acabou de criar a linha em tenant_owners: é o dono
     setTenantId(tenantId);
     document.getElementById('tenantSetupOverlay').style.display = 'none';
     startApp();
@@ -5555,10 +5730,11 @@ async function boot(){
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data: { session } } = await supabaseClient.auth.getSession();
   if(session){
-    const tenantId = await resolveTenantId(session.user.id);
-    if(tenantId){
-      setTenantId(tenantId);
-      storageApi = buildSupabaseStorageApi(supabaseClient, tenantId);
+    const resolved = await resolveTenantSession(session.user.id);
+    if(resolved){
+      sessionIsOwner = resolved.isOwner;
+      setTenantId(resolved.tenantId);
+      storageApi = buildSupabaseStorageApi(supabaseClient, resolved.tenantId);
       startApp();
       return;
     }
