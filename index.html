@@ -928,13 +928,14 @@ async function loadAll(){
      "voltou vazio". Chave que falhou ao ler nunca pode ser semeada por cima. */
   const readFailed = {};
   for(const key of Object.keys(STORE)){
-    if(key==='members') continue;
+    if(key==='members'||key==='orders') continue;
     try{
       const r = await storageApi.get(STORE[key]);
       state[key] = r ? JSON.parse(r.value) : (key in scalarDefaults ? scalarDefaults[key] : []);
     }catch(e){ readFailed[key] = true; state[key] = (key in scalarDefaults ? scalarDefaults[key] : []); }
   }
   try{ state.members = await MembersStore.load(); }catch(e){ state.members = []; }
+  try{ state.orders = await OrdersStore.load(); }catch(e){ state.orders = []; }
 
   /* ---- SEMEADURA DE PADRÕES: quando é seguro gravar ----------------------
      storageApi.get() usa .maybeSingle(): linha filtrada pela RLS volta como
@@ -1350,6 +1351,100 @@ const MembersStore = {
     if(!isCloudMode()) await save('members');
   }
 };
+
+/* ============ ORDERS (fila da cozinha) — tabela relacional em modo nuvem, blob em modo local ============ */
+function orderFromRow(row){
+  return {
+    id: row.id, saleId: row.sale_id||null, who: row.who, local: row.local||'',
+    items: row.items||[], status: row.status, statusHistory: row.status_history||[],
+    kitchenNote: row.kitchen_note||'', source: row.source||null, createdAt: row.created_at
+  };
+}
+const OrdersStore = {
+  async load(){
+    if(isCloudMode()){
+      const { data, error } = await supabaseClient.from('orders').select('*').eq('tenant_id', storageApi.tenantId);
+      if(error) throw error;
+      return (data||[]).map(orderFromRow);
+    }
+    const r = await storageApi.get(STORE.orders);
+    return r ? JSON.parse(r.value) : [];
+  },
+  async create(order){
+    if(isCloudMode()){
+      const row = {
+        id: order.id, tenant_id: storageApi.tenantId, sale_id: order.saleId||null, who: order.who,
+        local: order.local||null, items: order.items, status: order.status,
+        status_history: order.statusHistory||[], kitchen_note: order.kitchenNote||null,
+        source: order.source||null, created_at: order.createdAt
+      };
+      const { error } = await supabaseClient.from('orders').insert(row);
+      if(error) throw error;
+      state.orders.unshift(order);
+    } else {
+      state.orders.unshift(order);
+      await save('orders');
+    }
+    return order;
+  },
+  async advance(id, next){
+    const o = state.orders.find(x=>x.id===id); if(!o) return;
+    const from = o.status;
+    o.status = next;
+    o.statusHistory = Array.isArray(o.statusHistory)?o.statusHistory:[];
+    o.statusHistory.push({ from, to: next, at: new Date().toISOString(), user: currentUser.name });
+    if(isCloudMode()){
+      const { error } = await supabaseClient.from('orders').update({ status: next, status_history: o.statusHistory, updated_at: new Date().toISOString() }).eq('id', id);
+      if(error) throw error;
+    } else {
+      await save('orders');
+    }
+  },
+  async saveNote(id, note){
+    const o = state.orders.find(x=>x.id===id); if(!o) return;
+    o.kitchenNote = note;
+    if(isCloudMode()){
+      const { error } = await supabaseClient.from('orders').update({ kitchen_note: note, updated_at: new Date().toISOString() }).eq('id', id);
+      if(error) throw error;
+    } else {
+      await save('orders');
+    }
+  },
+  async returnStep(id){
+    const o = state.orders.find(x=>x.id===id); if(!o) return;
+    const previous = {preparo:'pendente',pronto:'preparo',entregue:'pronto'}[o.status];
+    if(!previous) return;
+    const from = o.status;
+    o.status = previous;
+    o.statusHistory = Array.isArray(o.statusHistory)?o.statusHistory:[];
+    o.statusHistory.push({ from, to: previous, at: new Date().toISOString(), user: currentUser.name, reason: 'Retorno manual' });
+    if(isCloudMode()){
+      const { error } = await supabaseClient.from('orders').update({ status: previous, status_history: o.statusHistory, updated_at: new Date().toISOString() }).eq('id', id);
+      if(error) throw error;
+    } else {
+      await save('orders');
+    }
+  },
+  async reassignSale(sourceId, targetId){
+    state.orders.forEach(o=>{ if(o.saleId===sourceId) o.saleId=targetId; });
+    if(isCloudMode()){
+      const { error } = await supabaseClient.from('orders').update({ sale_id: targetId, updated_at: new Date().toISOString() }).eq('sale_id', sourceId);
+      if(error) throw error;
+    } else {
+      await save('orders');
+    }
+  },
+  async cancelBySale(saleId){
+    state.orders.filter(o=>o.saleId===saleId&&o.status!=='entregue').forEach(o=>{ o.status='cancelado'; });
+    if(isCloudMode()){
+      const { error } = await supabaseClient.from('orders').update({ status:'cancelado', updated_at: new Date().toISOString() }).eq('sale_id', saleId).neq('status','entregue');
+      if(error) throw error;
+    } else {
+      await save('orders');
+    }
+  }
+};
+
 function toast(msg){
   const el = document.createElement('div'); el.className='toast'; el.textContent=msg;
   document.getElementById('toastRoot').appendChild(el);
@@ -2755,8 +2850,8 @@ async function sendItemsToKitchen(saleId, items, who, source, local){
   const monitorItems=items.filter(i=>{const product=state.products.find(p=>p.id===i.productId);const estacao=product&&product.estacao?product.estacao:'cozinha';return saidaTemTela(estacao);});
   if(!monitorItems.length) return true;
   const order = { id:uid(), saleId, who, local: local||'', items: monitorItems.map(i=>({productId:i.productId,name:i.name,qty:i.qty,price:i.price,notes:i.notes||'',customization:i.customization?JSON.parse(JSON.stringify(i.customization)):null})),
-    status:'pendente', createdAt:new Date().toISOString(), source };
-  state.orders.unshift(order); save('orders');
+    status:'pendente', statusHistory:[], createdAt:new Date().toISOString(), source };
+  await OrdersStore.create(order);
   return true;
 }
 function renderCozinha(){
@@ -2782,9 +2877,9 @@ function renderCozinha(){
     }).join('')}</div>
   </div>`;
 }
-function advanceOrder(id, next){
-  const o = state.orders.find(x=>x.id===id); if(!o) return;
-  const previous=o.status;o.status = next;o.statusHistory=Array.isArray(o.statusHistory)?o.statusHistory:[];o.statusHistory.push({from:previous,to:next,at:new Date().toISOString(),user:currentUser.name});save('orders');renderAll();toast('Pedido atualizado: '+next+'.');
+async function advanceOrder(id, next){
+  await OrdersStore.advance(id, next);
+  renderAll();toast('Pedido atualizado: '+next+'.');
 }
 function toggleTvMode(){
   const on = !document.body.classList.contains('tv-mode');
@@ -2795,8 +2890,8 @@ function toggleTvMode(){
 }
 try{ if(localStorage.getItem('cantina2:tvmode')==='1') document.body.classList.add('tv-mode'); }catch(e){}
 function openKitchenOrder(id){const o=state.orders.find(x=>x.id===id);if(!o)return;const flow={pendente:['preparo','Iniciar preparo'],preparo:['pronto','Marcar pronto'],pronto:['entregue','Marcar entregue'],entregue:[null,'Entregue']}[o.status]||[null,'Concluído'];openModal('Pedido na Cozinha',`<div class="consumer-form-frame"><div class="app-status"><b>${h(o.who)}</b><span class="tag tag-blue">${h(o.status)}</span></div><p>${reportDateTime(o.createdAt)} · ${h(typeLabel(o.source))}</p><div class="finance-grid" style="height:260px"><table><thead><tr><th>Qtd.</th><th>Item</th><th>Observação</th></tr></thead><tbody>${(o.items||[]).map(i=>`<tr><td>${Number(i.qty)||0}</td><td>${h(i.name)}</td><td>${h(i.notes||'—')}</td></tr>`).join('')}</tbody></table></div><div class="field"><label>Observação da cozinha</label><textarea id="kitchenNote">${h(o.kitchenNote||'')}</textarea></div></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button><button class="op-btn" onclick="returnKitchenOrder('${id}')" ${o.status==='pendente'?'disabled':''}>↶ Retornar etapa</button><button class="consumer-save" onclick="saveKitchenOrder('${id}','${flow[0]||''}')" ${flow[0]?'':'disabled'}>✓ ${flow[1]}</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
-function saveKitchenOrder(id,next){const o=state.orders.find(x=>x.id===id);if(!o)return;o.kitchenNote=document.getElementById('kitchenNote').value.trim();save('orders');closeModal();if(next)advanceOrder(id,next);}
-function returnKitchenOrder(id){const o=state.orders.find(x=>x.id===id);if(!o)return;const previous={preparo:'pendente',pronto:'preparo',entregue:'pronto'}[o.status];if(!previous)return;if(!confirm('Retornar o pedido para a etapa anterior?'))return;const from=o.status;o.status=previous;o.statusHistory=Array.isArray(o.statusHistory)?o.statusHistory:[];o.statusHistory.push({from,to:previous,at:new Date().toISOString(),user:currentUser.name,reason:'Retorno manual'});save('orders');closeModal();renderAll();}
+async function saveKitchenOrder(id,next){const o=state.orders.find(x=>x.id===id);if(!o)return;await OrdersStore.saveNote(id,document.getElementById('kitchenNote').value.trim());closeModal();if(next)await advanceOrder(id,next);}
+async function returnKitchenOrder(id){const o=state.orders.find(x=>x.id===id);if(!o)return;if(!confirm('Retornar o pedido para a etapa anterior?'))return;await OrdersStore.returnStep(id);closeModal();renderAll();}
 
 /* ============ VENDA — lógica compartilhada Balcão/Comandas ============ */
 function newDraft(type){ currentSaleDraft = { items:[], memberId:null, customerName:'', type }; }
@@ -3362,7 +3457,7 @@ if(typeof document.addEventListener==='function')document.addEventListener('clic
 async function saveDeliveryOrder(id){const existing=id?state.sales.find(s=>s.id===id):null;if(!currentSaleDraft.items.length){toast('Adicione ao menos um produto.');return;}const address=document.getElementById('delAddress').value.trim(),deliveryLocal=document.getElementById('delLocal')?.value||'',customer=document.getElementById('delCustomer').value.trim(),areaId=document.getElementById('delArea')?.value||null,area=(state.settings.deliveryAreas||[]).find(a=>a.id===areaId),itemsValue=currentSaleDraft.items.reduce((s,i)=>s+Number(i.price||0)*Number(i.qty||0),0);if(!customer){toast('Informe o cliente.');return;}if(!address&&!deliveryLocal){toast('Informe o local de entrega no clube ou o endereço.');return;}if(area&&itemsValue<Number(area.minimum||0)){toast('O pedido não atingiu o valor mínimo de '+fmt(area.minimum)+' para esta área.');return;}const unsent=currentSaleDraft.items.filter(i=>!i.sent),saleId=existing?existing.id:uid();if(unsent.length&&!await sendItemsToKitchen(saleId,unsent,customer,'delivery',deliveryLocal))return;unsent.forEach(i=>i.sent=true);const data={type:'delivery',memberId:window.selectedDeliveryMemberId||null,customerName:customer,address,deliveryLocal,deliveryReference:document.getElementById('delReference').value.trim(),deliveryAreaId:areaId,estimatedMinutes:area?Number(area.minutes)||0:0,notes:document.getElementById('delNotes').value.trim(),driver:document.getElementById('delDriver').value.trim(),deliveryFee:Math.max(0,Number(document.getElementById('delFee').value)||0),items:currentSaleDraft.items,total:draftTotal(),deliveryStatus:existing?(existing.deliveryStatus||'iniciado'):'iniciado',deliveryStatusAt:new Date().toISOString()};if(existing)Object.assign(existing,data);else{let orderNumber;try{orderNumber=await nextOrderNumber();}catch(e){return;}state.sales.push({id:saleId,orderNumber,status:'open',payments:[],operatorId:currentUser.id,operatorName:currentUser.name,openedAt:new Date().toISOString(),...data});}save('sales');closeModal();selectedDeliveryId=saleId;renderAll();toast(existing?'Delivery atualizado.':'Pedido Delivery criado e enviado para preparo.');}
 function setDeliveryStatus(id,status){if(!id){toast('Crie o pedido antes de alterar o status.');return;}const s=state.sales.find(x=>x.id===id);if(!s||s.status==='closed')return;s.deliveryStatus=status;s.deliveryStatusAt=new Date().toISOString();save('sales');logAction('Delivery #'+(s.orderNumber||'')+' — '+deliveryStatusLabel(status));openDeliveryModal(id);renderAll();}
 function openDeliveryPayment(id){const s=state.sales.find(x=>x.id===id);if(!s)return;if(!state.cashSession||state.cashSession.status!=='open'){toast('Abra o caixa antes de receber o pedido Delivery.');return;}currentSaleDraft={items:JSON.parse(JSON.stringify(s.items||[])),memberId:s.memberId||null,customerName:s.customerName||'',type:'delivery',deliveryFee:Number(s.deliveryFee)||0};openPaymentModal('delivery',id);}
-function cancelDelivery(id){const s=state.sales.find(x=>x.id===id);if(!s||s.status==='closed')return;if(!confirm('Cancelar este Delivery e devolver os insumos enviados ao estoque?'))return;(s.items||[]).filter(i=>i.sent).forEach(it=>{const p=state.products.find(x=>x.id===it.productId);(p&&p.recipe||[]).forEach(r=>{const ins=state.insumos.find(x=>x.id===r.insumoId);if(ins){const qty=(Number(r.qty)||0)*(Number(it.qty)||0),before=Number(ins.stock)||0;ins.stock+=qty;state.stockMovements.unshift({id:uid(),insumoId:ins.id,name:ins.name,unit:ins.unit,type:'entrada',operation:'Estorno de Delivery cancelado',before,qty,after:ins.stock,user:currentUser.name,at:new Date().toISOString()});}});});s.status='closed';s.deliveryStatus='cancelado';s.deliveryStatusAt=new Date().toISOString();s.closedAt=s.deliveryStatusAt;state.orders.filter(o=>o.saleId===id&&o.status!=='entregue').forEach(o=>o.status='cancelado');save('insumos');save('stockMovements');save('orders');save('sales');logAction('Delivery #'+(s.orderNumber||'')+' cancelado');closeModal();renderAll();toast('Delivery cancelado e estoque devolvido.');}
+async function cancelDelivery(id){const s=state.sales.find(x=>x.id===id);if(!s||s.status==='closed')return;if(!confirm('Cancelar este Delivery e devolver os insumos enviados ao estoque?'))return;(s.items||[]).filter(i=>i.sent).forEach(it=>{const p=state.products.find(x=>x.id===it.productId);(p&&p.recipe||[]).forEach(r=>{const ins=state.insumos.find(x=>x.id===r.insumoId);if(ins){const qty=(Number(r.qty)||0)*(Number(it.qty)||0),before=Number(ins.stock)||0;ins.stock+=qty;state.stockMovements.unshift({id:uid(),insumoId:ins.id,name:ins.name,unit:ins.unit,type:'entrada',operation:'Estorno de Delivery cancelado',before,qty,after:ins.stock,user:currentUser.name,at:new Date().toISOString()});}});});s.status='closed';s.deliveryStatus='cancelado';s.deliveryStatusAt=new Date().toISOString();s.closedAt=s.deliveryStatusAt;await OrdersStore.cancelBySale(id);save('insumos');save('stockMovements');save('sales');logAction('Delivery #'+(s.orderNumber||'')+' cancelado');closeModal();renderAll();toast('Delivery cancelado e estoque devolvido.');}
 function openDeliveryReadOnly(s){openModal('Delivery #'+(s.orderNumber||'—'),`<div class="panel"><p><b>Cliente:</b> ${h(s.customerName||'—')}</p><p><b>Endereço:</b> ${h(s.address||'—')}</p><p><b>Entregador:</b> ${h(s.driver||'—')}</p><p><b>Status:</b> ${deliveryStatusLabel(s.deliveryStatus)}</p><p><b>Total:</b> ${fmt(s.total)}</p><p><b>Finalizado:</b> ${reportDateTime(s.closedAt)}</p></div>`);}
 
 /* ============ COMANDAS ============ */
@@ -3383,7 +3478,7 @@ function openMergeOrdersModal(){
   document.getElementById('mergeTarget').selectedIndex=1;
   document.getElementById('mergeConfirm').onclick=mergeOpenOrders;
 }
-function mergeOpenOrders(){
+async function mergeOpenOrders(){
   const sourceId=document.getElementById('mergeSource').value;
   const targetId=document.getElementById('mergeTarget').value;
   if(sourceId===targetId){ toast('Escolha pedidos diferentes.'); return; }
@@ -3393,9 +3488,9 @@ function mergeOpenOrders(){
   target.items=[...(target.items||[]),...(source.items||[])];
   target.total=target.items.reduce((sum,item)=>sum+(Number(item.price)||0)*(Number(item.qty)||0),0);
   target.mergedFrom=[...(target.mergedFrom||[]),source.orderNumber||source.id,...(source.mergedFrom||[])];
-  state.orders.forEach(order=>{if(order.saleId===source.id) order.saleId=target.id;});
+  await OrdersStore.reassignSale(source.id, target.id);
   state.sales=state.sales.filter(s=>s.id!==source.id);
-  save('sales'); save('orders'); closeModal(); logAction(`Pedidos juntados: ${comandaDisplayName(source)} em ${comandaDisplayName(target)}`); renderAll(); toast('Pedidos juntados com sucesso.');
+  save('sales'); closeModal(); logAction(`Pedidos juntados: ${comandaDisplayName(source)} em ${comandaDisplayName(target)}`); renderAll(); toast('Pedidos juntados com sucesso.');
 }
 function renderComandas(){
   const el = document.getElementById('view-comandas');
@@ -5688,8 +5783,7 @@ function startApp(){
   setInterval(async ()=>{
     if(!currentUser) return;
     try{
-      const rOrders = await storageApi.get(STORE.orders);
-      const freshOrders = rOrders ? JSON.parse(rOrders.value) : [];
+      const freshOrders = await OrdersStore.load();
       const changedOrders = JSON.stringify(freshOrders) !== JSON.stringify(state.orders);
       const rSales = await storageApi.get(STORE.sales);
       const freshSales = rSales ? JSON.parse(rSales.value) : [];
