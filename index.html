@@ -3720,7 +3720,7 @@ async function confirmNovoPedidoModal(saleId){
   logAction('Pedido registrado para '+who+(local?' — local: '+local:'')+' — origem: '+origemLabel(origem));
   printNovoPedidoTickets(who, member?member.code:'', local, printJobs, s.orderNumber);
   toast('Pedido confirmado e enviado para a cozinha.');
-  closeModal(); openComanda(saleId, true);
+  closeModal(); openComanda(saleId, true); renderComandas();
 }
 function printNovoPedidoTickets(who, cota, local, printJobs, orderNumber){
   const jobsToPrint = printJobs.filter(job=>saidaTemImpressao(job.estacao));
