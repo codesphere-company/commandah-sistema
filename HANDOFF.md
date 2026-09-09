@@ -139,6 +139,27 @@ Feito diretamente nesta sessão (sem agente separado), migration `supabase/migra
 - Efeito colateral do teste: a chamada real de `next_order_number` avançou o contador de pedidos de verdade (pulou pra 13) — deixa um "buraco" na numeração (não existe pedido #13), sem outro impacto. Ajustável em Configurações se quiser, não é urgente.
 - Teste negativo do papel cozinha (chamar a RPC esperando o erro `sem permissao`) não foi feito — decisão consciente por já reaproveitar a mesma regra que a RLS da Fase 2 validou pra cozinha, não valia recriar conta de teste só pra isso.
 
+### Fase 3a — pedidos da cozinha em tabela relacional — CONCLUÍDA em 2026-09-08
+
+Primeira fatia da Fase 3 (o resto — `sales`/`cashSession`/`orderCounter` — continua em blob, ver Pendências).
+
+- `cantina2:orders` saiu do blob de `app_data` — cada pedido agora é uma linha em `public.orders`, com RLS por papel (owner/admin/caixa/cozinha têm select/insert/update; sem policy de delete, pedido cancelado vira `status='cancelado'` e nunca some da tabela, mesmo padrão do `archived` de sócios).
+- `OrdersStore` novo no `index.html` centraliza enviar pra cozinha, avançar/retornar status, juntar comandas (`mergeOpenOrders`) e cancelar delivery — com fallback pro blob antigo em modo Local, mesmo padrão do `MembersStore` da Fase 1.
+- `app_data_key_class()` perdeu a entrada `cantina2:orders` (cai no `else 'admin'` fail-closed) — nenhum papel em nuvem lê/escreve mais essa chave.
+- Migration `supabase/migrations/20260908010000_fase3a_orders_table.sql` — aplicada em produção (confirmado antes de rodar: a chave `cantina2:orders` estava vazia no banco real, **sem dado pra migrar/backfill**). Verificado por script depois de aplicar: colunas/policies da tabela nova batem com o esperado, `app_data_key_class` já não menciona mais `cantina2:orders`.
+- Commit `7d8a846`.
+- **Pendente**: o checklist de reteste funcional descrito no cabeçalho da migration (enviar item pra cozinha, avançar status, juntar comandas, cancelar delivery) ainda não foi confirmado explicitamente nesta sessão — recomendo rodar esse fluxo de ponta a ponta antes de confiar 100% em produção.
+
+**Achado de passagem, corrigido no mesmo dia**: `ROLE_PERMS` já liberava a permissão `cozinha` pra admin e caixa, mas o item nunca tinha entrado em `RIBBON_TABS` — só existia em `SIMPLE_RIBBON_COZINHA`, exclusivo de quem loga como papel cozinha (que hoje não existe fixo em produção). Sem isso, admin/caixa não tinham como abrir o Monitor de Cozinha pela navegação normal. Corrigido (commit `0f2a188`).
+
+### Correção pontual — card de comanda não atualizava após "Novo Pedido" (2026-09-08)
+
+Bug relatado pelo Fabricio testando: ao lançar um item numa comanda já aberta pelo fluxo "Novo Pedido" (dentro do modal da própria comanda), o total certo só aparecia no card da tela de Mesas/Comandas depois de sair e voltar da tela — dentro do modal o valor já vinha certo.
+
+Causa: `confirmNovoPedidoModal` reabre o modal da comanda (`openComanda(saleId, true)`) depois de salvar, mas nunca chamava `renderComandas()` — o card por trás do modal só era redesenhado quando `switchView('comandas')` rodava de novo. Confirmado que **não foi introduzido pela Fase 3a** (comparado com a versão anterior ao commit `7d8a846`, a função já tinha esse comportamento).
+
+Corrigido adicionando a chamada a `renderComandas()` logo depois de reabrir a comanda. Testado no navegador em modo Local (shim temporário de `window.storage`, removido antes do commit): o card atrás do modal já nasce com o total certo. Commit `fdf57e3`.
+
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
 **Fase 1 — fundação:** concluída (itens 1-3, ver seção própria acima).
@@ -147,9 +168,11 @@ Feito diretamente nesta sessão (sem agente separado), migration `supabase/migra
 
 **Fase 2b — RPCs SECURITY DEFINER + fecha buraco de devtools:** concluída (ver seção própria acima, 2026-09-08).
 
+**Fase 3a — pedidos da cozinha em tabela relacional:** concluída (ver seção própria acima, 2026-09-08) — reteste funcional de ponta a ponta ainda pendente.
+
 **Fase 3 — arquitetura de dados (médio prazo):**
-6. Migrar `sales`/`orders`/`cashSession`/`orderCounter` de blob pra tabelas relacionais — resolve o last-write-wins entre dispositivos (cto-arquiteto + backend-senior + dba-dados).
-7. Substituir o poll de 6s (compara JSON inteiro de orders+sales) por Realtime (frontend-senior).
+6. Migrar `sales`/`cashSession`/`orderCounter` de blob pra tabelas relacionais — resolve o last-write-wins entre dispositivos (cto-arquiteto + backend-senior + dba-dados). `orders` **já migrado** (Fase 3a, concluída em 2026-09-08, ver seção própria acima) — falta o resto.
+7. Substituir o poll de 6s (compara JSON inteiro de orders+sales) por Realtime (frontend-senior) — agora que `orders` é tabela relacional, fica mais direto de fazer só pra ele.
 
 **Fase 4 — evolução, não bloqueante:**
 8. Unificar as 5 implementações de carrinho duplicadas (frontend-senior).
