@@ -108,7 +108,7 @@ Feito pelo agente `backend-senior` (investigação + implementação). Commitado
 **Migration pronta**: `supabase/migrations/20260901000000_rls_por_papel.sql` (já promovida, sem prefixo `DRAFT_`) — `current_staff_role()`/`is_admin_like()`, classificação de todas as chaves de `app_data` em catálogo/pedidos/operacional/auditoria/admin (default fail-closed pra chave nova desconhecida), policies por comando (select/insert/update separados, sem delete) em `app_data`/`members`/`member_dependents`/`member_debt_entries`/`print_jobs`, tabela `public.audit_log` append-only de verdade (sem policy de update/delete nem pro dono), checklist de reteste pós-aplicação (seção 9 — passo a passo do fluxo de caixa que não pode quebrar + o que tem que aparecer bloqueado) e rollback colável (seção 10).
 
 **Assumido de propósito, não resolvido nesta fase:**
-- As RPCs de venda (`close_sale`, `consume_insumos`, `next_order_number`) são `SECURITY INVOKER` — o caixa ainda precisa de UPDATE direto nesses blobs pra fechar venda, então pelo devtools ainda dá pra forjar venda/zerar estoque. Virar isso `SECURITY DEFINER` com checagem interna de papel é a **Fase 2b**, feita separada de propósito.
+- As RPCs de venda eram `SECURITY INVOKER`, deixando o caixa com UPDATE direto nesses blobs via devtools — **resolvido na Fase 2b, ver seção própria abaixo.**
 - `cantina2:settings` mistura branding com segredo de integração (token WhatsApp, client secret Pix, token SMS/backup/canais digitais) — todo operador que abre o PDV precisa ler `settings`, então continua lendo os tokens. RLS por linha não resolve isso; segredo tem que sair pra Edge Function/Vault — Fase 3.
 - Não existe operador `cozinha` fixo em produção hoje (`tenant_staff` = 1 admin + 1 caixa, ambos migrados) — as policies de cozinha foram validadas com um operador de teste criado e excluído em 2026-09-08 (ver ordem de deploy abaixo), mas nenhum operador de cozinha real fica cadastrado.
 
@@ -122,14 +122,30 @@ Feito pelo agente `backend-senior` (investigação + implementação). Commitado
    - **Deferido de propósito, não feito**: o teste de venda completa do caixa ("não pode quebrar" — abrir caixa, vender, fechar) foi pulado por decisão do Fabricio pra não gerar dado residual de venda/estoque/fiado sem forma limpa de desfazer. Fica validado organicamente no primeiro uso real supervisionado.
 5. ✅ Criado operador de cozinha de teste ("Teste Cozinha Desktop (apagar)", perfil Cozinha) pra validar o item 4 acima, testado e **excluído em seguida** — não existe mais em produção.
 
+### Fase 2b — RPCs de venda SECURITY DEFINER + fecha o buraco de devtools — CONCLUÍDA em 2026-09-08
+
+Feito diretamente nesta sessão (sem agente separado), migration `supabase/migrations/20260908000000_fase2b_rpc_security_definer.sql`.
+
+**O que mudou:**
+- `next_order_number`/`consume_insumos`/`close_sale` viraram `SECURITY DEFINER`, com uma checagem interna no topo de cada uma (`is_admin_like() or current_staff_role()='caixa'`) — repete a mesma regra que a RLS de `operacional` já aplicava, porque virar `DEFINER` faz a função ignorar a RLS por dentro, então quem barrava um papel indevido (ex. cozinha) tinha que passar a ser a própria função.
+- As policies `app_data_insert_por_papel`/`app_data_update_por_papel` perderam, só pro caixa, a escrita direta em `cantina2:orderCounter` e `cantina2:insumos` (SELECT não mudou). Confirmado antes de escrever a migration que isso é seguro: `ROLE_PERMS` do `index.html` não dá ao caixa os tokens `insumos`/`config-sistema` (únicas telas com escrita direta nessas chaves em modo nuvem são admin-only), e o fallback de Modo Local desses `save()` nunca toca o Supabase.
+- `cantina2:sales` ficou de fora de propósito — ainda tem ~11 pontos de abertura de comanda/delivery/agendamento fora do `close_sale`, travar quebraria esses fluxos. Risco residual documentado, deferido pra Fase 3.
+
+**Verificado em produção (2026-09-08), logado como caixa real via devtools:**
+- `UPDATE app_data ... where key='cantina2:orderCounter'` → `[] null` (RLS bloqueou, 0 linhas).
+- `UPDATE app_data ... where key='cantina2:insumos'` → `[] null` (idem).
+- `supabaseClient.rpc('next_order_number', {p_start:1})` → retornou um número normalmente, sem erro — prova que a função está rodando como `SECURITY DEFINER` (se ainda fosse `INVOKER`, teria sido bloqueada pela mesma RLS que acabou de barrar a escrita direta).
+- `SELECT app_data where key='cantina2:sales'` → retornou normalmente (não regrediu).
+- Efeito colateral do teste: a chamada real de `next_order_number` avançou o contador de pedidos de verdade (pulou pra 13) — deixa um "buraco" na numeração (não existe pedido #13), sem outro impacto. Ajustável em Configurações se quiser, não é urgente.
+- Teste negativo do papel cozinha (chamar a RPC esperando o erro `sem permissao`) não foi feito — decisão consciente por já reaproveitar a mesma regra que a RLS da Fase 2 validou pra cozinha, não valia recriar conta de teste só pra isso.
+
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
 **Fase 1 — fundação:** concluída (itens 1-3, ver seção própria acima).
 
 **Fase 2 — RLS por papel + auditoria append-only:** concluída (ver seção própria acima e a ordem de deploy fixa, todas as 5 etapas ✅ em 2026-09-08).
 
-**Fase 2b — depois da Fase 2 estar aplicada e validada em produção:**
-- Tornar `close_sale`/`consume_insumos`/`next_order_number` `SECURITY DEFINER` com checagem interna de papel, fechando o buraco de devtools que a Fase 2 conscientemente deixou aberto (ver seção Fase 2 acima).
+**Fase 2b — RPCs SECURITY DEFINER + fecha buraco de devtools:** concluída (ver seção própria acima, 2026-09-08).
 
 **Fase 3 — arquitetura de dados (médio prazo):**
 6. Migrar `sales`/`orders`/`cashSession`/`orderCounter` de blob pra tabelas relacionais — resolve o last-write-wins entre dispositivos (cto-arquiteto + backend-senior + dba-dados).
