@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-08-31**
+Última atualização: **2026-09-08**
 
 ## O que é o projeto
 
@@ -80,9 +80,9 @@ Rodamos um diagnóstico completo (todos os 8 agentes relevantes + scrum-master p
    - **Achado durante a investigação, não corrigido (fora de escopo)**: `openNewComandaModal` tem uma definição morta/sombreada — `function openNewComandaModal(tableNumber){...}` (linha ~3271) é imediatamente sobrescrita por `openNewComandaModal=function(){...}` (linha ~3817, fluxo de comanda nominal). É o mesmo padrão de "função duplicada viva" que o `cto-arquiteto` já tinha achado em outro lugar do código numa rodada anterior — não afeta a correção desta sessão (a versão realmente usada já passa pelo `saveNewNamedComanda`, que foi corrigido), mas é candidato a limpeza futura.
    - **Ainda não testado numa venda real de ponta a ponta em produção** — recomendo abrir uma comanda, lançar item, fechar com pagamento (inclusive um teste com fiado) antes de confiar 100% nisso no meio de um expediente cheio.
 
-### Fase 2 — RLS por papel + auditoria append-only — CÓDIGO PRONTO em 2026-08-31, AINDA NÃO PUBLICADO NEM APLICADO
+### Fase 2 — RLS por papel + auditoria append-only — CONCLUÍDA em 2026-09-08
 
-Feito pelo agente `backend-senior` (investigação + implementação, mesma sessão). **Nada commitado, nada publicado no GitHub Pages, nada rodado no banco** — só arquivos modificados localmente, aguardando revisão do Fabricio.
+Feito pelo agente `backend-senior` (investigação + implementação). Commitado, publicado no GitHub Pages e a migration aplicada e retestada em produção (ver ordem de deploy abaixo).
 
 **O problema que motivou tudo:** a RLS de hoje só pergunta "esse dado é do meu tenant?", nunca "esse usuário tem papel pra isso?". Um operador de caixa (ou cozinha) autenticado conseguia abrir o devtools e ler/escrever qualquer coisa que a RLS deixasse passar — e o filtro de menu (`ROLE_PERMS`) nem cobria isso direito no client (ver achados abaixo).
 
@@ -110,20 +110,23 @@ Feito pelo agente `backend-senior` (investigação + implementação, mesma sess
 **Assumido de propósito, não resolvido nesta fase:**
 - As RPCs de venda (`close_sale`, `consume_insumos`, `next_order_number`) são `SECURITY INVOKER` — o caixa ainda precisa de UPDATE direto nesses blobs pra fechar venda, então pelo devtools ainda dá pra forjar venda/zerar estoque. Virar isso `SECURITY DEFINER` com checagem interna de papel é a **Fase 2b**, feita separada de propósito.
 - `cantina2:settings` mistura branding com segredo de integração (token WhatsApp, client secret Pix, token SMS/backup/canais digitais) — todo operador que abre o PDV precisa ler `settings`, então continua lendo os tokens. RLS por linha não resolve isso; segredo tem que sair pra Edge Function/Vault — Fase 3.
-- Não existe operador `cozinha` em produção hoje (`tenant_staff` = 1 admin + 1 caixa, ambos migrados) — as policies de cozinha entram sem teste em campo.
+- Não existe operador `cozinha` fixo em produção hoje (`tenant_staff` = 1 admin + 1 caixa, ambos migrados) — as policies de cozinha foram validadas com um operador de teste criado e excluído em 2026-09-08 (ver ordem de deploy abaixo), mas nenhum operador de cozinha real fica cadastrado.
 
-**⚠️ Ordem de deploy é fixa, não pular etapa:**
-1. Revisar o diff do `index.html` (ver decisões acima) e commitar.
-2. Publicar (push em `main`) e conferir login de admin E de caixa já no ar, com o menu se comportando certo.
-3. Só então aplicar a migration no Supabase (Fabricio roda no SQL Editor, fora de horário de pico, nunca sexta à noite).
-4. Rodar o checklist de reteste da seção 9 da migration na hora, com o bar fechado/vazio. Qualquer item que falhar = rollback imediato (seção 10 da migration).
-5. Antes de confiar nas policies de cozinha: criar um operador cozinha de teste (não existe nenhum em produção).
+**⚠️ Ordem de deploy fixa — TODAS AS 5 ETAPAS CONCLUÍDAS em 2026-09-08:**
+1. ✅ Revisar o diff do `index.html` (ver decisões acima) e commitar. (`96ccc2f`)
+2. ✅ Publicar (push em `main`) e conferir login de admin E de caixa já no ar, com o menu se comportando certo.
+3. ✅ Aplicar a migration no Supabase (Fabricio rodou no SQL Editor). Confirmado via leitura pós-aplicação: `current_staff_role()`/`is_admin_like()`/`current_tenant_id()` corretos pros dois papéis, `app_data_key_class()` cobre as 15 chaves reais em produção sem cair no default fail-closed.
+4. ✅ Checklist de reteste da seção 9 rodado com o bar em operação normal (não vazio — decisão consciente do Fabricio pra não perder a janela; testes limitados a leitura/estados que não afetam venda real). Todos os itens passaram, nenhum rollback necessário:
+   - Caixa: UI fail-closed confirmada (Configurações/Financeiro/Logs/Fila de Eventos desabilitados), RLS confirmada via devtools (catálogo só leitura, sem escrita fora de pedidos/operacional), não lê `audit_log`, consegue inserir em `audit_log` (mesmo padrão do `logAction` real), não consegue update/delete em `audit_log` (bloqueado por REVOKE de tabela). Admin vê no Logs os eventos gerados pelo caixa.
+   - Cozinha: login foi direto pro Monitor em Modo TV, moveu pedido pendente→preparo→pronto→entregue com sucesso, `select members`→0 linhas, `select app_data key='cantina2:sales'`→0 linhas.
+   - **Deferido de propósito, não feito**: o teste de venda completa do caixa ("não pode quebrar" — abrir caixa, vender, fechar) foi pulado por decisão do Fabricio pra não gerar dado residual de venda/estoque/fiado sem forma limpa de desfazer. Fica validado organicamente no primeiro uso real supervisionado.
+5. ✅ Criado operador de cozinha de teste ("Teste Cozinha Desktop (apagar)", perfil Cozinha) pra validar o item 4 acima, testado e **excluído em seguida** — não existe mais em produção.
 
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
 **Fase 1 — fundação:** concluída (itens 1-3, ver seção própria acima).
 
-**Fase 2 — RLS por papel + auditoria append-only:** código pronto, aguardando revisão/commit/deploy do Fabricio (ver seção própria acima e a ordem de deploy fixa).
+**Fase 2 — RLS por papel + auditoria append-only:** concluída (ver seção própria acima e a ordem de deploy fixa, todas as 5 etapas ✅ em 2026-09-08).
 
 **Fase 2b — depois da Fase 2 estar aplicada e validada em produção:**
 - Tornar `close_sale`/`consume_insumos`/`next_order_number` `SECURITY DEFINER` com checagem interna de papel, fechando o buraco de devtools que a Fase 2 conscientemente deixou aberto (ver seção Fase 2 acima).
@@ -138,6 +141,7 @@ Feito pelo agente `backend-senior` (investigação + implementação, mesma sess
 10. NFC-e via Edge Function nova, só se o contador confirmar obrigatoriedade (backend-senior + fiscal-tributario).
 11. Avaliar PWA/offline pro "app do garçom" (que hoje é só o navegador responsivo, sem app nativo) — só depois que o item 3 da Fase 0 provou que o `save()` online nem finge sucesso hoje (mobile-senior).
 12. Fidelidade/pontos (`points`/`pointsHistory`) ficou de fora da Fase 1 de propósito — migrada como coluna simples na tabela `members`, sem virar tabela relacional própria. Se quiser isso relacional também (com ledger de auditoria igual ao de débito), é uma fase separada.
+13. Monitor de Cozinha (`renderCozinha()`) mostra o pedido inteiro sem filtrar por estação — bebida aparece junto com prato de cozinha. Já existe o conceito de Estações (Cozinha/Bar/Churrasqueira etc., vinculado a produto) mas hoje só é usado pro roteamento de impressão de ticket, não pro monitor/TV. Ideia: filtrar os itens exibidos no Monitor de Cozinha pela estação do produto, com uma tela por estação (ex. Monitor da Cozinha só prato, Monitor do Bar só bebida). Achado durante o reteste da Fase 2 em 2026-09-08 (não é causado pela RLS, é lacuna de produto pré-existente).
 
 ## Preferências de trabalho do usuário (Fabricio)
 
