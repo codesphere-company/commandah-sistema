@@ -166,7 +166,7 @@ Tela `renderTenantSetup` (login/criação de estabelecimento por e-mail/senha) g
 
 - **Proteção habilitada no Supabase** (Authentication → Attack Protection → Bot and Abuse Protection → Enable Captcha protection, provider Turnstile by Cloudflare, secret key configurada) — sem isso o token enviado não seria validado no servidor e a mudança seria só cosmética. Confirmado ativo (toggle ligado, secret salvo).
 - **Testado visualmente**: localhost precisou ter o domínio liberado na sitekey no painel Cloudflare (erro 110200 = domínio inválido antes disso); produção (`codesphere-company.github.io`) já funcionava sem ajuste. Widget confirmado renderizando e completando ("Sucesso!") nos dois ambientes.
-- **Não testado ainda**: fluxo real de `signInWithPassword`/`signUp` de ponta a ponta com o captcha ativo no Supabase (só o widget foi validado, não a submissão completa) — Fabricio vai testar login real e reportar.
+- **Testado de ponta a ponta pelo Fabricio**: login real (`signInWithPassword`) com captcha ativo no Supabase, funcionou normalmente.
 
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
