@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-09-08**
+Última atualização: **2026-09-10**
 
 ## O que é o projeto
 
@@ -159,6 +159,14 @@ Bug relatado pelo Fabricio testando: ao lançar um item numa comanda já aberta 
 Causa: `confirmNovoPedidoModal` reabre o modal da comanda (`openComanda(saleId, true)`) depois de salvar, mas nunca chamava `renderComandas()` — o card por trás do modal só era redesenhado quando `switchView('comandas')` rodava de novo. Confirmado que **não foi introduzido pela Fase 3a** (comparado com a versão anterior ao commit `7d8a846`, a função já tinha esse comportamento).
 
 Corrigido adicionando a chamada a `renderComandas()` logo depois de reabrir a comanda. Testado no navegador em modo Local (shim temporário de `window.storage`, removido antes do commit): o card atrás do modal já nasce com o total certo. Commit `fdf57e3`.
+
+### Cloudflare Turnstile no login/cadastro de estabelecimento (2026-09-10)
+
+Tela `renderTenantSetup` (login/criação de estabelecimento por e-mail/senha) ganhou captcha — `signInWithPassword`/`signUp` passam `options.captchaToken`, widget renderizado em `#tsTurnstile` via `renderTurnstileWidget()`/`resetTurnstile()`. Sitekey de produção `0x4AAAAAAEvfROl-Igsdqe7h` hardcoded no `index.html` (é pública, não é segredo). Commit `3bc084d`, publicado.
+
+- **Proteção habilitada no Supabase** (Authentication → Attack Protection → Bot and Abuse Protection → Enable Captcha protection, provider Turnstile by Cloudflare, secret key configurada) — sem isso o token enviado não seria validado no servidor e a mudança seria só cosmética. Confirmado ativo (toggle ligado, secret salvo).
+- **Testado visualmente**: localhost precisou ter o domínio liberado na sitekey no painel Cloudflare (erro 110200 = domínio inválido antes disso); produção (`codesphere-company.github.io`) já funcionava sem ajuste. Widget confirmado renderizando e completando ("Sucesso!") nos dois ambientes.
+- **Não testado ainda**: fluxo real de `signInWithPassword`/`signUp` de ponta a ponta com o captcha ativo no Supabase (só o widget foi validado, não a submissão completa) — Fabricio vai testar login real e reportar.
 
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 

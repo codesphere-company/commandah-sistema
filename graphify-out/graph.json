@@ -52,6 +52,18 @@
       "source_location": "L37"
     },
     {
+      "id": "handoff_cloudflare_turnstile_no_login_cadastro_de_estabelecimento_2026_09_10",
+      "label": "Cloudflare Turnstile no login/cadastro de estabelecimento (2026-09-10)",
+      "_origin": "ast",
+      "community": 0,
+      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
+      "file_type": "document",
+      "node_kind": "heading",
+      "norm_label": "cloudflare turnstile no login/cadastro de estabelecimento (2026-09-10)",
+      "source_file": "HANDOFF.md",
+      "source_location": "L163"
+    },
+    {
       "id": "handoff_corre\u00e7\u00e3o_pontual_card_de_comanda_n\u00e3o_atualizava_ap\u00f3s_novo_pedido_2026_09_08",
       "label": "Corre\u00e7\u00e3o pontual \u2014 card de comanda n\u00e3o atualizava ap\u00f3s \"Novo Pedido\" (2026-09-08)",
       "_origin": "ast",
@@ -253,7 +265,7 @@
       "node_kind": "heading",
       "norm_label": "onde achar mais contexto",
       "source_file": "HANDOFF.md",
-      "source_location": "L193"
+      "source_location": "L201"
     },
     {
       "id": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
@@ -265,7 +277,7 @@
       "node_kind": "heading",
       "norm_label": "pendencias (proximos passos, backlog priorizado pelo scrum-master em 2026-08-31)",
       "source_file": "HANDOFF.md",
-      "source_location": "L163"
+      "source_location": "L171"
     },
     {
       "id": "handoff_prefer\u00eancias_de_trabalho_do_usu\u00e1rio_fabricio",
@@ -277,7 +289,7 @@
       "node_kind": "heading",
       "norm_label": "preferencias de trabalho do usuario (fabricio)",
       "source_file": "HANDOFF.md",
-      "source_location": "L185"
+      "source_location": "L193"
     },
     {
       "id": "supabase_functions_staff_auth_index",
@@ -396,6 +408,17 @@
     },
     {
       "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_cloudflare_turnstile_no_login_cadastro_de_estabelecimento_2026_09_10",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L163",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
       "target": "handoff_seguran\u00e7a",
       "relation": "contains",
       "_origin": "ast",
@@ -495,17 +518,6 @@
     },
     {
       "source": "handoff_handoff_commandah",
-      "target": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L163",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_handoff_commandah",
       "target": "handoff_limita\u00e7\u00e3o_importante_da_minha_conex\u00e3o",
       "relation": "contains",
       "_origin": "ast",
@@ -517,13 +529,24 @@
     },
     {
       "source": "handoff_handoff_commandah",
+      "target": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L171",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_handoff_commandah",
       "target": "handoff_prefer\u00eancias_de_trabalho_do_usu\u00e1rio_fabricio",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L185",
+      "source_location": "L193",
       "weight": 1.0
     },
     {
@@ -534,7 +557,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L193",
+      "source_location": "L201",
       "weight": 1.0
     },
     {
@@ -605,5 +628,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "b15729bb349c7016a9a3f2ae53116677ded9e8a1"
+  "built_at_commit": "3bc084dad0b65d7897c5315361fdfd66c6e622d4"
 }
