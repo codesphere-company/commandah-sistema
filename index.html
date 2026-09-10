@@ -550,6 +550,7 @@ body.tv-mode main{padding:26px;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
 
@@ -851,6 +852,9 @@ const saveQueues = {};
 const SUPABASE_URL = 'https://ezfoymdesmarpunmixbs.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_m56iV0j3aIHlj_jth44jyw_CIw7CmyG';
 const TENANT_KEY = 'commandah:tenant_id';
+const TURNSTILE_SITE_KEY = '0x4AAAAAAEvfROl-Igsdqe7h';
+let tsCaptchaToken = null;
+let tsTurnstileWidgetId = null;
 function getTenantId(){ try{ return localStorage.getItem(TENANT_KEY)||''; }catch(e){ return ''; } }
 function setTenantId(id){ try{ localStorage.setItem(TENANT_KEY, id); }catch(e){} }
 function waitForSupabaseSdk(timeoutMs){
@@ -5729,7 +5733,26 @@ function renderTenantSetup(){
     <p class="sub" style="text-align:left;margin-bottom:8px"><b>Ainda não tem conta? Crie o estabelecimento:</b></p>
     <div class="field" style="text-align:left"><label>Nome do estabelecimento</label><input id="tsBusinessName" placeholder="Ex: Clube Olímpico Maringá"></div>
     <button class="btn btn-block" id="tsSignUpBtn" onclick="tenantSignUp()">Criar novo estabelecimento</button>
+    <div id="tsTurnstile" style="margin-top:14px"></div>
   </div>`;
+  renderTurnstileWidget();
+}
+function renderTurnstileWidget(){
+  const mount = ()=>{
+    if(!window.turnstile || !document.getElementById('tsTurnstile')) return;
+    tsCaptchaToken = null;
+    tsTurnstileWidgetId = window.turnstile.render('#tsTurnstile', {
+      sitekey: TURNSTILE_SITE_KEY,
+      callback: (token)=>{ tsCaptchaToken = token; },
+      'expired-callback': ()=>{ tsCaptchaToken = null; },
+      'error-callback': ()=>{ tsCaptchaToken = null; }
+    });
+  };
+  if(window.turnstile) mount(); else setTimeout(mount, 300);
+}
+function resetTurnstile(){
+  tsCaptchaToken = null;
+  try{ if(window.turnstile && tsTurnstileWidgetId!=null) window.turnstile.reset(tsTurnstileWidgetId); }catch(e){}
 }
 function slugifyTenant(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,60); }
 function showTenantError(msg){ const el=document.getElementById('tsError'); if(el){ el.style.display='block'; el.textContent=msg; } }
@@ -5747,9 +5770,10 @@ async function tenantSignIn(){
   const email = (document.getElementById('tsEmail').value||'').trim();
   const password = document.getElementById('tsPassword').value||'';
   if(!email || !password){ showTenantError('Preencha e-mail e senha.'); return; }
+  if(!tsCaptchaToken){ showTenantError('Confirme que você não é um robô.'); return; }
   const btn=document.getElementById('tsSignInBtn'); btn.disabled=true; btn.textContent='Entrando...';
   try{
-    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password, options:{ captchaToken: tsCaptchaToken } });
     if(error){ showTenantError('E-mail ou senha incorretos.'); return; }
     const resolved = await resolveTenantSession(data.user.id);
     if(!resolved){ showTenantError('Essa conta ainda não tem um estabelecimento vinculado.'); return; }
@@ -5757,7 +5781,7 @@ async function tenantSignIn(){
     setTenantId(resolved.tenantId);
     document.getElementById('tenantSetupOverlay').style.display = 'none';
     startApp();
-  } finally { btn.disabled=false; btn.textContent='Entrar'; }
+  } finally { btn.disabled=false; btn.textContent='Entrar'; resetTurnstile(); }
 }
 async function tenantSignUp(){
   const email = (document.getElementById('tsEmail').value||'').trim();
@@ -5765,9 +5789,10 @@ async function tenantSignUp(){
   const name = (document.getElementById('tsBusinessName').value||'').trim();
   if(!email || !password || !name){ showTenantError('Preencha nome do estabelecimento, e-mail e senha.'); return; }
   if(password.length<6){ showTenantError('A senha precisa ter pelo menos 6 caracteres.'); return; }
+  if(!tsCaptchaToken){ showTenantError('Confirme que você não é um robô.'); return; }
   const btn=document.getElementById('tsSignUpBtn'); btn.disabled=true; btn.textContent='Criando...';
   try{
-    const { data, error } = await supabaseClient.auth.signUp({ email, password });
+    const { data, error } = await supabaseClient.auth.signUp({ email, password, options:{ captchaToken: tsCaptchaToken } });
     if(error){ showTenantError(error.message); return; }
     if(!data.user){ showTenantError('Conta criada — verifique seu e-mail pra confirmar antes de continuar.'); return; }
     const tenantId = slugifyTenant(name) + '-' + Math.random().toString(36).slice(2,6);
@@ -5777,7 +5802,7 @@ async function tenantSignUp(){
     setTenantId(tenantId);
     document.getElementById('tenantSetupOverlay').style.display = 'none';
     startApp();
-  } finally { btn.disabled=false; btn.textContent='Criar novo estabelecimento'; }
+  } finally { btn.disabled=false; btn.textContent='Criar novo estabelecimento'; resetTurnstile(); }
 }
 function startApp(){
   loadAll();
