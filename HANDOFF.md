@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-09-10**
+Última atualização: **2026-09-12**
 
 ## O que é o projeto
 
@@ -167,6 +167,21 @@ Tela `renderTenantSetup` (login/criação de estabelecimento por e-mail/senha) g
 - **Proteção habilitada no Supabase** (Authentication → Attack Protection → Bot and Abuse Protection → Enable Captcha protection, provider Turnstile by Cloudflare, secret key configurada) — sem isso o token enviado não seria validado no servidor e a mudança seria só cosmética. Confirmado ativo (toggle ligado, secret salvo).
 - **Testado visualmente**: localhost precisou ter o domínio liberado na sitekey no painel Cloudflare (erro 110200 = domínio inválido antes disso); produção (`codesphere-company.github.io`) já funcionava sem ajuste. Widget confirmado renderizando e completando ("Sucesso!") nos dois ambientes.
 - **Testado de ponta a ponta pelo Fabricio**: login real (`signInWithPassword`) com captcha ativo no Supabase, funcionou normalmente.
+
+### Redesign do card do Monitor de Cozinha (2026-09-12)
+
+Card do `renderCozinha()` refeito no estilo Saipos: cabeçalho com nome/comanda e badge de tempo, checkboxes alinhados à direita, divisores entre itens, botão de concluir pedido como faixa lateral integrada ao card — mantendo as cores de status já existentes. Commit `7b1bec9`, publicado.
+
+### Setup de automação do Claude Code (2026-09-12)
+
+Depois de rodar o `claude-automation-recommender` sobre o repo, implementado:
+
+- **`.mcp.json` (novo, commitado)**: registra os MCP servers do projeto de forma compartilhável — `github` (servidor hospedado oficial, `https://api.githubcopilot.com/mcp/`, autentica via OAuth no primeiro uso de cada pessoa) e `supabase` (mesmo pacote read-only já em uso, mas com o token referenciado como `${SUPABASE_ACCESS_TOKEN}` em vez de embutido — cada pessoa seta a própria variável de ambiente; o escopo local do Fabricio com o token real continua funcionando como sempre, sem mudança).
+- **Hooks novos em `.claude/settings.json`** (este arquivo é o único de `.claude/` versionado; os scripts abaixo ficam em `.claude/scripts/`, não versionados, mesmo padrão do `guard-migrations.sh` que já existia):
+  - `guard-env-files.sh` — bloqueia `Edit`/`Write` em `.env`/`.env.*` reais (permite `.env.example`/`.sample`/`.template`).
+  - `warn-large-index-edit.sh` — avisa (não bloqueia) quando um `Edit` no `index.html` troca >150 linhas ou usa `replace_all`, ou um `Write` muda o tamanho do arquivo em >15% — o arquivo é único, ~900KB, sem build/teste automático que pegue uma reescrita acidental.
+- **Subagente novo**: `backup-integrity-auditor` (`.claude/agents/`, não versionado) — audita se o workflow `backup-supabase.yml` de fato produz um dump restaurável (runs recentes, artifact não vazio, secret válido, retenção de 90 dias vs. nunca ter havido um teste de restore documentado), não só se o job passou verde. Ainda não foi rodado.
+- Commit `f181cb1` (`.mcp.json` + `.claude/settings.json`), pushado.
 
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
