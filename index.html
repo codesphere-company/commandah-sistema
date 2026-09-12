@@ -12,6 +12,7 @@
   --amber:#0EA57E; --amber-dark:#0B7F62;
   --cream:#F5F6FA; --paper:#fffdf9;
   --green:#276B45; --green-l:#e5f2ea;
+  --yellow:#8a6d1a; --yellow-l:#fdf3d9;
   --red:#c1443c; --red-l:#fbeae8;
   --blue:#3568b0; --blue-l:#e7eff9;
   --ink:#161B2E; --muted:#68708A; --line:#e4dfd2;
@@ -295,27 +296,56 @@ tr:hover td{background:#faf7ef;}
 .subtabs button{padding:8px 16px;border:1px solid var(--line);background:#fff;border-radius:20px;font-size:12.5px;font-weight:600;text-transform:uppercase;letter-spacing:.02em;}
 .subtabs button.active{background:var(--navy);color:#fff;border-color:var(--navy);}
 
-.kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
-@media(max-width:800px){.kanban{grid-template-columns:1fr;}}
-.kcol{background:#efe9db;border-radius:10px;padding:12px;min-height:120px;}
-.kcol h3{font-size:12.5px;margin:0 0 10px;color:var(--navy);display:flex;justify-content:space-between;}
-.kcard{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;}
+.kfeed{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;align-items:start;}
+.kcard{background:var(--green-l);border:1px solid var(--green);border-left:5px solid var(--green);border-radius:8px;margin-bottom:10px;display:flex;align-items:stretch;overflow:hidden;}
+.kcard.kage-yellow{background:var(--yellow-l);border-color:var(--yellow);}
+.kcard.kage-red{background:var(--red-l);border-color:var(--red);}
+.kcard .kbody{flex:1;min-width:0;padding:12px;}
+.kcard .khead{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding-bottom:6px;border-bottom:1px dashed rgba(0,0,0,.15);margin-bottom:6px;}
+.kcard .khead-right{display:flex;align-items:center;gap:6px;flex:none;}
+.kcard .kagebadge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(0,0,0,.08);color:var(--muted);white-space:nowrap;}
+.kcard.kage-yellow .kagebadge{background:var(--yellow);color:#fff;}
+.kcard.kage-red .kagebadge{background:var(--red);color:#fff;}
 .kcard .kwho{font-weight:700;font-size:13px;} .kcard .ktime{font-size:11px;color:var(--muted);margin-bottom:6px;}
+.kcard .kage{font-weight:700;}
+.kcard.kage-yellow .kage{color:var(--yellow);}
+.kcard.kage-red .kage{color:var(--red);}
 .kcard .klocal{display:flex;align-items:center;gap:4px;font-size:11.5px;color:var(--amber-dark);font-weight:700;margin-top:2px;}
 .kcard .klocal .icn svg{width:12px;height:12px;}
-.kcard ul{margin:6px 0;padding-left:18px;font-size:12.5px;}
+.kcard ul{list-style:none;margin:6px 0;padding-left:0;font-size:12.5px;}
+.kcard ul>li{padding:5px 0;border-bottom:1px solid rgba(0,0,0,.08);}
+.kcard ul>li:last-child{border-bottom:none;}
+.kcard .kextras{margin:2px 0 4px;padding-left:14px;font-size:11.5px;color:var(--muted);}
+.kcard .kcheck{display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;}
+.kcard .kcheck input{width:16px;height:16px;flex:none;order:2;}
+.kbtn-ready{flex:none;width:46px;background:var(--green);color:#fff;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.kbtn-ready svg{width:20px;height:20px;}
+.kbtn-ready:hover{opacity:.88;}
+.kcard.kcard-done{background:#fff;border-color:var(--line);opacity:.85;}
+.kcard-done .kdone-badge{display:flex;align-items:center;gap:6px;color:var(--green);font-weight:700;font-size:11.5px;margin-top:8px;}
+.kfilter{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap;}
 /* Modo TV — cozinha em monitor/TV, letras grandes p/ ler de longe */
-body.tv-mode .kanban{gap:24px;}
-body.tv-mode .kcol h3{font-size:22px;}
-body.tv-mode .kcard{padding:20px;margin-bottom:16px;border-width:2px;}
+body.tv-mode .kfeed{gap:24px;}
+body.tv-mode .kcard{margin-bottom:16px;border-width:2px;border-left-width:9px;}
+body.tv-mode .kcard .kbody{padding:20px;}
 body.tv-mode .kcard .kwho{font-size:26px;}
 body.tv-mode .kcard .ktime{font-size:16px;}
 body.tv-mode .kcard .klocal{font-size:18px;}
 body.tv-mode .kcard .klocal .icn svg{width:18px;height:18px;}
+body.tv-mode .kcard .kagebadge{font-size:16px;padding:4px 12px;}
 body.tv-mode .kcard ul{font-size:20px;line-height:1.5;}
-body.tv-mode .kcard .kbtns{display:none;}
+body.tv-mode .kcard .kextras{font-size:16px;}
+body.tv-mode .kcard .kcheck input{width:26px;height:26px;}
+body.tv-mode .kfilter button{padding:10px 16px;font-size:15px;}
+body.tv-mode .kbtn-ready{width:72px;}
+body.tv-mode .kbtn-ready svg{width:32px;height:32px;}
+body.tv-mode .subtabs button{padding:10px 18px;font-size:15px;}
+body.tv-mode .kcard-done .kdone-badge{font-size:16px;}
 body.tv-mode .winbar,body.tv-mode .ribbon,body.tv-mode .statusbar{display:none!important;}
 body.tv-mode main{padding:26px;}
+.tv-exit-btn{display:none;position:fixed;top:10px;right:10px;z-index:9999;background:var(--navy);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;opacity:.8;}
+.tv-exit-btn:hover{opacity:1;}
+body.tv-mode .tv-exit-btn{display:block;}
 .kcard .kbtns{display:flex;gap:6px;margin-top:8px;}
 
 .menu-item{border:1px solid var(--line);border-radius:8px;padding:12px;background:#fff;display:flex;justify-content:space-between;align-items:center;}
@@ -558,6 +588,7 @@ body.tv-mode main{padding:26px;}
 <div id="loginOverlay"></div>
 
 <div id="app">
+  <button id="tvModeExit" class="tv-exit-btn" onclick="toggleTvMode()" title="Sair do Modo TV">✕ Sair do Modo TV</button>
   <div class="winbar">
     <div class="wb-logo"><svg width="16" height="16" viewBox="0 0 64 64"><g transform="translate(32,32)"><path d="M-17 -22 a8 8 0 0 1 8-8 h18 a8 8 0 0 1 8 8 v44 a8 8 0 0 1-8 8 h-18 a8 8 0 0 1-8-8 z" fill="#141B33"/><circle cx="-17" cy="0" r="6" fill="#0EA57E"/><path d="M-5 -8l5 5 11-11" stroke="#0EA57E" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="-7" y1="12" x2="9" y2="12" stroke="#0EA57E" stroke-width="4" stroke-linecap="round"/></g></svg></div>
     <div class="wb-title" id="wbTitleWrap">Commandah<small id="wbTitle">Sistema de gestão</small></div>
@@ -1400,6 +1431,16 @@ const OrdersStore = {
     o.statusHistory.push({ from, to: next, at: new Date().toISOString(), user: currentUser.name });
     if(isCloudMode()){
       const { error } = await supabaseClient.from('orders').update({ status: next, status_history: o.statusHistory, updated_at: new Date().toISOString() }).eq('id', id);
+      if(error) throw error;
+    } else {
+      await save('orders');
+    }
+  },
+  async setItems(id, items){
+    const o = state.orders.find(x=>x.id===id); if(!o) return;
+    o.items = items;
+    if(isCloudMode()){
+      const { error } = await supabaseClient.from('orders').update({ items, updated_at: new Date().toISOString() }).eq('id', id);
       if(error) throw error;
     } else {
       await save('orders');
@@ -2859,28 +2900,129 @@ async function sendItemsToKitchen(saleId, items, who, source, local){
   await OrdersStore.create(order);
   return true;
 }
+function kOrderAgeMin(createdAt){ return Math.max(0, Math.floor((Date.now()-new Date(createdAt).getTime())/60000)); }
+function kOrderAgeClass(mins){ return mins>=20?'kage-red':mins>=15?'kage-yellow':'kage-green'; }
+function itemStation(i){ const p=state.products.find(x=>x.id===i.productId); return p&&p.estacao?p.estacao:'cozinha'; }
+function kitchenItemExtras(i){
+  const c=i.customization; if(!c) return [];
+  const extras=[];
+  if(c.size) extras.push(c.size.name);
+  (c.answers||[]).forEach(a=>(a.values||[]).forEach(v=>extras.push(a.question+': '+v.text)));
+  (c.complements||[]).forEach(comp=>extras.push(comp.name));
+  if(c.notes) extras.push(c.notes);
+  return extras;
+}
+let kitchenStationFilter = (function(){ try{ return localStorage.getItem('cantina2:kitchenStation')||'todas'; }catch(e){ return 'todas'; } })();
+function setKitchenStationFilter(chave){
+  kitchenStationFilter = chave;
+  try{ localStorage.setItem('cantina2:kitchenStation', chave); }catch(e){}
+  renderCozinha();
+}
+let kitchenViewTab = 'ativos';
+function setKitchenViewTab(tab){
+  kitchenViewTab = tab;
+  renderCozinha();
+}
+function kitchenReadyAt(o){
+  const hist = (o.statusHistory||[]).slice().reverse().find(x=>x.to==='pronto');
+  return hist ? hist.at : o.createdAt;
+}
 function renderCozinha(){
   const el = document.getElementById('view-cozinha');
-  const cols = [
-    {key:'pendente', label:'Pendente', next:'preparo', action:'Iniciar preparo'},
-    {key:'preparo', label:'Em preparo', next:'pronto', action:'Marcar pronto'},
-    {key:'pronto', label:'Pronto', next:'entregue', action:'Marcar entregue'}
-  ];
+  const stations = state.estacoes.filter(e=>saidaTemTela(e.chave));
+  if(stations.length>1 && kitchenStationFilter!=='todas' && !stations.some(e=>e.chave===kitchenStationFilter)) kitchenStationFilter='todas';
+  const filterHtml = stations.length>1 ? `<div class="kfilter">
+    <button class="btn btn-sm ${kitchenStationFilter==='todas'?'btn-primary':''}" onclick="setKitchenStationFilter('todas')">Todas</button>
+    ${stations.map(e=>`<button class="btn btn-sm ${kitchenStationFilter===e.chave?'btn-primary':''}" onclick="setKitchenStationFilter('${e.chave}')">${h(e.nome)}</button>`).join('')}
+  </div>` : '';
+  const subtabsHtml = `<div class="subtabs">
+    <button class="${kitchenViewTab==='ativos'?'active':''}" onclick="setKitchenViewTab('ativos')">Em preparo</button>
+    <button class="${kitchenViewTab==='prontos'?'active':''}" onclick="setKitchenViewTab('prontos')">Prontos</button>
+  </div>`;
+  const feedHtml = kitchenViewTab==='prontos' ? renderKitchenReadyFeed() : renderKitchenActiveFeed();
   el.innerHTML = `<div class="panel"><h2>Monitor de cozinha <button class="btn btn-sm" style="margin-left:10px" onclick="toggleTvMode()">${document.body.classList.contains('tv-mode')?'Sair do Modo TV':'📺 Modo TV (tela cheia p/ monitor)'}</button></h2>
-    <div class="kanban">${cols.map(c=>{
-      const orders = state.orders.filter(o=>o.status===c.key).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
-      return `<div class="kcol"><h3>${c.label} <span class="mono">${orders.length}</span></h3>
-        ${orders.length? orders.map(o=>`
-          <div class="kcard" onclick="openKitchenOrder('${o.id}')">
+    ${subtabsHtml}
+    ${filterHtml}
+    ${feedHtml}
+  </div>`;
+}
+function renderKitchenActiveFeed(){
+  const ordersRaw = state.orders.filter(o=>o.status==='pendente'||o.status==='preparo').sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+  const orders = ordersRaw.map(o=>{
+    const items = o.items.map((item,idx)=>({item,idx})).filter(({item})=>!item.ready && (kitchenStationFilter==='todas' || itemStation(item)===kitchenStationFilter));
+    return {o, items};
+  }).filter(x=>x.items.length);
+  return `<div class="kfeed">${orders.length? orders.map(({o,items})=>{
+    const ageMin = kOrderAgeMin(o.createdAt);
+    const showCheck = items.length>1;
+    return `
+    <div class="kcard ${kOrderAgeClass(ageMin)}" data-order="${o.id}" onclick="openKitchenOrder('${o.id}')">
+      <div class="kbody">
+        <div class="khead">
+          <div class="khead-left">
             <div class="kwho">${h(o.who)}</div>
             ${o.local?`<div class="klocal"><span class="icn">${ICN.mapPin}</span>${h(o.local)}</div>`:''}
-            <div class="ktime">${timeFmt(o.createdAt)} · ${o.source==='cardapio'?'Cardápio digital':o.source==='balcao'?'Balcão':o.source==='agendamento'?'Agendamento':o.source==='totem'?'Totem':o.source==='pedido-avulso'?'Novo Pedido':'Comanda'}</div>
-            <ul>${o.items.map(i=>`<li>${i.qty}x ${h(i.name)}${i.notes?`<small style="display:block;color:#687386">${h(i.notes)}</small>`:''}</li>`).join('')}</ul>
-            <div class="kbtns"><button class="btn btn-sm btn-primary" onclick="event.stopPropagation();advanceOrder('${o.id}','${c.next}')">${c.action}</button></div>
-          </div>`).join('') : `<p class="empty">Vazio</p>`}
-      </div>`;
-    }).join('')}</div>
-  </div>`;
+          </div>
+          <div class="khead-right">
+            <span class="kagebadge">há ${ageMin} min</span>
+          </div>
+        </div>
+        <div class="ktime">${timeFmt(o.createdAt)} · ${o.source==='cardapio'?'Cardápio digital':o.source==='balcao'?'Balcão':o.source==='agendamento'?'Agendamento':o.source==='totem'?'Totem':o.source==='pedido-avulso'?'Novo Pedido':'Comanda'}</div>
+        <ul>${items.map(({item,idx})=>{
+          const extras=kitchenItemExtras(item);
+          const label=`${item.qty}x ${h(item.name)}`;
+          return `<li data-idx="${idx}">${showCheck?`<label class="kcheck" onclick="event.stopPropagation()"><input type="checkbox" class="kitem-check" data-idx="${idx}"> ${label}</label>`:label}${extras.length?`<ul class="kextras">${extras.map(e=>`<li>+ ${h(e)}</li>`).join('')}</ul>`:''}</li>`;
+        }).join('')}</ul>
+      </div>
+      <button class="kbtn-ready" onclick="event.stopPropagation();finalizeKitchenItems('${o.id}')" title="Marcar pronto">${ICN.ticket}</button>
+    </div>`;
+  }).join('') : `<p class="empty">Nenhum pedido em preparo.</p>`}</div>`;
+}
+function renderKitchenReadyFeed(){
+  const ordersRaw = state.orders.filter(o=>o.status==='pronto').sort((a,b)=>new Date(kitchenReadyAt(b))-new Date(kitchenReadyAt(a)));
+  const orders = ordersRaw.map(o=>{
+    const items = kitchenStationFilter==='todas' ? o.items : o.items.filter(item=>itemStation(item)===kitchenStationFilter);
+    return {o, items};
+  }).filter(x=>x.items.length);
+  return `<div class="kfeed">${orders.length? orders.map(({o,items})=>`
+    <div class="kcard kcard-done" data-order="${o.id}" onclick="openKitchenOrder('${o.id}')">
+      <div class="kbody">
+        <div class="khead">
+          <div class="khead-left">
+            <div class="kwho">${h(o.who)}</div>
+            ${o.local?`<div class="klocal"><span class="icn">${ICN.mapPin}</span>${h(o.local)}</div>`:''}
+          </div>
+        </div>
+        <div class="ktime">${o.source==='cardapio'?'Cardápio digital':o.source==='balcao'?'Balcão':o.source==='agendamento'?'Agendamento':o.source==='totem'?'Totem':o.source==='pedido-avulso'?'Novo Pedido':'Comanda'}</div>
+        <ul>${items.map(item=>{
+          const extras=kitchenItemExtras(item);
+          return `<li>${item.qty}x ${h(item.name)}${extras.length?`<ul class="kextras">${extras.map(e=>`<li>+ ${h(e)}</li>`).join('')}</ul>`:''}</li>`;
+        }).join('')}</ul>
+        <div class="kdone-badge">✓ Pronto às ${timeFmt(kitchenReadyAt(o))}</div>
+      </div>
+    </div>`).join('') : `<p class="empty">Nenhum pedido pronto.</p>`}</div>`;
+}
+async function finalizeKitchenItems(orderId){
+  const o = state.orders.find(x=>x.id===orderId); if(!o) return;
+  const card = document.querySelector(`.kcard[data-order="${orderId}"]`);
+  if(!card) return;
+  const boxes = Array.from(card.querySelectorAll('.kitem-check'));
+  let idxs;
+  if(boxes.length){
+    idxs = boxes.filter(b=>b.checked).map(b=>Number(b.dataset.idx));
+    if(!idxs.length){ toast('Marque ao menos um item pronto.'); return; }
+  } else {
+    idxs = Array.from(card.querySelectorAll('li[data-idx]')).map(li=>Number(li.dataset.idx));
+  }
+  const items = o.items.map((item,idx)=> idxs.includes(idx) ? {...item, ready:true} : item);
+  await OrdersStore.setItems(orderId, items);
+  if(items.every(item=>item.ready)){
+    await OrdersStore.advance(orderId, 'pronto');
+    toast('Pedido pronto.');
+  } else {
+    toast('Item(ns) marcado(s) como pronto(s).');
+  }
+  renderAll();
 }
 async function advanceOrder(id, next){
   await OrdersStore.advance(id, next);
@@ -5825,6 +5967,10 @@ function startApp(){
       }
     }catch(e){}
   }, 6000);
+  setInterval(()=>{
+    const cozView = document.getElementById('view-cozinha');
+    if(cozView && cozView.classList.contains('active')) renderCozinha();
+  }, 30000);
   setTimeout(()=>{
     const overlay = document.getElementById('loginOverlay');
     const appShown = document.getElementById('app') && document.getElementById('app').classList.contains('show');
