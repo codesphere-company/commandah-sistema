@@ -28,6 +28,14 @@
           {
             "type": "command",
             "command": "bash .claude/scripts/guard-migrations.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/scripts/guard-env-files.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/scripts/warn-large-index-edit.sh"
           }
         ]
       }
