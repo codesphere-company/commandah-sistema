@@ -64,42 +64,6 @@
       "source_location": "L186"
     },
     {
-      "id": "handoff_auditoria_de_propostas_de_funcionalidades_2026_09_12",
-      "label": "Auditoria de propostas de funcionalidades (2026-09-12)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "auditoria de propostas de funcionalidades (2026-09-12)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L220"
-    },
-    {
-      "id": "handoff_auditoria_visual_ux_mudan\u00e7as_desde_2026_08_31_09_01_2026_09_12",
-      "label": "Auditoria visual/UX \u2014 mudan\u00e7as desde 2026-08-31/09-01 (2026-09-12)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "auditoria visual/ux \u2014 mudancas desde 2026-08-31/09-01 (2026-09-12)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L207"
-    },
-    {
-      "id": "handoff_bug_de_layout_do_card_de_comanda_v\u00ednculo_de_mesa_local_2026_09_18",
-      "label": "Bug de layout do card de comanda + v\u00ednculo de Mesa/Local (2026-09-18)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "bug de layout do card de comanda + vinculo de mesa/local (2026-09-18)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L256"
-    },
-    {
       "id": "handoff_cloudflare_turnstile_no_login_cadastro_de_estabelecimento_2026_09_10",
       "label": "Cloudflare Turnstile no login/cadastro de estabelecimento (2026-09-10)",
       "_origin": "ast",
@@ -208,18 +172,6 @@
       "source_location": "L142"
     },
     {
-      "id": "handoff_guard_de_sintaxe_js_no_index_html_hook_local_ci_2026_09_18",
-      "label": "Guard de sintaxe JS no index.html \u2014 hook local + CI (2026-09-18)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "guard de sintaxe js no index.html \u2014 hook local + ci (2026-09-18)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L268"
-    },
-    {
       "id": "handoff_impress\u00e3o",
       "label": "Impress\u00e3o",
       "_origin": "ast",
@@ -266,18 +218,6 @@
       "norm_label": "setup de automacao do claude code (2026-09-12)",
       "source_file": "HANDOFF.md",
       "source_location": "L175"
-    },
-    {
-      "id": "handoff_tempo_de_comanda_aberta_nos_cards_e_no_modal_2026_09_18",
-      "label": "Tempo de comanda aberta nos cards e no modal (2026-09-18)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "tempo de comanda aberta nos cards e no modal (2026-09-18)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L246"
     },
     {
       "id": "handoff_time_de_agentes_especializado_diagn\u00f3stico_completo_2026_08_31",
@@ -361,7 +301,7 @@
       "node_kind": "heading",
       "norm_label": "onde achar mais contexto",
       "source_file": "HANDOFF.md",
-      "source_location": "L308"
+      "source_location": "L237"
     },
     {
       "id": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
@@ -373,7 +313,7 @@
       "node_kind": "heading",
       "norm_label": "pendencias (proximos passos, backlog priorizado pelo scrum-master em 2026-08-31)",
       "source_file": "HANDOFF.md",
-      "source_location": "L278"
+      "source_location": "L207"
     },
     {
       "id": "handoff_prefer\u00eancias_de_trabalho_do_usu\u00e1rio_fabricio",
@@ -385,7 +325,7 @@
       "node_kind": "heading",
       "norm_label": "preferencias de trabalho do usuario (fabricio)",
       "source_file": "HANDOFF.md",
-      "source_location": "L300"
+      "source_location": "L229"
     },
     {
       "id": "supabase_functions_staff_auth_index",
@@ -656,28 +596,6 @@
     },
     {
       "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_auditoria_visual_ux_mudan\u00e7as_desde_2026_08_31_09_01_2026_09_12",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L207",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_auditoria_de_propostas_de_funcionalidades_2026_09_12",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L220",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
       "target": "handoff_seguran\u00e7a",
       "relation": "contains",
       "_origin": "ast",
@@ -685,39 +603,6 @@
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
       "source_location": "L23",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_tempo_de_comanda_aberta_nos_cards_e_no_modal_2026_09_18",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L246",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_bug_de_layout_do_card_de_comanda_v\u00ednculo_de_mesa_local_2026_09_18",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L256",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_guard_de_sintaxe_js_no_index_html_hook_local_ci_2026_09_18",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L268",
       "weight": 1.0
     },
     {
@@ -821,6 +706,17 @@
     },
     {
       "source": "handoff_handoff_commandah",
+      "target": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L207",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_handoff_commandah",
       "target": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
       "relation": "contains",
       "_origin": "ast",
@@ -832,24 +728,13 @@
     },
     {
       "source": "handoff_handoff_commandah",
-      "target": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L278",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_handoff_commandah",
       "target": "handoff_prefer\u00eancias_de_trabalho_do_usu\u00e1rio_fabricio",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L300",
+      "source_location": "L229",
       "weight": 1.0
     },
     {
@@ -860,7 +745,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L308",
+      "source_location": "L237",
       "weight": 1.0
     },
     {
@@ -953,5 +838,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "d4579df55420401bd731315a1d6b0ef996d3e13c"
+  "built_at_commit": "f1f4964dea5e3e4e9574bf665233dc3b647eb0d8"
 }

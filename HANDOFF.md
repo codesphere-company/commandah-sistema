@@ -2,13 +2,13 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-09-12**
+Última atualização: **2026-09-18**
 
 ## O que é o projeto
 
 Commandah é o sistema de comanda/PDV do **Clube Olímpico** (Maringá — negócio real do Fabricio, não é side project fictício). Roda direto no navegador, sem servidor de aplicação:
 
-- **Frontend**: um único `index.html` (~5000+ linhas), sem build step.
+- **Frontend**: um único `index.html` (6013 linhas / ~915KB), sem build step.
 - **Deploy**: GitHub Pages, `https://codesphere-company.github.io/commandah-sistema/` (push em `main` já publica; cache do Pages é `max-age=600` — se algo "não atualizou", é isso, pedir pro usuário dar Ctrl+Shift+R ou testar em anônima antes de investigar bug).
 - **Backend**: Supabase (projeto `ezfoymdesmarpunmixbs`) — Postgres + PostgREST + Auth + Edge Functions, acessado direto do navegador com a chave anon. **RLS é a única barreira de segurança real** — não existe camada de API própria.
 - **Multi-tenant**: `tenant_owners` (user_id → tenant_id) + tabela `app_data` (JSON por `(tenant_id, key)`, ex. chave `cantina2:members`). Tenant do Fabricio: `clube-olimpico-maringa-y8mt`.
@@ -183,6 +183,98 @@ Depois de rodar o `claude-automation-recommender` sobre o repo, implementado:
 - **Subagente novo**: `backup-integrity-auditor` (`.claude/agents/`, não versionado) — audita se o workflow `backup-supabase.yml` de fato produz um dump restaurável (runs recentes, artifact não vazio, secret válido, retenção de 90 dias vs. nunca ter havido um teste de restore documentado), não só se o job passou verde. Ainda não foi rodado.
 - Commit `f181cb1` (`.mcp.json` + `.claude/settings.json`), pushado.
 
+### Auditoria de código vs. HANDOFF (2026-09-12)
+
+Feita pelo agente `dev-arquiteto-foodservice`, cruzando o texto deste HANDOFF com o código/schema real (`index.html`, migrations, edge function, workflow de backup) — não confiando no texto sem confirmar.
+
+**Confirmado pronto**: RPCs de venda com trava/idempotência, Fase 2b (`SECURITY DEFINER`), Fase 3a (`orders` relacional), RLS por papel, `staff-auth` (bcrypt, bloqueio), backup via `pg_dump`, fiscal de fato zero.
+
+**Pendências quantificadas com mais precisão**:
+- Blob `sales`/`cashSession`/`orderCounter`: **~48 pontos de escrita direta** ainda fora do relacional (`save('sales')`×27, `cashSession`×2, `orderCounter`×4, `cashHistory`/`insumos`/etc.×15) — risco de last-write-wins ativo, não é mais "o resto abstrato da Fase 3".
+- Poll de 6s (`index.html:5951-5969`) tem `catch` vazio — se a rede cair, a sincronização cozinha/vendas para **sem nenhum aviso** ao operador.
+- Carrinho duplicado: são **4 implementações** confirmadas (PDV/comanda, sub-modal "Novo Pedido", app do garçom, Totem/Cardápio Digital), não 5 como o texto antigo sugeria.
+- `cantina2:settings` ainda mistura `waToken`/`smsToken` com branding, lido por todo operador no boot (o secret do Pix já foi removido na Fase 0, esse ponto está OK).
+- Backup sem restore-drill documentado — segue confirmando o achado do subagente `backup-integrity-auditor` (ainda não executado).
+
+**Gaps novos, não documentados antes**:
+- Mais **6 funções mortas/sombreadas** (além da `openNewComandaModal` já conhecida): `openSelectedProductStock`/`openProductStockAdjustment`/`saveProductStockAdjustment` (linhas 2069-2071, mortas), `renderPdvProductLocator` (linha 3244, morta), `renderOrderHistoryReport`/`openOrderHistoryColumns` (linhas 4838/4841, mortas) — todas sobrescritas por versões reais mais completas nas linhas seguintes; nenhuma causa bug hoje, mas edição futura na cópia errada não teria efeito nenhum, silenciosamente.
+- `resolveTenantSession()` (`index.html:932-941`) trata falha de rede igual a "sem tenant" — mesma classe de bug que a Fase 2 já corrigiu em `storageApi.get()`, aqui ainda não.
+- Grant residual de `EXECUTE` pra `anon` nas RPCs de venda — continua não-explorável (depende de `auth.uid()` nulo pra `anon`), mas a justificativa documentada na Fase 1 ficou desatualizada após a Fase 2b (virar `SECURITY DEFINER` mudou o motivo real de não ser explorável); vale um `REVOKE EXECUTE ... FROM anon` explícito só para não depender disso.
+- Nenhum `console.log`/TODO/FIXME esquecido encontrado (ponto positivo).
+
+**Nota técnica**: o grafo do `graphify` (`graphify-out/graph.json`) só indexa `HANDOFF.md`, `supabase/functions/staff-auth/index.ts`, `.mcp.json` e `CLAUDE.md` — **não gera nenhum nó de `index.html`**, que é onde está quase todo o código do sistema. A regra do CLAUDE.md de "rodar `graphify query` antes de grep" não se aplica na prática ao arquivo principal; precisaria de um extrator dedicado pra JS embutido em `<script>` dentro de HTML.
+
+### Auditoria visual/UX — mudanças desde 2026-08-31/09-01 (2026-09-12)
+
+Feita pelo agente `ux-design-senior`, focada só no que mudou desde a auditoria completa anterior (18/18 corrigidos, https://claude.ai/code/artifact/577f42d7-e7ef-406b-89b0-51894df6f03b) — não repetiu telas antigas. 7 achados novos, nenhum repete os 18 já corrigidos.
+
+**Alta severidade:**
+1. **Bug funcional, não só visual**: filtro de estação da cozinha (`index.html:2932-2933`) só reseta o valor salvo no `localStorage` se houver mais de 1 estação cadastrada. Se o dono reconfigurar e sobrar 1 estação só, o filtro fica travado (ex. em "bar"), o botão de filtro desaparece da tela, e o Monitor mostra "nenhum pedido em preparo" mesmo com pedidos reais na fila — sem qualquer aviso. Correção é trocar a condição pra não depender de `stations.length>1`.
+2. **Botão duplicado**: o redesign de hoje (`7b1bec9`) adicionou um botão flutuante global "✕ Sair do Modo TV" (linha 591), mas a tela de Cozinha já tinha o mesmo botão inline no `<h2>` (linha 2943) — sobra um dos dois numa tela pensada pra ser mais limpa.
+3. **Captcha do Turnstile mal posicionado**: widget fica no fim da tela (depois da seção de cadastro), mas valida tanto login quanto cadastro (`tenantSignIn`/`tenantSignUp`, linhas 5915/5934). Quem só faz login recebe o erro acima do botão Entrar, mas o controle pra resolver está bem abaixo, sem indicação de rolar. Erro de senha também expira o token sem avisar que precisa recompletar o captcha.
+
+**Média severidade:** dois padrões visuais diferentes de "ativo" empilhados na mesma tela da Cozinha (subtabs navy vs. filtro amber); contraste do badge de tempo abaixo do mínimo AA (~3,6:1) no estado mais comum ("no prazo"); área de toque da checkbox de item (~25px) abaixo do recomendado (44px) pra ambiente de cozinha; ícone de "marcar pronto" é um tíquete, inconsistente com o `✓` usado no card de "pronto", sem `aria-label`.
+
+**Não verificado**: comportamento do grid em Modo TV com 8+ pedidos simultâneos (precisa teste real, ex. sexta à noite cheia).
+
+### Auditoria de propostas de funcionalidades (2026-09-12)
+
+Feita pelo agente `product-manager`, lendo o HANDOFF completo pra avaliar valor de negócio real (não boa prática de engenharia genérica).
+
+**🚩 Achado que merece correção imediata**: `finalizeCashSession` (`index.html:4743`) grava `countedAmount = expectedAmount` e `diff = 0` **sempre, hardcoded** — o controle de quebra de caixa é decorativo, sempre mostra verde, apesar de a UI já pintar a coluna "Diferença" de vermelho quando `diff != 0` (condição estruturalmente impossível hoje). Além disso, `renderAccountsReceivable` (linha 5407-5410) mostra o ID do caixa **atualmente aberto** pra 100% das vendas históricas — campo errado em toda linha antiga.
+
+**Re-priorização da Fase 4** (valor de negócio, não esforço técnico):
+1. **NFC-e deixa de ser "aguardando contador" passivo** — é o único item cujo risco cresce por dia de operação (retroativo, decadência de 5 anos; fiado já deveria gerar nota no consumo, não no pagamento). O que não depende do contador: cadastrar NCM/CFOP no catálogo agora, cotar provedor (Focus/PlugNotas/Tecnospeed/NFe.io). Crítico: a Fase 3 (migrar `sales`) precisa reservar campos fiscais desde já, senão o schema é migrado duas vezes.
+2. **LGPD** — risco real é reclamação de sócio, não fiscalização: disparo de SMS/WhatsApp sem opt-in em ~1000 sócios, formulários públicos (totem/delivery/cardápio) sem aviso de privacidade, e "exclusão de titular" prometida no papel é tecnicamente impossível hoje (retenção fiscal) — o certo é anonimização.
+3. **Fila de sincronização offline** não é "evolução" — é a contrapartida nunca entregue da decisão da Fase 0 (Modo Local avisa mas não bloqueia = vendas offline nunca sobem). Separar em: cache do app shell/service worker (pequeno, fazer já — hoje um refresh sem internet faz o app desaparecer no meio do expediente), fila de sync (só depois da Fase 3, reaproveitando a idempotência de `close_sale`/`sale_close_receipts`), PWA instalável (descartar, cosmético).
+4. **Ledger de fidelidade — não construir ainda**: resgatar ponto hoje não desconta nada no PDV, é só um número. Decidir primeiro se fidelidade por ponto faz sentido num clube antes de dar auditoria a isso.
+5. **Unificar os 4 carrinhos** (PDV/comanda, sub-modal "Novo Pedido", app garçom, totem/cardápio) — por último, sem projeto dedicado; fazer oportunisticamente quando uma feature nova tocar 2 deles.
+
+**5 propostas novas priorizadas:**
+1. **Conferência de caixa às cegas** (pequeno) — resolve o bug do `diff` hardcoded: pedir valor contado antes de mostrar o esperado, gravar diferença de verdade por operador.
+2. **Fatura mensal do sócio / extrato + aging** (médio) — hoje não existe ciclo de cobrança do fiado, só saldo vs. limite de crédito.
+3. **Divisão de conta por item na comanda** (médio, fazer só depois da Fase 3 — mexe no caminho mais sensível do sistema, mesmo que passa por `close_sale`).
+4. **Contagem de estoque com apuração de perda real vs. teórico** (médio) — perda de chope/dose tipicamente come 3-8% do faturamento de bebida, hoje não medida.
+5. **Resumo diário automático pro dono via Telegram** (pequeno-médio) — sem homologação Meta, sem custo, sem problema de LGPD (é o dono recebendo, não cliente).
+
+Parado de propósito: Pix com confirmação automática (grande, depende de decisão comercial e volume real de delivery/totem) e portaria/carteirinha digital (fora do domínio de PDV).
+
+**Reabertura de decisões:** "não dividir o `index.html`" continua válida, mas sugere apagar as 7 funções mortas achadas hoje e extrair só código-folha puro (formatadores, ESC/POS) pra módulos ES quando for tocar nele mesmo, em vez de um split grande. O poll de 6s não é só ineficiente — é a metade ativa do loop de last-write-wins (substitui `state.sales` inteiro a cada 6s enquanto ~27 pontos ainda escrevem o blob de volta), reforçando a Fase 3 como prioridade técnica nº1. Sinaliza 3 dívidas de teste empilhadas no mesmo caminho de dinheiro (venda completa pós-Fase 1, checklist pós-Fase 2, reteste Fase 3a) — recomenda uma sessão supervisionada única cobrindo tudo antes de abrir frente nova.
+
+**Correção sugerida (2x) ao `CLAUDE.md`**: tanto esta auditoria quanto a de código confirmaram que a regra "rodar `graphify query` antes de grep" é inaplicável ao `index.html` (grafo só cobre `HANDOFF.md`/`staff-auth`/`.mcp.json`/`CLAUDE.md`) — vale ajustar a regra pra não exigir isso quando o alvo é `index.html`, até existir um extrator dedicado pra JS embutido em `<script>`.
+
+### Tempo de comanda aberta nos cards e no modal (2026-09-18)
+
+Pedido do Fabricio: mostrar há quanto tempo cada comanda está aberta, calculado a partir de `s.openedAt`.
+
+- **Card da tela "Mesas e Comandas Abertas"** (`renderComandas()`): badge de tempo no canto superior, ao lado de "EM ATENDIMENTO" — verde (<60min), amarelo (60-120min), vermelho (≥120min). Mesma lógica de cor já usada no Monitor de Cozinha (`kOrderAgeClass`), com faixas próprias (`comandaAgeClass`) porque uma comanda fica aberta muito mais tempo que um pedido de cozinha.
+- **Modal de detalhe da comanda**: linha "Iniciado em [data/hora]" ganhou o complemento "— Xh Ymin aberta" (`fmtOpenDuration`).
+- Tela de comandas entrou no `setInterval` de 30s que já existia só pro Monitor de Cozinha, pra o tempo subir sozinho sem precisar trocar de tela.
+- Testado via preview HTML isolado (CSS real extraído + dados de exemplo) — não testado dentro do app logado nesta sessão, por não ter as credenciais do Fabricio.
+- Commit `60adf34`, PR #1, merge por fast-forward em `main` (`3b329da`).
+
+### Bug de layout do card de comanda + vínculo de Mesa/Local (2026-09-18)
+
+Fabricio mandou um print real de produção mostrando o card de comanda quebrado: uma comanda aberta há ~18 dias gerava um badge de tempo enorme (`"442h27min"`), fazendo o rótulo "EM ATENDIMENTO" quebrar linha e o valor total vazar pra fora do fundo colorido do card (aparecia como texto branco meio apagado sobre o cinza da página). Causa: `.comanda-person-card` tinha `min-height:150px!important` mas nenhum `height:auto`, e brigava com o `height:120px` de `.table-seat` — o card ficava travado numa altura fixa em vez de crescer com o conteúdo.
+
+- `.comanda-person-card{height:auto!important}` — card cresce com o conteúdo.
+- `.comanda-card-top{flex-wrap:wrap}` + `.cap{white-space:nowrap}` — o badge quebra pra linha de baixo se precisar, mas o rótulo nunca mais quebra no meio da palavra.
+- `fmtOpenDuration()` fica compacto acima de 24h (`"18d 10h"` em vez de `"442h27min"`).
+- Junto veio um pedido novo: vincular uma mesa ou espaço à comanda. O sistema já tinha quase tudo pronto e desconectado — `state.locais` (cadastro em Configurações → "Locais e Áreas do Clube"), o campo `s.local` já exibido no card quando presente, e uma função `saveComandaLocal()` que existia no código mas não tinha nenhum input chamando ela. Adicionado o select "Mesa / Local" no modal de detalhe da comanda, ligado a essa função.
+- Testado via preview HTML isolado reproduzindo o cenário do print — não testado no app logado (mesma limitação de sempre).
+- Commit `9e82c4b`, PR #2, merge em `main` (`d2f613f`).
+- **Pendência levantada e ainda não resolvida**: a comanda de ~18 dias aberta que apareceu no print é bem provável de ser dado de teste/travado — vale o Fabricio localizar e fechar/excluir ela.
+
+### Guard de sintaxe JS no index.html — hook local + CI (2026-09-18)
+
+Saiu de uma sessão do skill `/claude-code-setup:claude-automation-recommender`: `index.html` não tem bundler nem build, então um erro de sintaxe em qualquer `<script>` só aparecia quando a página carregava no navegador. Também descobri que o GitHub Pages deste repo publica **direto da branch `main`, sem staging** (`build_type: legacy`) — ou seja, merge = produção instantânea, sem nenhum freio automatizado antes disso.
+
+- **Hook local** (`.claude/scripts/guard-index-syntax.sh`, registrado em `.claude/settings.json`): roda depois de todo Edit/Write, extrai os blocos `<script>` inline e valida com `new Function()`. Só existe no disco local do Fabricio — o `.gitignore` deste repo exclui `.claude/*` exceto `settings.json`, mesmo padrão dos outros hooks (`guard-migrations.sh`, `guard-env-files.sh` etc.) que também não são versionados.
+- **CI** (`.github/workflows/check-index-syntax.yml`): mesmo check rodando como Action em qualquer PR que toque `index.html` — segundo gate, cobrindo edições feitas fora do Claude Code.
+- Também criada a skill local `.claude/skills/commandah-ship/SKILL.md`, documentando o fluxo de commit/push/PR deste projeto (branch a partir de `main`, stage seletivo, o lembrete de que não existe staging aqui) — mesma situação do `.gitignore`: só no disco local, não versionada.
+- Testado manualmente: o hook passa limpo no `index.html` real e pega erro de sintaxe (exit code 2) num HTML quebrado de teste.
+- Commit `58aa044`, PR #3, merge em `main` (`d4579df`).
+
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
 **Fase 1 — fundação:** concluída (itens 1-3, ver seção própria acima).
@@ -203,7 +295,7 @@ Depois de rodar o `claude-automation-recommender` sobre o repo, implementado:
 10. NFC-e via Edge Function nova, só se o contador confirmar obrigatoriedade (backend-senior + fiscal-tributario).
 11. Avaliar PWA/offline pro "app do garçom" (que hoje é só o navegador responsivo, sem app nativo) — só depois que o item 3 da Fase 0 provou que o `save()` online nem finge sucesso hoje (mobile-senior).
 12. Fidelidade/pontos (`points`/`pointsHistory`) ficou de fora da Fase 1 de propósito — migrada como coluna simples na tabela `members`, sem virar tabela relacional própria. Se quiser isso relacional também (com ledger de auditoria igual ao de débito), é uma fase separada.
-13. Monitor de Cozinha (`renderCozinha()`) mostra o pedido inteiro sem filtrar por estação — bebida aparece junto com prato de cozinha. Já existe o conceito de Estações (Cozinha/Bar/Churrasqueira etc., vinculado a produto) mas hoje só é usado pro roteamento de impressão de ticket, não pro monitor/TV. Ideia: filtrar os itens exibidos no Monitor de Cozinha pela estação do produto, com uma tela por estação (ex. Monitor da Cozinha só prato, Monitor do Bar só bebida). Achado durante o reteste da Fase 2 em 2026-09-08 (não é causado pela RLS, é lacuna de produto pré-existente).
+13. ~~Monitor de Cozinha sem filtro por estação~~ — **CONCLUÍDO, já implementado no commit `7b1bec9` (2026-09-12)** junto do redesign visual do card, que originalmente foi documentado só como mudança de layout (ver seção "Redesign do card do Monitor de Cozinha" acima). `kitchenStationFilter`/`setKitchenStationFilter()`/`itemStation()` filtram os itens exibidos por estação, com botões "Todas" + um por estação quando há mais de uma cadastrada. Achado pela auditoria de 2026-09-12 (ver seção própria abaixo) comparando HANDOFF x código real. **Resta só**: não há deep-link por URL pra abrir direto "Monitor só da Cozinha"/"Monitor só do Bar" — o filtro é por clique + `localStorage` por aparelho, então montar monitores físicos dedicados por praça exige configurar cada dispositivo manualmente.
 
 ## Preferências de trabalho do usuário (Fabricio)
 
