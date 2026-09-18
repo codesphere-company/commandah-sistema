@@ -1,0 +1,44 @@
+{
+  "supabase/functions/staff-auth/index.ts": {
+    "mtime": 1788036878.3609588,
+    "seen": 1789074721.561305,
+    "ast_hash": "e5ff0ab1b3931c4b1527787c14e91cf6",
+    "semantic_hash": ""
+  },
+  ".github/workflows/backup-supabase.yml": {
+    "mtime": 1788348930.2093248,
+    "seen": 1789074721.5613117,
+    "ast_hash": "3ba780447b9b5d51194a4574c08a68b7",
+    "semantic_hash": ""
+  },
+  ".serena/project.yml": {
+    "mtime": 1788902756.5703647,
+    "seen": 1789074721.5613148,
+    "ast_hash": "92b19b5f5739d0d3f25842bea546ad54",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1788903192.3859675,
+    "seen": 1789074721.561317,
+    "ast_hash": "8a6643a420fdad6bfb583523bc6cef16",
+    "semantic_hash": ""
+  },
+  "HANDOFF.md": {
+    "mtime": 1789081792.9963326,
+    "seen": 1789081794.1420846,
+    "ast_hash": "647bc447df0f83a62c8220ddf178646e",
+    "semantic_hash": ""
+  },
+  "index.html": {
+    "mtime": 1789077180.294101,
+    "seen": 1789077181.4209657,
+    "ast_hash": "50cbe0fd4a07055ef9009412e5112d37",
+    "semantic_hash": ""
+  },
+  ".claude/settings.json": {
+    "mtime": 1789074685.561205,
+    "seen": 1789075160.355054,
+    "ast_hash": "c503f009522e2ceca972c67fdfd3d158",
+    "semantic_hash": ""
+  }
+}

@@ -52,66 +52,6 @@
       "source_location": "L37"
     },
     {
-      "id": "handoff_auditoria_de_c\u00f3digo_vs_handoff_2026_09_12",
-      "label": "Auditoria de c\u00f3digo vs. HANDOFF (2026-09-12)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "auditoria de codigo vs. handoff (2026-09-12)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L186"
-    },
-    {
-      "id": "handoff_auditoria_de_propostas_de_funcionalidades_2026_09_12",
-      "label": "Auditoria de propostas de funcionalidades (2026-09-12)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "auditoria de propostas de funcionalidades (2026-09-12)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L220"
-    },
-    {
-      "id": "handoff_auditoria_visual_ux_mudan\u00e7as_desde_2026_08_31_09_01_2026_09_12",
-      "label": "Auditoria visual/UX \u2014 mudan\u00e7as desde 2026-08-31/09-01 (2026-09-12)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "auditoria visual/ux \u2014 mudancas desde 2026-08-31/09-01 (2026-09-12)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L207"
-    },
-    {
-      "id": "handoff_bug_de_layout_do_card_de_comanda_v\u00ednculo_de_mesa_local_2026_09_18",
-      "label": "Bug de layout do card de comanda + v\u00ednculo de Mesa/Local (2026-09-18)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "bug de layout do card de comanda + vinculo de mesa/local (2026-09-18)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L256"
-    },
-    {
-      "id": "handoff_cloudflare_turnstile_no_login_cadastro_de_estabelecimento_2026_09_10",
-      "label": "Cloudflare Turnstile no login/cadastro de estabelecimento (2026-09-10)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "cloudflare turnstile no login/cadastro de estabelecimento (2026-09-10)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L163"
-    },
-    {
       "id": "handoff_corre\u00e7\u00e3o_pontual_card_de_comanda_n\u00e3o_atualizava_ap\u00f3s_novo_pedido_2026_09_08",
       "label": "Corre\u00e7\u00e3o pontual \u2014 card de comanda n\u00e3o atualizava ap\u00f3s \"Novo Pedido\" (2026-09-08)",
       "_origin": "ast",
@@ -208,18 +148,6 @@
       "source_location": "L142"
     },
     {
-      "id": "handoff_guard_de_sintaxe_js_no_index_html_hook_local_ci_2026_09_18",
-      "label": "Guard de sintaxe JS no index.html \u2014 hook local + CI (2026-09-18)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "guard de sintaxe js no index.html \u2014 hook local + ci (2026-09-18)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L268"
-    },
-    {
       "id": "handoff_impress\u00e3o",
       "label": "Impress\u00e3o",
       "_origin": "ast",
@@ -232,18 +160,6 @@
       "source_location": "L29"
     },
     {
-      "id": "handoff_redesign_do_card_do_monitor_de_cozinha_2026_09_12",
-      "label": "Redesign do card do Monitor de Cozinha (2026-09-12)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "redesign do card do monitor de cozinha (2026-09-12)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L171"
-    },
-    {
       "id": "handoff_seguran\u00e7a",
       "label": "Seguran\u00e7a",
       "_origin": "ast",
@@ -254,30 +170,6 @@
       "norm_label": "seguranca",
       "source_file": "HANDOFF.md",
       "source_location": "L23"
-    },
-    {
-      "id": "handoff_setup_de_automa\u00e7\u00e3o_do_claude_code_2026_09_12",
-      "label": "Setup de automa\u00e7\u00e3o do Claude Code (2026-09-12)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "setup de automacao do claude code (2026-09-12)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L175"
-    },
-    {
-      "id": "handoff_tempo_de_comanda_aberta_nos_cards_e_no_modal_2026_09_18",
-      "label": "Tempo de comanda aberta nos cards e no modal (2026-09-18)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "tempo de comanda aberta nos cards e no modal (2026-09-18)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L246"
     },
     {
       "id": "handoff_time_de_agentes_especializado_diagn\u00f3stico_completo_2026_08_31",
@@ -361,7 +253,7 @@
       "node_kind": "heading",
       "norm_label": "onde achar mais contexto",
       "source_file": "HANDOFF.md",
-      "source_location": "L308"
+      "source_location": "L193"
     },
     {
       "id": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
@@ -373,7 +265,7 @@
       "node_kind": "heading",
       "norm_label": "pendencias (proximos passos, backlog priorizado pelo scrum-master em 2026-08-31)",
       "source_file": "HANDOFF.md",
-      "source_location": "L278"
+      "source_location": "L163"
     },
     {
       "id": "handoff_prefer\u00eancias_de_trabalho_do_usu\u00e1rio_fabricio",
@@ -385,7 +277,7 @@
       "node_kind": "heading",
       "norm_label": "preferencias de trabalho do usuario (fabricio)",
       "source_file": "HANDOFF.md",
-      "source_location": "L300"
+      "source_location": "L185"
     },
     {
       "id": "supabase_functions_staff_auth_index",
@@ -432,90 +324,6 @@
       "norm_label": "graphify",
       "source_file": "CLAUDE.md",
       "source_location": "L1"
-    },
-    {
-      "id": "env_var_supabase_access_token",
-      "label": "SUPABASE_ACCESS_TOKEN",
-      "_origin": "ast",
-      "community": 4,
-      "community_name": "supabase",
-      "file_type": "code",
-      "metadata": {
-        "mcp_kind": "env_var"
-      },
-      "norm_label": "supabase_access_token",
-      "source_file": ".mcp.json",
-      "source_location": "L1"
-    },
-    {
-      "id": "mcp",
-      "label": ".mcp.json",
-      "_origin": "ast",
-      "community": 4,
-      "community_name": "supabase",
-      "file_type": "code",
-      "metadata": {
-        "mcp_kind": "mcp_config_file"
-      },
-      "norm_label": ".mcp.json",
-      "source_file": ".mcp.json",
-      "source_location": "L1"
-    },
-    {
-      "id": "mcp_command_npx",
-      "label": "npx",
-      "_origin": "ast",
-      "community": 4,
-      "community_name": "supabase",
-      "file_type": "code",
-      "metadata": {
-        "mcp_kind": "mcp_command"
-      },
-      "norm_label": "npx",
-      "source_file": ".mcp.json",
-      "source_location": "L1"
-    },
-    {
-      "id": "mcp_mcp_server_github",
-      "label": "github",
-      "_origin": "ast",
-      "community": 4,
-      "community_name": "supabase",
-      "file_type": "code",
-      "metadata": {
-        "mcp_kind": "mcp_server"
-      },
-      "norm_label": "github",
-      "source_file": ".mcp.json",
-      "source_location": "L1"
-    },
-    {
-      "id": "mcp_mcp_server_supabase",
-      "label": "supabase",
-      "_origin": "ast",
-      "community": 4,
-      "community_name": "supabase",
-      "file_type": "code",
-      "metadata": {
-        "mcp_kind": "mcp_server"
-      },
-      "norm_label": "supabase",
-      "source_file": ".mcp.json",
-      "source_location": "L1"
-    },
-    {
-      "id": "mcp_package_supabase_mcp_server_supabase",
-      "label": "@supabase/mcp-server-supabase",
-      "_origin": "ast",
-      "community": 4,
-      "community_name": "supabase",
-      "file_type": "code",
-      "metadata": {
-        "mcp_kind": "mcp_package"
-      },
-      "norm_label": "@supabase/mcp-server-supabase",
-      "source_file": ".mcp.json",
-      "source_location": "L1"
     }
   ],
   "links": [
@@ -529,30 +337,6 @@
       "context": "call",
       "source_file": "supabase/functions/staff-auth/index.ts",
       "source_location": "L25",
-      "weight": 1.0
-    },
-    {
-      "source": "mcp_mcp_server_supabase",
-      "target": "mcp_command_npx",
-      "relation": "references",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "command",
-      "source_file": ".mcp.json",
-      "source_location": "L1",
-      "weight": 1.0
-    },
-    {
-      "source": "mcp_mcp_server_supabase",
-      "target": "mcp_package_supabase_mcp_server_supabase",
-      "relation": "references",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "package",
-      "source_file": ".mcp.json",
-      "source_location": "L1",
       "weight": 1.0
     },
     {
@@ -612,72 +396,6 @@
     },
     {
       "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_cloudflare_turnstile_no_login_cadastro_de_estabelecimento_2026_09_10",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L163",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_redesign_do_card_do_monitor_de_cozinha_2026_09_12",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L171",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_setup_de_automa\u00e7\u00e3o_do_claude_code_2026_09_12",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L175",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_auditoria_de_c\u00f3digo_vs_handoff_2026_09_12",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L186",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_auditoria_visual_ux_mudan\u00e7as_desde_2026_08_31_09_01_2026_09_12",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L207",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_auditoria_de_propostas_de_funcionalidades_2026_09_12",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L220",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
       "target": "handoff_seguran\u00e7a",
       "relation": "contains",
       "_origin": "ast",
@@ -685,39 +403,6 @@
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
       "source_location": "L23",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_tempo_de_comanda_aberta_nos_cards_e_no_modal_2026_09_18",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L246",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_bug_de_layout_do_card_de_comanda_v\u00ednculo_de_mesa_local_2026_09_18",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L256",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_guard_de_sintaxe_js_no_index_html_hook_local_ci_2026_09_18",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L268",
       "weight": 1.0
     },
     {
@@ -810,6 +495,17 @@
     },
     {
       "source": "handoff_handoff_commandah",
+      "target": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L163",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_handoff_commandah",
       "target": "handoff_limita\u00e7\u00e3o_importante_da_minha_conex\u00e3o",
       "relation": "contains",
       "_origin": "ast",
@@ -817,6 +513,28 @@
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
       "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_handoff_commandah",
+      "target": "handoff_prefer\u00eancias_de_trabalho_do_usu\u00e1rio_fabricio",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L185",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_handoff_commandah",
+      "target": "handoff_onde_achar_mais_contexto",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L193",
       "weight": 1.0
     },
     {
@@ -832,39 +550,6 @@
     },
     {
       "source": "handoff_handoff_commandah",
-      "target": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L278",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_handoff_commandah",
-      "target": "handoff_prefer\u00eancias_de_trabalho_do_usu\u00e1rio_fabricio",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L300",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_handoff_commandah",
-      "target": "handoff_onde_achar_mais_contexto",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L308",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_handoff_commandah",
       "target": "handoff_o_que_\u00e9_o_projeto",
       "relation": "contains",
       "_origin": "ast",
@@ -872,28 +557,6 @@
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
       "source_location": "L7",
-      "weight": 1.0
-    },
-    {
-      "source": "mcp",
-      "target": "mcp_mcp_server_github",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": ".mcp.json",
-      "source_location": "L1",
-      "weight": 1.0
-    },
-    {
-      "source": "mcp",
-      "target": "mcp_mcp_server_supabase",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": ".mcp.json",
-      "source_location": "L1",
       "weight": 1.0
     },
     {
@@ -939,19 +602,8 @@
       "source_file": "supabase/functions/staff-auth/index.ts",
       "source_location": "L31",
       "weight": 1.0
-    },
-    {
-      "source": "mcp_mcp_server_supabase",
-      "target": "env_var_supabase_access_token",
-      "relation": "requires_env",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": ".mcp.json",
-      "source_location": "L1",
-      "weight": 1.0
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "d4579df55420401bd731315a1d6b0ef996d3e13c"
+  "built_at_commit": "b15729bb349c7016a9a3f2ae53116677ded9e8a1"
 }
