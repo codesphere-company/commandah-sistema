@@ -47,6 +47,10 @@
           {
             "type": "command",
             "command": "graphify update ."
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/scripts/guard-index-syntax.sh"
           }
         ]
       }

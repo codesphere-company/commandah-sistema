@@ -1,0 +1,42 @@
+name: Check index.html JS syntax
+
+# index.html não tem bundler nem build step, e o GitHub Pages deste repo
+# publica direto da branch main (sem staging) - um <script> quebrado só
+# aparece quando a página carrega no navegador do cliente do bar. Esse
+# workflow roda o mesmo check de sintaxe usado localmente (guard-index-syntax.sh)
+# em todo PR que tocar index.html, como segundo gate antes do merge.
+
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+
+jobs:
+  syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validar sintaxe dos blocos <script> inline
+        run: |
+          node -e '
+          const fs = require("fs");
+          const html = fs.readFileSync("index.html", "utf8");
+          const re = /<script(?![^>]*src)[^>]*>([\s\S]*?)<\/script>/g;
+          let m, i = 0, errors = [];
+          while ((m = re.exec(html))) {
+            i++;
+            try { new Function(m[1]); }
+            catch (e) { errors.push("bloco " + i + ": " + e.message); }
+          }
+          if (errors.length) {
+            console.error("Erro de sintaxe JS em index.html:");
+            errors.forEach(e => console.error("  - " + e));
+            process.exit(1);
+          }
+          console.log("OK: " + i + " bloco(s) <script> validado(s).");
+          '
