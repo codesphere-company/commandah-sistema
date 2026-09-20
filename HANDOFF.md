@@ -369,6 +369,19 @@ Pedido do Fabricio: o recurso acima só existia nos 3 fluxos do painel administr
 - Não mexeu no pipeline de impressão (`gcConfirmOrder`→`sendItemsToKitchen`→`printNovoPedidoTickets`/`buildTicketText`/`printSingleTicket`): já é compartilhado com os fluxos do admin e já lê `item.copos`; `gcConfirmOrder` espalha o item (`{...i}`) ao montar o pedido, então o campo atravessa sem mudança adicional.
 - Testado com checagem de sintaxe JS (OK) e com um harness Node isolado (funções extraídas do arquivo real, rodadas com stubs de `state`/`toast`/`document`/`fmt`/`h`) — 5/5 asserções: item de bar ganha `copos:0`, stepper incrementa/decrementa, clamp em 0, item fora do bar não ganha `copos` nem renderiza a linha. **Não testado logado no app do garçom real** — injeção de JS na página de produção pra testar sem publicar foi bloqueada pela política do ambiente ("Modify Shared Resources"), e o teste via servidor local esbarrou no Supabase Auth/Cloudflare Turnstile (não validam fora do domínio publicado).
 
+### Remove botão "Salvar e Continuar" da comanda + teste no app real (2026-09-20)
+
+Achado ao investigar o botão "Salvar e Continuar" da tela de comanda: ele só existia porque `changeDraftQty` (+/- na tabela "Histórico da Comanda", pra itens ainda não enviados) alterava `currentSaleDraft.items` só em memória, sem persistir em `state.sales` — diferente de todo o resto do fluxo de edição da comanda (nota, local, bloqueio, Novo Pedido, busca rápida, Localizar Produto, transferência de itens), que já salva sozinho a cada ação.
+
+- `changeDraftQty` agora persiste em `sale.items`/`save('sales')` de imediato quando `currentSaleDraft.type==='comanda'` — mesmo padrão dos outros fluxos.
+- Removido o botão `btnSaveComanda` ("Salvar e Continuar") e seu handler, redundante depois do fix.
+- Commit `04ee8fc`, PR #22, merge em `main` (`ebf9b25`).
+- **Testado no app real em produção** (não só sintaxe JS, diferente da maioria das entradas acima):
+  - Confirmado visualmente que o botão "Salvar e Continuar" sumiu da tela da comanda.
+  - Teste de auto-save: mexi na quantidade de um item não enviado (+/-) na tabela de histórico, fechei a comanda sem clicar em nada, reabri — a alteração persistiu sozinha, confirmando que o `save('sales')` novo dentro de `changeDraftQty` está funcionando.
+  - Ao investigar o call site de `changeDraftQty`/`openComandaProductLocator` (`index.html`), achei que `openComandaProductLocator(saleId)` não tem nenhum ponto de entrada na UI atual — a única chamada existente (`index.html:3135`) está dentro de um fluxo que só é alcançado se `window.comandaLocatorSaleId` já estiver setado, e nada no código hoje seta essa variável antes de chegar lá. Ou seja: o fix em `changeDraftQty` protege corretamente um caminho de código que hoje está órfão (sem botão que leve a ele), mas não é perigoso deixar assim — só fica registrado aqui pra não confundir uma futura investigação achando "dead code" e não entender por que o fix existe mesmo assim.
+  - Limpeza: apaguei a comanda de teste criada durante essa verificação (#19, "TESTE QA botao comanda") usando o botão "Excluir Pedido" (`deleteComandaOrder`, `index.html:3726`). Ressalva: esse botão dispara um `window.confirm()` nativo do navegador, que trava a extensão do Claude Chrome (diálogo bloqueante); precisei neutralizar o `confirm` via JS (stub que retorna `true` automaticamente) antes de clicar, senão a sessão de automação travava.
+
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
 **Fase 1 — fundação:** concluída (itens 1-3, ver seção própria acima).
