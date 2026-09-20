@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-09-18**
+Última atualização: **2026-09-20**
 
 ## O que é o projeto
 
@@ -274,6 +274,26 @@ Saiu de uma sessão do skill `/claude-code-setup:claude-automation-recommender`:
 - Também criada a skill local `.claude/skills/commandah-ship/SKILL.md`, documentando o fluxo de commit/push/PR deste projeto (branch a partir de `main`, stage seletivo, o lembrete de que não existe staging aqui) — mesma situação do `.gitignore`: só no disco local, não versionada.
 - Testado manualmente: o hook passa limpo no `index.html` real e pega erro de sintaxe (exit code 2) num HTML quebrado de teste.
 - Commit `58aa044`, PR #3, merge em `main` (`d4579df`).
+
+### Backup Supabase — pg_dump 16 continuava resolvendo no PATH mesmo após instalar a 17 (2026-09-20)
+
+O fix da Fase 0 (`supabase-backup.yml` instalando `postgresql-client-17` via apt) parecia correto mas o workflow seguiu falhando em **todos** os runs desde então (17, 18, 19 e 20/09), sempre com o mesmo erro: `pg_dump: error: aborting because of server version mismatch — server version: 17.6; pg_dump version: 16.15`.
+
+Causa real, achada lendo o log de um run que falhou de verdade: a imagem do runner do GitHub Actions já vem com `pg_dump` 16.15 em `/usr/bin`, instalado **fora** do mecanismo de `update-alternatives` do `postgresql-common` — o log da etapa de setup só mostra o `update-alternatives` rodando pro `psql`, nunca pro `pg_dump`. Instalar a 17 via apt não troca essa resolução; o comando `pg_dump` sem path continuava chamando a 16.15.
+
+- **Fix**: adiciona `/usr/lib/postgresql/17/bin` na frente do `PATH` via `GITHUB_PATH` logo depois do `apt-get install postgresql-client-17`, em vez de confiar em `update-alternatives`.
+- **Validado de ponta a ponta**: disparado `workflow_dispatch` manual (run `35520135968`) depois do merge — completou com sucesso, artifact `supabase-backup.zip` gerado (55.681 bytes, retention 90 dias). Primeira vez que o backup noturno de fato funciona desde que foi criado.
+- Commit `5b0c267`, PR #5, merge por fast-forward em `main` (`0267d8e`).
+- **Ainda não feito**: o `backup-integrity-auditor` (subagente criado em 2026-09-12) continua sem rodar — vale acionar ele agora que existe pelo menos um dump real pra auditar, e nenhum restore-drill foi documentado ainda.
+
+### Histórico/Motivo opcional no pagamento de fiado (2026-09-20)
+
+Pedido do Fabricio: no modal de lançamento da Conta Corrente (Fiado) — `openFiadoEntry()` —, o campo **Histórico / Motivo** era obrigatório tanto pra **Registrar Dívida** quanto pra **Registrar Pagamento**, travando a baixa de um pagamento se o operador não digitasse nada ali.
+
+- Mantém obrigatório pra **dívida** (`type==='debt'`); libera como **opcional** pra **pagamento** (`type==='payment'`) — label ganha "(opcional)" e o placeholder muda pra deixar isso claro.
+- Se o motivo ficar vazio num pagamento, grava `'Pagamento'` como valor padrão — evita célula em branco na coluna Histórico do extrato do cliente.
+- Testado só via checagem de sintaxe JS (`node -e` no bloco `<script>` — OK); não testado no app logado (mesma limitação de sempre, sem credenciais reais do Fabricio).
+- Commit `8787c17`, PR #6, merge por fast-forward em `main` (`0c76edb`).
 
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
