@@ -3836,7 +3836,7 @@ function npCartAdd(productId){
   const p = state.products.find(x=>x.id===productId); if(!p) return;
   if(productAvailable(p)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
   const existing = npCart.find(i=>i.productId===productId);
-  if(existing) existing.qty+=1; else npCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha'});
+  if(existing) existing.qty+=1; else npCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha', copos:p.estacao==='bar'?0:undefined});
   renderNpCart();
   renderNpProductGrid(document.getElementById('npProductSearch')?.value||'');
   renderNpHistoryGrid();
@@ -3847,6 +3847,11 @@ function npCartChangeQty(idx,delta){
   renderNpCart();
   renderNpProductGrid(document.getElementById('npProductSearch')?.value||'');
   renderNpHistoryGrid();
+}
+function npCartChangeCopos(idx,delta){
+  const it = npCart[idx]; if(!it) return;
+  it.copos = Math.max(0, (it.copos||0)+delta);
+  renderNpCart();
 }
 function renderNpHistoryGrid(){
   const el = document.getElementById('npHistoryGrid'), section = document.getElementById('npHistorySection');
@@ -3866,10 +3871,12 @@ function renderNpHistoryGrid(){
 function renderNpCart(){
   const el = document.getElementById('npCartList'); if(!el) return;
   el.innerHTML = npCart.length ? npCart.map((i,idx)=>`
-    <div class="item-line"><span>${h(i.name)}</span>
+    <div class="item-line" style="flex-wrap:wrap">
+      <span>${h(i.name)}</span>
       <div class="qty-ctrl"><button onclick="npCartChangeQty(${idx},-1)">−</button><span class="mono">${i.qty}</span>
       <button onclick="npCartChangeQty(${idx},1)">+</button>
       <span class="mono" style="min-width:70px;text-align:right">${fmt(i.price*i.qty)}</span></div>
+      ${i.estacao==='bar'?`<div class="qty-ctrl" style="width:100%;justify-content:flex-end"><span class="sub" style="margin-right:6px">Quantidade de copos:</span><button onclick="npCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="npCartChangeCopos(${idx},1)">+</button></div>`:''}
     </div>`).join('') : '<p class="np-empty">Nenhum item adicionado ainda.</p>';
   const totEl = document.getElementById('npCartTotal'); if(totEl) totEl.textContent = fmt(npCart.reduce((a,i)=>a+i.price*i.qty,0));
   const countEl = document.getElementById('npItemCount'); if(countEl){ const n=npCart.reduce((a,i)=>a+i.qty,0); countEl.textContent = n?n+' item'+(n===1?'':'s'):''; }
@@ -4013,7 +4020,7 @@ function buildTicketText(who, cota, local, estacao, items, orderNumber, columns,
   let total = 0;
   items.forEach(i=>{
     total += i.price*i.qty;
-    const nameLine = i.qty+'x '+i.name;
+    const nameLine = i.qty+'x '+i.name + (i.copos!=null ? ' — '+i.copos+' copo'+(i.copos===1?'':'s') : '');
     // GS ! (tamanho da letra) — configurável em Impressoras > Formatação dos tickets.
     // Só no modo ESC/POS, senão o driver do Windows mostraria os bytes de controle como
     // texto (impressora local não é ESC/POS puro).
@@ -4093,7 +4100,7 @@ async function printSingleTicket(who, cota, local, estacao, printer, items, orde
     <div><b>Solicitante:</b> ${h(who)}</div>
     ${cota?`<div><b>Cota:</b> ${h(cota)}</div>`:''}
     ${local?`<div class="local">ENTREGAR EM: ${h(local)}</div>`:''}
-    <table>${items.map(i=>`<tr><td>${i.qty}x ${h(i.name)}</td><td style="text-align:right">${fmt(i.price*i.qty)}</td></tr>`).join('')}</table>
+    <table>${items.map(i=>`<tr><td>${i.qty}x ${h(i.name)}${i.copos!=null?' — <b>'+i.copos+' copo'+(i.copos===1?'':'s')+'</b>':''}</td><td style="text-align:right">${fmt(i.price*i.qty)}</td></tr>`).join('')}</table>
     <div class="total">Total: ${fmt(total)}</div>
     ${printer?`<div class="printer">Imprimir na: <b>${h(printer)}</b> (agente local não conectado — instale o agente pra imprimir automático)</div>`:`<div class="warn">Nenhuma impressora configurada para ${estacaoLabel(estacao)||estacao} nesta origem — encaminhar manualmente.</div>`}
   </body></html>`);
@@ -4121,12 +4128,12 @@ function renderComandaAuditHistory(){
     <td>${item.sent?`<button class="btn btn-sm" onclick="reprintComandaItem(${idx})">🖶 &nbsp; Reimprimir</button> <button class="btn btn-sm" onclick="openReorderComandaItem(${idx})">🔁 &nbsp; Pedir novamente</button>`:'—'}</td>
   </tr>`).join('') : '<tr><td colspan="8" class="empty">Nenhum item lançado nesta comanda.</td></tr>';
 }
-let reorderQty = 1, reorderItemIdx = null;
+let reorderQty = 1, reorderItemIdx = null, reorderCopos = 0;
 function openReorderComandaItem(idx){
   const item = (currentSaleDraft&&currentSaleDraft.items||[])[idx]; if(!item) return;
   const product = state.products.find(p=>p.id===item.productId);
   if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
-  reorderQty = 1; reorderItemIdx = idx;
+  reorderQty = 1; reorderItemIdx = idx; reorderCopos = product.estacao==='bar' ? (item.copos!=null?item.copos:0) : 0;
   openModal('Pedir novamente', `
     <p class="sub">${h(product.name)} · <span class="mono">${fmt(product.price)}</span></p>
     <div class="field" style="text-align:center">
@@ -4137,6 +4144,14 @@ function openReorderComandaItem(idx){
         <button onclick="reorderQtyChange(1)">+</button>
       </div>
     </div>
+    ${product.estacao==='bar'?`<div class="field" style="text-align:center">
+      <label class="np-label">Quantidade de copos</label>
+      <div class="qty-ctrl" style="justify-content:center;margin-top:6px">
+        <button onclick="reorderCoposChange(-1)">−</button>
+        <span class="mono" id="reorderCoposLabel" style="min-width:28px;display:inline-block;text-align:center">${reorderCopos}</span>
+        <button onclick="reorderCoposChange(1)">+</button>
+      </div>
+    </div>`:''}
     <div class="row">
       <button class="btn" onclick="openComanda('${currentSaleDraft.id}',true)">Cancelar</button>
       <button class="btn btn-primary" id="reorderConfirmBtn">Adicionar e enviar pra cozinha</button>
@@ -4148,6 +4163,10 @@ function reorderQtyChange(delta){
   reorderQty = Math.max(1, reorderQty+delta);
   const el = document.getElementById('reorderQtyLabel'); if(el) el.textContent = reorderQty;
 }
+function reorderCoposChange(delta){
+  reorderCopos = Math.max(0, reorderCopos+delta);
+  const el = document.getElementById('reorderCoposLabel'); if(el) el.textContent = reorderCopos;
+}
 async function confirmReorderComandaItem(){
   const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
   const item = (currentSaleDraft.items||[])[reorderItemIdx]; if(!item) return;
@@ -4155,7 +4174,7 @@ async function confirmReorderComandaItem(){
   const product = state.products.find(p=>p.id===item.productId);
   if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
   const who = item.requesterName || s.customerName || 'Cliente';
-  const newItem = {productId:product.id, name:product.name, price:product.price, qty:reorderQty, estacao:product.estacao||'cozinha', sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
+  const newItem = {productId:product.id, name:product.name, price:product.price, qty:reorderQty, estacao:product.estacao||'cozinha', copos:product.estacao==='bar'?reorderCopos:undefined, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
   if(!await sendItemsToKitchen(saleId, [newItem], who, 'comanda', s.local)) return;
   newItem.sent = true;
   s.items = [...s.items, newItem];
@@ -4183,7 +4202,7 @@ function renderComandaQuickSearch(q){
     return `<button class="btn np-prod-btn" ${out?'disabled':''} onclick="openComandaQuickAdd('${p.id}')"><span class="np-prod-name">${h(p.name)}</span><span class="mono np-prod-price">${fmt(p.price)}</span></button>`;
   }).join('') : '<p class="np-empty">Nenhum produto encontrado.</p>';
 }
-let comandaQuickAddQty = 1, comandaQuickAddProductId = null;
+let comandaQuickAddQty = 1, comandaQuickAddProductId = null, comandaQuickAddCopos = 0;
 function openComandaQuickAdd(productId){
   const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
@@ -4191,7 +4210,7 @@ function openComandaQuickAdd(productId){
   const product = state.products.find(p=>p.id===productId);
   if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
   if(productAvailable(product)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
-  comandaQuickAddQty = 1; comandaQuickAddProductId = productId;
+  comandaQuickAddQty = 1; comandaQuickAddProductId = productId; comandaQuickAddCopos = 0;
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const requesterOptions = member
     ? `<option value="">— Selecione —</option><option value="holder:${member.id}" ${memberBlockedByDebt(member)?'disabled':''}>Titular — ${h(member.name)}${memberBlockedByDebt(member)?' (bloqueado — deve '+fmt(member.debt)+')':''}</option>${(member.dependents||[]).map(d=>`<option value="dependent:${d.id}" ${d.canOrder===false||memberBlockedByDebt(member)?'disabled':''}>Dependente — ${h(d.name)}${d.canOrder===false?' (bloqueado)':memberBlockedByDebt(member)?' (bloqueado — cota com pendência)':''}</option>`).join('')}`
@@ -4213,6 +4232,14 @@ function openComandaQuickAdd(productId){
         <button onclick="comandaQuickAddQtyChange(1)">+</button>
       </div>
     </div>
+    ${product.estacao==='bar'?`<div class="field" style="text-align:center">
+      <label class="np-label">Quantidade de copos</label>
+      <div class="qty-ctrl" style="justify-content:center;margin-top:6px">
+        <button onclick="comandaQuickAddCoposChange(-1)">−</button>
+        <span class="mono" id="comandaQuickAddCoposLabel" style="min-width:28px;display:inline-block;text-align:center">0</span>
+        <button onclick="comandaQuickAddCoposChange(1)">+</button>
+      </div>
+    </div>`:''}
     <div class="row">
       <button class="btn" onclick="openComanda('${saleId}',true)">Cancelar</button>
       <button class="btn btn-primary" id="comandaQuickAddConfirmBtn">Adicionar e enviar pra cozinha</button>
@@ -4229,6 +4256,10 @@ function comandaQuickAddQtyChange(delta){
   comandaQuickAddQty = Math.max(1, comandaQuickAddQty+delta);
   const el = document.getElementById('comandaQuickAddQtyLabel'); if(el) el.textContent = comandaQuickAddQty;
 }
+function comandaQuickAddCoposChange(delta){
+  comandaQuickAddCopos = Math.max(0, comandaQuickAddCopos+delta);
+  const el = document.getElementById('comandaQuickAddCoposLabel'); if(el) el.textContent = comandaQuickAddCopos;
+}
 async function confirmComandaQuickAdd(){
   const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
@@ -4244,7 +4275,7 @@ async function confirmComandaQuickAdd(){
   if(!requester.canOrder){ toast('Esta pessoa está bloqueada para consumir nesta cota.'); return; }
   if(productAvailable(product)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
   const who = requester.name;
-  const newItem = {productId:product.id, name:product.name, price:product.price, qty:comandaQuickAddQty, estacao:product.estacao||'cozinha', sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, requesterId:requester.id, requesterName:who, requesterType:requester.type};
+  const newItem = {productId:product.id, name:product.name, price:product.price, qty:comandaQuickAddQty, estacao:product.estacao||'cozinha', copos:product.estacao==='bar'?comandaQuickAddCopos:undefined, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, requesterId:requester.id, requesterName:who, requesterType:requester.type};
   if(!await sendItemsToKitchen(saleId, [newItem], who, 'comanda', s.local)) return;
   newItem.sent = true;
   s.items = [...s.items, newItem];
