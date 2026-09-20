@@ -3754,9 +3754,11 @@ function saveComandaNote(saleId,value){const s=state.sales.find(x=>x.id===saleId
 function saveComandaLocal(saleId,value){const s=state.sales.find(x=>x.id===saleId);if(!s)return;s.local=value;save('sales');renderAll();logAction('Local de entrega definido: '+(value||'balcão')+' — pedido #'+(s.orderNumber||saleId));}
 
 let npCart = [];
+let npSaleId = null;
 function openNovoPedidoModal(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
   npCart = [];
+  npSaleId = saleId;
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const requesterOptions = member
     ? `<option value="">— Selecione —</option><option value="holder:${member.id}" ${memberBlockedByDebt(member)?'disabled':''}>Titular — ${h(member.name)}${memberBlockedByDebt(member)?' (bloqueado — deve '+fmt(member.debt)+')':''}</option>${(member.dependents||[]).map(d=>`<option value="dependent:${d.id}" ${d.canOrder===false||memberBlockedByDebt(member)?'disabled':''}>Dependente — ${h(d.name)}${d.canOrder===false?' (bloqueado)':memberBlockedByDebt(member)?' (bloqueado — cota com pendência)':''}</option>`).join('')}`
@@ -3776,6 +3778,10 @@ function openNovoPedidoModal(saleId){
         <div class="np-origin-badge" title="Origem deste pedido">${origemLabel(currentUser.origem)||'Caixa'} · ${h(currentUser.name)}</div>
       </div>
     </div>
+    <div class="np-section" id="npHistorySection" style="display:none">
+      <label class="np-label">Já pedidos nesta comanda</label>
+      <div id="npHistoryGrid" class="np-product-grid" style="margin-top:8px"></div>
+    </div>
     <div class="np-section">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><label class="np-label" style="margin:0">Produtos</label><span class="sub" id="npResultCount" style="font-size:11px"></span></div>
       <input id="npProductSearch" placeholder="Buscar produto..." oninput="renderNpProductGrid(this.value)" style="margin-top:8px">
@@ -3794,7 +3800,7 @@ function openNovoPedidoModal(saleId){
   `, true);
   const modal = document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal'); modal.style.width='620px';
   npCategory='';
-  renderNpCatTabs(); renderNpProductGrid(''); renderNpCart();
+  renderNpHistoryGrid(); renderNpCatTabs(); renderNpProductGrid(''); renderNpCart();
   document.getElementById('npRequester').onchange = (e)=>{
     const opt = e.target.selectedOptions[0];
     document.getElementById('npRequesterWarn').style.display = opt&&opt.disabled ? 'block':'none';
@@ -3828,12 +3834,29 @@ function npCartAdd(productId){
   if(existing) existing.qty+=1; else npCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha'});
   renderNpCart();
   renderNpProductGrid(document.getElementById('npProductSearch')?.value||'');
+  renderNpHistoryGrid();
 }
 function npCartChangeQty(idx,delta){
   const it = npCart[idx]; if(!it) return;
   it.qty+=delta; if(it.qty<=0) npCart.splice(idx,1);
   renderNpCart();
   renderNpProductGrid(document.getElementById('npProductSearch')?.value||'');
+  renderNpHistoryGrid();
+}
+function renderNpHistoryGrid(){
+  const el = document.getElementById('npHistoryGrid'), section = document.getElementById('npHistorySection');
+  if(!el||!section) return;
+  const s = state.sales.find(x=>x.id===npSaleId);
+  const history = s ? s.items||[] : [];
+  const seen = new Set(), uniqueIds = [];
+  for(let i=history.length-1;i>=0;i--){ const pid=history[i].productId; if(pid&&!seen.has(pid)){ seen.add(pid); uniqueIds.push(pid); } }
+  const list = uniqueIds.map(pid=>state.products.find(p=>p.id===pid)).filter(p=>p&&p.active!==false);
+  section.style.display = list.length ? '' : 'none';
+  el.innerHTML = list.map(p=>{
+    const av = productAvailable(p); const out = av!==Infinity && av<=0;
+    const inCart = npCart.find(i=>i.productId===p.id);
+    return `<button class="btn np-prod-btn ${inCart?'has-qty':''}" ${out?'disabled':''} onclick="npCartAdd('${p.id}')">${inCart?`<span class="np-qty-badge">${inCart.qty}</span>`:''}<span class="np-prod-name">${h(p.name)}</span><span class="mono np-prod-price">${fmt(p.price)}</span></button>`;
+  }).join('');
 }
 function renderNpCart(){
   const el = document.getElementById('npCartList'); if(!el) return;
