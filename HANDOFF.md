@@ -295,6 +295,16 @@ Pedido do Fabricio: no modal de lançamento da Conta Corrente (Fiado) — `openF
 - Testado só via checagem de sintaxe JS (`node -e` no bloco `<script>` — OK); não testado no app logado (mesma limitação de sempre, sem credenciais reais do Fabricio).
 - Commit `8787c17`, PR #6, merge por fast-forward em `main` (`0c76edb`).
 
+### Botão de Registrar Pagamento no modal de Consumo bloqueado (2026-09-20)
+
+Pedido do Fabricio: quando abre uma comanda/cota vinculada a um sócio com saldo devedor acima do limite de crédito, o modal **"Consumo bloqueado"** (`blockIfMemberInDebt`, `index.html:843-853`) só tinha o botão de cobrança via WhatsApp — pra registrar o pagamento era preciso fechar o modal, ir em Financeiro → Fiado e procurar o cliente de novo.
+
+- Novo botão **"💰 Registrar Pagamento"** ao lado do de WhatsApp: fecha o modal de bloqueio e abre direto o modal de baixa de fiado (`openFiadoEntry('payment')`) já com o sócio certo pré-selecionado.
+- Só aparece pra quem tem a permissão `contas` (`hasPerm('contas')`) — mesma que já protege a tela Financeiro → Fiado; caixa/cozinha não ganham acesso novo a lançamento financeiro por essa via.
+- `blockIfMemberInDebt` é chamada em 2 pontos (abertura normal de comanda em `confirmNewComanda`, e no app do garçom em `gcSelectMember`) — os dois ganham o botão automaticamente por ser a mesma função central.
+- Testado só via checagem de sintaxe JS (`node -e` no bloco `<script>` — OK); não testado no app logado.
+- Commit `bf8ba18`, PR #8, merge por fast-forward em `main` (`2ab5f06`).
+
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
 **Fase 1 — fundação:** concluída (itens 1-3, ver seção própria acima).
