@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-09-20** (trocar cliente / editar cadastro na comanda vinculada, PR #10)
+Última atualização: **2026-09-20** (atalho "Já pedidos nesta comanda" no Novo Pedido, PR #12)
 
 ## O que é o projeto
 
@@ -315,6 +315,17 @@ Pedido do Fabricio: depois que a comanda já está vinculada a um sócio, ele pr
 - Escopo deliberadamente não incluiu: reabrir a comanda automaticamente depois de editar o cadastro (fluxo genérico de `openMemberModal` continua fazendo `closeModal(); renderAll();`), nem filtrar sócios arquivados no dropdown (comportamento pré-existente).
 - Testado só via checagem de sintaxe JS (`node -e` no bloco `<script>` — OK); não testado no app logado.
 - Commit `66a21ec`, PR #10, merge em `main` (`15c1fa5`).
+
+### Atalho "Já pedidos nesta comanda" no Novo Pedido (2026-09-20)
+
+Pedido do Fabricio: poder fazer um novo pedido a partir do próprio histórico da comanda, sem precisar procurar de novo o produto no cardápio inteiro.
+
+- `openNovoPedidoModal` ganhou uma seção **"Já pedidos nesta comanda"** acima da grade de Produtos, com os itens já lançados no histórico daquela comanda (`s.items`), deduplicados por `productId` e ordenados do mais recente pro mais antigo.
+- `renderNpHistoryGrid()` (novo): monta os botões de atalho reaproveitando `npCartAdd` — mesma checagem de estoque de insumos (`productAvailable`) da grade normal. Só entram produtos ainda ativos no catálogo (`p.active!==false`); se o produto foi desativado depois de já ter sido pedido, some do atalho mas continua no histórico da comanda normalmente.
+- Seção fica oculta (`display:none`) quando a comanda ainda não tem nenhum item lançado (comanda nova).
+- `npSaleId` (novo, global) guarda a comanda da modal aberta pra `renderNpHistoryGrid` achar o histórico certo; chamado também dentro de `npCartAdd`/`npCartChangeQty` pra manter o badge de quantidade sincronizado nas duas grades (produtos + histórico).
+- Testado só via checagem de sintaxe JS (`node -e` no bloco `<script>` — OK); não testado no app logado.
+- Commit `e9fdabf`, PR #12, merge em `main` (`5472b88`).
 
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
