@@ -3688,7 +3688,7 @@ function openNewComandaModal(tableNumber){
 }
 function openComanda(id, keepRequester){
   const s = state.sales.find(x=>x.id===id); if(!s) return;
-  currentSaleDraft = { items:JSON.parse(JSON.stringify(s.items)), memberId:s.memberId, customerName:s.customerName, type:'comanda' };
+  currentSaleDraft = { id:s.id, items:JSON.parse(JSON.stringify(s.items)), memberId:s.memberId, customerName:s.customerName, type:'comanda' };
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const person=member&&member.name||s.customerName||'Avulso',who=member?(person+(member.code?' — Cota '+member.code:'')):person;
   const quotaNum = member&&member.code ? h(member.code) : '—';
@@ -4113,8 +4113,59 @@ function renderComandaAuditHistory(){
     <td>${h(item.requesterName||currentSaleDraft.customerName||'Não registrado')}</td>
     <td>${h(item.addedBy||'Registro anterior')}</td>
     <td>${item.sent?'<span class="tag tag-blue">Enviado</span>':'<span class="tag tag-amber">Novo</span>'}</td>
-    <td>${item.sent?`<button class="btn btn-sm" onclick="reprintComandaItem(${idx})">🖶 &nbsp; Reimprimir</button>`:'—'}</td>
+    <td>${item.sent?`<button class="btn btn-sm" onclick="reprintComandaItem(${idx})">🖶 &nbsp; Reimprimir</button> <button class="btn btn-sm" onclick="openReorderComandaItem(${idx})">🔁 &nbsp; Pedir novamente</button>`:'—'}</td>
   </tr>`).join('') : '<tr><td colspan="8" class="empty">Nenhum item lançado nesta comanda.</td></tr>';
+}
+let reorderQty = 1, reorderItemIdx = null;
+function openReorderComandaItem(idx){
+  const item = (currentSaleDraft&&currentSaleDraft.items||[])[idx]; if(!item) return;
+  const product = state.products.find(p=>p.id===item.productId);
+  if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
+  reorderQty = 1; reorderItemIdx = idx;
+  openModal('Pedir novamente', `
+    <p class="sub">${h(product.name)} · <span class="mono">${fmt(product.price)}</span></p>
+    <div class="field" style="text-align:center">
+      <label class="np-label">Quantidade</label>
+      <div class="qty-ctrl" style="justify-content:center;margin-top:6px">
+        <button onclick="reorderQtyChange(-1)">−</button>
+        <span class="mono" id="reorderQtyLabel" style="min-width:28px;display:inline-block;text-align:center">1</span>
+        <button onclick="reorderQtyChange(1)">+</button>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn" onclick="openComanda('${currentSaleDraft.id}',true)">Cancelar</button>
+      <button class="btn btn-primary" id="reorderConfirmBtn">Adicionar e enviar pra cozinha</button>
+    </div>
+  `);
+  document.getElementById('reorderConfirmBtn').onclick = confirmReorderComandaItem;
+}
+function reorderQtyChange(delta){
+  reorderQty = Math.max(1, reorderQty+delta);
+  const el = document.getElementById('reorderQtyLabel'); if(el) el.textContent = reorderQty;
+}
+async function confirmReorderComandaItem(){
+  const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
+  const item = (currentSaleDraft.items||[])[reorderItemIdx]; if(!item) return;
+  const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  const product = state.products.find(p=>p.id===item.productId);
+  if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
+  const who = item.requesterName || s.customerName || 'Cliente';
+  const newItem = {productId:product.id, name:product.name, price:product.price, qty:reorderQty, estacao:product.estacao||'cozinha', sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
+  if(!await sendItemsToKitchen(saleId, [newItem], who, 'comanda', s.local)) return;
+  newItem.sent = true;
+  s.items = [...s.items, newItem];
+  s.total = s.items.reduce((a,i)=>a+i.price*i.qty,0);
+  save('sales');
+  if(saidaTemImpressao(newItem.estacao)){
+    const origem = currentUser.origem||'caixa';
+    const printer = resolvePrinterFor(newItem.estacao, origem);
+    const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
+    printSingleTicket(who, member?member.code:'', s.local||'', newItem.estacao, printer?printer.nome:null, [newItem], s.orderNumber);
+  }
+  logAction('Pedido repetido do histórico: '+product.name+' x'+reorderQty+' para '+who+' — pedido #'+(s.orderNumber||saleId));
+  toast('Adicionado e enviado para a cozinha.');
+  reorderItemIdx = null;
+  closeModal(); openComanda(saleId, true); renderComandas();
 }
 function reprintComandaItem(idx){
   const item = (currentSaleDraft.items||[])[idx]; if(!item) return;
