@@ -3727,6 +3727,11 @@ function openComanda(id, keepRequester){
         </div>
       </aside>
       <main class="cash-order-main">
+        <div class="np-section" style="margin:0 0 12px">
+          <label class="np-label">Adicionar produto direto</label>
+          <input id="comandaQuickSearch" placeholder="Buscar produto para adicionar..." oninput="renderComandaQuickSearch(this.value)" ${locked?'disabled':''}>
+          <div id="comandaQuickSearchResults" class="np-product-grid" style="display:none;margin-top:8px"></div>
+        </div>
         <div class="comanda-history-panel" style="margin:0;border:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="comanda-history-head"><b>Histórico da Comanda</b><span>Produto · valores · solicitante · operador · horário</span></div><div class="finance-grid" style="flex:1;min-height:0"><table><thead><tr><th>Horário</th><th>Produto</th><th>Qtd.</th><th>Valor Unit.</th><th>Solicitante</th><th>Adicionado por</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="comandaAuditRows"></tbody></table></div></div>
         <div id="draftTotalWrap">${renderTotalWithService(0)}</div>
       </main>
@@ -4165,6 +4170,94 @@ async function confirmReorderComandaItem(){
   logAction('Pedido repetido do histórico: '+product.name+' x'+reorderQty+' para '+who+' — pedido #'+(s.orderNumber||saleId));
   toast('Adicionado e enviado para a cozinha.');
   reorderItemIdx = null;
+  closeModal(); openComanda(saleId, true); renderComandas();
+}
+function renderComandaQuickSearch(q){
+  const el = document.getElementById('comandaQuickSearchResults'); if(!el) return;
+  const query = String(q||'').trim().toLowerCase();
+  if(!query){ el.style.display='none'; el.innerHTML=''; return; }
+  const list = state.products.filter(p=>p.active!==false && p.name.toLowerCase().includes(query)).slice(0,24);
+  el.style.display = '';
+  el.innerHTML = list.length ? list.map(p=>{
+    const av = productAvailable(p); const out = av!==Infinity && av<=0;
+    return `<button class="btn np-prod-btn" ${out?'disabled':''} onclick="openComandaQuickAdd('${p.id}')"><span class="np-prod-name">${h(p.name)}</span><span class="mono np-prod-price">${fmt(p.price)}</span></button>`;
+  }).join('') : '<p class="np-empty">Nenhum produto encontrado.</p>';
+}
+let comandaQuickAddQty = 1, comandaQuickAddProductId = null;
+function openComandaQuickAdd(productId){
+  const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
+  const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  if(s.locked){ toast('Este pedido está bloqueado.'); return; }
+  const product = state.products.find(p=>p.id===productId);
+  if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
+  if(productAvailable(product)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
+  comandaQuickAddQty = 1; comandaQuickAddProductId = productId;
+  const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
+  const requesterOptions = member
+    ? `<option value="">— Selecione —</option><option value="holder:${member.id}" ${memberBlockedByDebt(member)?'disabled':''}>Titular — ${h(member.name)}${memberBlockedByDebt(member)?' (bloqueado — deve '+fmt(member.debt)+')':''}</option>${(member.dependents||[]).map(d=>`<option value="dependent:${d.id}" ${d.canOrder===false||memberBlockedByDebt(member)?'disabled':''}>Dependente — ${h(d.name)}${d.canOrder===false?' (bloqueado)':memberBlockedByDebt(member)?' (bloqueado — cota com pendência)':''}</option>`).join('')}`
+    : `<option value="guest">${h(s.customerName||'Cliente avulso')}</option>`;
+  const requesterSection = member ? `
+    <div class="field">
+      <label class="np-label">Quem está pedindo *</label>
+      <select id="comandaQuickAddRequester">${requesterOptions}</select>
+      <p id="comandaQuickAddRequesterWarn" class="sub" style="display:none;color:var(--red);margin:6px 0 0">Esta pessoa está bloqueada para consumir nesta cota.</p>
+    </div>` : `<select id="comandaQuickAddRequester" style="display:none">${requesterOptions}</select>`;
+  openModal('Adicionar Produto', `
+    <p class="sub">${h(product.name)} · <span class="mono">${fmt(product.price)}</span></p>
+    ${requesterSection}
+    <div class="field" style="text-align:center">
+      <label class="np-label">Quantidade</label>
+      <div class="qty-ctrl" style="justify-content:center;margin-top:6px">
+        <button onclick="comandaQuickAddQtyChange(-1)">−</button>
+        <span class="mono" id="comandaQuickAddQtyLabel" style="min-width:28px;display:inline-block;text-align:center">1</span>
+        <button onclick="comandaQuickAddQtyChange(1)">+</button>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn" onclick="openComanda('${saleId}',true)">Cancelar</button>
+      <button class="btn btn-primary" id="comandaQuickAddConfirmBtn">Adicionar e enviar pra cozinha</button>
+    </div>
+  `);
+  const reqEl = document.getElementById('comandaQuickAddRequester');
+  if(member) reqEl.onchange = (e)=>{
+    const opt = e.target.selectedOptions[0];
+    document.getElementById('comandaQuickAddRequesterWarn').style.display = opt&&opt.disabled ? 'block':'none';
+  };
+  document.getElementById('comandaQuickAddConfirmBtn').onclick = confirmComandaQuickAdd;
+}
+function comandaQuickAddQtyChange(delta){
+  comandaQuickAddQty = Math.max(1, comandaQuickAddQty+delta);
+  const el = document.getElementById('comandaQuickAddQtyLabel'); if(el) el.textContent = comandaQuickAddQty;
+}
+async function confirmComandaQuickAdd(){
+  const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
+  const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  const product = state.products.find(p=>p.id===comandaQuickAddProductId);
+  if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
+  const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
+  const reqValue = document.getElementById('comandaQuickAddRequester').value;
+  if(!reqValue){ toast('Selecione quem está pedindo.'); return; }
+  let requester;
+  if(reqValue==='guest') requester={id:null,name:s.customerName||'Cliente avulso',type:'avulso',canOrder:true};
+  else if(reqValue.startsWith('holder:')) requester={id:member.id,name:member.name,type:'titular',canOrder:true};
+  else { const depId=reqValue.split(':')[1], dep=(member.dependents||[]).find(d=>d.id===depId); requester={id:dep&&dep.id,name:dep&&dep.name||'Dependente',type:'dependente',canOrder:!!dep&&dep.canOrder!==false}; }
+  if(!requester.canOrder){ toast('Esta pessoa está bloqueada para consumir nesta cota.'); return; }
+  if(productAvailable(product)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
+  const who = requester.name;
+  const newItem = {productId:product.id, name:product.name, price:product.price, qty:comandaQuickAddQty, estacao:product.estacao||'cozinha', sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, requesterId:requester.id, requesterName:who, requesterType:requester.type};
+  if(!await sendItemsToKitchen(saleId, [newItem], who, 'comanda', s.local)) return;
+  newItem.sent = true;
+  s.items = [...s.items, newItem];
+  s.total = s.items.reduce((a,i)=>a+i.price*i.qty,0);
+  save('sales');
+  if(saidaTemImpressao(newItem.estacao)){
+    const origem = currentUser.origem||'caixa';
+    const printer = resolvePrinterFor(newItem.estacao, origem);
+    printSingleTicket(who, member?member.code:'', s.local||'', newItem.estacao, printer?printer.nome:null, [newItem], s.orderNumber);
+  }
+  logAction('Produto adicionado via busca na comanda: '+product.name+' x'+comandaQuickAddQty+' para '+who+' — pedido #'+(s.orderNumber||saleId));
+  toast('Adicionado e enviado para a cozinha.');
+  comandaQuickAddProductId = null;
   closeModal(); openComanda(saleId, true); renderComandas();
 }
 function reprintComandaItem(idx){
