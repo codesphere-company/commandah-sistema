@@ -28,10 +28,18 @@ jobs:
         # Supabase esta na 17.x - pg_dump recusa dumpar servidor mais novo
         # que ele mesmo. Usa o repositorio oficial da PostgreSQL pra pegar
         # a versao certa.
+        #
+        # A imagem do runner ja vem com um pg_dump 16 em /usr/bin, instalado
+        # fora do mecanismo de alternatives do postgresql-common - por isso
+        # o apt install da 17 NAO troca o que o comando `pg_dump` sem path
+        # resolve (visto em run real: seguia chamando o 16.15 mesmo depois
+        # de instalar a 17). Solucao: colocar /usr/lib/postgresql/17/bin
+        # na FRENTE do PATH via GITHUB_PATH, em vez de confiar em alternatives.
         run: |
           sudo apt-get install -y postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
 
       - name: Dump do schema public
         run: |
