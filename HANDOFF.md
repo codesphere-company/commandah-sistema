@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-09-20** (botão "Pedir novamente" no histórico da comanda, PR #14)
+Última atualização: **2026-09-20** (campo de busca de produto direto na comanda, PR #16)
 
 ## O que é o projeto
 
@@ -338,6 +338,18 @@ Complemento direto do atalho acima: o Fabricio queria repetir um item **sem nem 
 - `currentSaleDraft` ganhou o campo `id` (o `saleId` da comanda aberta) pra esses handlers acharem a venda real sem embutir o saleId em cada `onclick` da linha do histórico.
 - Testado só via checagem de sintaxe JS (`node -e` no bloco `<script>` — OK); não testado no app logado.
 - Commit `8b659e0`, PR #14, merge em `main` (`eae3ed0`).
+
+### Campo de busca de produto direto na comanda (2026-09-20)
+
+Pedido do Fabricio: uma terceira porta de entrada pra adicionar produto, além do "Novo Pedido" e do "Pedir novamente" do histórico — poder procurar e lançar um produto sem sair da tela da comanda nem abrir modal nenhum de cardápio.
+
+- `openComanda`: novo campo **"Adicionar produto direto"** (`comandaQuickSearch`) no topo do `cash-order-main`, acima do painel de Histórico. `renderComandaQuickSearch(q)` filtra produtos ativos por nome (até 24 resultados) e mostra num grid no estilo já usado no "Novo Pedido"/"Pedir novamente" (`np-prod-btn`).
+- Clicar num resultado chama `openComandaQuickAdd(productId)`: se a comanda tem sócio vinculado, pede "Quem está pedindo" (titular/dependente, com o mesmo bloqueio por débito/`canOrder` do "Novo Pedido"); se é cliente avulso, pula direto pro seletor de quantidade.
+- `confirmComandaQuickAdd()` reaproveita `sendItemsToKitchen` (checagem de estoque via `productAvailable`), `memberBlockedByDebt` e o pipeline de impressão por estação (`resolvePrinterFor`/`printSingleTicket`) — mesma base dos outros dois fluxos.
+- Campo de busca desabilitado quando a comanda está bloqueada (`s.locked`); `openComandaQuickAdd` também barra com toast se a comanda foi bloqueada entre a busca e o clique.
+- Não mexe no modal "Novo Pedido" nem no "Pedir novamente" — os três fluxos convivem lado a lado. Notado (mas não tocado, fora de escopo) um resquício de código morto de uma versão antiga da tela de comanda (`selectComandaRequester`, ids `comandaProductSearch`/`comandaRequesterStatus`) sem nenhum chamador no código atual; os ids novos deste recurso (`comandaQuickSearch`/`comandaQuickAddRequester`) foram escolhidos pra não colidir com ele.
+- Testado só via checagem de sintaxe JS (`node -e` no bloco `<script>` — OK); não testado no app logado.
+- Commit `6bd6d21`, PR #16, merge em `main` (`1b564e3`).
 
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
