@@ -234,9 +234,11 @@ tr:hover td{background:#faf7ef;}
 .gc-card.gc-debt{border-color:var(--red);}
 .gc-card button{background:var(--amber);color:#fff;border:none;padding:12px 18px;border-radius:8px;font-weight:700;font-size:14px;white-space:nowrap;}
 .gc-empty{text-align:center;color:var(--muted);font-size:13px;padding:20px;}
-.gc-review-item{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
+.gc-review-item{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
 .gc-review-item .gc-qty{display:flex;align-items:center;gap:8px;}
 .gc-review-item .gc-qty button{width:26px;height:26px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;font-size:15px;}
+.gc-review-item .gc-copos-row{width:100%;justify-content:flex-end;margin-top:8px;}
+.gc-review-item .gc-copos-label{color:var(--muted);font-size:12.5px;margin-right:6px;}
 
 @media(max-width:680px){
   .modal.wide,.record-modal,.cash-order-modal{width:96vw!important;max-width:96vw!important;}
@@ -4579,7 +4581,7 @@ function gcAddToCart(productId){
   const p = state.products.find(x=>x.id===productId); if(!p) return;
   if(productAvailable(p)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
   const existing = gcCart.find(i=>i.productId===productId);
-  if(existing) existing.qty+=1; else gcCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha'});
+  if(existing) existing.qty+=1; else gcCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha', copos:p.estacao==='bar'?0:undefined});
   const searchEl = document.getElementById('gcProdSearch2');
   gcRenderProducts(searchEl?searchEl.value:'');
 }
@@ -4621,13 +4623,19 @@ function gcRenderReviewList(){
   el.innerHTML = gcCart.length ? gcCart.map((i,idx)=>`
     <div class="gc-review-item"><span>${h(i.name)}</span>
     <div class="gc-qty"><button onclick="gcCartQty(${idx},-1)">−</button><span class="mono">${i.qty}</span><button onclick="gcCartQty(${idx},1)">+</button>
-    <span class="mono" style="min-width:60px;text-align:right">${fmt(i.price*i.qty)}</span></div></div>`).join('') : '<p class="gc-empty">Nenhum item.</p>';
+    <span class="mono" style="min-width:60px;text-align:right">${fmt(i.price*i.qty)}</span></div>
+    ${i.estacao==='bar'?`<div class="gc-qty gc-copos-row"><span class="gc-copos-label">Quantidade de copos:</span><button onclick="gcCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="gcCartChangeCopos(${idx},1)">+</button></div>`:''}</div>`).join('') : '<p class="gc-empty">Nenhum item.</p>';
   const totEl = document.getElementById('gcReviewTotal'); if(totEl) totEl.textContent = fmt(gcCart.reduce((a,i)=>a+i.price*i.qty,0));
 }
 function gcCartQty(idx,delta){
   const it = gcCart[idx]; if(!it) return;
   it.qty+=delta; if(it.qty<=0) gcCart.splice(idx,1);
   if(!gcCart.length){ gcRenderProducts(); return; }
+  gcRenderReviewList();
+}
+function gcCartChangeCopos(idx,delta){
+  const it = gcCart[idx]; if(!it) return;
+  it.copos = Math.max(0, (it.copos||0)+delta);
   gcRenderReviewList();
 }
 async function gcConfirmOrder(){
