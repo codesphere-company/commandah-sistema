@@ -361,6 +361,14 @@ Pedido do Fabricio: quando o produto é de bar, poder escolher quantos copos vã
 - Testado só via checagem de sintaxe JS (`node -e` no bloco `<script>` — OK); não testado no app logado.
 - Commit `4158e0b`, PR #18, merge em `main` (`93253ed`).
 
+### Quantidade de copos no app do garçom (2026-09-20)
+
+Pedido do Fabricio: o recurso acima só existia nos 3 fluxos do painel administrativo — o "app do garçom" (`#garcomApp`, usuário `garcom`/`origem:'app'`) é uma implementação de carrinho totalmente separada (`gc*`) e não tinha o campo.
+
+- Mesmo gatilho `product.estacao==='bar'`. `gcAddToCart` agora seta `copos:0` no item novo quando o produto é de bar; `gcRenderReviewList` mostra o stepper (nova linha `.gc-copos-row` abaixo da linha de quantidade/preço) só pra esses itens; nova função `gcCartChangeCopos(idx,delta)` incrementa/decrementa com clamp em 0, espelhando `npCartChangeCopos`.
+- Não mexeu no pipeline de impressão (`gcConfirmOrder`→`sendItemsToKitchen`→`printNovoPedidoTickets`/`buildTicketText`/`printSingleTicket`): já é compartilhado com os fluxos do admin e já lê `item.copos`; `gcConfirmOrder` espalha o item (`{...i}`) ao montar o pedido, então o campo atravessa sem mudança adicional.
+- Testado com checagem de sintaxe JS (OK) e com um harness Node isolado (funções extraídas do arquivo real, rodadas com stubs de `state`/`toast`/`document`/`fmt`/`h`) — 5/5 asserções: item de bar ganha `copos:0`, stepper incrementa/decrementa, clamp em 0, item fora do bar não ganha `copos` nem renderiza a linha. **Não testado logado no app do garçom real** — injeção de JS na página de produção pra testar sem publicar foi bloqueada pela política do ambiente ("Modify Shared Resources"), e o teste via servidor local esbarrou no Supabase Auth/Cloudflare Turnstile (não validam fora do domínio publicado).
+
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
 **Fase 1 — fundação:** concluída (itens 1-3, ver seção própria acima).
