@@ -304,18 +304,6 @@
       "source_location": "L29"
     },
     {
-      "id": "handoff_local_de_entrega_quem_levou_e_cancelamento_de_item_lan\u00e7ado_errado_na_comanda_2026_09_20",
-      "label": "Local de entrega, \"quem levou\" e cancelamento de item lan\u00e7ado errado na comanda (2026-09-20)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "local de entrega, \"quem levou\" e cancelamento de item lancado errado na comanda (2026-09-20)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L385"
-    },
-    {
       "id": "handoff_quantidade_de_copos_no_app_do_gar\u00e7om_2026_09_20",
       "label": "Quantidade de copos no app do gar\u00e7om (2026-09-20)",
       "_origin": "ast",
@@ -493,7 +481,7 @@
       "node_kind": "heading",
       "norm_label": "onde achar mais contexto",
       "source_file": "HANDOFF.md",
-      "source_location": "L429"
+      "source_location": "L417"
     },
     {
       "id": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
@@ -505,7 +493,7 @@
       "node_kind": "heading",
       "norm_label": "pendencias (proximos passos, backlog priorizado pelo scrum-master em 2026-08-31)",
       "source_file": "HANDOFF.md",
-      "source_location": "L397"
+      "source_location": "L385"
     },
     {
       "id": "handoff_prefer\u00eancias_de_trabalho_do_usu\u00e1rio_fabricio",
@@ -517,7 +505,7 @@
       "node_kind": "heading",
       "norm_label": "preferencias de trabalho do usuario (fabricio)",
       "source_file": "HANDOFF.md",
-      "source_location": "L421"
+      "source_location": "L409"
     },
     {
       "id": "supabase_functions_staff_auth_index",
@@ -997,17 +985,6 @@
     },
     {
       "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_local_de_entrega_quem_levou_e_cancelamento_de_item_lan\u00e7ado_errado_na_comanda_2026_09_20",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L385",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
       "target": "handoff_fase_1_s\u00f3cios_em_tabela_relacional_limite_de_cr\u00e9dito_real_2026_08_30_31_conclu\u00edda",
       "relation": "contains",
       "_origin": "ast",
@@ -1091,7 +1068,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L397",
+      "source_location": "L385",
       "weight": 1.0
     },
     {
@@ -1102,7 +1079,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L421",
+      "source_location": "L409",
       "weight": 1.0
     },
     {
@@ -1113,7 +1090,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L429",
+      "source_location": "L417",
       "weight": 1.0
     },
     {
@@ -1206,5 +1183,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "6e6ff1bd475c7a2eedd2568fe57c33b7293dcab7"
+  "built_at_commit": "768c1b66e031f3cfe105740ac55d14a2cd19a723"
 }

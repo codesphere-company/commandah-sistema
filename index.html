@@ -2888,6 +2888,32 @@ async function consumeInsumosForItems(items){
   save('insumos');save('stockMovements');
   return true;
 }
+/* Estorno de estoque pro cancelamento de item já enviado (changeDraftQty barra edição
+   de item enviado; este é o caminho de correção quando o lançamento foi errado). Espelha
+   consumeInsumosForItems, mas soma em vez de descontar — não há checagem de "estoque
+   insuficiente" porque devolver insumo nunca fica negativo. */
+async function restoreInsumosForItems(items){
+  const required = requiredInsumosForItems(items);
+  if(!Object.keys(required).length) return true;
+  if(isCloudMode()){
+    const { data, error } = await supabaseClient.rpc('restore_insumos', { p_consumptions: required });
+    if(error) return false;
+    (data||[]).forEach(m=>{
+      const ins = state.insumos.find(x=>x.id===m.insumoId);
+      if(ins) ins.stock = m.after;
+      state.stockMovements.unshift({id:uid(),insumoId:m.insumoId,name:ins?ins.name:'',unit:ins?ins.unit:'',type:'entrada',operation:'Estorno por cancelamento de item',before:m.before,qty:m.qty,after:m.after,user:currentUser?currentUser.name:'—',at:new Date().toISOString()});
+    });
+    save('stockMovements');
+    return true;
+  }
+  Object.entries(required).forEach(([insumoId,qty])=>{
+    const ins = state.insumos.find(x=>x.id===insumoId);
+    if(ins){const before=Number(ins.stock)||0;ins.stock=before+qty;state.stockMovements.unshift({id:uid(),insumoId:ins.id,name:ins.name,unit:ins.unit,type:'entrada',operation:'Estorno por cancelamento de item',before,qty,after:ins.stock,user:currentUser?currentUser.name:'—',at:new Date().toISOString()});}
+  });
+  save('insumos');save('stockMovements');
+  return true;
+}
+function saleTotal(items){ return (items||[]).filter(i=>!i.canceled).reduce((a,i)=>a+i.price*i.qty,0); }
 function saidaModoEstacao(estacao){
   const e = state.estacoes.find(x=>x.chave===estacao);
   return e ? e.saida : (estacao==='cozinha' ? 'ambos' : 'imprime');
@@ -3154,7 +3180,7 @@ function changeDraftQty(idx, delta){
   }
   renderDraftItems();renderComandaAuditHistory();
 }
-function draftTotal(){ return currentSaleDraft.items.reduce((s,i)=>s+i.price*i.qty,0)+(Number(currentSaleDraft.deliveryFee)||0); }
+function draftTotal(){ return saleTotal(currentSaleDraft.items)+(Number(currentSaleDraft.deliveryFee)||0); }
 function serviceRatePct(){ return Math.max(0,Number(state.settings.serviceRate)||0); }
 function serviceChargeAmount(base){ return base*serviceRatePct()/100; }
 function renderTotalWithService(subtotal){
@@ -3737,7 +3763,7 @@ function openComanda(id, keepRequester){
           <input id="comandaQuickSearch" placeholder="Buscar produto para adicionar..." oninput="renderComandaQuickSearch(this.value)" ${locked?'disabled':''}>
           <div id="comandaQuickSearchResults" class="np-product-grid" style="display:none;margin-top:8px"></div>
         </div>
-        <div class="comanda-history-panel" style="margin:0;border:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="comanda-history-head"><b>Histórico da Comanda</b><span>Produto · valores · solicitante · operador · horário</span></div><div class="finance-grid" style="flex:1;min-height:0"><table><thead><tr><th>Horário</th><th>Produto</th><th>Qtd.</th><th>Valor Unit.</th><th>Solicitante</th><th>Adicionado por</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="comandaAuditRows"></tbody></table></div></div>
+        <div class="comanda-history-panel" style="margin:0;border:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="comanda-history-head"><b>Histórico da Comanda</b><span>Produto · valores · solicitante · operador · local · horário</span></div><div class="finance-grid" style="flex:1;min-height:0"><table><thead><tr><th>Horário</th><th>Produto</th><th>Qtd.</th><th>Valor Unit.</th><th>Solicitante</th><th>Adicionado por</th><th>Local</th><th>Levou</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="comandaAuditRows"></tbody></table></div></div>
         <div id="draftTotalWrap">${renderTotalWithService(0)}</div>
       </main>
     </div>
@@ -3896,11 +3922,11 @@ async function confirmNovoPedidoModal(saleId){
   const local = document.getElementById('npLocal').value;
   const origem = currentUser.origem||'caixa';
   const who = requester.name;
-  const items = npCart.map(i=>({...i, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, requesterId:requester.id, requesterName:who, requesterType:requester.type}));
+  const items = npCart.map(i=>({...i, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:local||s.local||'', requesterId:requester.id, requesterName:who, requesterType:requester.type}));
   if(!await sendItemsToKitchen(saleId, items, who, 'comanda', local)) return;
   items.forEach(i=>i.sent=true);
   s.items = [...s.items, ...items];
-  s.total = s.items.reduce((a,i)=>a+i.price*i.qty,0);
+  s.total = saleTotal(s.items);
   save('sales');
   const groups = {};
   items.forEach(i=>{ const key=i.estacao||'cozinha'; (groups[key]=groups[key]||[]).push(i); });
@@ -4115,9 +4141,11 @@ function selectComandaRequester(saleId,value){const sale=state.sales.find(x=>x.i
 function renderComandaAuditHistory(){
   const body=document.getElementById('comandaAuditRows'); if(!body||!currentSaleDraft) return;
   const items=currentSaleDraft.items||[];
-  body.innerHTML = items.length ? items.map((item,idx)=>`<tr>
+  const sale=currentSaleDraft.id?state.sales.find(x=>x.id===currentSaleDraft.id):null;
+  const locked=!!(sale&&sale.locked);
+  body.innerHTML = items.length ? items.map((item,idx)=>`<tr${item.canceled?' style="opacity:.55"':''}>
     <td>${item.addedAt?reportDateTime(item.addedAt):'—'}</td>
-    <td>${h(item.name)}${item.notes?`<br><small style="color:#687386">${h(item.notes)}</small>`:''}</td>
+    <td>${item.canceled?'<s>'+h(item.name)+'</s>':h(item.name)}${item.notes?`<br><small style="color:#687386">${h(item.notes)}</small>`:''}${item.canceled&&item.canceledReason?`<br><small style="color:#a32626">Motivo: ${h(item.canceledReason)}</small>`:''}</td>
     <td>${item.sent
         ? `<span class="mono">${Number(item.qty)||0}</span>`
         : `<div class="qty-ctrl"><button onclick="changeDraftQty(${idx},-1)">−</button><span class="mono">${Number(item.qty)||0}</span><button onclick="changeDraftQty(${idx},1)">+</button></div>`}
@@ -4125,9 +4153,19 @@ function renderComandaAuditHistory(){
     <td class="mono">${fmt(Number(item.price)||0)}</td>
     <td>${h(item.requesterName||currentSaleDraft.customerName||'Não registrado')}</td>
     <td>${h(item.addedBy||'Registro anterior')}</td>
-    <td>${item.sent?'<span class="tag tag-blue">Enviado</span>':'<span class="tag tag-amber">Novo</span>'}</td>
-    <td>${item.sent?`<button class="btn btn-sm" onclick="reprintComandaItem(${idx})">🖶 &nbsp; Reimprimir</button> <button class="btn btn-sm" onclick="openReorderComandaItem(${idx})">🔁 &nbsp; Pedir novamente</button>`:'—'}</td>
-  </tr>`).join('') : '<tr><td colspan="8" class="empty">Nenhum item lançado nesta comanda.</td></tr>';
+    <td>${h(item.local||'—')}</td>
+    <td><input value="${h(item.deliveredBy||'')}" placeholder="Quem levou..." style="min-width:110px" onchange="setComandaItemDeliveredBy(${idx},this.value)"></td>
+    <td>${item.canceled?'<span class="tag tag-red">Cancelado</span>':item.sent?'<span class="tag tag-blue">Enviado</span>':'<span class="tag tag-amber">Novo</span>'}</td>
+    <td>${item.canceled?'—':item.sent?`<button class="btn btn-sm" onclick="reprintComandaItem(${idx})">🖶 &nbsp; Reimprimir</button> <button class="btn btn-sm" onclick="openReorderComandaItem(${idx})">🔁 &nbsp; Pedir novamente</button> <button class="btn btn-sm" ${locked?'disabled':''} onclick="openCancelComandaItem(${idx})">✕ &nbsp; Cancelar</button>`:'—'}</td>
+  </tr>`).join('') : '<tr><td colspan="10" class="empty">Nenhum item lançado nesta comanda.</td></tr>';
+}
+function setComandaItemDeliveredBy(idx,value){
+  const item=(currentSaleDraft&&currentSaleDraft.items||[])[idx]; if(!item) return;
+  item.deliveredBy=String(value||'').trim();
+  if(currentSaleDraft.type==='comanda' && currentSaleDraft.id){
+    const s=state.sales.find(x=>x.id===currentSaleDraft.id);
+    if(s){ s.items=currentSaleDraft.items; save('sales'); }
+  }
 }
 let reorderQty = 1, reorderItemIdx = null, reorderCopos = 0;
 function openReorderComandaItem(idx){
@@ -4175,11 +4213,11 @@ async function confirmReorderComandaItem(){
   const product = state.products.find(p=>p.id===item.productId);
   if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
   const who = item.requesterName || s.customerName || 'Cliente';
-  const newItem = {productId:product.id, name:product.name, price:product.price, qty:reorderQty, estacao:product.estacao||'cozinha', copos:product.estacao==='bar'?reorderCopos:undefined, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
+  const newItem = {productId:product.id, name:product.name, price:product.price, qty:reorderQty, estacao:product.estacao||'cozinha', copos:product.estacao==='bar'?reorderCopos:undefined, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
   if(!await sendItemsToKitchen(saleId, [newItem], who, 'comanda', s.local)) return;
   newItem.sent = true;
   s.items = [...s.items, newItem];
-  s.total = s.items.reduce((a,i)=>a+i.price*i.qty,0);
+  s.total = saleTotal(s.items);
   save('sales');
   if(saidaTemImpressao(newItem.estacao)){
     const origem = currentUser.origem||'caixa';
@@ -4190,6 +4228,39 @@ async function confirmReorderComandaItem(){
   logAction('Pedido repetido do histórico: '+product.name+' x'+reorderQty+' para '+who+' — pedido #'+(s.orderNumber||saleId));
   toast('Adicionado e enviado para a cozinha.');
   reorderItemIdx = null;
+  closeModal(); openComanda(saleId, true); renderComandas();
+}
+let cancelItemIdx = null;
+function openCancelComandaItem(idx){
+  const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
+  const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  if(s.locked){ toast('Este pedido está bloqueado. Desbloqueie antes de cancelar um item.'); return; }
+  const item = (currentSaleDraft.items||[])[idx]; if(!item || item.canceled) return;
+  cancelItemIdx = idx;
+  openModal('Cancelar item', `
+    <p class="sub">${h(item.name)} · ${item.qty}x ${fmt(item.price)} — lançado por ${h(item.addedBy||'—')} em ${item.addedAt?reportDateTime(item.addedAt):'—'}</p>
+    <p class="sub" style="color:#a32626"><b>Esta ação não pode ser desfeita.</b> O valor sai do total da comanda e o insumo consumido é devolvido ao estoque.</p>
+    <div class="field"><label>Motivo (opcional)</label><input id="cancelItemReason" placeholder="Ex: lançado errado, cliente desistiu..."></div>
+    <div class="row">
+      <button class="btn" onclick="openComanda('${saleId}',true)">Voltar</button>
+      <button class="btn btn-primary" style="background:var(--red)" id="cancelItemConfirmBtn">Confirmar cancelamento</button>
+    </div>
+  `);
+  document.getElementById('cancelItemConfirmBtn').onclick = confirmCancelComandaItem;
+}
+async function confirmCancelComandaItem(){
+  const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
+  const item = (currentSaleDraft.items||[])[cancelItemIdx]; if(!item || item.canceled) return;
+  const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  const reason = (document.getElementById('cancelItemReason').value||'').trim();
+  if(!await restoreInsumosForItems([item])){ toast('Falha ao devolver o estoque. Tente novamente.'); return; }
+  item.canceled = true; item.canceledAt = new Date().toISOString(); item.canceledBy = currentUser.name; item.canceledReason = reason;
+  s.items = currentSaleDraft.items;
+  s.total = saleTotal(s.items);
+  save('sales');
+  logAction('Item cancelado: '+item.name+' x'+item.qty+' — pedido #'+(s.orderNumber||saleId)+(reason?' — motivo: '+reason:''));
+  toast('Item cancelado e estoque devolvido.');
+  cancelItemIdx = null;
   closeModal(); openComanda(saleId, true); renderComandas();
 }
 function renderComandaQuickSearch(q){
@@ -4276,11 +4347,11 @@ async function confirmComandaQuickAdd(){
   if(!requester.canOrder){ toast('Esta pessoa está bloqueada para consumir nesta cota.'); return; }
   if(productAvailable(product)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
   const who = requester.name;
-  const newItem = {productId:product.id, name:product.name, price:product.price, qty:comandaQuickAddQty, estacao:product.estacao||'cozinha', copos:product.estacao==='bar'?comandaQuickAddCopos:undefined, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, requesterId:requester.id, requesterName:who, requesterType:requester.type};
+  const newItem = {productId:product.id, name:product.name, price:product.price, qty:comandaQuickAddQty, estacao:product.estacao||'cozinha', copos:product.estacao==='bar'?comandaQuickAddCopos:undefined, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:requester.id, requesterName:who, requesterType:requester.type};
   if(!await sendItemsToKitchen(saleId, [newItem], who, 'comanda', s.local)) return;
   newItem.sent = true;
   s.items = [...s.items, newItem];
-  s.total = s.items.reduce((a,i)=>a+i.price*i.qty,0);
+  s.total = saleTotal(s.items);
   save('sales');
   if(saidaTemImpressao(newItem.estacao)){
     const origem = currentUser.origem||'caixa';
@@ -4391,9 +4462,9 @@ function openComandaTransferOptions(saleId){
   modal.classList.add('record-modal');
   modal.style.width='380px';
 }
-function viewComandaSummary(saleId){toggleComandaOrderOptions(false);const s=state.sales.find(x=>x.id===saleId);if(!s)return;const member=s.memberId?state.members.find(m=>m.id===s.memberId):null,who=member?member.name:(s.customerName||'Avulso'),items=currentSaleDraft.items||[],total=items.reduce((a,i)=>a+i.price*i.qty,0);openModal('Conta Resumida — '+who,`<div class="finance-grid" style="max-height:320px"><table><thead><tr><th>Produto</th><th>Qtd.</th><th>Valor Unit.</th><th>Total</th></tr></thead><tbody>${items.length?items.map(i=>`<tr><td>${h(i.name)}</td><td>${i.qty}</td><td class="mono">${fmt(i.price)}</td><td class="mono">${fmt(i.price*i.qty)}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Nenhum item lançado.</td></tr>'}</tbody></table></div><div style="display:flex;justify-content:space-between;margin:14px 4px;font-size:18px;font-weight:700"><span>Total</span><span class="mono">${fmt(total)}</span></div><div class="consumer-modal-actions"><button onclick="closeModal();openComanda('${saleId}',true)">〈 Voltar</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button></div>`,true);}
+function viewComandaSummary(saleId){toggleComandaOrderOptions(false);const s=state.sales.find(x=>x.id===saleId);if(!s)return;const member=s.memberId?state.members.find(m=>m.id===s.memberId):null,who=member?member.name:(s.customerName||'Avulso'),items=(currentSaleDraft.items||[]).filter(i=>!i.canceled),total=saleTotal(items);openModal('Conta Resumida — '+who,`<div class="finance-grid" style="max-height:320px"><table><thead><tr><th>Produto</th><th>Qtd.</th><th>Valor Unit.</th><th>Total</th></tr></thead><tbody>${items.length?items.map(i=>`<tr><td>${h(i.name)}</td><td>${i.qty}</td><td class="mono">${fmt(i.price)}</td><td class="mono">${fmt(i.price*i.qty)}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Nenhum item lançado.</td></tr>'}</tbody></table></div><div style="display:flex;justify-content:space-between;margin:14px 4px;font-size:18px;font-weight:700"><span>Total</span><span class="mono">${fmt(total)}</span></div><div class="consumer-modal-actions"><button onclick="closeModal();openComanda('${saleId}',true)">〈 Voltar</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button></div>`,true);}
 function openComandaItemTransfer(saleId){toggleComandaOrderOptions(false);const targets=state.sales.filter(x=>x.status==='open'&&x.id!==saleId);if(!targets.length){toast('Não há outro pedido aberto para transferir ou copiar itens.');return;}const opts=targets.map(t=>{const m=t.memberId?state.members.find(x=>x.id===t.memberId):null,who=m?m.name:(t.customerName||'Avulso');return `<option value="${t.id}">${h(who)}${t.orderNumber?' — Pedido #'+t.orderNumber:''}</option>`;}).join('');openModal('Transferir/Copiar Itens para Outro Pedido',`<p class="sub">Selecione o pedido de destino e o que deseja fazer com os itens ainda não enviados à cozinha.</p><div class="field"><label>Pedido de destino</label><select id="transferTargetSale">${opts}</select></div><div class="field"><label>Ação</label><select id="transferMode"><option value="move">Transferir (remove daqui)</option><option value="copy">Copiar (mantém aqui também)</option></select></div><div class="consumer-modal-actions"><button onclick="closeModal();openComanda('${saleId}',true)">〈 Voltar</button><button class="consumer-save" onclick="confirmComandaItemTransfer('${saleId}')">✓ Confirmar</button></div>`,true);}
-function confirmComandaItemTransfer(saleId){const targetId=document.getElementById('transferTargetSale').value,mode=document.getElementById('transferMode').value,target=state.sales.find(x=>x.id===targetId);if(!target){toast('Selecione um pedido de destino.');return;}const unsent=currentSaleDraft.items.filter(i=>!i.sent);if(!unsent.length){toast('Não há itens novos (ainda não enviados) para transferir ou copiar.');return;}target.items=[...(target.items||[]),...unsent.map(i=>({...i}))];target.total=target.items.reduce((a,i)=>a+i.price*i.qty,0);if(mode==='move'){currentSaleDraft.items=currentSaleDraft.items.filter(i=>i.sent);const s=state.sales.find(x=>x.id===saleId);if(s){s.items=currentSaleDraft.items;s.total=draftTotal();}}save('sales');closeModal();renderAll();toast(mode==='move'?'Itens transferidos.':'Itens copiados.');logAction('Itens '+(mode==='move'?'transferidos':'copiados')+' entre pedidos');if(mode==='move')openComanda(saleId,true);}
+function confirmComandaItemTransfer(saleId){const targetId=document.getElementById('transferTargetSale').value,mode=document.getElementById('transferMode').value,target=state.sales.find(x=>x.id===targetId);if(!target){toast('Selecione um pedido de destino.');return;}const unsent=currentSaleDraft.items.filter(i=>!i.sent);if(!unsent.length){toast('Não há itens novos (ainda não enviados) para transferir ou copiar.');return;}target.items=[...(target.items||[]),...unsent.map(i=>({...i}))];target.total=saleTotal(target.items);if(mode==='move'){currentSaleDraft.items=currentSaleDraft.items.filter(i=>i.sent);const s=state.sales.find(x=>x.id===saleId);if(s){s.items=currentSaleDraft.items;s.total=draftTotal();}}save('sales');closeModal();renderAll();toast(mode==='move'?'Itens transferidos.':'Itens copiados.');logAction('Itens '+(mode==='move'?'transferidos':'copiados')+' entre pedidos');if(mode==='move')openComanda(saleId,true);}
 function printComandaConsumption(saleId){toggleComandaOrderOptions(false);window.print();}
 function recalculateComandaOrder(saleId){toggleComandaOrderOptions(false);renderDraftItems();toast('Pedido recalculado.');}
 function deleteComandaOrder(saleId){toggleComandaOrderOptions(false);const s=state.sales.find(x=>x.id===saleId);if(!s)return;if((s.items||[]).some(i=>i.sent)){toast('Este pedido já tem itens enviados à cozinha e não pode ser excluído. Use o fechamento normal.');return;}if(!confirm('Excluir este pedido? Essa ação não pode ser desfeita.'))return;state.sales=state.sales.filter(x=>x.id!==saleId);save('sales');closeModal();renderAll();toast('Pedido excluído.');logAction('Pedido excluído: '+saleId);}
@@ -4645,11 +4716,11 @@ async function gcConfirmOrder(){
   s.peopleCount = Math.max(1, parseInt(document.getElementById('gcPeople')?.value,10)||1);
   const origem = currentUser.origem||'app';
   const who = gcRequester.name;
-  const items = gcCart.map(i=>({...i, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, requesterId:gcRequester.id, requesterName:who, requesterType:gcRequester.type}));
+  const items = gcCart.map(i=>({...i, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:local||s.local||'', requesterId:gcRequester.id, requesterName:who, requesterType:gcRequester.type}));
   if(!await sendItemsToKitchen(s.id, items, who, 'comanda', local)) return;
   items.forEach(i=>i.sent=true);
   s.items = [...s.items, ...items];
-  s.total = s.items.reduce((a,i)=>a+i.price*i.qty,0);
+  s.total = saleTotal(s.items);
   save('sales');
   const groups = {};
   items.forEach(i=>{ const key=i.estacao||'cozinha'; (groups[key]=groups[key]||[]).push(i); });
