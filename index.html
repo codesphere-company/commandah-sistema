@@ -847,6 +847,7 @@ function blockIfMemberInDebt(member){
     <div class="row" style="margin-top:14px">
       <button class="btn" onclick="closeModal()">Voltar</button>
       <button class="btn btn-primary" onclick="closeModal();openWhatsAppCollection('${member.id}')">📱 &nbsp; Cobrar via WhatsApp</button>
+      ${hasPerm('contas')?`<button class="btn btn-primary" onclick="closeModal();window.selectedFiadoMemberId='${member.id}';openFiadoEntry('payment')">💰 &nbsp; Registrar Pagamento</button>`:''}
     </div>
   `);
   return true;
