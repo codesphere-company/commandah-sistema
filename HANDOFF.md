@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-09-20** (atalho "Já pedidos nesta comanda" no Novo Pedido, PR #12)
+Última atualização: **2026-09-20** (botão "Pedir novamente" no histórico da comanda, PR #14)
 
 ## O que é o projeto
 
@@ -326,6 +326,18 @@ Pedido do Fabricio: poder fazer um novo pedido a partir do próprio histórico d
 - `npSaleId` (novo, global) guarda a comanda da modal aberta pra `renderNpHistoryGrid` achar o histórico certo; chamado também dentro de `npCartAdd`/`npCartChangeQty` pra manter o badge de quantidade sincronizado nas duas grades (produtos + histórico).
 - Testado só via checagem de sintaxe JS (`node -e` no bloco `<script>` — OK); não testado no app logado.
 - Commit `e9fdabf`, PR #12, merge em `main` (`5472b88`).
+
+### Botão "Pedir novamente" no histórico da comanda (2026-09-20)
+
+Complemento direto do atalho acima: o Fabricio queria repetir um item **sem nem abrir a modal de Novo Pedido** — direto na tabela de histórico da comanda.
+
+- Painel "Histórico da Comanda": cada item já enviado (`item.sent`) ganha um segundo botão ao lado de "🖶 Reimprimir": **"🔁 Pedir novamente"**. Abre um seletor de quantidade (+/-, `openReorderComandaItem`/`reorderQtyChange`) e, ao confirmar (`confirmReorderComandaItem`), lança essa quantidade do mesmo produto como novo item e já envia pra cozinha.
+- Usa o mesmo solicitante (`requesterId`/`requesterName`/`requesterType`) do item original — não pede pra selecionar quem está pedindo de novo.
+- Reaproveita `sendItemsToKitchen` (checagem de estoque de insumos) e a mesma lógica de impressão por estação (`saidaTemImpressao`/`resolvePrinterFor`/`printSingleTicket`) do fluxo normal de Novo Pedido.
+- Só permite repetir produto ainda ativo no catálogo (`product.active!==false`).
+- `currentSaleDraft` ganhou o campo `id` (o `saleId` da comanda aberta) pra esses handlers acharem a venda real sem embutir o saleId em cada `onclick` da linha do histórico.
+- Testado só via checagem de sintaxe JS (`node -e` no bloco `<script>` — OK); não testado no app logado.
+- Commit `8b659e0`, PR #14, merge em `main` (`eae3ed0`).
 
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
