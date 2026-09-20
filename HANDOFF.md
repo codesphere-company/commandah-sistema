@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-09-20**
+Última atualização: **2026-09-20** (trocar cliente / editar cadastro na comanda vinculada, PR #10)
 
 ## O que é o projeto
 
@@ -304,6 +304,17 @@ Pedido do Fabricio: quando abre uma comanda/cota vinculada a um sócio com saldo
 - `blockIfMemberInDebt` é chamada em 2 pontos (abertura normal de comanda em `confirmNewComanda`, e no app do garçom em `gcSelectMember`) — os dois ganham o botão automaticamente por ser a mesma função central.
 - Testado só via checagem de sintaxe JS (`node -e` no bloco `<script>` — OK); não testado no app logado.
 - Commit `bf8ba18`, PR #8, merge por fast-forward em `main` (`2ab5f06`).
+
+### Trocar Cliente / Editar Cadastro na comanda já vinculada (2026-09-20)
+
+Pedido do Fabricio: depois que a comanda já está vinculada a um sócio, ele precisava poder trocar pra outro cliente ou corrigir o cadastro sem sair da tela da comanda.
+
+- `openComanda` (side panel `cash-order-links`): botão **"Vincular Cliente"** vira **"Trocar Cliente"** quando já existe `s.memberId`; novo botão **"Editar Cadastro"** ao lado, só quando há membro vinculado, chama `editMember(member.id)` direto.
+- "Editar Cadastro" gated por `hasPerm('associados')` — mesma permissão da tela Clientes; `admin` e `caixa` têm, `cozinha` nem chega nessa modal (não tem `associados` nem `comandas`).
+- `openComandaLinkClient(saleId)` parou de bloquear o relink com toast quando já havia membro vinculado — agora pré-seleciona o cliente atual no `<select>` e troca título/label do modal pra "Trocar Cliente"/"Trocar" nesse caso.
+- Escopo deliberadamente não incluiu: reabrir a comanda automaticamente depois de editar o cadastro (fluxo genérico de `openMemberModal` continua fazendo `closeModal(); renderAll();`), nem filtrar sócios arquivados no dropdown (comportamento pré-existente).
+- Testado só via checagem de sintaxe JS (`node -e` no bloco `<script>` — OK); não testado no app logado.
+- Commit `66a21ec`, PR #10, merge em `main` (`15c1fa5`).
 
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
