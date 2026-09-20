@@ -3148,6 +3148,10 @@ function changeDraftQty(idx, delta){
   }
   it.qty += delta;
   if(it.qty<=0) currentSaleDraft.items.splice(idx,1);
+  if(currentSaleDraft.type==='comanda' && currentSaleDraft.id){
+    const sale = state.sales.find(x=>x.id===currentSaleDraft.id);
+    if(sale){ sale.items = currentSaleDraft.items; sale.total = draftTotal(); save('sales'); }
+  }
   renderDraftItems();renderComandaAuditHistory();
 }
 function draftTotal(){ return currentSaleDraft.items.reduce((s,i)=>s+i.price*i.qty,0)+(Number(currentSaleDraft.deliveryFee)||0); }
@@ -3709,7 +3713,6 @@ function openComanda(id, keepRequester){
           <button onclick="openComandaLinkClient('${s.id}')"><span class="icn">${ICN.user}</span> ${member?'Trocar Cliente':'Vincular Cliente'}</button>
           ${member&&hasPerm('associados')?`<button onclick="editMember('${member.id}')"><span class="icn">${ICN.idcard}</span> Editar Cadastro</button>`:''}
           <button onclick="openNovoPedidoModal('${s.id}')" ${locked?'disabled':''}><span class="icn">${ICN.plus}</span> Novo Pedido</button>
-          <button id="btnSaveComanda"><span class="icn">${ICN.save}</span> Salvar e Continuar</button>
           <div class="pdv-menu-wrap" style="position:relative">
             <button onclick="toggleComandaOrderOptions()"><span class="icn">${ICN.menu}</span> Mais Opções</button>
             <div id="comandaOrderOptions" class="pdv-options-panel" style="left:0;right:auto;bottom:100%;top:auto;margin-bottom:6px;width:290px">
@@ -3745,10 +3748,6 @@ function openComanda(id, keepRequester){
   </div>`, true);
   document.querySelector('#modalRoot .modal').classList.add('record-modal','cash-order-modal');
   renderDraftItems(); renderComandaAuditHistory();
-  document.getElementById('btnSaveComanda').onclick = ()=>{
-    s.items = currentSaleDraft.items; s.total = draftTotal();
-    save('sales'); closeModal(); renderAll(); toast('Comanda salva.');
-  };
   document.getElementById('btnCloseComanda').onclick = async ()=>{
     if(s.locked){ toast('Este pedido está bloqueado. Desbloqueie antes de fechar.'); return; }
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
