@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-09-20** (campo de busca de produto direto na comanda, PR #16)
+Última atualização: **2026-09-20** (quantidade de copos para produtos de bar, PR #18)
 
 ## O que é o projeto
 
@@ -350,6 +350,16 @@ Pedido do Fabricio: uma terceira porta de entrada pra adicionar produto, além d
 - Não mexe no modal "Novo Pedido" nem no "Pedir novamente" — os três fluxos convivem lado a lado. Notado (mas não tocado, fora de escopo) um resquício de código morto de uma versão antiga da tela de comanda (`selectComandaRequester`, ids `comandaProductSearch`/`comandaRequesterStatus`) sem nenhum chamador no código atual; os ids novos deste recurso (`comandaQuickSearch`/`comandaQuickAddRequester`) foram escolhidos pra não colidir com ele.
 - Testado só via checagem de sintaxe JS (`node -e` no bloco `<script>` — OK); não testado no app logado.
 - Commit `6bd6d21`, PR #16, merge em `main` (`1b564e3`).
+
+### Quantidade de copos para produtos de bar (2026-09-20)
+
+Pedido do Fabricio: quando o produto é de bar, poder escolher quantos copos vão junto (0 é valor válido) — pra imprimir na ficha do bar sem mexer em estoque.
+
+- Gatilho é só `product.estacao==='bar'` — reaproveita o campo que já existe no catálogo, sem categoria nova.
+- Aparece nos 3 fluxos de adicionar produto: Novo Pedido (stepper de copos abaixo do de quantidade em cada item do carrinho, `npCartChangeCopos`), Pedir novamente (`reorderCopos`, pré-preenchido com o valor de copos do item original quando existir) e Adicionar produto direto (`comandaQuickAddCopos`).
+- O valor só vai impresso na ficha do produto — `buildTicketText` e o fallback HTML de `printSingleTicket` mostram `Nx Produto — N copo(s)`. Não altera `sendItemsToKitchen` nem baixa de insumo; produtos que não são de bar simplesmente não ganham o campo `copos` no item (fica `undefined`).
+- Testado só via checagem de sintaxe JS (`node -e` no bloco `<script>` — OK); não testado no app logado.
+- Commit `4158e0b`, PR #18, merge em `main` (`93253ed`).
 
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
