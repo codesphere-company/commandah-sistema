@@ -631,6 +631,7 @@ body.tv-mode .tv-exit-btn{display:block;}
     <div class="view" id="view-pagamentos"></div>
     <div class="view" id="view-contascategorias"></div>
     <div class="view" id="view-locais"></div>
+    <div class="view" id="view-quemlevou"></div>
     <div class="view" id="view-impressoras"></div>
     <div class="view" id="view-estacoes"></div>
     <div class="view" id="view-origens"></div>
@@ -678,7 +679,7 @@ const STORE = {
   perguntas:'cantina2:perguntas',
   fornecedores:'cantina2:fornecedores', paymentMethods:'cantina2:paymentMethods', cardBrands:'cantina2:cardBrands', contaCategorias:'cantina2:contaCategorias',
   contas:'cantina2:contas', settings:'cantina2:settings', logs:'cantina2:logs', coupons:'cantina2:coupons', orderCounter:'cantina2:orderCounter',
-  stockMovements:'cantina2:stockMovements', eventQueue:'cantina2:eventQueue', locais:'cantina2:locais', impressoras:'cantina2:impressoras', estacoes:'cantina2:estacoes', origens:'cantina2:origens'
+  stockMovements:'cantina2:stockMovements', eventQueue:'cantina2:eventQueue', locais:'cantina2:locais', quemLevou:'cantina2:quemLevou', impressoras:'cantina2:impressoras', estacoes:'cantina2:estacoes', origens:'cantina2:origens'
 };
 const ICN = {
   lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
@@ -746,7 +747,7 @@ const RIBBON_TABS = [
           {label:'Monitor de Cozinha', icon:ICN.chef, view:'cozinha'}
       ]},
       { label:'Clientes', items:[ {label:'Clientes', icon:ICN.users, view:'associados'} ] },
-      { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Estações', icon:ICN.printer, view:'estacoes'}, {label:'Origens de Pedido', icon:ICN.printer, view:'origens'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },
+      { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Quem Levou', icon:ICN.users, view:'quemlevou'}, {label:'Estações', icon:ICN.printer, view:'estacoes'}, {label:'Origens de Pedido', icon:ICN.printer, view:'origens'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },
       { label:'Atendimento', items:[ {label:'Bot WhatsApp', icon:ICN.chat, perm:'config-sistema', action:'openWhatsAppBotConfig'} ] }
   ]},
   { id:'produtos', label:'Produtos', groups:[
@@ -803,9 +804,9 @@ const SIMPLE_RIBBON_COZINHA = [
    modal só informa que a troca é feita pelo servidor. */
 const ROLE_PERMS = {
   admin: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','produtos','insumos','usuarios','relatorios','cozinha',
-    'categorias','complementos','observacoes','perguntas','fornecedores','pagamentos','contascategorias','contas','locais','impressoras','estacoes','origens',
+    'categorias','complementos','observacoes','perguntas','fornecedores','pagamentos','contascategorias','contas','locais','quemlevou','impressoras','estacoes','origens',
     'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr','senha-propria'],
-  caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','impressoras','estacoes','origens','relatorios','painel-senhas','totem','ajuda','mobile-qr','senha-propria'],
+  caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','quemlevou','impressoras','estacoes','origens','relatorios','painel-senhas','totem','ajuda','mobile-qr','senha-propria'],
   cozinha: ['cozinha','senha-propria']
 };
 function rolePermissions(role){const custom=state&&state.settings&&state.settings.rolePermissions&&state.settings.rolePermissions[role];return Array.isArray(custom)?custom:(ROLE_PERMS[role]||[]);}
@@ -822,7 +823,7 @@ function requirePerm(token){
 const UNIT_OPTIONS = ['g','kg','ml','l','un'];
 
 let state = { users:[], insumos:[], products:[], members:[], sales:[], orders:[], requests:[], scheduled:[], cashSession:null, cashHistory:[], cashMovements:[],
-  categorias:[], complementos:[], observacoes:[], perguntas:[], fornecedores:[], paymentMethods:[], cardBrands:[], contaCategorias:[], contas:[], settings:{}, logs:[], coupons:[], orderCounter:0, stockMovements:[], eventQueue:[], locais:[], impressoras:[], estacoes:[], origens:[] };
+  categorias:[], complementos:[], observacoes:[], perguntas:[], fornecedores:[], paymentMethods:[], cardBrands:[], contaCategorias:[], contas:[], settings:{}, logs:[], coupons:[], orderCounter:0, stockMovements:[], eventQueue:[], locais:[], quemLevou:[], impressoras:[], estacoes:[], origens:[] };
 let currentUser = null;
 let currentSaleDraft = null;
 let cardapioDraft = null;
@@ -1881,6 +1882,7 @@ function renderAll(){
   if(allowed.includes('pagamentos')) renderCrudView('view-pagamentos','paymentMethods');
   if(allowed.includes('contascategorias')) renderCrudView('view-contascategorias','contaCategorias');
   if(allowed.includes('locais')) renderCrudView('view-locais','locais');
+  if(allowed.includes('quemlevou')) renderCrudView('view-quemlevou','quemLevou');
   if(allowed.includes('impressoras')) renderImpressoras();
   if(allowed.includes('estacoes')) renderEstacoes();
   if(allowed.includes('origens')) renderOrigens();
@@ -4154,7 +4156,7 @@ function renderComandaAuditHistory(){
     <td>${h(item.requesterName||currentSaleDraft.customerName||'Não registrado')}</td>
     <td>${h(item.addedBy||'Registro anterior')}</td>
     <td>${h(item.local||'—')}</td>
-    <td><input value="${h(item.deliveredBy||'')}" placeholder="Quem levou..." style="min-width:110px" onchange="setComandaItemDeliveredBy(${idx},this.value)"></td>
+    <td><select style="min-width:130px" onchange="setComandaItemDeliveredBy(${idx},this.value)"><option value="">— Quem levou? —</option>${state.quemLevou.map(p=>`<option value="${h(p.nome)}" ${item.deliveredBy===p.nome?'selected':''}>${h(p.nome)}</option>`).join('')}${item.deliveredBy&&!state.quemLevou.some(p=>p.nome===item.deliveredBy)?`<option value="${h(item.deliveredBy)}" selected>${h(item.deliveredBy)} (não cadastrado)</option>`:''}</select></td>
     <td>${item.canceled?'<span class="tag tag-red">Cancelado</span>':item.sent?'<span class="tag tag-blue">Enviado</span>':'<span class="tag tag-amber">Novo</span>'}</td>
     <td>${item.canceled?'—':item.sent?`<button class="btn btn-sm" onclick="reprintComandaItem(${idx})">🖶 &nbsp; Reimprimir</button> <button class="btn btn-sm" onclick="openReorderComandaItem(${idx})">🔁 &nbsp; Pedir novamente</button> <button class="btn btn-sm" ${locked?'disabled':''} onclick="openCancelComandaItem(${idx})">✕ &nbsp; Cancelar</button>`:'—'}</td>
   </tr>`).join('') : '<tr><td colspan="10" class="empty">Nenhum item lançado nesta comanda.</td></tr>';
@@ -5256,7 +5258,8 @@ const CRUD_CONFIGS = {
   fornecedores: { title:'Fornecedores', sub:'Cadastro de fornecedores de insumos do clube.', fields:[{key:'nome',label:'Nome',type:'text'},{key:'razaoSocial',label:'Razão Social',type:'text'},{key:'telefone',label:'Telefone Principal',type:'text'},{key:'documento',label:'CNPJ ou CPF',type:'text'},{key:'email',label:'E-mail',type:'text'},{key:'contato',label:'Contato',type:'text'}] },
   paymentMethods: { title:'Formas de Pagamento', sub:'Formas aceitas e bandeiras vinculadas.', fields:[{key:'nome',label:'Nome',type:'text'},{key:'tipo',label:'Tipo',type:'text'},{key:'diasReceber',label:'Dias p/ Receber',type:'number'},{key:'taxa',label:'Taxa (%)',type:'number'}] },
   contaCategorias: { title:'Categoria de Contas', sub:'Definir um Grupo DRE na categoria principal atualiza automaticamente as subcategorias.', fields:[{key:'nome',label:'Categoria',type:'text'},{key:'grupoDre',label:'Grupo DRE',type:'text'}] },
-  locais: { title:'Locais e Áreas do Clube', sub:'Cadastre churrasqueiras, mesas e áreas do clube (sinuca, bolão, quadra de tênis etc.) para indicar onde cada pedido deve ser entregue.', fields:[{key:'nome',label:'Nome do local',type:'text'}] }
+  locais: { title:'Locais e Áreas do Clube', sub:'Cadastre churrasqueiras, mesas e áreas do clube (sinuca, bolão, quadra de tênis etc.) para indicar onde cada pedido deve ser entregue.', fields:[{key:'nome',label:'Nome do local',type:'text'}] },
+  quemLevou: { title:'Quem Levou (Entregadores)', sub:'Cadastre as pessoas que costumam levar os pedidos até o cliente. Elas aparecem na lista "Quem levou" da comanda — a escolha continua opcional.', fields:[{key:'nome',label:'Nome',type:'text'}] }
 };
 const crudSelected={};
 const crudOptions={};
