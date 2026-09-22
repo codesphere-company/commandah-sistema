@@ -1,7 +1,7 @@
 # Graph Report - commandah-sistema  (2026-09-21)
 
 ## Corpus Check
-- 12 files · ~68,401 words
+- 12 files · ~68,324 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary

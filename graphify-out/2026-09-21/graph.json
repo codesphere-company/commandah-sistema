@@ -505,7 +505,7 @@
       "node_kind": "heading",
       "norm_label": "onde achar mais contexto",
       "source_file": "HANDOFF.md",
-      "source_location": "L440"
+      "source_location": "L439"
     },
     {
       "id": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
@@ -529,7 +529,7 @@
       "node_kind": "heading",
       "norm_label": "preferencias de trabalho do usuario (fabricio)",
       "source_file": "HANDOFF.md",
-      "source_location": "L432"
+      "source_location": "L431"
     },
     {
       "id": "supabase_functions_staff_auth_index",
@@ -1125,7 +1125,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L432",
+      "source_location": "L431",
       "weight": 1.0
     },
     {
@@ -1136,7 +1136,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L440",
+      "source_location": "L439",
       "weight": 1.0
     },
     {
