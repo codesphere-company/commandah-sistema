@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-09-20** (quantidade de copos para produtos de bar, PR #18)
+Última atualização: **2026-09-21** (troco/crédito na sobra de pagamento de sócio, PR #26 — investigação de bug em andamento, ver seção própria)
 
 ## O que é o projeto
 
@@ -403,6 +403,20 @@ Pedido do usuário: "quem levou o pedido tem que ser um menu dropdown igual dos 
 - Campo "Quem levou" na comanda (`index.html:4159`) deixou de ser `<input>` e virou `<select>` populado por `state.quemLevou`. Continua opcional (opção vazia por padrão). Valor legado em texto livre que não bate com ninguém cadastrado aparece como opção extra "(não cadastrado)" pra não perder dado histórico.
 - **Gap encontrado e ainda não corrigido**: a tela "Matriz de Permissões" (`openPermissionMatrix`, `index.html:2736`), usada pra customizar o que os perfis `caixa`/`cozinha` enxergam, tem uma lista fixa de módulos no grupo "Áreas e dispositivos" que **não inclui `quemlevou`**. Isso não afeta o admin (permissão fixa, sem override), mas se algum dia alguém salvar uma customização de permissões do `caixa` por essa tela, o acesso a "Quem Levou" pode ser removido silenciosamente do `caixa` (a permissão default em `ROLE_PERMS.caixa` já inclui `quemlevou`, mas um `state.settings.rolePermissions.caixa` customizado sobrescreve o default inteiro, não faz merge). Achado ao investigar por que o usuário não achava o botão — nesse caso específico não era esse o motivo (a causa real era só a feature não estar mergeada em `main` ainda). Fica registrado pra corrigir quando mexer de novo na Matriz de Permissões.
 - Fluxo: commit `51cc42a` já existia numa branch separada (`feat/quemlevou-dropdown-cadastro`) havia um dia sem PR aberto — usuário testou em produção, não achou o botão, e o diagnóstico foi justamente constatar que a branch nunca tinha sido mergeada (este repo publica direto de `main` via GitHub Pages, sem staging). PR #23 aberto e mergeado pelo próprio usuário em 2026-09-21 (merge automático do assistente é bloqueado por política — action "Merge Without Review" — então quem mergeia é sempre o usuário).
+
+### Excedente em qualquer forma de pagamento + escolha troco/crédito para sócios (2026-09-21)
+
+Pedido do Fabricio: comanda vinculada a sócio podia gerar excedente só em dinheiro (pra calcular troco); qualquer forma deveria poder gerar excedente, e quando sobra valor e há sócio vinculado, o operador deveria poder escolher entre devolver o troco físico ou guardar a sobra como crédito na conta do sócio — nunca automático.
+
+- Restrição antiga removida (`tempPayments.some(p=>p.method==='dinheiro')`) — excedente liberado em pix/crédito/débito/dinheiro.
+- `openPaymentModal`/`renderPaymentParts` ganharam a escolha explícita **"💰 Devolver Troco"** / **"✓ Deixar como Crédito"** (`payChangeChoice`), só quando `balance<0` e há sócio selecionado. Sem sócio, só existe troco (não mudou).
+- **Crédito reaproveita o ledger de fiado** (`member_debt_entries`) como saldo negativo — `memberAvailableCredit(member)` = `Math.max(0,-member.debt)`. Nenhuma tabela nova; mesmo trigger `recalc_member_debt` da Fase 1 já soma `type='payment'` como redução de dívida, então virou o mecanismo de crédito sem precisar de migration.
+- **Abatimento automático** (não é opcional, roda sempre que o sócio tem crédito): `recomputeTotals()` dentro de `openPaymentModal` desconta `memberAvailableCredit(member)` do total antes de aplicar taxa de serviço, mostra "Crédito do cliente: −R$X" no resumo (`payCreditRow`).
+- `finalizeSale` grava dois lançamentos novos no ledger quando aplicável: `recordDebtEntry(id,'debt',creditApplied,...)` (consumo do crédito existente) e `recordDebtEntry(id,'payment',creditFromChange,...)` (crédito novo vindo do troco não devolvido).
+- Saldo de crédito também passou a aparecer (`memberDebtLabel`/`m.debt<0`) no dropdown de sócio do pagamento, na busca de sócio ao abrir comanda/delivery, na tela Fiado e nas exportações CSV.
+- Testado por sintaxe JS + harness Node isolado com os trechos reais do código (20 asserções: abatimento automático com e sem cap no total, troco vindo de pix/cartão, split de troco entre múltiplas formas, crédito ignorado sem sócio) — tudo passando.
+- Commit `4d6fa28`, PR #26, merge por fast-forward em `main` (`7a9f61f`), mergeado a pedido do Fabricio.
+- **⚠️ Bug relatado em produção, investigação em andamento (não fechar esta entrada até resolver)**: Fabricio testou em produção — pagamento com excedente em dinheiro numa comanda de sócio funcionou (a escolha troco/crédito apareceu), mas ao reabrir a comanda do sócio depois, **o valor excedente não apareceu como crédito**. Ainda não reproduzido nem causa-raiz identificada; segui o `superpowers:systematic-debugging` e confirmei que a lógica isolada (harness Node acima) está correta e que a RLS de `member_debt_entries` permite INSERT de `type='payment'` pro papel caixa/admin/owner (não é bloqueio de permissão) — então a suspeita agora é ou (a) o Fabricio não chegou a clicar em "Deixar como Crédito" (ficou no padrão "Devolver Troco"), ou (b) ele foi conferir o crédito num lugar onde ele não é mostrado hoje (ex. abriu só a comanda, não a tela de pagamento de uma comanda nova). Perguntas de reprodução foram feitas ao Fabricio e a resposta ainda não chegou — **continuar por aqui na próxima sessão antes de qualquer fix**.
 
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
