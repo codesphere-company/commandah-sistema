@@ -842,6 +842,8 @@ let selectedPromotionId = null;
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function fmt(n){ return 'R$ ' + (Number(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function memberBlockedByDebt(member){ return !!member && Number(member.debt) > Number(member.creditLimit||0); }
+function memberAvailableCredit(member){ return member ? Math.max(0, -(Number(member.debt)||0)) : 0; }
+function memberDebtLabel(member){ const d=Number(member.debt)||0; if(d>0.009) return ' (deve '+fmt(d)+')'; if(d<-0.009) return ' (crédito '+fmt(-d)+')'; return ''; }
 function memberLimitSuffix(member){ return Number(member.creditLimit)>0 ? ` (limite de crédito: ${fmt(member.creditLimit)})` : ''; }
 function blockIfMemberInDebt(member){
   if(!memberBlockedByDebt(member)) return false;
@@ -3341,13 +3343,14 @@ function openPaymentModal(mode, comandaId){
   if(!currentSaleDraft.items.length){ toast('Adicione ao menos um item.'); return; }
   const subtotal = draftTotal();
   const applyService = mode==='comanda' && serviceRatePct()>0;
-  const memberOptions = state.members.filter(m=>!m.archived).map(m=>`<option value="${m.id}" ${memberBlockedByDebt(m)?'data-blocked="1"':''}>${h((m.code?m.code+' — ':'')+m.name+(m.debt>0?' (deve '+fmt(m.debt)+')':''))}</option>`).join('');
+  const memberOptions = state.members.filter(m=>!m.archived).map(m=>`<option value="${m.id}" ${memberBlockedByDebt(m)?'data-blocked="1"':''}>${h((m.code?m.code+' — ':'')+m.name+memberDebtLabel(m))}</option>`).join('');
   const preselected = currentSaleDraft.memberId || '';
   const methods = methodConfig();
   openModal('Pagamento', `
     <div class="pay-summary">
       <div><span>Subtotal</span><span class="mono" id="paySubtotalLine">${fmt(subtotal)}</span></div>
       <div id="payDiscountRow" style="display:none"><span>Desconto</span><span class="mono" id="payDiscountLine">− R$ 0,00</span></div>
+      <div id="payCreditRow" style="display:none"><span>Crédito do cliente</span><span class="mono" id="payCreditLine">− R$ 0,00</span></div>
       ${applyService?`<div><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono" id="payServiceLine">R$ 0,00</span></div>`:''}
       <div class="pay-total-row"><span>Total a pagar</span><span class="mono" id="payFinalTotal">${fmt(subtotal)}</span></div>
     </div>
@@ -3378,20 +3381,26 @@ function openPaymentModal(mode, comandaId){
         <div><small class="sub">Total Pago</small><br><b class="mono" id="payReceived">R$ 0,00</b></div>
         <div style="text-align:right"><small class="sub" id="payBalanceLabel">Falta pagar</small><br><b class="mono" id="payBalance">R$ 0,00</b></div>
       </div>
+      <div id="payChangeChoice" style="display:none;gap:8px;margin-top:10px"></div>
     </div>
     <button class="btn btn-primary btn-block" id="confirmPayBtn">Confirmar pagamento</button>`,true);
   const modal=document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal'); modal.style.width='520px';
   const selMember = document.getElementById('paySelMember');
-  let finalTotal = subtotal, discount = 0, selectedMethodKey = 'A';
+  let finalTotal = subtotal, discount = 0, selectedMethodKey = 'A', creditApplied = 0, changeDecision = 'troco';
   tempPayments = [];
   if(preselected) selMember.value = preselected;
   function currentMethod(){ return methods.find(m=>m.key===selectedMethodKey)||methods[0]; }
   function recomputeTotals(){
-    const afterDiscount = Math.max(0, subtotal-discount);
+    const afterCoupon = Math.max(0, subtotal-discount);
+    const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
+    creditApplied = Math.min(memberAvailableCredit(member), afterCoupon);
+    const afterDiscount = Math.max(0, afterCoupon-creditApplied);
     const service = applyService ? serviceChargeAmount(afterDiscount) : 0;
     finalTotal = afterDiscount+service;
     document.getElementById('payDiscountRow').style.display = discount>0 ? 'flex':'none';
     if(discount>0) document.getElementById('payDiscountLine').textContent = '− '+fmt(discount);
+    document.getElementById('payCreditRow').style.display = creditApplied>0.009 ? 'flex':'none';
+    if(creditApplied>0.009) document.getElementById('payCreditLine').textContent = '− '+fmt(creditApplied);
     if(applyService) document.getElementById('payServiceLine').textContent = fmt(service);
     document.getElementById('payFinalTotal').textContent = fmt(finalTotal);
     updateSplitInfo(); renderPaymentParts();
@@ -3419,7 +3428,7 @@ function openPaymentModal(mode, comandaId){
     const blocked = opt && opt.dataset.blocked==='1';
     document.getElementById('fiadoWarning').style.display = (currentMethod().method==='fiado' && blocked) ? 'block':'none';
   }
-  selMember.onchange = checkFiado;
+  selMember.onchange = ()=>{ checkFiado(); changeDecision='troco'; tempPayments=[]; recomputeTotals(); };
   function renderPaymentParts(){
     const received = tempPayments.reduce((a,p)=>a+p.amount,0);
     const balance = finalTotal-received;
@@ -3435,8 +3444,19 @@ function openPaymentModal(mode, comandaId){
     document.getElementById('payProgressFill').style.background = balance>0.009 ? 'var(--amber)':'var(--green)';
     if(!splitActive()) document.getElementById('payPartAmount').value = Math.max(0,balance).toFixed(2);
     else updateSplitInfo();
+    const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
+    const choiceBox = document.getElementById('payChangeChoice');
+    if(balance<-0.009 && member){
+      choiceBox.style.display = 'flex';
+      choiceBox.innerHTML = `
+        <button type="button" class="btn btn-sm ${changeDecision==='troco'?'btn-primary':''}" onclick="setPayChangeDecision('troco')">💰 &nbsp; Devolver Troco</button>
+        <button type="button" class="btn btn-sm ${changeDecision==='credito'?'btn-primary':''}" onclick="setPayChangeDecision('credito')">✓ &nbsp; Deixar como Crédito</button>`;
+    } else {
+      choiceBox.style.display = 'none'; choiceBox.innerHTML = '';
+    }
   }
   window.renderPaymentPartsGlobal = renderPaymentParts;
+  window.setPayChangeDecision = function(v){ changeDecision=v; renderPaymentParts(); };
   document.getElementById('addPaymentBtn').onclick = ()=>{
     const method = currentMethod().method; const amount = parseFloat(document.getElementById('payPartAmount').value);
     const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
@@ -3474,18 +3494,29 @@ function openPaymentModal(mode, comandaId){
     }
     const received = tempPayments.reduce((a,p)=>a+p.amount,0);
     if(received+0.009<finalTotal){ toast('Ainda falta '+fmt(finalTotal-received)+'.'); return; }
-    if(received>finalTotal+0.009 && !tempPayments.some(p=>p.method==='dinheiro')){ toast('Valor excedente só é permitido em dinheiro para cálculo de troco.'); return; }
     const payments = tempPayments.map(p=>({...p}));
     const change = Math.max(0,received-finalTotal);
-    if(change){ const cash = payments.find(p=>p.method==='dinheiro'); cash.received=cash.amount; cash.change=change; cash.amount-=change; }
+    let creditFromChange = 0;
+    if(change>0.009){
+      if(member && changeDecision==='credito'){
+        creditFromChange = change; // dinheiro fica todo registrado; excedente vira crédito do sócio
+      } else {
+        let remaining = change;
+        for(let i=payments.length-1; i>=0 && remaining>0.009; i--){
+          const p = payments[i];
+          const take = Math.min(p.amount, remaining);
+          p.received = p.amount; p.change = (p.change||0)+take; p.amount -= take; remaining -= take;
+        }
+      }
+    }
     document.removeEventListener('keydown', payKeyHandler);
-    if(await finalizeSale(mode, comandaId, memberId, payments, finalTotal)){
+    if(await finalizeSale(mode, comandaId, memberId, payments, finalTotal, creditApplied, creditFromChange)){
       if(mode==='balcao') document.getElementById('modalRoot').dataset.confirmPdv='false';
       closeModal();
     }
   };
 }
-async function finalizeSale(mode, comandaId, memberId, payments, total){
+async function finalizeSale(mode, comandaId, memberId, payments, total, creditApplied, creditFromChange){
   const saleMember = memberId ? state.members.find(m=>m.id===memberId) : null;
   const who = memberId ? (saleMember||{}).name : (currentSaleDraft.customerName||'Cliente avulso');
   const cota = saleMember ? saleMember.code : '';
@@ -3562,6 +3593,14 @@ async function finalizeSale(mode, comandaId, memberId, payments, total){
     const m = state.members.find(x=>x.id===memberId);
     if(m){ await MembersStore.recordDebtEntry(m.id, 'debt', fiadoTotal, { reason:'Venda #'+sale.id, saleId: sale.id }); fiadoMemberForPrompt = m; }
   }
+  if(Number(creditApplied)>0.009 && memberId){
+    const m = state.members.find(x=>x.id===memberId);
+    if(m) await MembersStore.recordDebtEntry(m.id, 'debt', creditApplied, { reason:'Uso de crédito na venda #'+sale.id, saleId: sale.id });
+  }
+  if(Number(creditFromChange)>0.009 && memberId){
+    const m = state.members.find(x=>x.id===memberId);
+    if(m) await MembersStore.recordDebtEntry(m.id, 'payment', creditFromChange, { reason:'Crédito de troco — Venda #'+sale.id, saleId: sale.id });
+  }
   await applyAutomaticLoyalty(memberId,total,sale.id);
   newDraft(mode); toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
   if(fiadoMemberForPrompt) promptWhatsAppCollection(fiadoMemberForPrompt);
@@ -3608,7 +3647,7 @@ function filterDeliveryMemberSearch(q){
   if(!query){ el.style.display='none'; el.innerHTML=''; window.selectedDeliveryMemberId=null; currentSaleDraft.memberId=null; return; }
   const matches=state.members.filter(m=>!m.archived && (((m.name||'').toLowerCase().includes(query))||((m.code||'').toLowerCase().includes(query)))).slice(0,8);
   el.style.display='block';
-  el.innerHTML = matches.length ? matches.map(m=>`<button class="comanda-account-choice" onclick="selectDeliveryMember('${m.id}')"><span>${m.debt>0?'Deve '+fmt(m.debt):'Em dia'}</span>${m.code?h(m.code)+' — ':''}${h(m.name)}</button>`).join('')
+  el.innerHTML = matches.length ? matches.map(m=>`<button class="comanda-account-choice" onclick="selectDeliveryMember('${m.id}')"><span>${m.debt>0?'Deve '+fmt(m.debt):m.debt<0?'Crédito '+fmt(-m.debt):'Em dia'}</span>${m.code?h(m.code)+' — ':''}${h(m.name)}</button>`).join('')
     : `<button class="comanda-account-choice" onclick="clearDeliveryMemberSelection()"><span>Avulso</span>Nenhum associado encontrado — continuar sem vincular</button>`;
 }
 function selectDeliveryMember(memberId){
@@ -4556,7 +4595,7 @@ function gcRenderHomeSearch(q){
   const matches = state.members.filter(m=>!m.archived && m.active!==false && (((m.name||'').toLowerCase().includes(query))||((m.code||'').toLowerCase().includes(query)))).slice(0,8);
   el.innerHTML = matches.length ? matches.map(m=>{
     const existing = state.sales.find(s=>s.status==='open'&&s.memberId===m.id);
-    return `<div class="gc-card ${m.debt>0?'gc-debt':''}"><div><div class="gc-name">${h(m.name)}</div><div class="gc-sub">${m.code?'Cota '+h(m.code):''}${m.debt>0?' · Deve '+fmt(m.debt):''}</div></div><button onclick="gcSelectMember('${m.id}')">${existing?'Abrir':'+ Comanda'}</button></div>`;
+    return `<div class="gc-card ${m.debt>0?'gc-debt':''}"><div><div class="gc-name">${h(m.name)}</div><div class="gc-sub">${m.code?'Cota '+h(m.code):''}${m.debt>0?' · Deve '+fmt(m.debt):m.debt<0?' · Crédito '+fmt(-m.debt):''}</div></div><button onclick="gcSelectMember('${m.id}')">${existing?'Abrir':'+ Comanda'}</button></div>`;
   }).join('') : '<p class="gc-empty">Nenhum associado encontrado.</p>';
 }
 function gcToggleMenu(){ const p=document.getElementById('gcMenuPanel'); if(p) p.classList.toggle('open'); }
@@ -5699,7 +5738,7 @@ function renderAccountsReceivable(el){
 }
 function showReceivablePaymentMethods(el,paymentRows){const map={};paymentRows.forEach(r=>{const x=map[r.method]||(map[r.method]={count:0,gross:0,net:0});x.count++;x.gross+=Number(r.expected)||0;x.net+=Number(r.net)||0;});const grid=el.querySelector('main .finance-grid');grid.innerHTML=`<table><thead><tr><th>Forma de Pagamento</th><th>Recebimentos</th><th>Valor Bruto</th><th>Valor Líquido</th><th>Taxas</th></tr></thead><tbody>${Object.entries(map).map(([method,x])=>`<tr><td>${h(method)}</td><td>${x.count}</td><td>${fmt(x.gross)}</td><td>${fmt(x.net)}</td><td>${fmt(x.gross-x.net)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Não há recebimentos.</td></tr>'}</tbody></table>`;el.querySelectorAll('.finance-tabs button').forEach((b,i)=>b.classList.toggle('active',i===1));el.querySelectorAll('.finance-tabs button')[0].onclick=()=>renderAccountsReceivable(el);}
 function toggleFinanceOptions(button){let menu=button.parentElement.querySelector('.finance-options-menu');if(menu){menu.remove();return;}menu=document.createElement('div');menu.className='finance-options-menu';menu.innerHTML='<button onclick="window.print()">▣ &nbsp; Imprimir</button><button onclick="renderAll()">↻ &nbsp; Atualizar</button><button onclick="exportCurrentFinanceCsv()">▧ &nbsp; Exportar CSV</button>';button.parentElement.appendChild(menu);}
-function exportCurrentFinanceCsv(){const active=activeView==='fornecedores'?'fornecedores':activeView==='contascategorias'?'categorias':contasTab==='receber'?'contas-receber':contasTab==='fiado'?'fiado':'contas-pagar';let rows,name;if(active==='fornecedores'){name='fornecedores.csv';rows=[['Nome Fantasia','Razão Social','Documento','Telefone','E-mail'],...state.fornecedores.map(f=>[f.nome,f.razaoSocial||'',f.documento||'',f.telefone||'',f.email||''])];}else if(active==='categorias'){name='categorias-contas.csv';rows=[['Categoria','Categoria Principal','Grupo DRE'],...state.contaCategorias.map(c=>[c.nome,state.contaCategorias.find(p=>p.id===c.parentId)?.nome||'',c.grupoDre||''])];}else if(active==='fiado'){name='conta-corrente-clientes.csv';rows=[['Cliente','Cota','Saldo','Limite','Situação'],...state.members.map(m=>[m.name,m.code||'',Number(m.debt)||0,Number(m.creditLimit)||0,Number(m.debt)>0?'Devedor':'Regular'])];}else{const tipo=active==='contas-receber'?'receber':'pagar',list=state.contas.filter(c=>c.tipo===tipo);name=tipo==='receber'?'contas-receber.csv':'contas-pagar.csv';rows=[['Lançamento','Vencimento','Descrição','Valor','Valor Pago','Pagamento','Status'],...list.map(c=>[c.lancamento||'',c.vencimento||'',c.descricao||'',Number(c.valor)||0,Number(c.valorPago)||0,c.dataPagamento||'',c.pago?'Pago':'Pendente'])];}downloadCsvFile(name,rows);logAction('Exportação financeira: '+name);document.querySelectorAll('.finance-options-menu').forEach(x=>x.remove());}
+function exportCurrentFinanceCsv(){const active=activeView==='fornecedores'?'fornecedores':activeView==='contascategorias'?'categorias':contasTab==='receber'?'contas-receber':contasTab==='fiado'?'fiado':'contas-pagar';let rows,name;if(active==='fornecedores'){name='fornecedores.csv';rows=[['Nome Fantasia','Razão Social','Documento','Telefone','E-mail'],...state.fornecedores.map(f=>[f.nome,f.razaoSocial||'',f.documento||'',f.telefone||'',f.email||''])];}else if(active==='categorias'){name='categorias-contas.csv';rows=[['Categoria','Categoria Principal','Grupo DRE'],...state.contaCategorias.map(c=>[c.nome,state.contaCategorias.find(p=>p.id===c.parentId)?.nome||'',c.grupoDre||''])];}else if(active==='fiado'){name='conta-corrente-clientes.csv';rows=[['Cliente','Cota','Saldo','Limite','Situação'],...state.members.map(m=>[m.name,m.code||'',Number(m.debt)||0,Number(m.creditLimit)||0,Number(m.debt)>0?'Devedor':Number(m.debt)<0?'Crédito':'Regular'])];}else{const tipo=active==='contas-receber'?'receber':'pagar',list=state.contas.filter(c=>c.tipo===tipo);name=tipo==='receber'?'contas-receber.csv':'contas-pagar.csv';rows=[['Lançamento','Vencimento','Descrição','Valor','Valor Pago','Pagamento','Status'],...list.map(c=>[c.lancamento||'',c.vencimento||'',c.descricao||'',Number(c.valor)||0,Number(c.valorPago)||0,c.dataPagamento||'',c.pago?'Pago':'Pendente'])];}downloadCsvFile(name,rows);logAction('Exportação financeira: '+name);document.querySelectorAll('.finance-options-menu').forEach(x=>x.remove());}
 function filterAccountRows(){const from=document.getElementById('accountFrom').value,to=document.getElementById('accountTo').value;document.querySelectorAll('#accountRows tr').forEach(r=>{const date=r.cells&&r.cells[2]?r.cells[2].textContent:'';r.style.display=(!from||date>=from)&&(!to||date<=to)?'':'none';});}
 function setContasTab(t){ contasTab=t; renderContas(); }
 function openContaModal(id){
@@ -6120,17 +6159,17 @@ function editSelectedCardBrand(){const item=state.cardBrands.find(x=>x.id===sele
 function updatePaymentBrandLink(brandId,key,value){state.settings.paymentBrandLinks=state.settings.paymentBrandLinks||{};const links=state.settings.paymentBrandLinks[selectedPaymentMethodId]||(state.settings.paymentBrandLinks[selectedPaymentMethodId]={});const link=links[brandId]||(links[brandId]={});link[key]=key==='enabled'?Boolean(value):Math.max(0,Number(value)||0);save('settings');}
 /* ============ CONTA CORRENTE (FIADO) — FLUXO COMPLETO ============ */
 let fiadoFilters={hideClients:false,showZero:true,showArchived:true};
-function renderFiado(el){const all=state.members||[],customers=all.filter(m=>(fiadoFilters.showZero||Number(m.debt||0)!==0)&&(fiadoFilters.showArchived||!m.archived)),selected=customers.find(m=>m.id===window.selectedFiadoMemberId)||customers[0];if(selected)window.selectedFiadoMemberId=selected.id;const customerRows=customers.length&&!fiadoFilters.hideClients?customers.map(m=>`<tr class="${selected&&selected.id===m.id?'selected':''}" onclick="window.selectedFiadoMemberId='${m.id}';renderContas()"><td>${h(m.name)}</td><td>${fmt(m.debt)}</td><td>${m.archived?'Arquivado':Number(m.debt)>0?'Devedor':'Regular'}</td><td>${fmt(m.creditLimit||0)}</td><td>${Number(m.creditLimit)?Math.min(100,Number(m.debt||0)/Number(m.creditLimit)*100).toFixed(0)+'%':'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="empty" style="height:380px">Nenhum cliente para mostrar.</td></tr>',history=selected&&Array.isArray(selected.debtHistory)?selected.debtHistory:[],historyRows=history.length?history.map(x=>`<tr class="${x.reversed?'reversed':''}"><td>${h(x.at?new Date(x.at).toLocaleString('pt-BR'):'—')}</td><td>${h(x.reason||'Lançamento')}${x.reversed?' (Estornado)':''}</td><td>${x.type==='debt'?fmt(x.value):''}</td><td>${x.type==='payment'?fmt(x.value):''}</td><td title="${h(x.info||x.user||'')}">ⓘ</td><td>${x.reversed?'':`<button class="op-mini" onclick="reverseFiadoEntry('${selected.id}','${x.id}')">↩</button>`}</td></tr>`).join(''):'<tr><td colspan="6" class="empty" style="height:340px">Nenhum lançamento para este cliente.</td></tr>';el.innerHTML=`<section class="finance-page"><div class="finance-top fiado-top"><div class="op-search"><input id="fiadoSearch" placeholder="Pesquisar cliente..."></div><label><input type="checkbox" ${fiadoFilters.hideClients?'checked':''} onchange="fiadoFilters.hideClients=this.checked;renderContas()"> Ocultar clientes</label><label><input type="checkbox" ${fiadoFilters.showZero?'checked':''} onchange="fiadoFilters.showZero=this.checked;renderContas()"> Saldo Zerado</label><label><input type="checkbox" ${fiadoFilters.showArchived?'checked':''} onchange="fiadoFilters.showArchived=this.checked;renderContas()"> Arquivados</label><div class="finance-actions"><button class="op-btn" onclick="toggleFiadoOptions(this)">••• &nbsp; Opções &nbsp; ▾</button><button class="op-btn" onclick="openFiadoEntry('debt')" ${selected?'':'disabled'}>⊖ &nbsp; Registrar Dívida</button><button class="op-btn" onclick="openFiadoEntry('payment')" ${selected&&Number(selected.debt)>0?'':'disabled'}>⊕ &nbsp; Registrar Pagamento</button><button class="op-btn" onclick="${selected?`openWhatsAppCollection('${selected.id}')`:''}" ${selected&&Number(selected.debt)>0?'':'disabled'}>📱 &nbsp; Cobrar via WhatsApp</button></div></div><div class="fiado-grids"><div class="finance-grid"><table><thead><tr><th>Cliente</th><th>Saldo Atual</th><th>Situação</th><th>Limite</th><th>% Atingido</th></tr></thead><tbody id="fiadoCustomers">${customerRows}</tbody></table></div><div class="finance-grid fiado-history"><table><thead><tr><th>Data</th><th>Histórico</th><th>Fiado</th><th>Pago</th><th>Info</th><th>Estornar</th></tr></thead><tbody>${historyRows}</tbody></table></div></div><footer class="op-footer"><span>Clientes=${customers.length}</span><span>Saldo total=${fmt(customers.reduce((s,m)=>s+Number(m.debt||0),0))}</span></footer></section>`;document.getElementById('fiadoSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#fiadoCustomers tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none');};}
+function renderFiado(el){const all=state.members||[],customers=all.filter(m=>(fiadoFilters.showZero||Number(m.debt||0)!==0)&&(fiadoFilters.showArchived||!m.archived)),selected=customers.find(m=>m.id===window.selectedFiadoMemberId)||customers[0];if(selected)window.selectedFiadoMemberId=selected.id;const customerRows=customers.length&&!fiadoFilters.hideClients?customers.map(m=>`<tr class="${selected&&selected.id===m.id?'selected':''}" onclick="window.selectedFiadoMemberId='${m.id}';renderContas()"><td>${h(m.name)}</td><td>${fmt(m.debt)}</td><td>${m.archived?'Arquivado':Number(m.debt)>0?'Devedor':Number(m.debt)<0?'Crédito':'Regular'}</td><td>${fmt(m.creditLimit||0)}</td><td>${Number(m.creditLimit)?Math.min(100,Number(m.debt||0)/Number(m.creditLimit)*100).toFixed(0)+'%':'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="empty" style="height:380px">Nenhum cliente para mostrar.</td></tr>',history=selected&&Array.isArray(selected.debtHistory)?selected.debtHistory:[],historyRows=history.length?history.map(x=>`<tr class="${x.reversed?'reversed':''}"><td>${h(x.at?new Date(x.at).toLocaleString('pt-BR'):'—')}</td><td>${h(x.reason||'Lançamento')}${x.reversed?' (Estornado)':''}</td><td>${x.type==='debt'?fmt(x.value):''}</td><td>${x.type==='payment'?fmt(x.value):''}</td><td title="${h(x.info||x.user||'')}">ⓘ</td><td>${x.reversed?'':`<button class="op-mini" onclick="reverseFiadoEntry('${selected.id}','${x.id}')">↩</button>`}</td></tr>`).join(''):'<tr><td colspan="6" class="empty" style="height:340px">Nenhum lançamento para este cliente.</td></tr>';el.innerHTML=`<section class="finance-page"><div class="finance-top fiado-top"><div class="op-search"><input id="fiadoSearch" placeholder="Pesquisar cliente..."></div><label><input type="checkbox" ${fiadoFilters.hideClients?'checked':''} onchange="fiadoFilters.hideClients=this.checked;renderContas()"> Ocultar clientes</label><label><input type="checkbox" ${fiadoFilters.showZero?'checked':''} onchange="fiadoFilters.showZero=this.checked;renderContas()"> Saldo Zerado</label><label><input type="checkbox" ${fiadoFilters.showArchived?'checked':''} onchange="fiadoFilters.showArchived=this.checked;renderContas()"> Arquivados</label><div class="finance-actions"><button class="op-btn" onclick="toggleFiadoOptions(this)">••• &nbsp; Opções &nbsp; ▾</button><button class="op-btn" onclick="openFiadoEntry('debt')" ${selected?'':'disabled'}>⊖ &nbsp; Registrar Dívida</button><button class="op-btn" onclick="openFiadoEntry('payment')" ${selected&&Number(selected.debt)>0?'':'disabled'}>⊕ &nbsp; Registrar Pagamento</button><button class="op-btn" onclick="${selected?`openWhatsAppCollection('${selected.id}')`:''}" ${selected&&Number(selected.debt)>0?'':'disabled'}>📱 &nbsp; Cobrar via WhatsApp</button></div></div><div class="fiado-grids"><div class="finance-grid"><table><thead><tr><th>Cliente</th><th>Saldo Atual</th><th>Situação</th><th>Limite</th><th>% Atingido</th></tr></thead><tbody id="fiadoCustomers">${customerRows}</tbody></table></div><div class="finance-grid fiado-history"><table><thead><tr><th>Data</th><th>Histórico</th><th>Fiado</th><th>Pago</th><th>Info</th><th>Estornar</th></tr></thead><tbody>${historyRows}</tbody></table></div></div><footer class="op-footer"><span>Clientes=${customers.length}</span><span>Saldo total=${fmt(customers.reduce((s,m)=>s+Number(m.debt||0),0))}</span></footer></section>`;document.getElementById('fiadoSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#fiadoCustomers tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none');};}
 function toggleFiadoOptions(button){let menu=button.parentElement.querySelector('.finance-options-menu');if(menu){menu.remove();return;}menu=document.createElement('div');menu.className='finance-options-menu fiado-options consumer-group-menu';menu.innerHTML=`<b>Lista de Clientes</b><button onclick="renderAll()">↻ &nbsp; Atualizar</button><button onclick="exportFiadoClientListCsv()">▧ &nbsp; Exportar para Excel</button><button onclick="printFiadoSection('clientes')">▣ &nbsp; Imprimir</button><b>Extrato</b><button onclick="renderAll()">↻ &nbsp; Atualizar</button><button onclick="exportFiadoStatementCsv()">▧ &nbsp; Exportar para Excel</button><button onclick="printFiadoSection('extrato')">▣ &nbsp; Imprimir</button><button onclick="openFiadoStatementOptions()">••• &nbsp; Mais Opções...</button>`;button.parentElement.appendChild(menu);}
 function openFiadoStatementOptions(){const settings=state.settings.fiadoStatement||{showUser:false,maxEntries:60};openModal('Opções do Extrato',`<div class="consumer-form-frame fiado-statement-options"><b>Exibir no Extrato</b><label><input id="fiadoShowUser" type="checkbox" ${settings.showUser?'checked':''}> Usuário que fez a movimentação</label><div class="field"><label>Quantidade máxima de lançamentos</label><input id="fiadoMaxEntries" type="number" min="1" max="1000" value="${Number(settings.maxEntries)||60}"></div></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button><button class="consumer-save" id="fiadoOptionsSave">↻ &nbsp; Atualizar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal','fiado-options-modal');document.getElementById('fiadoOptionsSave').onclick=()=>{state.settings.fiadoStatement={showUser:document.getElementById('fiadoShowUser').checked,maxEntries:Math.max(1,parseInt(document.getElementById('fiadoMaxEntries').value,10)||60)};save('settings');closeModal();renderAll();toast('Opções do extrato atualizadas.');};}
-function exportFiadoClientListCsv(){const rows=[['Cliente','Saldo Atual','Situação','Limite','% Atingido'],...state.members.map(m=>[m.name,Number(m.debt||0).toFixed(2),m.archived?'Arquivado':Number(m.debt)>0?'Devedor':'Regular',Number(m.creditLimit||0).toFixed(2),Number(m.creditLimit)?(Number(m.debt||0)/Number(m.creditLimit)*100).toFixed(2)+'%':''])];downloadCsv('lista-clientes-fiado.csv',rows);}
+function exportFiadoClientListCsv(){const rows=[['Cliente','Saldo Atual','Situação','Limite','% Atingido'],...state.members.map(m=>[m.name,Number(m.debt||0).toFixed(2),m.archived?'Arquivado':Number(m.debt)>0?'Devedor':Number(m.debt)<0?'Crédito':'Regular',Number(m.creditLimit||0).toFixed(2),Number(m.creditLimit)?(Number(m.debt||0)/Number(m.creditLimit)*100).toFixed(2)+'%':''])];downloadCsv('lista-clientes-fiado.csv',rows);}
 function exportFiadoStatementCsv(){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId);if(!m){toast('Selecione um cliente.');return;}const limit=Number(state.settings.fiadoStatement&&state.settings.fiadoStatement.maxEntries)||60,showUser=!!(state.settings.fiadoStatement&&state.settings.fiadoStatement.showUser),header=['Data','Histórico','Fiado','Pago','Info',...(showUser?['Usuário']:[])],rows=[header,...(m.debtHistory||[]).slice(0,limit).map(x=>[new Date(x.at).toLocaleString('pt-BR'),x.reason||'',x.type==='debt'?Number(x.value).toFixed(2):'',x.type==='payment'?Number(x.value).toFixed(2):'',x.info||'',...(showUser?[x.user||'']:[])])];downloadCsv('extrato-fiado-'+String(m.name).replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'.csv',rows);}
 function printFiadoSection(section){document.body.dataset.printFiado=section;window.print();setTimeout(()=>delete document.body.dataset.printFiado,200);}
 function applyFiadoStatementSettings(){if(contasTab!=='fiado')return;const table=document.querySelector('.fiado-history table');if(!table)return;const settings=state.settings.fiadoStatement||{showUser:false,maxEntries:60},rows=[...table.querySelectorAll('tbody tr')];rows.forEach((row,index)=>{if(index>=Number(settings.maxEntries||60))row.remove();if(settings.showUser&&row.cells.length>=5){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId),entry=m&&m.debtHistory&&m.debtHistory[index];if(entry&&entry.user)row.cells[4].textContent=entry.user;}});}
 function openFiadoEntry(type){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId);if(!m){toast('Selecione um cliente.');return;}const paymentMethods=['Dinheiro','Cartão','Pix',...(state.paymentMethods||[]).map(p=>p.nome)];openModal(type==='debt'?'Registrar Dívida':'Registrar Pagamento',`<div class="fiado-entry"><div class="fiado-client-summary"><b>${h(m.name)}</b><span>Saldo atual: <strong>${fmt(m.debt)}</strong></span><span>Limite: <strong>${fmt(m.creditLimit||0)}</strong></span></div><div class="row"><div class="field"><label>Data / Hora</label><input id="fiadoAt" type="datetime-local" value="${new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)}"></div><div class="field"><label>Valor</label><input id="fiadoValue" type="number" min="0.01" step="0.01"></div></div>${type==='payment'?`<div class="field"><label>Forma de Pagamento</label><select id="fiadoMethod">${paymentMethods.map(x=>`<option>${h(x)}</option>`).join('')}</select></div>`:''}<div class="field"><label>Histórico / Motivo${type==='payment'?' (opcional)':''}</label><input id="fiadoReason" placeholder="${type==='payment'?'Opcional — informe a descrição do pagamento':'Informe a descrição do lançamento'}"></div><div class="field"><label>Observação</label><textarea id="fiadoInfo"></textarea></div></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button><button class="consumer-save" id="fiadoSave">✓ &nbsp; Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal','fiado-entry-modal');document.getElementById('fiadoSave').onclick=async ()=>{const value=parseFloat(document.getElementById('fiadoValue').value),reason=document.getElementById('fiadoReason').value.trim(),at=document.getElementById('fiadoAt').value;if(!Number.isFinite(value)||value<=0||!at||(type==='debt'&&!reason)){toast(type==='debt'?'Informe data, valor e histórico.':'Informe data e valor.');return;}if(type==='payment'&&value>Number(m.debt||0)){toast('O pagamento não pode superar o saldo devedor.');return;}await MembersStore.recordDebtEntry(m.id,type,value,{reason:reason||(type==='payment'?'Pagamento':''),info:document.getElementById('fiadoInfo').value.trim(),method:type==='payment'?document.getElementById('fiadoMethod').value:'',at:new Date(at).toISOString()});logAction(`${type==='debt'?'Dívida':'Pagamento de fiado'}: ${m.name} — ${fmt(value)}`);closeModal();renderAll();toast('Conta corrente atualizada.');};}
 async function reverseFiadoEntry(memberId,entryId){const m=state.members.find(x=>x.id===memberId),entry=m&&Array.isArray(m.debtHistory)?m.debtHistory.find(x=>x.id===entryId):null;if(!entry||entry.reversed)return;if(!confirm('Estornar este lançamento?'))return;await MembersStore.reverseDebtEntry(memberId,entryId,currentUser.name);logAction('Estorno de fiado: '+m.name+' — '+fmt(entry.value));renderAll();toast('Lançamento estornado.');}
 async function toggleSelectedMemberArchived(){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId);if(!m){toast('Selecione um cliente.');return;}await MembersStore.setArchived(m.id,!m.archived,currentUser.name);renderAll();toast(m.archived?'Cliente arquivado.':'Cliente desarquivado.');}
-function exportFiadoCsv(){const rows=[['Cliente','Saldo Atual','Situação','Limite'],...state.members.map(m=>[m.name,Number(m.debt||0).toFixed(2),Number(m.debt)>0?'Devedor':'Regular',Number(m.creditLimit||0).toFixed(2)])];downloadCsv('conta-corrente-fiado.csv',rows);}
+function exportFiadoCsv(){const rows=[['Cliente','Saldo Atual','Situação','Limite'],...state.members.map(m=>[m.name,Number(m.debt||0).toFixed(2),Number(m.debt)>0?'Devedor':Number(m.debt)<0?'Crédito':'Regular',Number(m.creditLimit||0).toFixed(2)])];downloadCsv('conta-corrente-fiado.csv',rows);}
 function downloadCsv(filename,rows){const csv='\uFEFF'+rows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 
 /* ============ ALTERAR EM LOTE ============ */
