@@ -805,8 +805,8 @@ const SIMPLE_RIBBON_COZINHA = [
 const ROLE_PERMS = {
   admin: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','produtos','insumos','usuarios','relatorios','cozinha',
     'categorias','complementos','observacoes','perguntas','fornecedores','pagamentos','contascategorias','contas','locais','quemlevou','impressoras','estacoes','origens',
-    'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr','senha-propria'],
-  caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','quemlevou','impressoras','estacoes','origens','relatorios','painel-senhas','totem','ajuda','mobile-qr','senha-propria'],
+    'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr','senha-propria','cancelar-comanda'],
+  caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','quemlevou','impressoras','estacoes','origens','relatorios','painel-senhas','totem','ajuda','mobile-qr','senha-propria','cancelar-comanda'],
   cozinha: ['cozinha','senha-propria']
 };
 function rolePermissions(role){const custom=state&&state.settings&&state.settings.rolePermissions&&state.settings.rolePermissions[role];return Array.isArray(custom)?custom:(ROLE_PERMS[role]||[]);}
@@ -2746,7 +2746,7 @@ function renderUsuarios(){
 }
 function toggleUserOptions(){userOptionsOpen=!userOptionsOpen;renderUsuarios();}
 function exportUsersCsv(){userOptionsOpen=false;downloadCsvFile('colaboradores.csv',[['Nome','Usuario','Email','Telefone','Perfil','Situacao'],...state.users.map(u=>[u.name,u.username,u.email||'',u.phone||'',roleLabel(u.role),u.active===false?'Inativo':'Ativo'])]);renderUsuarios();}
-function openPermissionMatrix(){userOptionsOpen=false;const groups=[['Atendimento',[['Caixa e pedidos','caixa'],['Balcão','balcao'],['Mesas e comandas','comandas'],['Delivery','delivery'],['Fila de atendimento','fila-atendimento'],['Agendamentos','agendamentos'],['Cardápio digital','cardapio'],['Totem','totem'],['Cozinha','cozinha']]],['Cadastros',[['Clientes','associados'],['Produtos','produtos'],['Insumos','insumos'],['Categorias','categorias'],['Complementos','complementos'],['Observações','observacoes'],['Perguntas','perguntas'],['Fornecedores','fornecedores']]],['Áreas e dispositivos',[['Locais e áreas','locais'],['Impressoras','impressoras'],['Estações','estacoes'],['Origens de pedido','origens'],['Acesso mobile (garçom)','mobile-qr']]],['Financeiro e gestão',[['Formas de pagamento','pagamentos'],['Categorias de contas','contascategorias'],['Contas e fiado','contas'],['Relatórios','relatorios'],['Marketing (cupons, fidelidade, SMS)','cupons']]],['Administração',[['Colaboradores','usuarios'],['Configurações','config-sistema'],['Backup','backup'],['Logs e eventos','logs'],['Painel de senhas','painel-senhas'],['Diagnóstico','diagnostico'],['Ajuda','ajuda'],['Módulos e aplicativos','modulos'],['Trocar a própria senha','senha-propria']]]],modules=groups.flatMap(g=>g[1]);openModal('Perfis e Permissões',`<div class="op-toolbar"><span class="op-toolbar-spacer"></span><button class="op-btn" onclick="setPermissionPreset('caixa')">Padrão Caixa</button><button class="op-btn" onclick="setPermissionPreset('cozinha')">Padrão Cozinha</button></div><div class="finance-grid" style="height:440px"><table><thead><tr><th>Grupo / Módulo</th><th>Administrador</th><th>Operador de caixa</th><th>Cozinha</th></tr></thead><tbody>${groups.map(([group,items])=>`<tr><td colspan="4"><b>${h(group)}</b></td></tr>${items.map(([name,key])=>`<tr><td style="padding-left:28px">${name}</td><td style="text-align:center"><input type="checkbox" checked disabled></td>${['caixa','cozinha'].map(role=>`<td style="text-align:center"><input class="permission-choice" type="checkbox" data-role="${role}" value="${key}" ${rolePermissions(role).includes(key)?'checked':''}></td>`).join('')}</tr>`).join('')}`).join('')}</tbody></table></div><p class="sub">As permissões são aplicadas imediatamente à navegação do perfil. O Administrador permanece completo por segurança.</p><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="savePermissionMatrix()">✓ Salvar</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');window.permissionMatrixModules=modules;}
+function openPermissionMatrix(){userOptionsOpen=false;const groups=[['Atendimento',[['Caixa e pedidos','caixa'],['Balcão','balcao'],['Mesas e comandas','comandas'],['Cancelar item/comanda','cancelar-comanda'],['Delivery','delivery'],['Fila de atendimento','fila-atendimento'],['Agendamentos','agendamentos'],['Cardápio digital','cardapio'],['Totem','totem'],['Cozinha','cozinha']]],['Cadastros',[['Clientes','associados'],['Produtos','produtos'],['Insumos','insumos'],['Categorias','categorias'],['Complementos','complementos'],['Observações','observacoes'],['Perguntas','perguntas'],['Fornecedores','fornecedores']]],['Áreas e dispositivos',[['Locais e áreas','locais'],['Impressoras','impressoras'],['Estações','estacoes'],['Origens de pedido','origens'],['Acesso mobile (garçom)','mobile-qr']]],['Financeiro e gestão',[['Formas de pagamento','pagamentos'],['Categorias de contas','contascategorias'],['Contas e fiado','contas'],['Relatórios','relatorios'],['Marketing (cupons, fidelidade, SMS)','cupons']]],['Administração',[['Colaboradores','usuarios'],['Configurações','config-sistema'],['Backup','backup'],['Logs e eventos','logs'],['Painel de senhas','painel-senhas'],['Diagnóstico','diagnostico'],['Ajuda','ajuda'],['Módulos e aplicativos','modulos'],['Trocar a própria senha','senha-propria']]]],modules=groups.flatMap(g=>g[1]);openModal('Perfis e Permissões',`<div class="op-toolbar"><span class="op-toolbar-spacer"></span><button class="op-btn" onclick="setPermissionPreset('caixa')">Padrão Caixa</button><button class="op-btn" onclick="setPermissionPreset('cozinha')">Padrão Cozinha</button></div><div class="finance-grid" style="height:440px"><table><thead><tr><th>Grupo / Módulo</th><th>Administrador</th><th>Operador de caixa</th><th>Cozinha</th></tr></thead><tbody>${groups.map(([group,items])=>`<tr><td colspan="4"><b>${h(group)}</b></td></tr>${items.map(([name,key])=>`<tr><td style="padding-left:28px">${name}</td><td style="text-align:center"><input type="checkbox" checked disabled></td>${['caixa','cozinha'].map(role=>`<td style="text-align:center"><input class="permission-choice" type="checkbox" data-role="${role}" value="${key}" ${rolePermissions(role).includes(key)?'checked':''}></td>`).join('')}</tr>`).join('')}`).join('')}</tbody></table></div><p class="sub">As permissões são aplicadas imediatamente à navegação do perfil. O Administrador permanece completo por segurança.</p><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="savePermissionMatrix()">✓ Salvar</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');window.permissionMatrixModules=modules;}
 function setPermissionPreset(role){document.querySelectorAll(`.permission-choice[data-role="${role}"]`).forEach(input=>input.checked=(ROLE_PERMS[role]||[]).includes(input.value));}
 function savePermissionMatrix(){if(!requirePerm('usuarios'))return;state.settings.rolePermissions=state.settings.rolePermissions||{};['caixa','cozinha'].forEach(role=>{state.settings.rolePermissions[role]=[...document.querySelectorAll(`.permission-choice[data-role="${role}"]:checked`)].map(x=>x.value);});save('settings');closeModal();renderAll();logAction('Matriz de permissões atualizada');toast('Permissões salvas.');}
 function accessLogEntries(){return(state.logs||[]).filter(x=>/login|logout|acesso|usuário|usuario|senha|pin/i.test(String(x.action||x.message||'')));}
@@ -2937,6 +2937,8 @@ function saidaTemTela(estacao){ const m=saidaModoEstacao(estacao); return m==='a
 function saidaTemImpressao(estacao){ const m=saidaModoEstacao(estacao); return m==='ambos'||m==='imprime'; }
 async function sendItemsToKitchen(saleId, items, who, source, local){
   if(!items.length) return false;
+  const batchId = uid();
+  items.forEach(i=>{ if(!i.batchId) i.batchId = batchId; });
   if(!await consumeInsumosForItems(items)){ toast('Estoque insuficiente para enviar todos os itens. Revise as quantidades.'); return false; }
   const monitorItems=items.filter(i=>{const product=state.products.find(p=>p.id===i.productId);const estacao=product&&product.estacao?product.estacao:'cozinha';return saidaTemTela(estacao);});
   if(!monitorItems.length) return true;
@@ -3776,6 +3778,7 @@ function openNewComandaModal(tableNumber){
 function openComanda(id, keepRequester){
   const s = state.sales.find(x=>x.id===id); if(!s) return;
   currentSaleDraft = { id:s.id, items:JSON.parse(JSON.stringify(s.items)), memberId:s.memberId, customerName:s.customerName, type:'comanda' };
+  if(!keepRequester){ comandaQuickCart = []; comandaAuditExpanded = new Set(); }
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const person=member&&member.name||s.customerName||'Avulso',who=member?(person+(member.code?' — Cota '+member.code:'')):person;
   const quotaNum = member&&member.code ? h(member.code) : '—';
@@ -3805,6 +3808,7 @@ function openComanda(id, keepRequester){
                 <button onclick="printComandaConsumption('${s.id}')" ${currentSaleDraft.items.filter(i=>!i.sent).length?'':'disabled'}><span class="icn">${ICN.printer}</span> Imprimir Fichas de Consumação (${currentSaleDraft.items.filter(i=>!i.sent).length} ${currentSaleDraft.items.filter(i=>!i.sent).length===1?'Item novo':'Itens novos'})</button>
                 <button onclick="toast('Envio por WhatsApp requer provedor e credenciais configurados.')"><span class="icn">${ICN.chat}</span> Enviar para WhatsApp</button>
                 <button onclick="recalculateComandaOrder('${s.id}')"><span class="icn">${ICN.gear}</span> Recalcular Pedido</button>
+                ${hasPerm('cancelar-comanda')?`<button class="danger" ${locked?'disabled':''} onclick="openCancelComanda('${s.id}')"><span class="icn">${ICN.trash}</span> Cancelar Comanda</button>`:''}
                 <button class="danger" onclick="deleteComandaOrder('${s.id}')"><span class="icn">${ICN.trash}</span> Excluir Pedido</button>
                 <button class="cancel" onclick="toggleComandaOrderOptions(false)">Cancelar</button>
               </div>
@@ -3818,6 +3822,7 @@ function openComanda(id, keepRequester){
           <label class="np-label">Adicionar produto direto</label>
           <input id="comandaQuickSearch" placeholder="Buscar produto para adicionar..." oninput="renderComandaQuickSearch(this.value)" ${locked?'disabled':''}>
           <div id="comandaQuickSearchResults" class="np-product-grid" style="display:none;margin-top:8px"></div>
+          <div id="comandaQuickCartWrap" style="display:none;margin-top:10px"></div>
         </div>
         <div class="comanda-history-panel" style="margin:0;border:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="comanda-history-head"><b>Histórico da Comanda</b><span>Produto · valores · solicitante · operador · local · horário</span></div><div class="finance-grid" style="flex:1;min-height:0"><table><thead><tr><th>Horário</th><th>Produto</th><th>Qtd.</th><th>Valor Unit.</th><th>Solicitante</th><th>Adicionado por</th><th>Local</th><th>Levou</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="comandaAuditRows"></tbody></table></div></div>
         <div id="draftTotalWrap">${renderTotalWithService(0)}</div>
@@ -3829,7 +3834,7 @@ function openComanda(id, keepRequester){
     </div>
   </div>`, true);
   document.querySelector('#modalRoot .modal').classList.add('record-modal','cash-order-modal');
-  renderDraftItems(); renderComandaAuditHistory();
+  renderDraftItems(); renderComandaAuditHistory(); renderComandaQuickCart();
   document.getElementById('btnCloseComanda').onclick = async ()=>{
     if(s.locked){ toast('Este pedido está bloqueado. Desbloqueie antes de fechar.'); return; }
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
@@ -4194,12 +4199,9 @@ async function printSingleTicket(who, cota, local, estacao, printer, items, orde
 function toggleComandaLock(saleId,locked){const s=state.sales.find(x=>x.id===saleId);if(!s)return;s.locked=locked;save('sales');logAction((locked?'Pedido bloqueado':'Pedido desbloqueado')+': '+saleId);openComanda(saleId,true);}
 function openComandaLinkClient(saleId){const s=state.sales.find(x=>x.id===saleId);if(!s)return;const current=s.memberId?state.members.find(x=>x.id===s.memberId):null;const options=state.members.map(m=>`<option value="${m.id}" ${current&&current.id===m.id?'selected':''}>${m.code?h(m.code)+' — ':''}${h(m.name)}</option>`).join('');openModal(current?'Trocar Cliente':'Vincular Cliente',`<div class="field"><label>Associado</label><select id="linkMemberSelect"><option value="">— Selecione —</option>${options}</select></div><button class="btn btn-primary btn-block" id="linkMemberSaveBtn">${current?'Trocar':'Vincular'}</button>`);document.getElementById('linkMemberSaveBtn').onclick=()=>{const mid=document.getElementById('linkMemberSelect').value;if(!mid){toast('Selecione um associado.');return;}s.memberId=mid;save('sales');closeModal();openComanda(saleId,true);};}
 function selectComandaRequester(saleId,value){const sale=state.sales.find(x=>x.id===saleId),member=sale&&sale.memberId?state.members.find(x=>x.id===sale.memberId):null,status=document.getElementById('comandaRequesterStatus'),setBtns=(ready)=>{const btn=document.getElementById('comandaProdutosBtn'),inp=document.getElementById('comandaProductSearch');if(btn){btn.disabled=!ready||!!(sale&&sale.locked);btn.title=ready?'':'Selecione quem está solicitando antes';}if(inp)inp.disabled=!ready||!!(sale&&sale.locked);};if(!value){window.currentComandaRequester=null;if(status){status.className='requester-status';status.textContent='Selecione a pessoa antes de lançar produtos.';}setBtns(false);return;}let requester;if(value==='guest')requester={key:'guest',id:null,name:sale.customerName||'Cliente avulso',type:'avulso',canOrder:true};else if(value.startsWith('holder:'))requester={key:value,id:member&&member.id||null,name:member&&member.name||'Titular',type:'titular',canOrder:true};else{const id=value.split(':')[1],dependent=member&&(member.dependents||[]).find(d=>d.id===id);requester={key:value,id:dependent&&dependent.id||null,name:dependent&&dependent.name||'Dependente',type:'dependente',canOrder:!!dependent&&dependent.canOrder!==false};}if(!requester.canOrder){window.currentComandaRequester=null;if(status){status.className='requester-status blocked';status.textContent='Bloqueado: esta pessoa não pode consumir nesta cota.';}toast('Este dependente está bloqueado para consumir nesta cota.');setBtns(false);return;}window.currentComandaRequester=requester;if(status){status.className='requester-status allowed';status.textContent='Autorizado: '+requester.name;}setBtns(true);}
-function renderComandaAuditHistory(){
-  const body=document.getElementById('comandaAuditRows'); if(!body||!currentSaleDraft) return;
-  const items=currentSaleDraft.items||[];
-  const sale=currentSaleDraft.id?state.sales.find(x=>x.id===currentSaleDraft.id):null;
-  const locked=!!(sale&&sale.locked);
-  body.innerHTML = items.length ? items.map((item,idx)=>`<tr${item.canceled?' style="opacity:.55"':''}>
+function comandaItemBatchKey(item,idx){ return item.batchId || ('legacy-'+idx); }
+function renderComandaAuditItemRow(item,idx,locked){
+  return `<tr${item.canceled?' style="opacity:.55"':''}>
     <td>${item.addedAt?reportDateTime(item.addedAt):'—'}</td>
     <td>${item.canceled?'<s>'+h(item.name)+'</s>':h(item.name)}${item.notes?`<br><small style="color:#687386">${h(item.notes)}</small>`:''}${item.canceled&&item.canceledReason?`<br><small style="color:#a32626">Motivo: ${h(item.canceledReason)}</small>`:''}</td>
     <td>${item.sent
@@ -4212,8 +4214,62 @@ function renderComandaAuditHistory(){
     <td>${h(item.local||'—')}</td>
     <td><select style="min-width:130px" onchange="setComandaItemDeliveredBy(${idx},this.value)"><option value="">— Quem levou? —</option>${state.quemLevou.map(p=>`<option value="${h(p.nome)}" ${item.deliveredBy===p.nome?'selected':''}>${h(p.nome)}</option>`).join('')}${item.deliveredBy&&!state.quemLevou.some(p=>p.nome===item.deliveredBy)?`<option value="${h(item.deliveredBy)}" selected>${h(item.deliveredBy)} (não cadastrado)</option>`:''}</select></td>
     <td>${item.canceled?'<span class="tag tag-red">Cancelado</span>':item.sent?'<span class="tag tag-blue">Enviado</span>':'<span class="tag tag-amber">Novo</span>'}</td>
-    <td>${item.canceled?'—':item.sent?`<button class="btn btn-sm" onclick="reprintComandaItem(${idx})">🖶 &nbsp; Reimprimir</button> <button class="btn btn-sm" onclick="openReorderComandaItem(${idx})">🔁 &nbsp; Pedir novamente</button> <button class="btn btn-sm" ${locked?'disabled':''} onclick="openCancelComandaItem(${idx})">✕ &nbsp; Cancelar</button>`:'—'}</td>
-  </tr>`).join('') : '<tr><td colspan="10" class="empty">Nenhum item lançado nesta comanda.</td></tr>';
+    <td>${item.canceled?'—':item.sent?`<button class="btn btn-sm" onclick="reprintComandaItem(${idx})">🖶 &nbsp; Reimprimir</button> <button class="btn btn-sm" onclick="openReorderComandaItem(${idx})">🔁 &nbsp; Pedir novamente</button> ${hasPerm('cancelar-comanda')?`<button class="btn btn-sm" ${locked?'disabled':''} onclick="openCancelComandaItem(${idx})">✕ &nbsp; Cancelar</button>`:''}`:'—'}</td>
+  </tr>`;
+}
+function renderComandaAuditGroupRow(rows,locked,groupNum){
+  const key = comandaItemBatchKey(rows[0].item, rows[0].idx);
+  const expanded = comandaAuditExpanded.has(key);
+  const activeRows = rows.filter(r=>!r.item.canceled);
+  const activeQty = activeRows.reduce((a,r)=>a+(Number(r.item.qty)||0),0);
+  const activeValue = activeRows.reduce((a,r)=>a+(Number(r.item.price)||0)*(Number(r.item.qty)||0),0);
+  const requesterNames = [...new Set(rows.map(r=>r.item.requesterName||currentSaleDraft.customerName||'Não registrado'))];
+  const requesterLabel = requesterNames.length===1 ? h(requesterNames[0]) : 'Vários';
+  const allCanceled = rows.every(r=>r.item.canceled);
+  const allSent = rows.every(r=>r.item.sent);
+  const noneSent = rows.every(r=>!r.item.sent);
+  const situacaoTag = allCanceled ? '<span class="tag tag-red">Cancelado</span>'
+    : allSent ? '<span class="tag tag-blue">Enviado</span>'
+    : noneSent ? '<span class="tag tag-amber">Novo</span>'
+    : '<span class="tag tag-amber">Parcial</span>';
+  const hasSentActive = rows.some(r=>r.item.sent && !r.item.canceled);
+  const headerRow = `<tr class="comanda-audit-group-row" style="background:#f5f6f8;cursor:pointer" onclick="toggleComandaAuditGroup('${key}')">
+    <td colspan="2"><span style="display:inline-block;transition:transform .15s;${expanded?'transform:rotate(90deg)':''}">▸</span> <b>Pedido ${groupNum}</b> <small style="color:#687386">(${rows.length} ${rows.length===1?'item':'itens'} · ${reportDateTime(rows[0].item.addedAt)})</small></td>
+    <td class="mono">${activeQty}</td>
+    <td class="mono">${fmt(activeValue)}</td>
+    <td>${requesterLabel}</td>
+    <td>${h(rows[0].item.addedBy||'Registro anterior')}</td>
+    <td>${h(rows[0].item.local||'—')}</td>
+    <td>—</td>
+    <td>${situacaoTag}</td>
+    <td>${hasSentActive?`<button class="btn btn-sm" onclick="event.stopPropagation();openReorderComandaBatch('${key}')">🔁 &nbsp; Pedir novamente (tudo)</button>`:'—'}</td>
+  </tr>`;
+  const itemRows = expanded ? rows.map(r=>renderComandaAuditItemRow(r.item,r.idx,locked)).join('') : '';
+  return headerRow + itemRows;
+}
+let comandaAuditExpanded = new Set();
+function toggleComandaAuditGroup(key){
+  if(comandaAuditExpanded.has(key)) comandaAuditExpanded.delete(key); else comandaAuditExpanded.add(key);
+  renderComandaAuditHistory();
+}
+function renderComandaAuditHistory(){
+  const body=document.getElementById('comandaAuditRows'); if(!body||!currentSaleDraft) return;
+  const items=currentSaleDraft.items||[];
+  const sale=currentSaleDraft.id?state.sales.find(x=>x.id===currentSaleDraft.id):null;
+  const locked=!!(sale&&sale.locked);
+  if(!items.length){ body.innerHTML = '<tr><td colspan="10" class="empty">Nenhum item lançado nesta comanda.</td></tr>'; return; }
+  const groups = new Map();
+  items.forEach((item,idx)=>{
+    const key = comandaItemBatchKey(item,idx);
+    if(!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push({item,idx});
+  });
+  let groupNum = 0;
+  body.innerHTML = [...groups.values()].map(rows=>{
+    if(rows.length===1) return renderComandaAuditItemRow(rows[0].item,rows[0].idx,locked);
+    groupNum++;
+    return renderComandaAuditGroupRow(rows,locked,groupNum);
+  }).join('');
 }
 function setComandaItemDeliveredBy(idx,value){
   const item=(currentSaleDraft&&currentSaleDraft.items||[])[idx]; if(!item) return;
@@ -4288,6 +4344,7 @@ async function confirmReorderComandaItem(){
 }
 let cancelItemIdx = null;
 function openCancelComandaItem(idx){
+  if(!requirePerm('cancelar-comanda')) return;
   const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
   if(s.locked){ toast('Este pedido está bloqueado. Desbloqueie antes de cancelar um item.'); return; }
@@ -4319,6 +4376,44 @@ async function confirmCancelComandaItem(){
   cancelItemIdx = null;
   closeModal(); openComanda(saleId, true); renderComandas();
 }
+let cancelComandaSaleId = null;
+function openCancelComanda(saleId){
+  if(!requirePerm('cancelar-comanda')) return;
+  const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  if(s.locked){ toast('Este pedido está bloqueado. Desbloqueie antes de cancelar.'); return; }
+  if(s.status!=='open'){ toast('Este pedido já está fechado.'); return; }
+  cancelComandaSaleId = saleId;
+  const activeItems = (currentSaleDraft.items||[]).filter(i=>!i.canceled);
+  openModal('Cancelar comanda inteira', `
+    <p class="sub">${activeItems.length} item(ns) ativo(s) — total atual <b>${fmt(saleTotal(currentSaleDraft.items))}</b>.</p>
+    <p class="sub" style="color:#a32626"><b>Esta ação não pode ser desfeita.</b> Todos os itens ainda não cancelados desta comanda são cancelados de uma vez, o insumo consumido é devolvido ao estoque e a comanda inteira sai da lista de mesas/comandas em aberto.</p>
+    <div class="field"><label>Motivo (opcional)</label><input id="cancelComandaReason" placeholder="Ex: pedido duplicado, cliente desistiu..."></div>
+    <div class="row">
+      <button class="btn" onclick="openComanda('${saleId}',true)">Voltar</button>
+      <button class="btn btn-primary" style="background:var(--red)" id="cancelComandaConfirmBtn">Confirmar cancelamento</button>
+    </div>
+  `);
+  document.getElementById('cancelComandaConfirmBtn').onclick = confirmCancelComanda;
+}
+async function confirmCancelComanda(){
+  if(!requirePerm('cancelar-comanda')) return;
+  const saleId = cancelComandaSaleId; if(!saleId) return;
+  const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  const reason = (document.getElementById('cancelComandaReason').value||'').trim();
+  const activeItems = (s.items||[]).filter(i=>!i.canceled);
+  const sentItems = activeItems.filter(i=>i.sent);
+  if(sentItems.length && !await restoreInsumosForItems(sentItems)){ toast('Falha ao devolver o estoque. Tente novamente.'); return; }
+  await OrdersStore.cancelBySale(saleId);
+  const now = new Date().toISOString();
+  activeItems.forEach(i=>{ i.canceled=true; i.canceledAt=now; i.canceledBy=currentUser.name; i.canceledReason=reason||'Comanda cancelada'; });
+  s.status = 'closed'; s.canceled = true; s.canceledAt = now; s.canceledBy = currentUser.name; s.canceledReason = reason; s.closedAt = now;
+  s.total = saleTotal(s.items);
+  save('sales');
+  logAction('Comanda cancelada — pedido #'+(s.orderNumber||saleId)+(reason?' — motivo: '+reason:''));
+  toast('Comanda cancelada e estoque devolvido.');
+  cancelComandaSaleId = null;
+  closeModal(); renderAll();
+}
 function renderComandaQuickSearch(q){
   const el = document.getElementById('comandaQuickSearchResults'); if(!el) return;
   const query = String(q||'').trim().toLowerCase();
@@ -4327,18 +4422,58 @@ function renderComandaQuickSearch(q){
   el.style.display = '';
   el.innerHTML = list.length ? list.map(p=>{
     const av = productAvailable(p); const out = av!==Infinity && av<=0;
-    return `<button class="btn np-prod-btn" ${out?'disabled':''} onclick="openComandaQuickAdd('${p.id}')"><span class="np-prod-name">${h(p.name)}</span><span class="mono np-prod-price">${fmt(p.price)}</span></button>`;
+    const inCart = comandaQuickCart.find(i=>i.productId===p.id);
+    return `<button class="btn np-prod-btn ${inCart?'has-qty':''}" ${out?'disabled':''} onclick="quickCartAdd('${p.id}')">${inCart?`<span class="np-qty-badge">${inCart.qty}</span>`:''}<span class="np-prod-name">${h(p.name)}</span><span class="mono np-prod-price">${fmt(p.price)}</span></button>`;
   }).join('') : '<p class="np-empty">Nenhum produto encontrado.</p>';
 }
-let comandaQuickAddQty = 1, comandaQuickAddProductId = null, comandaQuickAddCopos = 0;
-function openComandaQuickAdd(productId){
+let comandaQuickCart = [];
+function quickCartAdd(productId){
   const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
   if(s.locked){ toast('Este pedido está bloqueado.'); return; }
-  const product = state.products.find(p=>p.id===productId);
-  if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
-  if(productAvailable(product)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
-  comandaQuickAddQty = 1; comandaQuickAddProductId = productId; comandaQuickAddCopos = 0;
+  const p = state.products.find(x=>x.id===productId);
+  if(!p || p.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
+  if(productAvailable(p)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
+  const existing = comandaQuickCart.find(i=>i.productId===productId);
+  if(existing) existing.qty+=1; else comandaQuickCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha', copos:p.estacao==='bar'?0:undefined});
+  renderComandaQuickSearch(document.getElementById('comandaQuickSearch')?.value||'');
+  renderComandaQuickCart();
+}
+function quickCartChangeQty(idx,delta){
+  const it = comandaQuickCart[idx]; if(!it) return;
+  it.qty+=delta; if(it.qty<=0) comandaQuickCart.splice(idx,1);
+  renderComandaQuickSearch(document.getElementById('comandaQuickSearch')?.value||'');
+  renderComandaQuickCart();
+}
+function quickCartChangeCopos(idx,delta){
+  const it = comandaQuickCart[idx]; if(!it) return;
+  it.copos = Math.max(0, (it.copos||0)+delta);
+  renderComandaQuickCart();
+}
+function renderComandaQuickCart(){
+  const wrap = document.getElementById('comandaQuickCartWrap'); if(!wrap) return;
+  if(!comandaQuickCart.length){ wrap.style.display='none'; wrap.innerHTML=''; return; }
+  wrap.style.display='';
+  const total = comandaQuickCart.reduce((a,i)=>a+i.price*i.qty,0);
+  const qty = comandaQuickCart.reduce((a,i)=>a+i.qty,0);
+  wrap.innerHTML = `<div class="np-cart" style="border-top:1px solid var(--border,#e5e5e5);padding-top:10px">
+    ${comandaQuickCart.map((i,idx)=>`
+      <div class="item-line" style="flex-wrap:wrap">
+        <span>${h(i.name)}</span>
+        <div class="qty-ctrl"><button onclick="quickCartChangeQty(${idx},-1)">−</button><span class="mono">${i.qty}</span>
+        <button onclick="quickCartChangeQty(${idx},1)">+</button>
+        <span class="mono" style="min-width:70px;text-align:right">${fmt(i.price*i.qty)}</span></div>
+        ${i.estacao==='bar'?`<div class="qty-ctrl" style="width:100%;justify-content:flex-end"><span class="sub" style="margin-right:6px">Quantidade de copos:</span><button onclick="quickCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="quickCartChangeCopos(${idx},1)">+</button></div>`:''}
+      </div>`).join('')}
+    <div class="np-total"><span>Total</span><span class="mono">${fmt(total)}</span></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="openComandaQuickAddConfirm()">Adicionar e enviar pra cozinha (${qty} ${qty===1?'item':'itens'})</button>
+  </div>`;
+}
+function openComandaQuickAddConfirm(){
+  const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
+  const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  if(s.locked){ toast('Este pedido está bloqueado.'); return; }
+  if(!comandaQuickCart.length) return;
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const requesterOptions = member
     ? `<option value="">— Selecione —</option><option value="holder:${member.id}" ${memberBlockedByDebt(member)?'disabled':''}>Titular — ${h(member.name)}${memberBlockedByDebt(member)?' (bloqueado — deve '+fmt(member.debt)+')':''}</option>${(member.dependents||[]).map(d=>`<option value="dependent:${d.id}" ${d.canOrder===false||memberBlockedByDebt(member)?'disabled':''}>Dependente — ${h(d.name)}${d.canOrder===false?' (bloqueado)':memberBlockedByDebt(member)?' (bloqueado — cota com pendência)':''}</option>`).join('')}`
@@ -4349,28 +4484,13 @@ function openComandaQuickAdd(productId){
       <select id="comandaQuickAddRequester">${requesterOptions}</select>
       <p id="comandaQuickAddRequesterWarn" class="sub" style="display:none;color:var(--red);margin:6px 0 0">Esta pessoa está bloqueada para consumir nesta cota.</p>
     </div>` : `<select id="comandaQuickAddRequester" style="display:none">${requesterOptions}</select>`;
-  openModal('Adicionar Produto', `
-    <p class="sub">${h(product.name)} · <span class="mono">${fmt(product.price)}</span></p>
+  const itemsSummary = comandaQuickCart.map(i=>`${i.qty}x ${h(i.name)}`).join(', ');
+  openModal('Adicionar Produtos', `
+    <p class="sub">${itemsSummary}</p>
     ${requesterSection}
-    <div class="field" style="text-align:center">
-      <label class="np-label">Quantidade</label>
-      <div class="qty-ctrl" style="justify-content:center;margin-top:6px">
-        <button onclick="comandaQuickAddQtyChange(-1)">−</button>
-        <span class="mono" id="comandaQuickAddQtyLabel" style="min-width:28px;display:inline-block;text-align:center">1</span>
-        <button onclick="comandaQuickAddQtyChange(1)">+</button>
-      </div>
-    </div>
-    ${product.estacao==='bar'?`<div class="field" style="text-align:center">
-      <label class="np-label">Quantidade de copos</label>
-      <div class="qty-ctrl" style="justify-content:center;margin-top:6px">
-        <button onclick="comandaQuickAddCoposChange(-1)">−</button>
-        <span class="mono" id="comandaQuickAddCoposLabel" style="min-width:28px;display:inline-block;text-align:center">0</span>
-        <button onclick="comandaQuickAddCoposChange(1)">+</button>
-      </div>
-    </div>`:''}
     <div class="row">
-      <button class="btn" onclick="openComanda('${saleId}',true)">Cancelar</button>
-      <button class="btn btn-primary" id="comandaQuickAddConfirmBtn">Adicionar e enviar pra cozinha</button>
+      <button class="btn" onclick="openComanda('${saleId}',true)">Voltar</button>
+      <button class="btn btn-primary" id="comandaQuickAddConfirmBtn">Confirmar e enviar pra cozinha</button>
     </div>
   `);
   const reqEl = document.getElementById('comandaQuickAddRequester');
@@ -4380,19 +4500,10 @@ function openComandaQuickAdd(productId){
   };
   document.getElementById('comandaQuickAddConfirmBtn').onclick = confirmComandaQuickAdd;
 }
-function comandaQuickAddQtyChange(delta){
-  comandaQuickAddQty = Math.max(1, comandaQuickAddQty+delta);
-  const el = document.getElementById('comandaQuickAddQtyLabel'); if(el) el.textContent = comandaQuickAddQty;
-}
-function comandaQuickAddCoposChange(delta){
-  comandaQuickAddCopos = Math.max(0, comandaQuickAddCopos+delta);
-  const el = document.getElementById('comandaQuickAddCoposLabel'); if(el) el.textContent = comandaQuickAddCopos;
-}
 async function confirmComandaQuickAdd(){
   const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
-  const product = state.products.find(p=>p.id===comandaQuickAddProductId);
-  if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
+  if(!comandaQuickCart.length) return;
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const reqValue = document.getElementById('comandaQuickAddRequester').value;
   if(!reqValue){ toast('Selecione quem está pedindo.'); return; }
@@ -4401,23 +4512,45 @@ async function confirmComandaQuickAdd(){
   else if(reqValue.startsWith('holder:')) requester={id:member.id,name:member.name,type:'titular',canOrder:true};
   else { const depId=reqValue.split(':')[1], dep=(member.dependents||[]).find(d=>d.id===depId); requester={id:dep&&dep.id,name:dep&&dep.name||'Dependente',type:'dependente',canOrder:!!dep&&dep.canOrder!==false}; }
   if(!requester.canOrder){ toast('Esta pessoa está bloqueada para consumir nesta cota.'); return; }
-  if(productAvailable(product)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
   const who = requester.name;
-  const newItem = {productId:product.id, name:product.name, price:product.price, qty:comandaQuickAddQty, estacao:product.estacao||'cozinha', copos:product.estacao==='bar'?comandaQuickAddCopos:undefined, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:requester.id, requesterName:who, requesterType:requester.type};
-  if(!await sendItemsToKitchen(saleId, [newItem], who, 'comanda', s.local)) return;
-  newItem.sent = true;
-  s.items = [...s.items, newItem];
+  const origem = currentUser.origem||'caixa';
+  const items = comandaQuickCart.map(i=>({...i, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:requester.id, requesterName:who, requesterType:requester.type}));
+  if(!await sendItemsToKitchen(saleId, items, who, 'comanda', s.local)) return;
+  items.forEach(i=>i.sent=true);
+  s.items = [...s.items, ...items];
   s.total = saleTotal(s.items);
   save('sales');
-  if(saidaTemImpressao(newItem.estacao)){
-    const origem = currentUser.origem||'caixa';
-    const printer = resolvePrinterFor(newItem.estacao, origem);
-    printSingleTicket(who, member?member.code:'', s.local||'', newItem.estacao, printer?printer.nome:null, [newItem], s.orderNumber);
-  }
-  logAction('Produto adicionado via busca na comanda: '+product.name+' x'+comandaQuickAddQty+' para '+who+' — pedido #'+(s.orderNumber||saleId));
+  const groups = {};
+  items.forEach(i=>{ const key=i.estacao||'cozinha'; (groups[key]=groups[key]||[]).push(i); });
+  const printJobs = Object.keys(groups).map(estacao=>{
+    const printer = resolvePrinterFor(estacao, origem);
+    return { estacao, items:groups[estacao], printer: printer?printer.nome:null };
+  });
+  logAction('Produto(s) adicionado(s) via busca na comanda: '+items.map(i=>i.qty+'x '+i.name).join(', ')+' para '+who+' — pedido #'+(s.orderNumber||saleId));
+  printNovoPedidoTickets(who, member?member.code:'', s.local, printJobs, s.orderNumber);
   toast('Adicionado e enviado para a cozinha.');
-  comandaQuickAddProductId = null;
+  comandaQuickCart = [];
   closeModal(); openComanda(saleId, true); renderComandas();
+}
+function openReorderComandaBatch(batchKey){
+  const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
+  const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  if(s.locked){ toast('Este pedido está bloqueado.'); return; }
+  const batchItems = (currentSaleDraft.items||[]).filter((it,idx)=>!it.canceled && comandaItemBatchKey(it,idx)===batchKey);
+  if(!batchItems.length){ toast('Nenhum item ativo neste pedido para repetir.'); return; }
+  comandaQuickCart = [];
+  let skipped = 0;
+  batchItems.forEach(item=>{
+    const product = state.products.find(p=>p.id===item.productId);
+    if(!product || product.active===false){ skipped++; return; }
+    const existing = comandaQuickCart.find(i=>i.productId===product.id);
+    if(existing) existing.qty += item.qty;
+    else comandaQuickCart.push({productId:product.id, name:product.name, price:product.price, qty:item.qty, estacao:product.estacao||'cozinha', copos:product.estacao==='bar'?(item.copos||0):undefined});
+  });
+  if(!comandaQuickCart.length){ toast('Nenhum destes produtos está mais disponível no catálogo.'); return; }
+  if(skipped) toast(skipped+' item(ns) deste pedido não está(ão) mais disponível(is) e foi(ram) ignorado(s).');
+  renderComandaQuickCart();
+  openComandaQuickAddConfirm();
 }
 function reprintComandaItem(idx){
   const item = (currentSaleDraft.items||[])[idx]; if(!item) return;
