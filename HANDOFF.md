@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-09-24** (cancelar item/comanda com permissão por login + carrinho no "Adicionar produto direto" + histórico da comanda agrupado por pedido — os três testados, confirmados e já no ar via PR #27; mais a correção de comanda cancelada não contar como receita nos relatórios, testada e confirmada, no PR #28 — ver seções próprias)
+Última atualização: **2026-09-24** (cancelar item/comanda com permissão por login + carrinho no "Adicionar produto direto" + histórico da comanda agrupado por pedido — os três testados, confirmados e já no ar via PR #27; mais a correção de comanda cancelada não contar como receita nos relatórios, testada e confirmada, no PR #28 — ver seções próprias; mais o alerta de fila de impressão travada, testado e confirmado — ver seção própria)
 
 ## O que é o projeto
 
@@ -470,6 +470,25 @@ Dívida técnica aberta pela feature de cancelamento de comanda inteira (seção
 - 8 sites trocados pelo predicado: "vendido hoje" do dashboard (`index.html:1936`), consumo/visitas por sócio na listagem de Associados (`:2712`), duas somas da sessão de caixa (`:5198` e `:5218`), o filtro base dos Relatórios (`:5249`), o ranking (`:5340`), o DRE mensal (`:5353`) e o filtro de relatório ativo (`:5357`). Os relatórios "Mais Vendidos" e "Histórico de Pedidos" recebem a lista já filtrada por quem os chama, então foram corrigidos de graça.
 - **Deliberadamente NÃO alterado:** `showReceiptPaymentSummary` (`:5346`, resumo por forma de pagamento) segue com `status==='closed'` puro. Comanda cancelada nunca tem `payments` (é cancelada sem pagamento), então já soma zero ali — e trocar pelo predicado passaria a excluir também *delivery* cancelado, que pode ter sido pago antes do cancelamento; nesse caso o dinheiro entrou de verdade e deve aparecer no resumo de recebimentos. Decisão separada, não mexer sem o Fabricio confirmar a regra.
 - Testado por sintaxe JS + harness Node isolado (11 asserções) com o predicado real extraído do `index.html`: comanda fechada normal conta, aberta não conta, comanda cancelada inteira não conta (o bug), delivery cancelado continua não contando (guard antigo preservado), delivery entregue continua contando, `null`/`undefined` não explodem, e a soma de faturamento sobre um mix das 5 situações dá exatamente o valor das 2 que devem entrar. **Testado pelo Fabricio no app real, confirmado que funcionou.**
+
+### Alerta de fila de impressão travada (2026-09-24)
+
+Investigação pedida pelo Fabricio ("explica como está funcionando a impressão") que achou um caminho de **perda silenciosa de pedido** em produção.
+
+**Como a impressão realmente funciona (para não reinvestigar):**
+- O navegador **nunca** fala com impressora. `printSingleTicket` (`index.html:4149`) só insere um job em `print_jobs`. Quem imprime é o **agente desktop Electron** (`agente-impressao-app/`, fora deste repo), que faz polling da fila.
+- `print_agent_fetch_pending` devolve **todos** os jobs pendentes do tenant, sem filtrar por impressora — então **um único agente no PC do caixa atende todas as impressoras**, desde que cada uma tenha IP cadastrado (ESC/POS via TCP raw). Impressora cadastrada só com nome de Windows exige o agente no PC onde ela está plugada.
+- Hardware real do clube: caixa e cozinha têm PC + impressora; **bar e churrasqueira só têm impressora, sem PC** — logo precisam ser de rede, com IP.
+- O roteamento é **sempre por estação** (`resolvePrinterFor(estacao, origem)`); `origem` só escolhe *qual* impressora física serve aquela estação. **Regra de negócio:** no garçom cada item sai na sua estação; no **caixa é o próprio cliente que pede e leva as fichas** para retirar quando quiser, então ali tudo deve sair na impressora do caixa. Isso se resolve por cadastro (uma impressora por estação com `origem:'caixa'`, todas apontando o IP do caixa), **sem mudança de código**.
+
+**O bug:** quando o insert na fila dá certo, `printSingleTicket` faz `return` com o toast *"Pedido enviado pra fila de impressão"* e **não abre o pop-up de fallback**. Se o agente estiver fechado, o operador vê sucesso, o papel nunca sai, e como Bar e Churrasqueira estão com `saida:'imprime'` os itens **também não aparecem no Monitor de Cozinha** — o pedido desaparece sem deixar rastro em nenhuma tela. Evidência na fila real: último job impresso em **2026-08-29 18:29**, com pendentes acumulando desde então.
+
+**A correção (só aviso, nada é bloqueado):**
+- `checkStuckPrintQueue()` roda 20s após o login e a cada 60s (`startApp`), consulta `print_jobs` com `status='pendente'` e mostra um banner vermelho persistente reusando a estrutura do `showLocalModeBanner`.
+- A janela tem **piso** (`PRINT_QUEUE_IGNORE_OLDER_H = 6`) de propósito: existem 6 jobs pendentes de agosto de impressoras que nem estão mais cadastradas ("Impressora Cozinha", "Impressora Churrasqueira — Caixa", sem IP) e eles não são acionáveis — sem o piso o banner ficaria ligado para sempre. Teto de 3 min (`PRINT_QUEUE_STUCK_MIN`) para não alarmar no tempo normal de impressão (~4s na fila histórica).
+- Botão "Entendi" adia por 10 min (`PRINT_QUEUE_SNOOZE_MIN`); se o agente voltar e imprimir, o banner **sai sozinho** mesmo durante o snooze.
+- `--top-banner-offset` passou a somar a altura do `#localModeRoot` inteiro (antes usava só a altura do banner de offline), e o root virou `flex-direction:column`, para os dois avisos empilharem em vez de se sobreporem. O banner de offline ganhou a classe marcadora `.local-mode-offline` porque o guard de duplicata dele testava `.local-mode`, que agora os dois compartilham.
+- Testado por sintaxe JS + harness Node isolado (**23 asserções**, DOM e fila falsos, código real extraído por parsing de chaves balanceadas): job recente não alarma, job de 12 min alarma com nome da impressora e minutos certos, lixo de agosto é ignorado, título singular/plural, sempre cita o job **mais antigo**, snooze adia e expira, fila limpa remove o banner, sem usuário logado não consulta, e os dois banners coexistem somando o offset sem duplicar. **Testado pelo Fabricio no app real (localhost, com os 2 jobs pendentes reais da fila), confirmado que funcionou.**
 
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 

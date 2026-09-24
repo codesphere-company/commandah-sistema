@@ -277,7 +277,7 @@ tr:hover td{background:#faf7ef;}
 /* Aviso PERSISTENTE de sessao rodando em modo Local (SDK do servidor nao carregou no boot).
    Nao some sozinho: a sessao INTEIRA fica degradada ate o operador recarregar.
    Nao bloqueia nada — o PDV continua 100% operacional. */
-#localModeRoot{position:fixed;top:0;left:0;right:0;z-index:401;display:flex;justify-content:center;padding:10px 12px 0;pointer-events:none;}
+#localModeRoot{position:fixed;top:0;left:0;right:0;z-index:401;display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 12px 0;pointer-events:none;}
 #localModeRoot:empty{display:none;}
 .local-mode{pointer-events:auto;width:100%;max-width:560px;display:flex;align-items:center;gap:12px;background:#b45309;color:#fff;border-radius:10px;padding:12px 14px;box-shadow:0 6px 20px rgba(0,0,0,.32);text-align:left;}
 .local-mode-ico{flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;line-height:1;}
@@ -285,6 +285,8 @@ tr:hover td{background:#faf7ef;}
 .local-mode-title{font-size:13.5px;font-weight:700;line-height:1.25;}
 .local-mode-sub{font-size:12px;font-weight:500;opacity:.94;line-height:1.3;}
 .local-mode-btn{flex:0 0 auto;background:#fff;color:#8a3f07;border:0;border-radius:8px;padding:9px 14px;font-size:12.5px;font-weight:700;min-height:38px;}
+.print-stuck{background:#b91c1c;}
+.print-stuck .local-mode-btn{color:#7f1d1d;}
 @media (max-width:560px){.local-mode{flex-wrap:wrap}.local-mode-btn{width:100%}}
 
 .stat{background:var(--navy);color:#fff;border-radius:8px;padding:16px;}
@@ -1145,11 +1147,19 @@ async function retrySaveFail(key){
    pro localStorage do aparelho. Só AVISA — nada é bloqueado, o PDV segue
    100% operacional. Fica na tela até o operador recarregar, porque a sessão
    inteira roda degradada (não adianta sumir sozinho). */
+/* Empurra o conteúdo pra baixo somando TODOS os banners do topo (offline +
+   fila de impressão travada), pra dois avisos simultâneos não se sobreporem. */
+function applyTopBannerOffset(){
+  const root = document.getElementById('localModeRoot');
+  document.documentElement.style.setProperty('--top-banner-offset', root ? root.offsetHeight + 'px' : '0px');
+}
+window.addEventListener('resize', applyTopBannerOffset);
+
 function showLocalModeBanner(){
   const root = document.getElementById('localModeRoot');
-  if(!root || root.querySelector('.local-mode')) return;
+  if(!root || root.querySelector('.local-mode-offline')) return;
   const el = document.createElement('div');
-  el.className = 'local-mode';
+  el.className = 'local-mode local-mode-offline';
   el.setAttribute('role','alert');
   el.innerHTML = '<div class="local-mode-ico" aria-hidden="true">&#9888;</div>'
     + '<div class="local-mode-txt">'
@@ -1159,10 +1169,73 @@ function showLocalModeBanner(){
     + '<button type="button" class="local-mode-btn">Recarregar</button>';
   el.querySelector('.local-mode-btn').addEventListener('click', ()=>location.reload());
   root.appendChild(el);
-  // Empurra o banner de falha ao salvar pra baixo pra os dois não se sobreporem.
-  const applyOffset = ()=>document.documentElement.style.setProperty('--top-banner-offset', el.offsetHeight + 'px');
-  applyOffset();
-  window.addEventListener('resize', applyOffset);
+  applyTopBannerOffset();
+}
+
+/* ============ FILA DE IMPRESSÃO TRAVADA ============
+   printSingleTicket apenas ENFILEIRA em print_jobs; quem imprime de verdade é o
+   agente desktop. Se o agente estiver fechado, o toast segue dizendo "enviado pra
+   fila de impressão", o papel nunca sai, e estações com saida:'imprime' (bar e
+   churrasqueira) também não aparecem no Monitor de Cozinha — o pedido se perde em
+   silêncio. Este alerta é o único sinal de que isso está acontecendo.
+   A janela tem PISO de propósito (PRINT_QUEUE_IGNORE_OLDER_H): existem jobs
+   pendentes antigos de impressoras que nem estão mais cadastradas, e eles não são
+   acionáveis — sem o piso, o banner ficaria ligado pra sempre. */
+const PRINT_QUEUE_STUCK_MIN = 3;
+const PRINT_QUEUE_IGNORE_OLDER_H = 6;
+const PRINT_QUEUE_SNOOZE_MIN = 10;
+let printQueueSnoozedUntil = 0;
+
+async function checkStuckPrintQueue(){
+  if(!supabaseClient || !getTenantId() || !currentUser) return;
+  try{
+    const now = Date.now();
+    const stuckBefore = new Date(now - PRINT_QUEUE_STUCK_MIN*60*1000).toISOString();
+    const floor = new Date(now - PRINT_QUEUE_IGNORE_OLDER_H*3600*1000).toISOString();
+    const { data, error } = await supabaseClient.from('print_jobs')
+      .select('printer_name,created_at')
+      .eq('tenant_id', getTenantId()).eq('status','pendente')
+      .lt('created_at', stuckBefore).gte('created_at', floor)
+      .order('created_at', {ascending:true}).limit(50);
+    if(error) return;
+    if(!data || !data.length){ hidePrintQueueBanner(); return; }
+    if(now < printQueueSnoozedUntil) return;
+    const mins = Math.max(PRINT_QUEUE_STUCK_MIN, Math.round((now - new Date(data[0].created_at).getTime())/60000));
+    showPrintQueueBanner(data.length, mins, data[0].printer_name||'impressora');
+  }catch(e){ /* checagem de aviso: nunca deve atrapalhar a venda */ }
+}
+
+function showPrintQueueBanner(qtd, mins, printer){
+  const root = document.getElementById('localModeRoot'); if(!root) return;
+  let el = root.querySelector('.print-stuck');
+  if(!el){
+    el = document.createElement('div');
+    el.className = 'local-mode print-stuck';
+    el.setAttribute('role','alert');
+    el.innerHTML = '<div class="local-mode-ico" aria-hidden="true">&#128424;</div>'
+      + '<div class="local-mode-txt">'
+      +   '<span class="local-mode-title"></span>'
+      +   '<span class="local-mode-sub"></span>'
+      + '</div>'
+      + '<button type="button" class="local-mode-btn">Entendi</button>';
+    el.querySelector('.local-mode-btn').addEventListener('click', ()=>{
+      printQueueSnoozedUntil = Date.now() + PRINT_QUEUE_SNOOZE_MIN*60*1000;
+      hidePrintQueueBanner();
+    });
+    root.appendChild(el);
+  }
+  el.querySelector('.local-mode-title').textContent = qtd===1
+    ? '1 pedido não saiu na impressora'
+    : qtd+' pedidos não saíram na impressora';
+  el.querySelector('.local-mode-sub').textContent = 'O mais antigo está esperando há '
+    + mins + ' min na fila de ' + printer + '. Quase sempre é o agente de impressão fechado '
+    + 'no computador — abra ele e confira essas fichas antes de entregar o pedido.';
+  applyTopBannerOffset();
+}
+
+function hidePrintQueueBanner(){
+  const el = document.querySelector('#localModeRoot .print-stuck');
+  if(el){ el.remove(); applyTopBannerOffset(); }
 }
 
 /* ============ MEMBERS (sócios) — tabelas relacionais em modo nuvem, blob em modo local ============ */
@@ -6452,6 +6525,9 @@ function startApp(){
     const comandasView = document.getElementById('view-comandas');
     if(comandasView && comandasView.classList.contains('active')) renderComandas();
   }, 30000);
+  // Vigia a fila de impressão: agente fechado = ficha que nunca sai no papel.
+  setTimeout(checkStuckPrintQueue, 20000);
+  setInterval(checkStuckPrintQueue, 60000);
   setTimeout(()=>{
     const overlay = document.getElementById('loginOverlay');
     const appShown = document.getElementById('app') && document.getElementById('app').classList.contains('show');
