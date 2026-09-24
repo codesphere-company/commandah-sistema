@@ -857,9 +857,20 @@ function blockIfMemberInDebt(member){
   `);
   return true;
 }
+function todaysSalesForMember(memberId){
+  const today = todayStr();
+  return state.sales.filter(s=>s.memberId===memberId && String(s.closedAt||s.openedAt||'').slice(0,10)===today);
+}
 function whatsAppCollectionMessage(member){
   const clubName = state.settings.clubName || 'o clube';
-  return `Olá, ${member.name}! Aqui é ${clubName}. Notamos uma pendência de ${fmt(member.debt)} em sua conta. Poderia regularizar quando possível? Assim que o pagamento for feito, o consumo é liberado normalmente. Obrigado!`;
+  const lines = [];
+  todaysSalesForMember(member.id).forEach(s=>{
+    (s.items||[]).filter(i=>!i.canceled).forEach(i=>{ lines.push('• '+i.qty+'x '+i.name+' — '+fmt(i.price*i.qty)); });
+  });
+  const itemsText = lines.length ? ('\n\nConsumo de hoje:\n'+lines.join('\n')) : '';
+  const pixKey = (state.settings.pixKey||'').trim();
+  const pixText = pixKey ? ('\n\nChave Pix para pagamento: '+pixKey) : '';
+  return `Olá, ${member.name}! Aqui é ${clubName}. Notamos uma pendência de ${fmt(member.debt)} em sua conta.${itemsText}${pixText}\n\nPoderia regularizar quando possível? Assim que o pagamento for feito, o consumo é liberado normalmente. Obrigado!`;
 }
 function openWhatsAppCollection(memberId){
   const m = state.members.find(x=>x.id===memberId); if(!m){ toast('Cliente não encontrado.'); return; }
