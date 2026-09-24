@@ -208,6 +208,18 @@
       "source_location": "L424"
     },
     {
+      "id": "handoff_comanda_cancelada_n\u00e3o_conta_mais_como_receita_nos_relat\u00f3rios_2026_09_24",
+      "label": "Comanda cancelada n\u00e3o conta mais como receita nos relat\u00f3rios (2026-09-24)",
+      "_origin": "ast",
+      "community": 0,
+      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
+      "file_type": "document",
+      "node_kind": "heading",
+      "norm_label": "comanda cancelada nao conta mais como receita nos relatorios (2026-09-24)",
+      "source_file": "HANDOFF.md",
+      "source_location": "L465"
+    },
+    {
       "id": "handoff_corre\u00e7\u00e3o_pontual_card_de_comanda_n\u00e3o_atualizava_ap\u00f3s_novo_pedido_2026_09_08",
       "label": "Corre\u00e7\u00e3o pontual \u2014 card de comanda n\u00e3o atualizava ap\u00f3s \"Novo Pedido\" (2026-09-08)",
       "_origin": "ast",
@@ -565,7 +577,7 @@
       "node_kind": "heading",
       "norm_label": "onde achar mais contexto",
       "source_file": "HANDOFF.md",
-      "source_location": "L498"
+      "source_location": "L507"
     },
     {
       "id": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
@@ -577,7 +589,7 @@
       "node_kind": "heading",
       "norm_label": "pendencias (proximos passos, backlog priorizado pelo scrum-master em 2026-08-31)",
       "source_file": "HANDOFF.md",
-      "source_location": "L465"
+      "source_location": "L474"
     },
     {
       "id": "handoff_prefer\u00eancias_de_trabalho_do_usu\u00e1rio_fabricio",
@@ -589,7 +601,7 @@
       "node_kind": "heading",
       "norm_label": "preferencias de trabalho do usuario (fabricio)",
       "source_file": "HANDOFF.md",
-      "source_location": "L490"
+      "source_location": "L499"
     },
     {
       "id": "supabase_functions_staff_auth_index",
@@ -1157,6 +1169,17 @@
     },
     {
       "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_comanda_cancelada_n\u00e3o_conta_mais_como_receita_nos_relat\u00f3rios_2026_09_24",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L465",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
       "target": "handoff_time_de_agentes_especializado_diagn\u00f3stico_completo_2026_08_31",
       "relation": "contains",
       "_origin": "ast",
@@ -1229,7 +1252,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L465",
+      "source_location": "L474",
       "weight": 1.0
     },
     {
@@ -1240,7 +1263,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L490",
+      "source_location": "L499",
       "weight": 1.0
     },
     {
@@ -1251,7 +1274,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L498",
+      "source_location": "L507",
       "weight": 1.0
     },
     {
@@ -1344,5 +1367,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "96f18db34a04753ab6978307ea6d627459f67202"
+  "built_at_commit": "4303a8575d7bfb46e1b5b53cb78781e7acd84616"
 }

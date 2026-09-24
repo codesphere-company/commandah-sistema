@@ -328,6 +328,18 @@
       "source_location": "L268"
     },
     {
+      "id": "handoff_hist\u00f3rico_da_comanda_agrupado_por_pedido_com_pedir_novamente_do_lote_inteiro_2026_09_24",
+      "label": "Hist\u00f3rico da comanda agrupado por pedido, com \"pedir novamente\" do lote inteiro (2026-09-24)",
+      "_origin": "ast",
+      "community": 0,
+      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
+      "file_type": "document",
+      "node_kind": "heading",
+      "norm_label": "historico da comanda agrupado por pedido, com \"pedir novamente\" do lote inteiro (2026-09-24)",
+      "source_file": "HANDOFF.md",
+      "source_location": "L454"
+    },
+    {
       "id": "handoff_hist\u00f3rico_motivo_opcional_no_pagamento_de_fiado_2026_09_20",
       "label": "Hist\u00f3rico/Motivo opcional no pagamento de fiado (2026-09-20)",
       "_origin": "ast",
@@ -553,7 +565,7 @@
       "node_kind": "heading",
       "norm_label": "onde achar mais contexto",
       "source_file": "HANDOFF.md",
-      "source_location": "L487"
+      "source_location": "L498"
     },
     {
       "id": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
@@ -565,7 +577,7 @@
       "node_kind": "heading",
       "norm_label": "pendencias (proximos passos, backlog priorizado pelo scrum-master em 2026-08-31)",
       "source_file": "HANDOFF.md",
-      "source_location": "L454"
+      "source_location": "L465"
     },
     {
       "id": "handoff_prefer\u00eancias_de_trabalho_do_usu\u00e1rio_fabricio",
@@ -577,7 +589,7 @@
       "node_kind": "heading",
       "norm_label": "preferencias de trabalho do usuario (fabricio)",
       "source_file": "HANDOFF.md",
-      "source_location": "L479"
+      "source_location": "L490"
     },
     {
       "id": "supabase_functions_staff_auth_index",
@@ -1134,6 +1146,17 @@
     },
     {
       "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_hist\u00f3rico_da_comanda_agrupado_por_pedido_com_pedir_novamente_do_lote_inteiro_2026_09_24",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L454",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
       "target": "handoff_time_de_agentes_especializado_diagn\u00f3stico_completo_2026_08_31",
       "relation": "contains",
       "_origin": "ast",
@@ -1206,7 +1229,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L454",
+      "source_location": "L465",
       "weight": 1.0
     },
     {
@@ -1217,7 +1240,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L479",
+      "source_location": "L490",
       "weight": 1.0
     },
     {
@@ -1228,7 +1251,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L487",
+      "source_location": "L498",
       "weight": 1.0
     },
     {

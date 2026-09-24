@@ -1,16 +1,16 @@
 # Graph Report - commandah-sistema  (2026-09-24)
 
 ## Corpus Check
-- 12 files · ~71,939 words
+- 12 files · ~72,336 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 59 nodes · 56 edges · 5 communities (4 shown, 1 thin omitted)
+- 60 nodes · 57 edges · 5 communities (4 shown, 1 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `96f18db3`
+- Built from commit: `4303a857`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -22,7 +22,7 @@
 - supabase
 
 ## God Nodes (most connected - your core abstractions)
-1. `Estado atual (o que já está pronto)` - 39 edges
+1. `Estado atual (o que já está pronto)` - 40 edges
 2. `Handoff — Commandah` - 7 edges
 3. `supabase` - 4 edges
 4. `corsHeaders()` - 2 edges
@@ -43,7 +43,7 @@
 
 ### Community 0 - "Estado atual (o que já está pronto)"
 Cohesion: 0.05
-Nodes (39): Arquitetura, Atalho "Já pedidos nesta comanda" no Novo Pedido (2026-09-20), Auditoria de código vs. HANDOFF (2026-09-12), Auditoria de propostas de funcionalidades (2026-09-12), Auditoria visual/UX — mudanças desde 2026-08-31/09-01 (2026-09-12), Backup Supabase — pg_dump 16 continuava resolvendo no PATH mesmo após instalar a 17 (2026-09-20), Botão de Registrar Pagamento no modal de Consumo bloqueado (2026-09-20), Botão "Pedir novamente" no histórico da comanda (2026-09-20) (+31 more)
+Nodes (40): Arquitetura, Atalho "Já pedidos nesta comanda" no Novo Pedido (2026-09-20), Auditoria de código vs. HANDOFF (2026-09-12), Auditoria de propostas de funcionalidades (2026-09-12), Auditoria visual/UX — mudanças desde 2026-08-31/09-01 (2026-09-12), Backup Supabase — pg_dump 16 continuava resolvendo no PATH mesmo após instalar a 17 (2026-09-20), Botão de Registrar Pagamento no modal de Consumo bloqueado (2026-09-20), Botão "Pedir novamente" no histórico da comanda (2026-09-20) (+32 more)
 
 ### Community 1 - "Handoff — Commandah"
 Cohesion: 0.29
@@ -58,18 +58,18 @@ Cohesion: 0.33
 Nodes (5): SUPABASE_ACCESS_TOKEN, npx, github, supabase, @supabase/mcp-server-supabase
 
 ## Knowledge Gaps
-- **49 isolated node(s):** `github`, `npx`, `@supabase/mcp-server-supabase`, `SUPABASE_ACCESS_TOKEN`, `admin` (+44 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 52 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **50 isolated node(s):** `github`, `npx`, `@supabase/mcp-server-supabase`, `SUPABASE_ACCESS_TOKEN`, `admin` (+45 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 53 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **1 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `Estado atual (o que já está pronto)` connect `Estado atual (o que já está pronto)` to `Handoff — Commandah`?**
-  _High betweenness centrality (0.586) - this node is a cross-community bridge._
+  _High betweenness centrality (0.593) - this node is a cross-community bridge._
 - **Why does `Handoff — Commandah` connect `Handoff — Commandah` to `Estado atual (o que já está pronto)`?**
-  _High betweenness centrality (0.151) - this node is a cross-community bridge._
+  _High betweenness centrality (0.149) - this node is a cross-community bridge._
 - **What connects `github`, `npx`, `@supabase/mcp-server-supabase` to the rest of the system?**
-  _49 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _50 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Estado atual (o que já está pronto)` be split into smaller, more focused modules?**
-  _Cohesion score 0.05128205128205128 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05 - nodes in this community are weakly interconnected._
