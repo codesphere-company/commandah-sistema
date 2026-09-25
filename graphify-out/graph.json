@@ -508,6 +508,18 @@
       "source_location": "L23"
     },
     {
+      "id": "handoff_seguran\u00e7a_anon_sem_execute_nas_rpcs_tokens_fora_do_settings_2026_09_25",
+      "label": "Seguran\u00e7a: anon sem EXECUTE nas RPCs + tokens fora do settings (2026-09-25)",
+      "_origin": "ast",
+      "community": 0,
+      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
+      "file_type": "document",
+      "node_kind": "heading",
+      "norm_label": "seguranca: anon sem execute nas rpcs + tokens fora do settings (2026-09-25)",
+      "source_file": "HANDOFF.md",
+      "source_location": "L537"
+    },
+    {
       "id": "handoff_setup_de_automa\u00e7\u00e3o_do_claude_code_2026_09_12",
       "label": "Setup de automa\u00e7\u00e3o do Claude Code (2026-09-12)",
       "_origin": "ast",
@@ -625,7 +637,7 @@
       "node_kind": "heading",
       "norm_label": "onde achar mais contexto",
       "source_file": "HANDOFF.md",
-      "source_location": "L571"
+      "source_location": "L580"
     },
     {
       "id": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
@@ -637,7 +649,7 @@
       "node_kind": "heading",
       "norm_label": "pendencias (proximos passos, backlog priorizado pelo scrum-master em 2026-08-31)",
       "source_file": "HANDOFF.md",
-      "source_location": "L538"
+      "source_location": "L547"
     },
     {
       "id": "handoff_prefer\u00eancias_de_trabalho_do_usu\u00e1rio_fabricio",
@@ -649,7 +661,7 @@
       "node_kind": "heading",
       "norm_label": "preferencias de trabalho do usuario (fabricio)",
       "source_file": "HANDOFF.md",
-      "source_location": "L563"
+      "source_location": "L572"
     },
     {
       "id": "supabase_functions_staff_auth_index",
@@ -1283,6 +1295,17 @@
     },
     {
       "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_seguran\u00e7a_anon_sem_execute_nas_rpcs_tokens_fora_do_settings_2026_09_25",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L537",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
       "target": "handoff_fase_0_bloqueante_risco_ativo_conclu\u00edda_em_2026_08_31_itens_1_4_item_5_\u00e9_a\u00e7\u00e3o_humana_n\u00e3o_c\u00f3digo",
       "relation": "contains",
       "_origin": "ast",
@@ -1344,7 +1367,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L538",
+      "source_location": "L547",
       "weight": 1.0
     },
     {
@@ -1355,7 +1378,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L563",
+      "source_location": "L572",
       "weight": 1.0
     },
     {
@@ -1366,7 +1389,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L571",
+      "source_location": "L580",
       "weight": 1.0
     },
     {
@@ -1459,5 +1482,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "9d59c3078ebd8544244788cfe1128c666a8b1c0e"
+  "built_at_commit": "363d72f7ebe6682aa3558942a75f39be0023a19f"
 }
