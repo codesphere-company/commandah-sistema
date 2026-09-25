@@ -948,17 +948,24 @@ let sessionIsOwner = false;
      já exposta como RPC pra anon/authenticated no baseline.
    Antes daqui só existia o caminho do dono: uma sessão de operador não resolvia
    tenant nenhum no boot e caía na tela de e-mail/senha do dono — resultado, o
-   aparelho vivia logado como DONO e a RLS por papel não valeria nada. */
+   aparelho vivia logado como DONO e a RLS por papel não valeria nada.
+   Retorna null só quando as duas consultas RESPONDERAM e não acharam tenant.
+   Se alguma falhou (rede/servidor), retorna {networkError:true}: "não consegui
+   perguntar" não pode virar "essa conta não tem estabelecimento" — mesma
+   armadilha que a Fase 2 corrigiu em storageApi.get(). */
 async function resolveTenantSession(userId){
+  let failed = false;
   try{
-    const { data } = await supabaseClient.from('tenant_owners').select('tenant_id').eq('user_id', userId).maybeSingle();
-    if(data && data.tenant_id) return { tenantId: data.tenant_id, isOwner: true };
-  }catch(e){}
+    const { data, error } = await supabaseClient.from('tenant_owners').select('tenant_id').eq('user_id', userId).maybeSingle();
+    if(error) failed = true;
+    else if(data && data.tenant_id) return { tenantId: data.tenant_id, isOwner: true };
+  }catch(e){ failed = true; }
   try{
-    const { data: staffTenant } = await supabaseClient.rpc('current_tenant_id');
-    if(staffTenant) return { tenantId: staffTenant, isOwner: false };
-  }catch(e){}
-  return null;
+    const { data: staffTenant, error } = await supabaseClient.rpc('current_tenant_id');
+    if(error) failed = true;
+    else if(staffTenant) return { tenantId: staffTenant, isOwner: false };
+  }catch(e){ failed = true; }
+  return failed ? { networkError: true } : null;
 }
 async function createStorageAdapter(){
   if(window.storage && typeof window.storage.get==='function' && typeof window.storage.set==='function'){
@@ -1235,6 +1242,43 @@ function showPrintQueueBanner(qtd, mins, printer){
 
 function hidePrintQueueBanner(){
   const el = document.querySelector('#localModeRoot .print-stuck');
+  if(el){ el.remove(); applyTopBannerOffset(); }
+}
+
+/* ============ SINCRONIZAÇÃO PARADA ============
+   O poll de 6s (startApp) é o que traz pedidos e comandas lançados em OUTROS
+   aparelhos. Se a rede cai, ele falha — e antes falhava calado: o Monitor de
+   Cozinha ficava congelado mostrando "nenhum pedido" com pedido real na fila.
+   Só avisa depois de SYNC_FAIL_THRESHOLD falhas seguidas (um soluço de wi-fi não
+   alarma) e sai sozinho na primeira sincronização que der certo. */
+const SYNC_FAIL_THRESHOLD = 3;
+let syncFailCount = 0;
+
+function noteSyncResult(ok){
+  if(ok){ syncFailCount = 0; hideSyncFailBanner(); return; }
+  syncFailCount++;
+  if(syncFailCount >= SYNC_FAIL_THRESHOLD) showSyncFailBanner();
+}
+
+function showSyncFailBanner(){
+  const root = document.getElementById('localModeRoot');
+  if(!root || root.querySelector('.sync-fail')) return;
+  const el = document.createElement('div');
+  el.className = 'local-mode sync-fail';
+  el.setAttribute('role','alert');
+  el.innerHTML = '<div class="local-mode-ico" aria-hidden="true">&#9888;</div>'
+    + '<div class="local-mode-txt">'
+    +   '<span class="local-mode-title">Este aparelho parou de sincronizar</span>'
+    +   '<span class="local-mode-sub">Pedidos e comandas lançados em outros aparelhos não estão chegando aqui. Confira a internet; o aviso some sozinho quando a conexão voltar.</span>'
+    + '</div>'
+    + '<button type="button" class="local-mode-btn">Recarregar</button>';
+  el.querySelector('.local-mode-btn').addEventListener('click', ()=>location.reload());
+  root.appendChild(el);
+  applyTopBannerOffset();
+}
+
+function hideSyncFailBanner(){
+  const el = document.querySelector('#localModeRoot .sync-fail');
   if(el){ el.remove(); applyTopBannerOffset(); }
 }
 
@@ -2819,7 +2863,7 @@ function renderUsuarios(){
 }
 function toggleUserOptions(){userOptionsOpen=!userOptionsOpen;renderUsuarios();}
 function exportUsersCsv(){userOptionsOpen=false;downloadCsvFile('colaboradores.csv',[['Nome','Usuario','Email','Telefone','Perfil','Situacao'],...state.users.map(u=>[u.name,u.username,u.email||'',u.phone||'',roleLabel(u.role),u.active===false?'Inativo':'Ativo'])]);renderUsuarios();}
-function openPermissionMatrix(){userOptionsOpen=false;const groups=[['Atendimento',[['Caixa e pedidos','caixa'],['Balcão','balcao'],['Mesas e comandas','comandas'],['Cancelar item/comanda','cancelar-comanda'],['Delivery','delivery'],['Fila de atendimento','fila-atendimento'],['Agendamentos','agendamentos'],['Cardápio digital','cardapio'],['Totem','totem'],['Cozinha','cozinha']]],['Cadastros',[['Clientes','associados'],['Produtos','produtos'],['Insumos','insumos'],['Categorias','categorias'],['Complementos','complementos'],['Observações','observacoes'],['Perguntas','perguntas'],['Fornecedores','fornecedores']]],['Áreas e dispositivos',[['Locais e áreas','locais'],['Impressoras','impressoras'],['Estações','estacoes'],['Origens de pedido','origens'],['Acesso mobile (garçom)','mobile-qr']]],['Financeiro e gestão',[['Formas de pagamento','pagamentos'],['Categorias de contas','contascategorias'],['Contas e fiado','contas'],['Relatórios','relatorios'],['Marketing (cupons, fidelidade, SMS)','cupons']]],['Administração',[['Colaboradores','usuarios'],['Configurações','config-sistema'],['Backup','backup'],['Logs e eventos','logs'],['Painel de senhas','painel-senhas'],['Diagnóstico','diagnostico'],['Ajuda','ajuda'],['Módulos e aplicativos','modulos'],['Trocar a própria senha','senha-propria']]]],modules=groups.flatMap(g=>g[1]);openModal('Perfis e Permissões',`<div class="op-toolbar"><span class="op-toolbar-spacer"></span><button class="op-btn" onclick="setPermissionPreset('caixa')">Padrão Caixa</button><button class="op-btn" onclick="setPermissionPreset('cozinha')">Padrão Cozinha</button></div><div class="finance-grid" style="height:440px"><table><thead><tr><th>Grupo / Módulo</th><th>Administrador</th><th>Operador de caixa</th><th>Cozinha</th></tr></thead><tbody>${groups.map(([group,items])=>`<tr><td colspan="4"><b>${h(group)}</b></td></tr>${items.map(([name,key])=>`<tr><td style="padding-left:28px">${name}</td><td style="text-align:center"><input type="checkbox" checked disabled></td>${['caixa','cozinha'].map(role=>`<td style="text-align:center"><input class="permission-choice" type="checkbox" data-role="${role}" value="${key}" ${rolePermissions(role).includes(key)?'checked':''}></td>`).join('')}</tr>`).join('')}`).join('')}</tbody></table></div><p class="sub">As permissões são aplicadas imediatamente à navegação do perfil. O Administrador permanece completo por segurança.</p><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="savePermissionMatrix()">✓ Salvar</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');window.permissionMatrixModules=modules;}
+function openPermissionMatrix(){userOptionsOpen=false;const groups=[['Atendimento',[['Caixa e pedidos','caixa'],['Balcão','balcao'],['Mesas e comandas','comandas'],['Cancelar item/comanda','cancelar-comanda'],['Delivery','delivery'],['Fila de atendimento','fila-atendimento'],['Agendamentos','agendamentos'],['Cardápio digital','cardapio'],['Totem','totem'],['Cozinha','cozinha']]],['Cadastros',[['Clientes','associados'],['Produtos','produtos'],['Insumos','insumos'],['Categorias','categorias'],['Complementos','complementos'],['Observações','observacoes'],['Perguntas','perguntas'],['Fornecedores','fornecedores']]],['Áreas e dispositivos',[['Locais e áreas','locais'],['Quem levou','quemlevou'],['Impressoras','impressoras'],['Estações','estacoes'],['Origens de pedido','origens'],['Acesso mobile (garçom)','mobile-qr']]],['Financeiro e gestão',[['Formas de pagamento','pagamentos'],['Categorias de contas','contascategorias'],['Contas e fiado','contas'],['Relatórios','relatorios'],['Marketing (cupons, fidelidade, SMS)','cupons']]],['Administração',[['Colaboradores','usuarios'],['Configurações','config-sistema'],['Backup','backup'],['Logs e eventos','logs'],['Painel de senhas','painel-senhas'],['Diagnóstico','diagnostico'],['Ajuda','ajuda'],['Módulos e aplicativos','modulos'],['Trocar a própria senha','senha-propria']]]],modules=groups.flatMap(g=>g[1]);openModal('Perfis e Permissões',`<div class="op-toolbar"><span class="op-toolbar-spacer"></span><button class="op-btn" onclick="setPermissionPreset('caixa')">Padrão Caixa</button><button class="op-btn" onclick="setPermissionPreset('cozinha')">Padrão Cozinha</button></div><div class="finance-grid" style="height:440px"><table><thead><tr><th>Grupo / Módulo</th><th>Administrador</th><th>Operador de caixa</th><th>Cozinha</th></tr></thead><tbody>${groups.map(([group,items])=>`<tr><td colspan="4"><b>${h(group)}</b></td></tr>${items.map(([name,key])=>`<tr><td style="padding-left:28px">${name}</td><td style="text-align:center"><input type="checkbox" checked disabled></td>${['caixa','cozinha'].map(role=>`<td style="text-align:center"><input class="permission-choice" type="checkbox" data-role="${role}" value="${key}" ${rolePermissions(role).includes(key)?'checked':''}></td>`).join('')}</tr>`).join('')}`).join('')}</tbody></table></div><p class="sub">As permissões são aplicadas imediatamente à navegação do perfil. O Administrador permanece completo por segurança.</p><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="savePermissionMatrix()">✓ Salvar</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');window.permissionMatrixModules=modules;}
 function setPermissionPreset(role){document.querySelectorAll(`.permission-choice[data-role="${role}"]`).forEach(input=>input.checked=(ROLE_PERMS[role]||[]).includes(input.value));}
 function savePermissionMatrix(){if(!requirePerm('usuarios'))return;state.settings.rolePermissions=state.settings.rolePermissions||{};['caixa','cozinha'].forEach(role=>{state.settings.rolePermissions[role]=[...document.querySelectorAll(`.permission-choice[data-role="${role}"]:checked`)].map(x=>x.value);});save('settings');closeModal();renderAll();logAction('Matriz de permissões atualizada');toast('Permissões salvas.');}
 function accessLogEntries(){return(state.logs||[]).filter(x=>/login|logout|acesso|usuário|usuario|senha|pin/i.test(String(x.action||x.message||'')));}
@@ -6470,6 +6514,7 @@ async function tenantSignIn(){
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password, options:{ captchaToken: tsCaptchaToken } });
     if(error){ showTenantError('E-mail ou senha incorretos.'); return; }
     const resolved = await resolveTenantSession(data.user.id);
+    if(resolved && resolved.networkError){ showTenantError('Não foi possível falar com o servidor. Confira a internet e tente de novo.'); return; }
     if(!resolved){ showTenantError('Essa conta ainda não tem um estabelecimento vinculado.'); return; }
     sessionIsOwner = resolved.isOwner;
     setTenantId(resolved.tenantId);
@@ -6502,10 +6547,14 @@ function startApp(){
   loadAll();
   setInterval(async ()=>{
     if(!currentUser) return;
+    let freshOrders, rSales;
     try{
-      const freshOrders = await OrdersStore.load();
+      freshOrders = await OrdersStore.load();
+      rSales = await storageApi.get(STORE.sales);
+    }catch(e){ noteSyncResult(false); return; }
+    noteSyncResult(true);
+    try{
       const changedOrders = JSON.stringify(freshOrders) !== JSON.stringify(state.orders);
-      const rSales = await storageApi.get(STORE.sales);
       const freshSales = rSales ? JSON.parse(rSales.value) : [];
       const changedSales = JSON.stringify(freshSales) !== JSON.stringify(state.sales);
       if(changedOrders) state.orders = freshOrders;
@@ -6537,6 +6586,11 @@ function startApp(){
     }
   }, 6000);
 }
+function renderBootNetworkError(){
+  const overlay = document.getElementById('tenantSetupOverlay');
+  overlay.style.cssText = 'display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--navy);position:fixed;inset:0;z-index:999;padding:20px;overflow:auto;';
+  overlay.innerHTML = '<div class="login-box" style="max-width:440px"><h1>Sem conexão com o servidor</h1><p class="sub">Você continua logado, mas o servidor não respondeu. Confira a internet e toque em Recarregar.</p><button class="btn btn-primary btn-block" onclick="location.reload()">Recarregar</button></div>';
+}
 async function boot(){
   const hasClaudeStorage = window.storage && typeof window.storage.get==='function' && typeof window.storage.set==='function';
   if(hasClaudeStorage){ storageApi = await createStorageAdapter(); startApp(); return; }
@@ -6554,6 +6608,12 @@ async function boot(){
   const { data: { session } } = await supabaseClient.auth.getSession();
   if(session){
     const resolved = await resolveTenantSession(session.user.id);
+    if(resolved && resolved.networkError){
+      // Sessão salva e válida, só o servidor não respondeu: mandar pra tela de
+      // e-mail/senha faria o operador achar que foi deslogado.
+      renderBootNetworkError();
+      return;
+    }
     if(resolved){
       sessionIsOwner = resolved.isOwner;
       setTenantId(resolved.tenantId);
