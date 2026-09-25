@@ -274,9 +274,8 @@ tr:hover td{background:#faf7ef;}
 @media (prefers-reduced-motion:reduce){.save-fail.shake{animation:none}}
 @media (max-width:560px){.save-fail{flex-wrap:wrap}.save-fail-btn{width:100%}}
 
-/* Aviso PERSISTENTE de sessao rodando em modo Local (SDK do servidor nao carregou no boot).
-   Nao some sozinho: a sessao INTEIRA fica degradada ate o operador recarregar.
-   Nao bloqueia nada — o PDV continua 100% operacional. */
+/* Avisos persistentes do topo (sincronizacao parada, fila de impressao travada,
+   vendas que sobraram do antigo modo Local). Nao bloqueiam nada. */
 #localModeRoot{position:fixed;top:0;left:0;right:0;z-index:401;display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 12px 0;pointer-events:none;}
 #localModeRoot:empty{display:none;}
 .local-mode{pointer-events:auto;width:100%;max-width:560px;display:flex;align-items:center;gap:12px;background:#b45309;color:#fff;border-radius:10px;padding:12px 14px;box-shadow:0 6px 20px rgba(0,0,0,.32);text-align:left;}
@@ -1151,32 +1150,62 @@ async function retrySaveFail(key){
   }
 }
 
-/* ============ AVISO PERSISTENTE DE MODO LOCAL (SEM SERVIDOR) ============
-   Chamado só quando o SDK do Supabase não carregou no boot e a sessão caiu
-   pro localStorage do aparelho. Só AVISA — nada é bloqueado, o PDV segue
-   100% operacional. Fica na tela até o operador recarregar, porque a sessão
-   inteira roda degradada (não adianta sumir sozinho). */
-/* Empurra o conteúdo pra baixo somando TODOS os banners do topo (offline +
-   fila de impressão travada), pra dois avisos simultâneos não se sobreporem. */
+/* Empurra o conteúdo pra baixo somando TODOS os banners do topo (sincronização,
+   fila de impressão travada, sobras do Modo Local), pra dois avisos simultâneos
+   não se sobreporem. */
 function applyTopBannerOffset(){
   const root = document.getElementById('localModeRoot');
   document.documentElement.style.setProperty('--top-banner-offset', root ? root.offsetHeight + 'px' : '0px');
 }
 window.addEventListener('resize', applyTopBannerOffset);
 
-function showLocalModeBanner(){
+/* ============ SOBRAS DO ANTIGO MODO LOCAL ============
+   Até 2026-09-25, se o SDK do Supabase não carregasse no boot, o app rodava
+   gravando tudo no localStorage do aparelho — e isso nunca subia pro servidor.
+   O Modo Local foi removido; aqui só resgatamos o que ficou pra trás. Não
+   mistura nada no caixa: o dono baixa o arquivo e decide o que lançar. */
+function localModeLeftovers(){
+  const data = {};
+  let vendas = 0;
+  try{
+    for(const key of Object.keys(STORE)){
+      const raw = localStorage.getItem(STORE[key]);
+      if(raw===null) continue;
+      try{ data[key] = JSON.parse(raw); }catch(e){ data[key] = raw; }
+    }
+    if(Array.isArray(data.sales)) vendas = data.sales.length;
+  }catch(e){ return null; }
+  return vendas ? { data, vendas } : null;
+}
+function checkLocalModeLeftovers(){
+  if(!isCloudMode() || !sessionIsOwner) return;
+  const found = localModeLeftovers();
+  if(!found) return;
   const root = document.getElementById('localModeRoot');
-  if(!root || root.querySelector('.local-mode-offline')) return;
+  if(!root || root.querySelector('.local-leftovers')) return;
   const el = document.createElement('div');
-  el.className = 'local-mode local-mode-offline';
+  el.className = 'local-mode local-leftovers';
   el.setAttribute('role','alert');
   el.innerHTML = '<div class="local-mode-ico" aria-hidden="true">&#9888;</div>'
     + '<div class="local-mode-txt">'
-    +   '<span class="local-mode-title">Sem conexão com o servidor</span>'
-    +   '<span class="local-mode-sub">Os dados de hoje estão sendo salvos só neste aparelho e não vão aparecer nos outros pontos de venda até a conexão voltar. Toque em Recarregar quando a internet estiver estável.</span>'
+    +   '<span class="local-mode-title">'+(found.vendas===1 ? '1 venda ficou só neste aparelho' : found.vendas+' vendas ficaram só neste aparelho')+'</span>'
+    +   '<span class="local-mode-sub">Foram feitas sem conexão com o servidor e não entraram no caixa. Baixe o arquivo para conferir e lançar o que faltar.</span>'
     + '</div>'
-    + '<button type="button" class="local-mode-btn">Recarregar</button>';
-  el.querySelector('.local-mode-btn').addEventListener('click', ()=>location.reload());
+    + '<button type="button" class="local-mode-btn">Baixar arquivo</button>'
+    + '<button type="button" class="local-mode-btn local-leftovers-del">Apagar</button>';
+  el.querySelector('.local-mode-btn').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(found.data, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'vendas-sem-conexao-'+new Date().toISOString().slice(0,10)+'.json';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  });
+  el.querySelector('.local-leftovers-del').addEventListener('click', ()=>{
+    if(!confirm('Apagar deste aparelho as vendas feitas sem conexão? Baixe o arquivo antes, se ainda não baixou.')) return;
+    try{ Object.values(STORE).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+    el.remove(); applyTopBannerOffset();
+  });
   root.appendChild(el);
   applyTopBannerOffset();
 }
@@ -6560,7 +6589,7 @@ async function tenantSignUp(){
   } finally { btn.disabled=false; btn.textContent='Criar novo estabelecimento'; resetTurnstile(); }
 }
 function startApp(){
-  loadAll();
+  loadAll().then(checkLocalModeLeftovers);
   setInterval(async ()=>{
     if(!currentUser) return;
     let freshOrders, rSales;
@@ -6602,25 +6631,56 @@ function startApp(){
     }
   }, 6000);
 }
-function renderBootNetworkError(){
+/* Se o jsdelivr não entregou o SDK, tenta de novo por ele e depois pelo unpkg.
+   Cada tentativa injeta uma tag nova: a <script> original já falhou e não recarrega. */
+const SUPABASE_SDK_URLS = [
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+  'https://unpkg.com/@supabase/supabase-js@2'
+];
+function loadScriptOnce(src, timeoutMs){
+  return new Promise(resolve=>{
+    const s = document.createElement('script');
+    const timer = setTimeout(()=>{ s.onload = s.onerror = null; resolve(false); }, timeoutMs);
+    s.src = src;
+    s.onload = ()=>{ clearTimeout(timer); resolve(true); };
+    s.onerror = ()=>{ clearTimeout(timer); resolve(false); };
+    document.head.appendChild(s);
+  });
+}
+async function loadSupabaseSdkFallback(){
+  for(const url of SUPABASE_SDK_URLS){
+    await loadScriptOnce(url, 8000);
+    if(window.supabase && typeof window.supabase.createClient==='function') return true;
+  }
+  return false;
+}
+/* Tela de "sem servidor" no boot. Não existe mais Modo Local: vender gravando só
+   no aparelho parecia funcionar, mas nada subia pro servidor. Aqui o app espera
+   e tenta de novo sozinho a cada BOOT_RETRY_MS. */
+const BOOT_RETRY_MS = 10000;
+let bootRetryTimer = null;
+function renderBootNetworkError(sub){
   const overlay = document.getElementById('tenantSetupOverlay');
   overlay.style.cssText = 'display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--navy);position:fixed;inset:0;z-index:999;padding:20px;overflow:auto;';
-  overlay.innerHTML = '<div class="login-box" style="max-width:440px"><h1>Sem conexão com o servidor</h1><p class="sub">Você continua logado, mas o servidor não respondeu. Confira a internet e toque em Recarregar.</p><button class="btn btn-primary btn-block" onclick="location.reload()">Recarregar</button></div>';
+  overlay.innerHTML = '<div class="login-box" style="max-width:440px"><h1>Sem conexão com o servidor</h1><p class="sub">'+(sub||'Você continua logado, mas o servidor não respondeu. Confira a internet e toque em Recarregar.')+'</p><p class="sub">Tentando de novo automaticamente...</p><button class="btn btn-primary btn-block" onclick="location.reload()">Recarregar</button></div>';
+  clearTimeout(bootRetryTimer);
+  bootRetryTimer = setTimeout(boot, BOOT_RETRY_MS);
+}
+function hideBootNetworkError(){
+  clearTimeout(bootRetryTimer); bootRetryTimer = null;
+  const overlay = document.getElementById('tenantSetupOverlay');
+  overlay.style.display = 'none'; overlay.innerHTML = '';
 }
 async function boot(){
   const hasClaudeStorage = window.storage && typeof window.storage.get==='function' && typeof window.storage.set==='function';
   if(hasClaudeStorage){ storageApi = await createStorageAdapter(); startApp(); return; }
-  const ready = await waitForSupabaseSdk(6000);
+  const ready = await waitForSupabaseSdk(6000) || await loadSupabaseSdkFallback();
   if(!ready){
-    // SDK do servidor não carregou a tempo (rede instável): segue em modo Local
-    // pra NÃO travar a venda, mas avisa de forma persistente que esta sessão
-    // não sincroniza com os outros pontos de venda.
-    storageApi = await createStorageAdapter();
-    startApp();
-    showLocalModeBanner();
+    renderBootNetworkError('O sistema não conseguiu carregar. Confira a internet e toque em Recarregar.');
     return;
   }
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  if(bootRetryTimer!==null) hideBootNetworkError();
+  if(!supabaseClient) supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data: { session } } = await supabaseClient.auth.getSession();
   if(session){
     const resolved = await resolveTenantSession(session.user.id);

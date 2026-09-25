@@ -526,6 +526,15 @@ Três itens da auditoria de 2026-09-12, reconferidos no código e ainda abertos.
 - **`resolveTenantSession` distingue erro de rede**: antes, falha de rede virava "sem estabelecimento". No boot, o operador caía na tela de e-mail/senha, como se tivesse sido deslogado. Agora a função retorna `{networkError:true}` quando alguma consulta falhou sem resolver. No boot aparece "Sem conexão com o servidor" com botão Recarregar (`renderBootNetworkError`), e a sessão continua salva. No login por e-mail aparece "Não foi possível falar com o servidor", em vez de "conta sem estabelecimento".
 - Testado por sintaxe JS + harness Node com o código real extraído (11 asserções): dono e operador resolvidos, sem tenant retorna `null`, erro ou exceção retorna `networkError`, dono falha mas operador resolve; aviso não aparece com 2 falhas, aparece na 3ª sem duplicar e some ao sincronizar. **Pendente teste no app real.**
 
+### Modo Local removido + resgate das vendas que ficaram no aparelho (2026-09-25)
+
+Reverte a decisão da Fase 0 item 4 ("só avisa, não bloqueia"), com aprovação do Fabricio. Conferindo o código, o Modo Local não era um "offline" de verdade: ele só entrava quando o SDK do Supabase não carregava no boot, e aí lia o `localStorage` do aparelho, normalmente vazio (sem cardápio, sem caixa, com o `admin`/`1234` semeado). O banner prometia que os dados apareceriam quando a conexão voltasse, mas nada nunca subia. A queda de internet no meio do expediente não passa por aqui; isso já é coberto pelos avisos de falha ao salvar e de sincronização parada.
+
+- **`boot()`**: se o SDK não carrega em 6s, `loadSupabaseSdkFallback()` injeta a tag de novo, primeiro pelo jsdelivr e depois pelo unpkg (`SUPABASE_SDK_URLS`, 8s cada). Se nenhum responder, aparece a tela "Sem conexão com o servidor" (`renderBootNetworkError(sub)`), que agora tenta `boot()` de novo sozinha a cada 10s (`BOOT_RETRY_MS`). Quando uma nova tentativa dá certo, `hideBootNetworkError()` esconde a tela. O retry também vale para o caso de `resolveTenantSession` retornar `networkError`. `showLocalModeBanner` foi removida.
+- **Resgate (`checkLocalModeLeftovers`)**: roda depois do `loadAll()` em `startApp`, só na nuvem e só para o dono. Se o `localStorage` tiver `cantina2:sales` com vendas, aparece um banner "N vendas ficaram só neste aparelho" com "Baixar arquivo" (JSON com todas as chaves `STORE` locais) e "Apagar" (com confirmação; remove só as chaves `STORE` e não mexe no tenant salvo). Nada é lançado no caixa automaticamente.
+- Offline de verdade (cardápio em cache + fila de vendas) continua fora do escopo.
+- Testado por sintaxe JS + harness Node com o código real extraído (15 asserções): sem SDK não inicia o app, tenta os dois CDNs, mostra a tela e agenda retry; o retry com sucesso esconde a tela e segue pro login; aviso só para o dono, na nuvem e com vendas; singular/plural; Apagar remove as chaves locais e preserva o tenant. **Pendente teste no app real.**
+
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
 **Fase 1 — fundação:** concluída (itens 1-3, ver seção própria acima).
