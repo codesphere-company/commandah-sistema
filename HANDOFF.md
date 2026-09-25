@@ -481,6 +481,23 @@ Investigação pedida pelo Fabricio ("explica como está funcionando a impressã
 - Hardware real do clube: caixa e cozinha têm PC + impressora; **bar e churrasqueira só têm impressora, sem PC** — logo precisam ser de rede, com IP.
 - O roteamento é **sempre por estação** (`resolvePrinterFor(estacao, origem)`); `origem` só escolhe *qual* impressora física serve aquela estação. **Regra de negócio:** no garçom cada item sai na sua estação; no **caixa é o próprio cliente que pede e leva as fichas** para retirar quando quiser, então ali tudo deve sair na impressora do caixa. Isso se resolve por cadastro (uma impressora por estação com `origem:'caixa'`, todas apontando o IP do caixa), **sem mudança de código**.
 
+**Quem decide para qual impressora vai cada item (pergunta recorrente do Fabricio, 2026-09-24):** o **agente não decide nada** — quem roteia é o navegador, antes do job existir. O produto tem `estacao` no cadastro; na hora de enviar, os itens são **agrupados por estação** e cada grupo resolve a sua impressora (`index.html:4069-4074`, mesmo bloco replicado nos 5 fluxos que chamam `printNovoPedidoTickets`):
+
+```js
+const groups = {};
+items.forEach(i=>{ const key=i.estacao||'cozinha'; (groups[key]=groups[key]||[]).push(i); });
+const printJobs = Object.keys(groups).map(estacao=>{
+  const printer = resolvePrinterFor(estacao, origem);
+  return { estacao, items:groups[estacao], printer: printer?printer.nome:null };
+});
+```
+
+Cada grupo vira **uma linha separada** em `print_jobs`, já com o destino resolvido (`tenant_id, printer_name, printer_ip, content, status`) — repare que **não existe coluna `estacao`** na tabela. O agente é burro de propósito: lê a linha, olha `printer_ip` (ou `printer_name`) e manda o conteúdo pra lá, sem saber o que é cozinha ou churrasqueira. Por isso um pedido com espetinho + prato + cerveja gera 3 linhas com 3 IPs diferentes, e **um único agente atende as três** (fichas espaçadas em 700ms por `printNovoPedidoTickets`).
+
+Consequência prática para o caixa: o agrupamento por estação **não muda**, muda só para onde cada grupo aponta. Com as 3 estações cadastradas em `origem:'caixa'` apontando o mesmo IP, o cliente recebe **3 fichas separadas impressas ali na frente dele** — uma para retirar em cada ponto, que é o formato certo para o fluxo dele (melhor que ficha única consolidada, porque cada ponto de retirada fica com o comprovante do que entregou).
+
+**Pegadinha de cadastro:** estação com modo de saída `tela` é filtrada por `saidaTemImpressao` em `printNovoPedidoTickets` e **não gera ficha nenhuma** — é uma forma silenciosa de um item parar de imprimir. Hoje as três estão em `imprime` ou `ambos`.
+
 **O bug:** quando o insert na fila dá certo, `printSingleTicket` faz `return` com o toast *"Pedido enviado pra fila de impressão"* e **não abre o pop-up de fallback**. Se o agente estiver fechado, o operador vê sucesso, o papel nunca sai, e como Bar e Churrasqueira estão com `saida:'imprime'` os itens **também não aparecem no Monitor de Cozinha** — o pedido desaparece sem deixar rastro em nenhuma tela. Evidência na fila real: último job impresso em **2026-08-29 18:29**, com pendentes acumulando desde então.
 
 **A correção (só aviso, nada é bloqueado):**
