@@ -1,7 +1,7 @@
 # Graph Report - commandah-sistema  (2026-09-25)
 
 ## Corpus Check
-- 13 files · ~75,915 words
+- 13 files · ~76,073 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `363d72f7`
+- Built from commit: `d1f5ba30`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
