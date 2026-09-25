@@ -533,6 +533,7 @@ Reverte a decisão da Fase 0 item 4 ("só avisa, não bloqueia"), com aprovaçã
 - **`boot()`**: se o SDK não carrega em 6s, `loadSupabaseSdkFallback()` injeta a tag de novo, primeiro pelo jsdelivr e depois pelo unpkg (`SUPABASE_SDK_URLS`, 8s cada). Se nenhum responder, aparece a tela "Sem conexão com o servidor" (`renderBootNetworkError(sub)`), que agora tenta `boot()` de novo sozinha a cada 10s (`BOOT_RETRY_MS`). Quando uma nova tentativa dá certo, `hideBootNetworkError()` esconde a tela. O retry também vale para o caso de `resolveTenantSession` retornar `networkError`. `showLocalModeBanner` foi removida.
 - **Resgate (`checkLocalModeLeftovers`)**: roda depois do `loadAll()` em `startApp`, só na nuvem e só para o dono. Se o `localStorage` tiver `cantina2:sales` com vendas, aparece um banner "N vendas ficaram só neste aparelho" com "Baixar arquivo" (JSON com todas as chaves `STORE` locais) e "Apagar" (com confirmação; remove só as chaves `STORE` e não mexe no tenant salvo). Nada é lançado no caixa automaticamente.
 - Offline de verdade (cardápio em cache + fila de vendas) continua fora do escopo.
+- Testado por sintaxe JS + harness Node com o código real extraído (15 asserções): sem SDK não inicia o app, tenta os dois CDNs, mostra a tela e agenda retry; o retry com sucesso esconde a tela e segue pro login; aviso só para o dono, na nuvem e com vendas; singular/plural; Apagar remove as chaves locais e preserva o tenant. **Pendente teste no app real.**
 
 ### Segurança: anon sem EXECUTE nas RPCs + tokens fora do settings (2026-09-25)
 
@@ -543,7 +544,16 @@ Fecha os dois achados da auditoria de 2026-09-12 (linhas "Grant residual de EXEC
 - **Ordem de aplicação**: mergear o `index.html` primeiro e recarregar os aparelhos, depois rodar a migration. Um aparelho com o código antigo aberto poderia gravar o `settings` de volta com os tokens.
 - Testado: sintaxe JS; `stripIntegrationTokens` com os 4 grupos, `null` e `{}`; migration rodada duas vezes num Postgres em memória (PGlite) com os grants iguais à produção. Os tokens somem, o resto do settings e as outras chaves ficam iguais, anon perde EXECUTE e authenticated mantém.
 - **Aplicada em produção em 2026-09-25 pelo SQL Editor.** O primeiro script, com revoke só do `anon`, não bastou: em produção o EXECUTE vinha também do `PUBLIC`, e `next_order_number` seguia executando para o anon (parava só no "sem tenant resolvido"). A migration foi corrigida para `revoke ... from public, anon` + `grant ... to authenticated, service_role`. Conferido pela API REST com a chave anon: `next_order_number` e `close_sale` respondem `42501 permission denied`, `print_agent_fetch_pending` segue respondendo. Venda de teste no caixa registrada normalmente.
-- Testado por sintaxe JS + harness Node com o código real extraído (15 asserções): sem SDK não inicia o app, tenta os dois CDNs, mostra a tela e agenda retry; o retry com sucesso esconde a tela e segue pro login; aviso só para o dono, na nuvem e com vendas; singular/plural; Apagar remove as chaves locais e preserva o tenant. **Pendente teste no app real.**
+
+### Backup com logins e permissões + teste de restauração toda noite (2026-09-25)
+
+Fecha o achado "backup sem restore-drill" da auditoria de 2026-09-12. Baixar o dump pra conferir na máquina local foi descartado (tem PII de sócios); o teste roda dentro do próprio Actions, e os dados não saem do runner.
+
+- **Dois buracos no backup antigo**: (1) só `--schema=public`, então os logins (`auth.users`/`auth.identities`) ficavam de fora, e uma restauração voltava sem dono nem colaboradores conseguindo entrar; (2) `--no-acl`, então os GRANT/REVOKE ficavam de fora, e a restauração voltava com o EXECUTE do anon nas RPCs de venda.
+- **`backup-supabase.yml`**: agora gera dois arquivos em formato custom (`public-*.dump` com ACL e `auth-*.dump` só com `auth.users` + `auth.identities`, sem ACL). Com a aprovação do Fabricio, o backup passa a conter hash de senha, e continua sendo artifact privado de 90 dias.
+- **Teste de restauração**: um service container `postgres:17` recebe papéis, extensões e `auth.uid()/role()/jwt()` mínimos do Supabase, e o `pg_restore` roda por seção (pre-data, data, post-data), intercalando auth e public por causa da FK `tenant_owners -> auth.users`. A contagem de linhas de cada tabela é comparada com a produção, que é contada antes e depois do dump; a restaurada tem que ficar entre as duas. Se falhar ou divergir, o workflow fica vermelho.
+- **Restaurar de verdade num projeto Supabase novo**: o schema auth já existe lá, então do `auth-*.dump` vão só os dados (`pg_restore --data-only`), antes dos dados do `public-*.dump`. A ordem está comentada no workflow.
+- **Validado**: run `36200196621` (workflow_dispatch na branch) restaurou tudo e as 13 tabelas bateram (`members` 1001, `audit_log` 164, `auth.users` 5 etc.). O push de workflow exigiu `gh auth refresh -s workflow` na conta `codesphere-company`.
 
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
