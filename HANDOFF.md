@@ -490,6 +490,16 @@ Investigação pedida pelo Fabricio ("explica como está funcionando a impressã
 - `--top-banner-offset` passou a somar a altura do `#localModeRoot` inteiro (antes usava só a altura do banner de offline), e o root virou `flex-direction:column`, para os dois avisos empilharem em vez de se sobreporem. O banner de offline ganhou a classe marcadora `.local-mode-offline` porque o guard de duplicata dele testava `.local-mode`, que agora os dois compartilham.
 - Testado por sintaxe JS + harness Node isolado (**23 asserções**, DOM e fila falsos, código real extraído por parsing de chaves balanceadas): job recente não alarma, job de 12 min alarma com nome da impressora e minutos certos, lixo de agosto é ignorado, título singular/plural, sempre cita o job **mais antigo**, snooze adia e expira, fila limpa remove o banner, sem usuário logado não consulta, e os dois banners coexistem somando o offset sem duplicar. **Testado pelo Fabricio no app real (localhost, com os 2 jobs pendentes reais da fila), confirmado que funcionou.**
 
+### Monitor travado por estação em Modo TV — uma TV por área (2026-09-25)
+
+Pedido do Fabricio: "cada área ter seu próprio monitor". No clube, só a **cozinha** e a **churrasqueira** têm tela; o **bar** fica só no papel. A churrasqueira continua imprimindo junto com a tela (saída "ambos"), como garantia se a TV ou a internet caírem.
+
+- O filtro por estação do monitor já existia (`kitchenStationFilter`, salvo por aparelho no `localStorage`), e o "pronto" parcial por item também: o pedido só vira `pronto` quando todas as estações marcam os seus itens. **Nada disso mudou.**
+- **Novo em `renderCozinha`:** no Modo TV, o filtro some e a estação fica travada. "Todas" não vale em TV: se houver mais de uma estação com tela e nenhuma escolhida, a TV mostra "Qual estação é esta tela?" com botões grandes e não mostra pedidos. Para trocar de estação, é preciso sair do Modo TV.
+- O título agora mostra a estação: "Monitor — Cozinha", "Monitor — Churrasqueira", ou "Monitor de preparo" quando está em "Todas". Com uma estação só, usa o nome dela.
+- **Configuração obrigatória (dado, não código):** em Estações, mudar a Churrasqueira de "só imprime" para "Ambos". Sem isso, ela não aparece no monitor.
+- Testado por sintaxe JS + harness Node isolado (7 asserções, código real extraído, DOM falso): filtro/título fora da TV, bar (só imprime) fora do filtro, TV em "Todas" pede estação, TV travada sem filtro, cada TV só com os seus itens, uma estação só não pede escolha. **Pendente teste no app real.**
+
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
 **Fase 1 — fundação:** concluída (itens 1-3, ver seção própria acima).

@@ -345,6 +345,8 @@ body.tv-mode .kbtn-ready{width:72px;}
 body.tv-mode .kbtn-ready svg{width:32px;height:32px;}
 body.tv-mode .subtabs button{padding:10px 18px;font-size:15px;}
 body.tv-mode .kcard-done .kdone-badge{font-size:16px;}
+body.tv-mode .kstation-pick{gap:20px;margin-top:20px;}
+body.tv-mode .kstation-pick .btn{font-size:26px;padding:24px 40px;}
 body.tv-mode .winbar,body.tv-mode .ribbon,body.tv-mode .statusbar{display:none!important;}
 body.tv-mode main{padding:26px;}
 .tv-exit-btn{display:none;position:fixed;top:10px;right:10px;z-index:9999;background:var(--navy);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;opacity:.8;}
@@ -3058,7 +3060,21 @@ function renderCozinha(){
   const stations = state.estacoes.filter(e=>saidaTemTela(e.chave));
   if(stations.length<=1) kitchenStationFilter='todas';
   else if(kitchenStationFilter!=='todas' && !stations.some(e=>e.chave===kitchenStationFilter)) kitchenStationFilter='todas';
-  const filterHtml = stations.length>1 ? `<div class="kfilter">
+  const tv = document.body.classList.contains('tv-mode');
+  const tvBtn = tv ? '' : '<button class="btn btn-sm" style="margin-left:10px" onclick="toggleTvMode()">📺 Modo TV (tela cheia p/ monitor)</button>';
+  // Cada TV fica numa área (ex. cozinha e churrasqueira): em Modo TV a estação fica
+  // travada e o filtro some, pra ninguém trocar a tela sem querer. "Todas" não vale
+  // em TV — se ainda não escolheu, a tela pede a estação antes de mostrar pedidos.
+  // Pra trocar de estação, sai do Modo TV.
+  if(tv && stations.length>1 && kitchenStationFilter==='todas'){
+    el.innerHTML = `<div class="panel"><h2>Qual estação é esta tela?</h2>
+      <div class="kfilter kstation-pick">${stations.map(e=>`<button class="btn btn-primary" onclick="setKitchenStationFilter('${e.chave}')">${h(e.nome)}</button>`).join('')}</div>
+    </div>`;
+    return;
+  }
+  const stationNome = kitchenStationFilter!=='todas' ? estacaoLabel(kitchenStationFilter) : (stations.length===1 ? stations[0].nome : '');
+  const titulo = stationNome ? 'Monitor — '+h(stationNome) : 'Monitor de preparo';
+  const filterHtml = stations.length>1 && !tv ? `<div class="kfilter">
     <button class="btn btn-sm ${kitchenStationFilter==='todas'?'btn-primary':''}" onclick="setKitchenStationFilter('todas')">Todas</button>
     ${stations.map(e=>`<button class="btn btn-sm ${kitchenStationFilter===e.chave?'btn-primary':''}" onclick="setKitchenStationFilter('${e.chave}')">${h(e.nome)}</button>`).join('')}
   </div>` : '';
@@ -3067,7 +3083,7 @@ function renderCozinha(){
     <button class="${kitchenViewTab==='prontos'?'active':''}" onclick="setKitchenViewTab('prontos')">Prontos</button>
   </div>`;
   const feedHtml = kitchenViewTab==='prontos' ? renderKitchenReadyFeed() : renderKitchenActiveFeed();
-  el.innerHTML = `<div class="panel"><h2>Monitor de cozinha ${document.body.classList.contains('tv-mode')?'':'<button class="btn btn-sm" style="margin-left:10px" onclick="toggleTvMode()">📺 Modo TV (tela cheia p/ monitor)</button>'}</h2>
+  el.innerHTML = `<div class="panel"><h2>${titulo} ${tvBtn}</h2>
     ${subtabsHtml}
     ${filterHtml}
     ${feedHtml}
