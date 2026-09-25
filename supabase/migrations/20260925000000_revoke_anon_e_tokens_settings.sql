@@ -28,14 +28,24 @@
 --    secret do Pix na Fase 0.
 -- =====================================================================
 
-revoke execute on function public.next_order_number(integer)            from anon;
-revoke execute on function public.consume_insumos(jsonb)                from anon;
-revoke execute on function public.restore_insumos(jsonb)                from anon;
-revoke execute on function public.close_sale(text, boolean, jsonb)      from anon;
-revoke execute on function public.regenerate_print_agent_token()        from anon;
+revoke execute on function public.next_order_number(integer)            from public, anon;
+revoke execute on function public.consume_insumos(jsonb)                from public, anon;
+revoke execute on function public.restore_insumos(jsonb)                from public, anon;
+revoke execute on function public.close_sale(text, boolean, jsonb)      from public, anon;
+revoke execute on function public.regenerate_print_agent_token()        from public, anon;
 -- Funções de trigger: o trigger dispara sem checar EXECUTE de quem grava.
-revoke execute on function public.recalc_member_debt()                  from anon;
-revoke execute on function public.audit_log_stamp()                     from anon;
+revoke execute on function public.recalc_member_debt()                  from public, anon;
+revoke execute on function public.audit_log_stamp()                     from public, anon;
+
+-- Em produção o EXECUTE vinha também do PUBLIC (o revoke só do anon não
+-- bastou; conferido em 2026-09-25). Devolve só pra quem tem login.
+grant execute on function public.next_order_number(integer)       to authenticated, service_role;
+grant execute on function public.consume_insumos(jsonb)           to authenticated, service_role;
+grant execute on function public.restore_insumos(jsonb)           to authenticated, service_role;
+grant execute on function public.close_sale(text, boolean, jsonb) to authenticated, service_role;
+grant execute on function public.regenerate_print_agent_token()   to authenticated, service_role;
+grant execute on function public.recalc_member_debt()             to authenticated, service_role;
+grant execute on function public.audit_log_stamp()                to authenticated, service_role;
 
 update public.app_data
 set value = value #- '{whatsappBot,token}' #- '{sms,token}',
