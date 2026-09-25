@@ -1,9 +1,15 @@
 name: Backup Supabase DB
 
 # Backup noturno do schema public (members, app_data, print_jobs, audit_log etc.)
-# do Postgres do Supabase. O repo eh publico (GitHub Pages), entao o dump NUNCA
-# vai pra dentro do git - fica so como artifact privado do Actions, que expira
-# sozinho depois de retention-days.
+# + dos logins (auth.users / auth.identities) do Postgres do Supabase. O repo eh
+# publico (GitHub Pages), entao o dump NUNCA vai pra dentro do git - fica so
+# como artifact privado do Actions, que expira sozinho depois de retention-days.
+#
+# Depois do upload, o mesmo job RESTAURA os dois arquivos num Postgres
+# temporario (service container) e compara a contagem de linhas de cada
+# tabela com a producao. Backup que nao restaura, ou restaura faltando linha,
+# deixa o workflow vermelho (e o GitHub manda e-mail). Os dados nunca saem
+# do runner.
 #
 # Antes do primeiro run funcionar, cadastre o secret SUPABASE_DB_URL em
 # Settings -> Secrets and variables -> Actions -> New repository secret.
@@ -13,6 +19,12 @@ name: Backup Supabase DB
 # tem rede IPv6; o pooler de transacao (6543) nao suporta o tipo de sessao
 # que o pg_dump precisa. Formato (usuario muda pra postgres.<project-ref>):
 #   postgresql://postgres.ezfoymdesmarpunmixbs:SENHA@aws-0-<regiao>.pooler.supabase.com:5432/postgres
+#
+# Formato custom do pg_dump (.dump, ja comprimido): restaura com pg_restore.
+# RESTAURAR DE VERDADE num projeto Supabase novo: o schema auth ja existe la
+# (quem cria eh o proprio Supabase), entao do auth-*.dump use so os dados
+# (pg_restore --data-only), e ANTES dos dados do public-*.dump (tenant_owners
+# tem FK pra auth.users). A ordem completa esta no passo "Restaurar" abaixo.
 
 on:
   schedule:
@@ -22,6 +34,19 @@ on:
 jobs:
   backup:
     runs-on: ubuntu-latest
+    services:
+      restore:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: restore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGCONNECT_TIMEOUT: '30'
+      RESTORE_URL: postgresql://postgres:restore@localhost:5432/postgres
     steps:
       - name: Instalar cliente Postgres 17
         # O apt padrao do Ubuntu instala o pg_dump 16, mas o servidor do
@@ -41,25 +66,113 @@ jobs:
           sudo apt-get install -y postgresql-client-17
           echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
 
-      - name: Dump do schema public
+      - name: Preparar script de contagem
+        # Uma linha "schema.tabela|linhas" por tabela. So numeros vao pro log.
         run: |
-          set -euo pipefail
+          cat > count.sql <<'SQL'
+          select format('select %L || ''|'' || count(*) from %I.%I', schemaname||'.'||tablename, schemaname, tablename)
+          from pg_tables
+          where schemaname = 'public'
+             or (schemaname = 'auth' and tablename in ('users','identities'))
+          order by 1
+          \gexec
+          SQL
           if [ -z "${SUPABASE_DB_URL:-}" ]; then
             echo "Secret SUPABASE_DB_URL nao configurado (Settings > Secrets and variables > Actions)." >&2
             exit 1
           fi
-          pg_dump "$SUPABASE_DB_URL" \
-            --schema=public \
-            --no-owner --no-acl \
-            --format=plain \
-            | gzip > "backup-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-          PGCONNECT_TIMEOUT: '30'
+
+      - name: Dump do schema public e dos logins
+        # --no-acl saiu: sem os GRANT/REVOKE, uma restauracao voltava com o
+        # EXECUTE do anon nas RPCs de venda (ver migration 20260925000000).
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -At -f count.sql | sort > counts-before.txt
+          stamp=$(date -u +%Y%m%dT%H%M%SZ)
+          pg_dump "$SUPABASE_DB_URL" \
+            --schema=public \
+            --no-owner \
+            --format=custom \
+            --file="public-$stamp.dump"
+          pg_dump "$SUPABASE_DB_URL" \
+            --table=auth.users --table=auth.identities \
+            --no-owner --no-acl \
+            --format=custom \
+            --file="auth-$stamp.dump"
+          psql "$SUPABASE_DB_URL" -At -f count.sql | sort > counts-after.txt
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
       - name: Upload como artifact privado
         uses: actions/upload-artifact@v4
         with:
           name: supabase-backup
-          path: backup-*.sql.gz
+          path: |
+            public-*.dump
+            auth-*.dump
           retention-days: 90
+
+      - name: Restaurar num Postgres temporario
+        # Recria o minimo do Supabase que o dump referencia mas nao carrega:
+        # papeis, extensoes no schema extensions e auth.uid()/role()/jwt(),
+        # usados pelas policies de RLS.
+        run: |
+          set -euo pipefail
+          psql "$RESTORE_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
+          do $$
+          declare r text;
+          begin
+            foreach r in array array['anon','authenticated','service_role','authenticator',
+              'supabase_admin','supabase_auth_admin','supabase_storage_admin','dashboard_user',
+              'pgbouncer','supabase_realtime_admin','supabase_replication_admin',
+              'supabase_read_only_user','supabase_functions_admin'] loop
+              if not exists (select 1 from pg_roles where rolname = r) then
+                execute format('create role %I nologin', r);
+              end if;
+            end loop;
+          end $$;
+          create schema extensions;
+          create extension pgcrypto with schema extensions;
+          create extension "uuid-ossp" with schema extensions;
+          create schema auth;
+          create function auth.uid() returns uuid language sql stable as 'select null::uuid';
+          create function auth.role() returns text language sql stable as 'select null::text';
+          create function auth.jwt() returns jsonb language sql stable as 'select null::jsonb';
+          SQL
+          # O public ja existe no banco novo: tira o CREATE SCHEMA da lista.
+          pg_restore -l public-*.dump | grep -v ' SCHEMA - public ' > public.list
+          pg_restore -l auth-*.dump > auth.list
+          # Por secao, intercalando: tabelas das duas, dados das duas, e so no
+          # fim indices/FKs/triggers. Assim a FK tenant_owners -> auth.users e
+          # um trigger em auth.users que chame funcao do public nao quebram.
+          for section in pre-data data post-data; do
+            pg_restore -d "$RESTORE_URL" --exit-on-error --no-owner --section=$section -L auth.list   auth-*.dump
+            pg_restore -d "$RESTORE_URL" --exit-on-error --no-owner --section=$section -L public.list public-*.dump
+          done
+          psql "$RESTORE_URL" -At -f count.sql | sort > counts-restored.txt
+
+      - name: Comparar contagens com a producao
+        # A producao foi contada antes e depois do dump; a restaurada tem que
+        # ficar entre as duas (alguem pode ter vendido durante o dump).
+        run: |
+          set -euo pipefail
+          fail=0
+          while IFS='|' read -r table before; do
+            after=$(awk -F'|' -v t="$table" '$1==t{print $2}' counts-after.txt)
+            restored=$(awk -F'|' -v t="$table" '$1==t{print $2}' counts-restored.txt)
+            lo=$(( before < ${after:-$before} ? before : ${after:-$before} ))
+            hi=$(( before > ${after:-$before} ? before : ${after:-$before} ))
+            if [ -z "$restored" ]; then
+              echo "FALTOU  $table: producao $before, nao existe na restauracao"; fail=1
+            elif [ "$restored" -lt "$lo" ] || [ "$restored" -gt "$hi" ]; then
+              echo "DIFERE  $table: producao $lo..$hi, restaurado $restored"; fail=1
+            else
+              echo "ok      $table: $restored"
+            fi
+          done < counts-before.txt
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::O backup nao restaurou igual a producao. Veja as linhas FALTOU/DIFERE acima."
+            exit 1
+          fi
