@@ -253,7 +253,7 @@
       "node_kind": "heading",
       "norm_label": "correcoes rapidas da auditoria (2026-09-25)",
       "source_file": "HANDOFF.md",
-      "source_location": "L493"
+      "source_location": "L520"
     },
     {
       "id": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
@@ -410,6 +410,18 @@
       "norm_label": "local de entrega, \"quem levou\" e cancelamento de item lancado errado na comanda (2026-09-20)",
       "source_file": "HANDOFF.md",
       "source_location": "L385"
+    },
+    {
+      "id": "handoff_monitor_travado_por_esta\u00e7\u00e3o_em_modo_tv_uma_tv_por_\u00e1rea_2026_09_25",
+      "label": "Monitor travado por esta\u00e7\u00e3o em Modo TV \u2014 uma TV por \u00e1rea (2026-09-25)",
+      "_origin": "ast",
+      "community": 0,
+      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
+      "file_type": "document",
+      "node_kind": "heading",
+      "norm_label": "monitor travado por estacao em modo tv \u2014 uma tv por area (2026-09-25)",
+      "source_file": "HANDOFF.md",
+      "source_location": "L510"
     },
     {
       "id": "handoff_quantidade_de_copos_no_app_do_gar\u00e7om_2026_09_20",
@@ -601,7 +613,7 @@
       "node_kind": "heading",
       "norm_label": "onde achar mais contexto",
       "source_file": "HANDOFF.md",
-      "source_location": "L535"
+      "source_location": "L562"
     },
     {
       "id": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
@@ -613,7 +625,7 @@
       "node_kind": "heading",
       "norm_label": "pendencias (proximos passos, backlog priorizado pelo scrum-master em 2026-08-31)",
       "source_file": "HANDOFF.md",
-      "source_location": "L502"
+      "source_location": "L529"
     },
     {
       "id": "handoff_prefer\u00eancias_de_trabalho_do_usu\u00e1rio_fabricio",
@@ -625,7 +637,7 @@
       "node_kind": "heading",
       "norm_label": "preferencias de trabalho do usuario (fabricio)",
       "source_file": "HANDOFF.md",
-      "source_location": "L527"
+      "source_location": "L554"
     },
     {
       "id": "supabase_functions_staff_auth_index",
@@ -1215,17 +1227,6 @@
     },
     {
       "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_corre\u00e7\u00f5es_r\u00e1pidas_da_auditoria_2026_09_25",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L493",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
       "target": "handoff_time_de_agentes_especializado_diagn\u00f3stico_completo_2026_08_31",
       "relation": "contains",
       "_origin": "ast",
@@ -1233,6 +1234,28 @@
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
       "source_location": "L51",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_monitor_travado_por_esta\u00e7\u00e3o_em_modo_tv_uma_tv_por_\u00e1rea_2026_09_25",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L510",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_corre\u00e7\u00f5es_r\u00e1pidas_da_auditoria_2026_09_25",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L520",
       "weight": 1.0
     },
     {
@@ -1298,7 +1321,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L502",
+      "source_location": "L529",
       "weight": 1.0
     },
     {
@@ -1309,7 +1332,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L527",
+      "source_location": "L554",
       "weight": 1.0
     },
     {
@@ -1320,7 +1343,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L535",
+      "source_location": "L562",
       "weight": 1.0
     },
     {
@@ -1413,5 +1436,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "fe042a5410d8f0274acbefb001f5f92b6e6b22bb"
+  "built_at_commit": "9d59c3078ebd8544244788cfe1128c666a8b1c0e"
 }
