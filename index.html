@@ -1080,6 +1080,38 @@ async function save(key){
   catch(e){ saveFailBanner(key); return false; }
 }
 
+/* ============ TRAVA CONTRA DUPLO CLIQUE ============
+   Fluxos async que gravam dinheiro/pedido (venda, envio pra cozinha, abrir comanda)
+   ficam "pendurados" esperando rede. Um segundo toque nesse meio-tempo rodava o
+   fluxo de novo: venda duplicada, item lançado 2x na comanda, estoque baixado 2x.
+   singleFlight ignora a chamada repetida enquanto a primeira (mesmo 1º argumento)
+   não terminar. */
+const _singleFlightBusy = new Set();
+function singleFlight(name, fn){
+  return async function(...args){
+    const a0 = args[0];
+    const key = name+':'+((typeof a0==='string'||typeof a0==='number')?a0:'');
+    if(_singleFlightBusy.has(key)){ toast('Aguarde, processando...'); return; }
+    _singleFlightBusy.add(key);
+    try{ return await fn.apply(this, args); }
+    finally{ _singleFlightBusy.delete(key); }
+  };
+}
+finalizeSale = singleFlight('finalizeSale', finalizeSale);
+confirmNovoPedidoModal = singleFlight('confirmNovoPedidoModal', confirmNovoPedidoModal);
+confirmComandaQuickAdd = singleFlight('confirmComandaQuickAdd', confirmComandaQuickAdd);
+confirmReorderComandaItem = singleFlight('confirmReorderComandaItem', confirmReorderComandaItem);
+saveNewNamedComanda = singleFlight('saveNewNamedComanda', saveNewNamedComanda);
+gcOpenBarComanda = singleFlight('gcOpenBarComanda', gcOpenBarComanda);
+gcSelectMember = singleFlight('gcSelectMember', gcSelectMember);
+gcConfirmOrder = singleFlight('gcConfirmOrder', gcConfirmOrder);
+sendScheduledToKitchen = singleFlight('sendScheduledToKitchen', sendScheduledToKitchen);
+acceptRequest = singleFlight('acceptRequest', acceptRequest);
+submitTotemOrder = singleFlight('submitTotemOrder', submitTotemOrder);
+saveDeliveryOrder = singleFlight('saveDeliveryOrder', saveDeliveryOrder);
+duplicateDeliveryOrder = singleFlight('duplicateDeliveryOrder', duplicateDeliveryOrder);
+cancelDelivery = singleFlight('cancelDelivery', cancelDelivery);
+
 /* ============ AVISO PERSISTENTE DE FALHA AO SALVAR ============
    O toast some em 2,6s e no salão cheio ninguém vê. Aqui o aviso FICA na tela
    até o dado ser gravado de verdade (por retry manual ou por um save seguinte
@@ -3592,7 +3624,7 @@ function openPaymentModal(mode, comandaId){
     creditApplied = Math.min(memberAvailableCredit(member), afterCoupon);
     const afterDiscount = Math.max(0, afterCoupon-creditApplied);
     const service = applyService ? serviceChargeAmount(afterDiscount) : 0;
-    finalTotal = afterDiscount+service;
+    finalTotal = Math.round((afterDiscount+service)*100)/100; // centavos exatos (evita total 36,663 gravado na venda)
     document.getElementById('payDiscountRow').style.display = discount>0 ? 'flex':'none';
     if(discount>0) document.getElementById('payDiscountLine').textContent = '− '+fmt(discount);
     document.getElementById('payCreditRow').style.display = creditApplied>0.009 ? 'flex':'none';
@@ -3667,7 +3699,7 @@ function openPaymentModal(mode, comandaId){
     const code = document.getElementById('payCoupon').value.trim().toUpperCase();
     const c = state.coupons.find(x=>x.code===code && isCouponUsable(x));
     if(!c){ toast('Cupom inválido ou inativo.'); return; }
-    discount = c.type==='percent' ? subtotal*(c.value/100) : Math.min(subtotal,c.value);
+    discount = c.type==='percent' ? Math.round(subtotal*c.value)/100 : Math.min(subtotal,c.value);
     recomputeTotals();
     tempPayments = []; renderPaymentParts();
     toast('Cupom '+code+' aplicado.');
@@ -3701,7 +3733,7 @@ function openPaymentModal(mode, comandaId){
         for(let i=payments.length-1; i>=0 && remaining>0.009; i--){
           const p = payments[i];
           const take = Math.min(p.amount, remaining);
-          p.received = p.amount; p.change = (p.change||0)+take; p.amount -= take; remaining -= take;
+          p.received = p.amount; p.change = Math.round(((p.change||0)+take)*100)/100; p.amount = Math.round((p.amount-take)*100)/100; remaining -= take;
         }
       }
     }
@@ -3915,46 +3947,6 @@ async function mergeOpenOrders(){
   state.sales=state.sales.filter(s=>s.id!==source.id);
   save('sales'); closeModal(); logAction(`Pedidos juntados: ${comandaDisplayName(source)} em ${comandaDisplayName(target)}`); renderAll(); toast('Pedidos juntados com sucesso.');
 }
-function renderComandas(){
-  const el = document.getElementById('view-comandas');
-  if(!state.cashSession || state.cashSession.status!=='open'){
-    el.innerHTML = `<div class="consumer-workspace"><section class="free-cash"><h2>CAIXA LIVRE</h2><div class="free-cash-actions"><button class="op-btn" onclick="switchView('caixa')">‹ &nbsp; Abrir caixa</button><button class="op-btn primary" onclick="switchView('caixa')"><span class="op-ico">＋</span> Iniciar atendimento</button></div><p class="sub" style="margin-top:25px">Abra o caixa para liberar mesas e comandas.</p></section></div>`; return;
-  }
-  const open = state.sales.filter(s=>s.status==='open');
-  const tableCount=Math.max(1,Number(state.settings.tableCount)||20);
-  const tables=Array.from({length:tableCount},(_,idx)=>{const n=idx+1,sale=open.find(s=>Number(s.tableNumber)===n),member=sale&&sale.memberId?state.members.find(m=>m.id===sale.memberId):null,person=sale?(sale.dependentName||sale.customerName||member&&member.name||'Sem identificação'):'',account=sale&&member?(member.code?'Cota '+member.code:member.name):'';return `<button class="table-seat ${sale?'occupied':''}" data-search="${h((sale?[person,account,'mesa '+n].join(' '):'mesa '+n).toLowerCase())}" onclick="${sale?`openComanda('${sale.id}')`:`openNewComandaModal(${n})`}"><div class="cap">${sale?'OCUPADA':'ABRIR'}</div><div class="num">${String(n).padStart(2,'0')}</div>${sale?`<div class="cap table-person" style="margin-top:7px;font-weight:700">${h(person)}</div>${account&&account!==person?`<div class="cap" style="font-size:10px">${h(account)}</div>`:''}<div class="cap" style="margin-top:5px">${fmt(sale.total)}</div>`:''}</button>`}).join('');
-  el.innerHTML = `<div class="table-workspace"><div class="table-toolbar"><div class="op-search"><input type="search" id="comandaSearch" placeholder="Pesquisar mesa, comanda ou cliente..."></div><div style="flex:1"></div><div class="pdv-menu-wrap"><button class="op-btn ${comandaOptionsOpen?'active':''}" onclick="toggleComandaOptions()">••• &nbsp; Opções ▾</button>${comandaOptionsOpen?`<div class="pdv-menu" style="top:48px"><button onclick="openMergeOrdersModal()">⇄ &nbsp; Juntar pedidos</button><button onclick="refreshComandas()">↻ &nbsp; Atualizar</button></div>`:''}</div><button class="op-btn primary" onclick="openNewComandaModal()">＋ Iniciar Pedido Balcão (F6)</button></div><h3 class="table-heading">Mesas Livres</h3><div class="table-grid" id="comandaTiles">${tables}</div></div>`;
-  document.getElementById('comandaSearch').oninput = (e)=>{
-    const q = e.target.value.toLowerCase();
-    document.querySelectorAll('#comandaTiles .table-seat[data-search]').forEach(t=>{
-      t.style.display = t.dataset.search.includes(q) ? '' : 'none';
-    });
-  };
-}
-function openNewComandaModal(tableNumber){
-  const memberOptions = state.members.filter(m=>!m.archived).map(m=>`<optgroup label="${h((m.code?'Cota '+m.code+' — ':'')+m.name)}"><option value="${m.id}">Titular — ${h(m.name)}</option>${(m.dependents||[]).map(d=>`<option value="${m.id}::${d.id}" ${d.canOrder===false?'disabled':''}>Dependente — ${h(d.name)}${d.canOrder===false?' (bloqueado)':''}</option>`).join('')}</optgroup>`).join('');
-  openModal(tableNumber?'Abrir mesa '+String(tableNumber).padStart(2,'0'):'Nova comanda', `
-    <div class="field"><label>Titular ou dependente (por cota)</label><select id="ncMember"><option value="">— Não informado —</option>${memberOptions}</select><p class="sub">Dependentes bloqueados não podem ser selecionados para abrir pedidos.</p></div>
-    <div class="field"><label>Nome do cliente avulso (se não for associado)</label><input id="ncCustomer" placeholder="Ex: Visitante João"></div>
-    <button class="btn btn-primary btn-block" id="ncSaveBtn">Abrir comanda</button>`);
-  document.getElementById('ncSaveBtn').onclick = async ()=>{
-    const selected=document.getElementById('ncMember').value,parts=selected.split('::'),memberId=parts[0]||null,dependentId=parts[1]||null,member=memberId?state.members.find(x=>x.id===memberId):null,dependent=dependentId&&member?(member.dependents||[]).find(x=>x.id===dependentId):null;
-    const customerName = document.getElementById('ncCustomer').value.trim();
-    if(!memberId && !customerName){ toast('Informe um associado ou o nome do cliente.'); return; }
-    if(dependent&&dependent.canOrder===false){toast('Este dependente está bloqueado para fazer pedidos nesta cota.');return;}
-    if(memberId){
-      const existing = state.sales.find(x=>x.status==='open' && x.memberId===memberId);
-      if(existing){
-        closeModal(); renderAll();
-        toast('Essa cota já tem uma comanda aberta — abrindo ela.');
-        openComanda(existing.id, true);
-        return;
-      }
-    }
-    const s = { id:uid(), type:'comanda', tableNumber:tableNumber||null, orderNumber:await nextOrderNumber(), memberId,dependentId,dependentName:dependent&&dependent.name||'', customerName:dependent&&dependent.name||customerName||member&&member.name||'', items:[], total:0, status:'open', payments:[], openedAt:new Date().toISOString() };
-    state.sales.push(s); save('sales'); closeModal(); renderAll(); openNovoPedidoModal(s.id);
-  };
-}
 function openComanda(id, keepRequester){
   const s = state.sales.find(x=>x.id===id); if(!s) return;
   currentSaleDraft = { id:s.id, items:JSON.parse(JSON.stringify(s.items)), memberId:s.memberId, customerName:s.customerName, type:'comanda' };
@@ -4015,10 +4007,12 @@ function openComanda(id, keepRequester){
   </div>`, true);
   document.querySelector('#modalRoot .modal').classList.add('record-modal','cash-order-modal');
   renderDraftItems(); renderComandaAuditHistory(); renderComandaQuickCart();
+  let closingComanda = false;
   document.getElementById('btnCloseComanda').onclick = async ()=>{
     if(s.locked){ toast('Este pedido está bloqueado. Desbloqueie antes de fechar.'); return; }
+    if(closingComanda) return; // duplo clique: não reenviar os mesmos itens pra cozinha
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
-    if(unsent.length){ if(!await sendItemsToKitchen(s.id, unsent, who, 'comanda')) return; unsent.forEach(i=>i.sent=true); }
+    if(unsent.length){ closingComanda = true; let ok; try{ ok = await sendItemsToKitchen(s.id, unsent, who, 'comanda'); }finally{ closingComanda = false; } if(!ok) return; unsent.forEach(i=>i.sent=true); }
     s.items = currentSaleDraft.items; s.total = draftTotal(); save('sales');
     closeModal(); openPaymentModal('comanda', s.id);
   };
@@ -4840,7 +4834,7 @@ function deleteComandaOrder(saleId){toggleComandaOrderOptions(false);const s=sta
 
 /* Comandas nominais: exibe somente atendimentos abertos, sem grade fixa numerada. */
 function comandaPersonData(s){const member=s.memberId?state.members.find(m=>m.id===s.memberId):null,person=member&&member.name||s.customerName||'Sem identificação',quota=member&&member.code?String(member.code):'';return{member,person,quota,label:quota?person+' — Cota '+quota:person};}
-renderComandas=function(){
+function renderComandas(){
   const el=document.getElementById('view-comandas');
   if(!state.cashSession||state.cashSession.status!=='open'){el.innerHTML=`<div class="consumer-workspace"><section class="free-cash"><h2>CAIXA LIVRE</h2><div class="free-cash-actions"><button class="op-btn" onclick="switchView('caixa')">‹ &nbsp; Abrir caixa</button><button class="op-btn primary" onclick="switchView('caixa')"><span class="op-ico">＋</span> Iniciar atendimento</button></div><p class="sub" style="margin-top:25px">Abra o caixa para liberar mesas e comandas.</p></section></div>`;return;}
   const open=state.sales.filter(s=>s.status==='open'&&s.type==='comanda');
@@ -4849,7 +4843,7 @@ renderComandas=function(){
   document.getElementById('comandaSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#comandaTiles .comanda-person-card[data-search]').forEach(card=>card.style.display=card.dataset.search.includes(q)?'':'none');};
 };
 function comandaAccountChoices(){return state.members.filter(m=>!m.archived&&m.active!==false).map(m=>({key:m.id,memberId:m.id,dependentId:null,name:m.name,owner:m.name,quota:m.code||'',canOrder:true}));}
-openNewComandaModal=function(){
+function openNewComandaModal(){
   window.selectedComandaAccount=null;
   if((state.settings.operationMode||'clube')==='bar'){
     openModal('Abrir Comanda', `<div class="consumer-form-frame"><div class="field"><label>Número da mesa ou nome do cliente</label><input id="ncCustomer" placeholder="Ex: Mesa 5, ou o nome do cliente"></div></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="saveNewNamedComanda()">✓ Abrir Comanda</button></div>`,true);
