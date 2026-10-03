@@ -31,9 +31,21 @@ on:
     - cron: '0 6 * * *' # 03:00 America/Sao_Paulo (UTC-3, Brasil nao tem mais horario de verao)
   workflow_dispatch: {} # permite rodar manualmente em Actions -> Backup Supabase DB -> Run workflow
 
+# GITHUB_TOKEN so-leitura: o job nao faz checkout nem escreve no repo
+# (upload-artifact usa o token proprio do runtime do Actions).
+permissions:
+  contents: read
+
+# Dois backups simultaneos (cron + dispatch manual) so dobrariam a carga no
+# pooler do Supabase; o segundo espera o primeiro terminar.
+concurrency:
+  group: backup-supabase
+  cancel-in-progress: false
+
 jobs:
   backup:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     services:
       restore:
         image: postgres:17
@@ -61,6 +73,7 @@ jobs:
         # de instalar a 17). Solucao: colocar /usr/lib/postgresql/17/bin
         # na FRENTE do PATH via GITHUB_PATH, em vez de confiar em alternatives.
         run: |
+          sudo apt-get update
           sudo apt-get install -y postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y postgresql-client-17
@@ -106,9 +119,10 @@ jobs:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
       - name: Upload como artifact privado
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: supabase-backup
+          if-no-files-found: error
           path: |
             public-*.dump
             auth-*.dump
@@ -158,6 +172,11 @@ jobs:
         # ficar entre as duas (alguem pode ter vendido durante o dump).
         run: |
           set -euo pipefail
+          # Contagem vazia faria o loop abaixo passar sem comparar nada.
+          if [ ! -s counts-before.txt ] || [ ! -s counts-restored.txt ]; then
+            echo "::error::Contagem de linhas vazia - nada foi comparado."
+            exit 1
+          fi
           fail=0
           while IFS='|' read -r table before; do
             after=$(awk -F'|' -v t="$table" '$1==t{print $2}' counts-after.txt)
