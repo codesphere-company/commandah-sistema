@@ -14,6 +14,19 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 const MAX_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
 
+// staff_id vem do uid() do frontend (base36) e entra no e-mail sintético da conta;
+// PIN tem teto porque o bcrypt ignora o que passa de 72 bytes.
+const STAFF_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const PIN_MAX_LEN = 64;
+function validStaffId(v: string) { return STAFF_ID_RE.test(v); }
+function validPin(v: string) { return v.length >= 1 && v.length <= PIN_MAX_LEN; }
+
+// Erro interno vai pro log da função, nunca pro navegador.
+function internalError(publicMsg: string, detail?: unknown) {
+  console.error("[staff-auth]", publicMsg, detail);
+  return json({ error: publicMsg }, 500);
+}
+
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
@@ -61,6 +74,7 @@ Deno.serve(async (req) => {
       const staffId = String(body.staff_id || "");
       const pin = String(body.pin || "");
       if (!staffId || !pin) return json({ error: "staff_id e pin são obrigatórios" }, 400);
+      if (!validStaffId(staffId) || !validPin(pin)) return json({ error: "PIN incorreto" }, 401);
 
       const { data: staff, error } = await admin.from("tenant_staff").select("*").eq("id", staffId).maybeSingle();
       if (error || !staff) return json({ error: "Colaborador não encontrado" }, 404);
@@ -71,18 +85,43 @@ Deno.serve(async (req) => {
         return json({ error: `Muitas tentativas erradas. Tente novamente em ${mins} min.` }, 423);
       }
 
+      // Reserva a tentativa ANTES de conferir o PIN, com compare-and-swap em failed_attempts.
+      // Antes o contador era lido, o bcrypt rodava e só depois gravava attempts+1: N requisições
+      // em paralelo liam o mesmo valor e furavam o limite de 5 (brute force do PIN em rajada).
+      // Agora só uma requisição por valor do contador passa; as concorrentes são recusadas sem
+      // nem testar o PIN.
+      const prevAttempts = (staff.failed_attempts as number | null) ?? null;
+      const prevCount = prevAttempts || 0;
+      if (prevCount >= MAX_ATTEMPTS) {
+        // Contador ficou no teto sem bloqueio gravado (a gravação do bloqueio falhou): bloqueia agora.
+        await admin.from("tenant_staff").update({
+          failed_attempts: 0,
+          locked_until: new Date(Date.now() + LOCK_MINUTES * 60000).toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq("id", staffId).eq("failed_attempts", prevCount);
+        return json({ error: `Muitas tentativas erradas. Bloqueado por ${LOCK_MINUTES} min.` }, 423);
+      }
+      const attempts = prevCount + 1;
+      let reserve = admin.from("tenant_staff")
+        .update({ failed_attempts: attempts, updated_at: new Date().toISOString() })
+        .eq("id", staffId);
+      reserve = prevAttempts === null ? reserve.is("failed_attempts", null) : reserve.eq("failed_attempts", prevAttempts);
+      const { data: reserved, error: reserveErr } = await reserve.select("id");
+      if (reserveErr) return internalError("Falha ao verificar o PIN", reserveErr);
+      if (!reserved || reserved.length === 0) {
+        return json({ error: "Outra tentativa de login em andamento. Tente de novo." }, 429);
+      }
+
       const ok = bcrypt.compareSync(pin, staff.pin_hash as string);
       if (!ok) {
-        const attempts = ((staff.failed_attempts as number) || 0) + 1;
-        const update: Record<string, unknown> = { failed_attempts: attempts, updated_at: new Date().toISOString() };
-        let locked = false;
         if (attempts >= MAX_ATTEMPTS) {
-          update.locked_until = new Date(Date.now() + LOCK_MINUTES * 60000).toISOString();
-          update.failed_attempts = 0;
-          locked = true;
+          await admin.from("tenant_staff").update({
+            failed_attempts: 0,
+            locked_until: new Date(Date.now() + LOCK_MINUTES * 60000).toISOString(),
+            updated_at: new Date().toISOString(),
+          }).eq("id", staffId);
+          return json({ error: `Muitas tentativas erradas. Bloqueado por ${LOCK_MINUTES} min.` }, 423);
         }
-        await admin.from("tenant_staff").update(update).eq("id", staffId);
-        if (locked) return json({ error: `Muitas tentativas erradas. Bloqueado por ${LOCK_MINUTES} min.` }, 423);
         return json({ error: "PIN incorreto" }, 401);
       }
 
@@ -95,7 +134,7 @@ Deno.serve(async (req) => {
         type: "magiclink",
         email: userRec.user.email,
       });
-      if (linkErr || !linkData) return json({ error: "Falha ao gerar sessão: " + (linkErr?.message || "") }, 500);
+      if (linkErr || !linkData) return internalError("Falha ao gerar sessão", linkErr);
       const hashedToken = (linkData as { properties?: { hashed_token?: string } }).properties?.hashed_token;
       if (!hashedToken) return json({ error: "Falha ao gerar sessão (token)" }, 500);
 
@@ -104,7 +143,7 @@ Deno.serve(async (req) => {
         type: "magiclink",
         token_hash: hashedToken,
       });
-      if (verifyErr || !sessionData?.session) return json({ error: "Falha ao autenticar: " + (verifyErr?.message || "") }, 500);
+      if (verifyErr || !sessionData?.session) return internalError("Falha ao autenticar", verifyErr);
 
       return json({ session: sessionData.session });
     }
@@ -120,6 +159,9 @@ Deno.serve(async (req) => {
       const pin = String(body.pin || "");
       if (!staffId || !role || !pin) return json({ error: "Campos obrigatórios faltando" }, 400);
       if (!["admin", "caixa", "cozinha"].includes(role)) return json({ error: "Perfil inválido" }, 400);
+      if (!validStaffId(staffId)) return json({ error: "Identificador de colaborador inválido" }, 400);
+      if (!validPin(pin)) return json({ error: "PIN inválido" }, 400);
+      if (name.length > 120) return json({ error: "Nome muito longo" }, 400);
 
       const email = `staff-${staffId}@${tenantId}.commandah.internal`;
       const randomPassword = crypto.randomUUID() + crypto.randomUUID();
@@ -127,7 +169,7 @@ Deno.serve(async (req) => {
         email, password: randomPassword, email_confirm: true,
         user_metadata: { tenant_id: tenantId, staff_name: name, source: "commandah-staff" },
       });
-      if (createErr || !created?.user) return json({ error: "Falha ao criar conta: " + (createErr?.message || "") }, 500);
+      if (createErr || !created?.user) return internalError("Falha ao criar conta de acesso", createErr);
 
       const pinHash = bcrypt.hashSync(pin, 10);
       const { error: insertErr } = await admin.from("tenant_staff").insert({
@@ -135,7 +177,7 @@ Deno.serve(async (req) => {
       });
       if (insertErr) {
         await admin.auth.admin.deleteUser(created.user.id);
-        return json({ error: "Falha ao registrar colaborador: " + insertErr.message }, 500);
+        return internalError("Falha ao registrar colaborador", insertErr);
       }
       return json({ ok: true });
     }
@@ -144,6 +186,7 @@ Deno.serve(async (req) => {
       const staffId = String(body.staff_id || "");
       const pin = String(body.pin || "");
       if (!staffId || !pin) return json({ error: "Campos obrigatórios faltando" }, 400);
+      if (!validStaffId(staffId) || !validPin(pin)) return json({ error: "Dados inválidos" }, 400);
       const { data: staff } = await admin.from("tenant_staff").select("tenant_id").eq("id", staffId).maybeSingle();
       if (!staff || staff.tenant_id !== tenantId) return json({ error: "Colaborador não encontrado" }, 404);
       const pinHash = bcrypt.hashSync(pin, 10);
@@ -165,6 +208,6 @@ Deno.serve(async (req) => {
 
     return json({ error: "Ação desconhecida" }, 400);
   } catch (e) {
-    return json({ error: String((e as Error)?.message || e) }, 500);
+    return internalError("Erro interno", e);
   }
 });

@@ -4048,7 +4048,7 @@ function openNovoPedidoModal(saleId){
     <div class="np-section">
       <div style="display:flex;align-items:flex-end;gap:12px">
         <div style="flex:1"><label class="np-label">Local de entrega</label><select id="npLocal"><option value="">— No balcão / retirar aqui —</option>${state.locais.map(l=>`<option value="${h(l.nome)}">${h(l.nome)}</option>`).join('')}</select></div>
-        <div class="np-origin-badge" title="Origem deste pedido">${origemLabel(currentUser.origem)||'Caixa'} · ${h(currentUser.name)}</div>
+        <div class="np-origin-badge" title="Origem deste pedido">${h(origemLabel(currentUser.origem)||'Caixa')} · ${h(currentUser.name)}</div>
       </div>
     </div>
     <div class="np-section" id="npHistorySection" style="display:none">
@@ -4350,7 +4350,7 @@ async function printSingleTicket(who, cota, local, estacao, printer, items, orde
   const win = window.open('', '_blank', 'width=380,height=600');
   if(!win){ toast('Permita pop-ups no navegador para imprimir o pedido.'); return; }
   const total = items.reduce((a,i)=>a+i.price*i.qty,0);
-  win.document.write(`<html><head><title>Pedido — ${estacaoLabel(estacao)||estacao}</title><style>
+  win.document.write(`<html><head><title>Pedido — ${h(estacaoLabel(estacao)||estacao)}</title><style>
     body{font-family:Arial,sans-serif;padding:16px;font-size:13px;color:#111}
     h1{font-size:16px;margin:0 0 4px}
     .muted{color:#666;font-size:11px;margin-bottom:12px}
@@ -4362,7 +4362,7 @@ async function printSingleTicket(who, cota, local, estacao, printer, items, orde
     .printer{color:#666;font-size:11px;margin-top:8px}
     .warn{color:#c1443c;font-size:11px;margin-top:8px;font-weight:bold}
   </style></head><body>
-    <div class="estacao">${(estacaoLabel(estacao)||estacao).toUpperCase()}</div>
+    <div class="estacao">${h((estacaoLabel(estacao)||estacao).toUpperCase())}</div>
     <h1>Pedido ${orderNumber?'#'+orderNumber:''}</h1>
     <div class="muted">${new Date().toLocaleString('pt-BR')}</div>
     <div><b>Solicitante:</b> ${h(who)}</div>
@@ -4370,7 +4370,7 @@ async function printSingleTicket(who, cota, local, estacao, printer, items, orde
     ${local?`<div class="local">ENTREGAR EM: ${h(local)}</div>`:''}
     <table>${items.map(i=>`<tr><td>${i.qty}x ${h(i.name)}${i.copos!=null?' — <b>'+i.copos+' copo'+(i.copos===1?'':'s')+'</b>':''}</td><td style="text-align:right">${fmt(i.price*i.qty)}</td></tr>`).join('')}</table>
     <div class="total">Total: ${fmt(total)}</div>
-    ${printer?`<div class="printer">Imprimir na: <b>${h(printer)}</b> (agente local não conectado — instale o agente pra imprimir automático)</div>`:`<div class="warn">Nenhuma impressora configurada para ${estacaoLabel(estacao)||estacao} nesta origem — encaminhar manualmente.</div>`}
+    ${printer?`<div class="printer">Imprimir na: <b>${h(printer)}</b> (agente local não conectado — instale o agente pra imprimir automático)</div>`:`<div class="warn">Nenhuma impressora configurada para ${h(estacaoLabel(estacao)||estacao)} nesta origem — encaminhar manualmente.</div>`}
   </body></html>`);
   win.document.close(); win.focus();
   setTimeout(()=>{ win.print(); }, 300);
@@ -5917,7 +5917,7 @@ function deleteEstacao(id){
 function renderImpressoras(){
   const el = document.getElementById('view-impressoras');
   const rows = state.impressoras.length ? state.impressoras.map(p=>`
-    <tr><td>${h(p.nome)}${p.osName?`<br><small class="mono" style="color:var(--muted)">${h(p.osName)}</small>`:''}${p.ip?`<br><small class="mono" style="color:var(--muted)">rede: ${h(p.ip)}</small>`:''}</td><td>${estacaoLabel(p.estacao)||'—'}</td><td>${origemLabel(p.origem)||'—'}</td>
+    <tr><td>${h(p.nome)}${p.osName?`<br><small class="mono" style="color:var(--muted)">${h(p.osName)}</small>`:''}${p.ip?`<br><small class="mono" style="color:var(--muted)">rede: ${h(p.ip)}</small>`:''}</td><td>${h(estacaoLabel(p.estacao)||'—')}</td><td>${h(origemLabel(p.origem)||'—')}</td>
     <td>${p.agentUrl?`<span class="mono" style="font-size:11px">${h(p.agentUrl)}</span>`:'<span class="sub" style="font-size:11px">— (mesmo computador)</span>'}</td>
     <td id="impStatus-${p.id}"><span class="tag tag-gray">verificando...</span></td>
     <td><button class="btn btn-sm" onclick="openImpressoraModal('${p.id}')">Editar</button>
