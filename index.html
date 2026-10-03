@@ -920,6 +920,7 @@ function waitForSupabaseSdk(timeoutMs){
   });
 }
 let supabaseClient = null;
+const APP_DATA_NULL = '__commandahNull';
 function buildSupabaseStorageApi(client, tenantId){
   return {
     mode:'Nuvem (Supabase)', client, tenantId,
@@ -927,11 +928,16 @@ function buildSupabaseStorageApi(client, tenantId){
       const { data, error } = await client.from('app_data').select('value').eq('tenant_id', tenantId).eq('key', key).maybeSingle();
       if(error) throw error;
       if(!data) return null;
+      if(data.value && data.value[APP_DATA_NULL] === true) return { value: 'null' };
       return { value: JSON.stringify(data.value) };
     },
     async set(key, value){
+      // app_data.value é NOT NULL e o PostgREST transforma JSON null em NULL do SQL.
+      // Sem o marcador, fechar o caixa (cashSession = null) era recusado pelo banco:
+      // a tela mostrava o caixa fechado, mas no servidor ele continuava aberto.
       const parsed = JSON.parse(value);
-      const { error } = await client.from('app_data').upsert({ tenant_id: tenantId, key, value: parsed, updated_at: new Date().toISOString() }, { onConflict:'tenant_id,key' });
+      const stored = parsed === null ? { [APP_DATA_NULL]: true } : parsed;
+      const { error } = await client.from('app_data').upsert({ tenant_id: tenantId, key, value: stored, updated_at: new Date().toISOString() }, { onConflict:'tenant_id,key' });
       if(error) throw error;
     }
   };
