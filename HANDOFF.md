@@ -559,6 +559,28 @@ Fecha o achado "backup sem restore-drill" da auditoria de 2026-09-12. Baixar o d
 - **Restaurar de verdade num projeto Supabase novo**: o schema auth já existe lá, então do `auth-*.dump` vão só os dados (`pg_restore --data-only`), antes dos dados do `public-*.dump`. A ordem está comentada no workflow.
 - **Validado**: run `36200196621` (workflow_dispatch na branch) restaurou tudo e as 13 tabelas bateram (`members` 1001, `audit_log` 164, `auth.users` 5 etc.). O push de workflow exigiu `gh auth refresh -s workflow` na conta `codesphere-company`.
 
+### Auditoria por setores (2026-10-02)
+
+Cinco agentes (Segurança, Banco, Operação/PDV, DevOps, Produto) auditaram e corrigiram cada um sua área; tudo integrado na branch `auditoria-ceo-2026-10-02`. **Nada publicado nem aplicado ainda.**
+
+- **Operação/PDV**: `singleFlight` (perto de `save()`) trava duplo clique em ~14 fluxos que gravam venda/pedido/comanda; botão PAGAMENTO da comanda com trava própria; total/desconto/troco arredondados a centavos; removidas as definições mortas de `renderComandas`/`openNewComandaModal` (pendência 15).
+- **Banco**: `finalizeSale` reaproveita id e número da venda nova entre tentativas (`currentSaleDraft._pendingClose`); fiado que falha depois do `close_sale` não relança em dobro (avisa e loga); `sendItemsToKitchen` devolve o estoque se o pedido não grava. Migration `20261002000000_integridade_rpcs_e_indices.sql`: lock no `recalc_member_debt`, `consume_insumos`/`restore_insumos` recusam quantidade negativa, `close_sale` exige patch objeto, CHECK `NOT VALID` em `print_jobs.status`, índice parcial da fila pendente.
+- **Segurança**: `staff-auth` reserva a tentativa antes de testar o PIN (fecha brute force por requisições paralelas), valida input e não devolve erro interno; XSS por nome de estação/origem escapado com `h()`. Migration `20261002010000_hardening_grants_tabelas.sql` (tira TRUNCATE/REFERENCES/TRIGGER e grants de `tenant_staff`/`print_agent_tokens`).
+- **DevOps**: hooks de `.claude/settings.json` tolerantes à ausência de `graphify`/scripts; workflows com permissão mínima, actions fixadas por SHA, timeout/concurrency; backup falha em vez de passar vazio; MCP do Supabase fixado em `0.13.0`; checagem de sintaxe também em push na `main`.
+- **Produto**: HANDOFF reconferido contra o código; modal de Connect/Emissão Fiscal/TEF avisa que não há integração.
+
+**Ordem de deploy**: `index.html` e as duas migrations são independentes entre si; a Edge Function exige `supabase functions deploy staff-auth --project-ref ezfoymdesmarpunmixbs --use-api`. Cada migration traz reteste e rollback.
+
+**Decisões pendentes do Fabricio** (levantadas na auditoria, não implementadas):
+1. Limite de fiado não considera o valor da venda (`memberBlockedByDebt`) — sócio com dívida 0 e limite 100 pendura 1000. Como tratar quem não tem limite cadastrado?
+2. Bloqueio de PIN zera a cada 15 min (~480 tentativas/dia; PIN de 4 dígitos cai em dias) — bloqueio progressivo ou PIN maior?
+3. LGPD: base legal, texto do aviso, encarregado e retenção (jurídico/contador).
+4. Esconder Connect/Emissão Fiscal/TEF do menu; tokens desses módulos (`appModules`) ainda ficam em `settings`, legíveis por todo operador.
+5. Remover `gcPeople` e o campo "Quantidade de mesas" (sem efeito).
+6. Poll de 6s carrega o histórico inteiro de `orders` — filtrar por status/janela muda o que cozinha/histórico exibem.
+7. Branch protection na `main` (exigir PR + `syntax-check`) e criar/versionar os `.claude/scripts/*.sh` (hoje as proteções de migration/.env estão inativas).
+8. Riscos registrados sem correção: ids em `onclick` de template string (XSS via devtools do caixa → refatorar para `data-*`), SDK do Supabase sem versão exata/SRI, signup aberto em `insert_own_tenant_mapping`, `print_agent_mark_status` sem checar status atual.
+
 ## Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31)
 
 **Fase 1 — fundação:** concluída (itens 1-3, ver seção própria acima).
