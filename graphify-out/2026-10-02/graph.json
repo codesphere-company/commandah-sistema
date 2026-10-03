@@ -13,7 +13,7 @@
       "file_type": "code",
       "norm_label": "callercontext()",
       "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L44"
+      "source_location": "L31"
     },
     {
       "id": "supabase_functions_staff_auth_index_corsheaders",
@@ -25,19 +25,7 @@
       "file_type": "code",
       "norm_label": "corsheaders()",
       "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L30"
-    },
-    {
-      "id": "supabase_functions_staff_auth_index_internalerror",
-      "label": "internalError()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "index.ts",
-      "file_type": "code",
-      "norm_label": "internalerror()",
-      "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L25"
+      "source_location": "L17"
     },
     {
       "id": "supabase_functions_staff_auth_index_json",
@@ -49,31 +37,7 @@
       "file_type": "code",
       "norm_label": "json()",
       "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L37"
-    },
-    {
-      "id": "supabase_functions_staff_auth_index_validpin",
-      "label": "validPin()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "index.ts",
-      "file_type": "code",
-      "norm_label": "validpin()",
-      "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L22"
-    },
-    {
-      "id": "supabase_functions_staff_auth_index_validstaffid",
-      "label": "validStaffId()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "index.ts",
-      "file_type": "code",
-      "norm_label": "validstaffid()",
-      "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L21"
+      "source_location": "L24"
     },
     {
       "id": "handoff_alerta_de_fila_de_impress\u00e3o_travada_2026_09_24",
@@ -85,7 +49,7 @@
       "node_kind": "heading",
       "norm_label": "alerta de fila de impressao travada (2026-09-24)",
       "source_file": "HANDOFF.md",
-      "source_location": "L478"
+      "source_location": "L474"
     },
     {
       "id": "handoff_arquitetura",
@@ -97,7 +61,7 @@
       "node_kind": "heading",
       "norm_label": "arquitetura",
       "source_file": "HANDOFF.md",
-      "source_location": "L41"
+      "source_location": "L37"
     },
     {
       "id": "handoff_atalho_j\u00e1_pedidos_nesta_comanda_no_novo_pedido_2026_09_20",
@@ -109,7 +73,7 @@
       "node_kind": "heading",
       "norm_label": "atalho \"ja pedidos nesta comanda\" no novo pedido (2026-09-20)",
       "source_file": "HANDOFF.md",
-      "source_location": "L323"
+      "source_location": "L319"
     },
     {
       "id": "handoff_auditoria_de_c\u00f3digo_vs_handoff_2026_09_12",
@@ -121,7 +85,7 @@
       "node_kind": "heading",
       "norm_label": "auditoria de codigo vs. handoff (2026-09-12)",
       "source_file": "HANDOFF.md",
-      "source_location": "L190"
+      "source_location": "L186"
     },
     {
       "id": "handoff_auditoria_de_propostas_de_funcionalidades_2026_09_12",
@@ -133,19 +97,7 @@
       "node_kind": "heading",
       "norm_label": "auditoria de propostas de funcionalidades (2026-09-12)",
       "source_file": "HANDOFF.md",
-      "source_location": "L224"
-    },
-    {
-      "id": "handoff_auditoria_por_setores_2026_10_02",
-      "label": "Auditoria por setores (2026-10-02)",
-      "_origin": "ast",
-      "community": 0,
-      "community_name": "Estado atual (o que j\u00e1 est\u00e1 pronto)",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "auditoria por setores (2026-10-02)",
-      "source_file": "HANDOFF.md",
-      "source_location": "L562"
+      "source_location": "L220"
     },
     {
       "id": "handoff_auditoria_visual_ux_mudan\u00e7as_desde_2026_08_31_09_01_2026_09_12",
@@ -157,7 +109,7 @@
       "node_kind": "heading",
       "norm_label": "auditoria visual/ux \u2014 mudancas desde 2026-08-31/09-01 (2026-09-12)",
       "source_file": "HANDOFF.md",
-      "source_location": "L211"
+      "source_location": "L207"
     },
     {
       "id": "handoff_backup_com_logins_e_permiss\u00f5es_teste_de_restaura\u00e7\u00e3o_toda_noite_2026_09_25",
@@ -169,7 +121,7 @@
       "node_kind": "heading",
       "norm_label": "backup com logins e permissoes + teste de restauracao toda noite (2026-09-25)",
       "source_file": "HANDOFF.md",
-      "source_location": "L552"
+      "source_location": "L548"
     },
     {
       "id": "handoff_backup_supabase_pg_dump_16_continuava_resolvendo_no_path_mesmo_ap\u00f3s_instalar_a_17_2026_09_20",
@@ -181,7 +133,7 @@
       "node_kind": "heading",
       "norm_label": "backup supabase \u2014 pg_dump 16 continuava resolvendo no path mesmo apos instalar a 17 (2026-09-20)",
       "source_file": "HANDOFF.md",
-      "source_location": "L282"
+      "source_location": "L278"
     },
     {
       "id": "handoff_bot\u00e3o_de_registrar_pagamento_no_modal_de_consumo_bloqueado_2026_09_20",
@@ -193,7 +145,7 @@
       "node_kind": "heading",
       "norm_label": "botao de registrar pagamento no modal de consumo bloqueado (2026-09-20)",
       "source_file": "HANDOFF.md",
-      "source_location": "L302"
+      "source_location": "L298"
     },
     {
       "id": "handoff_bot\u00e3o_pedir_novamente_no_hist\u00f3rico_da_comanda_2026_09_20",
@@ -205,7 +157,7 @@
       "node_kind": "heading",
       "norm_label": "botao \"pedir novamente\" no historico da comanda (2026-09-20)",
       "source_file": "HANDOFF.md",
-      "source_location": "L334"
+      "source_location": "L330"
     },
     {
       "id": "handoff_bug_de_layout_do_card_de_comanda_v\u00ednculo_de_mesa_local_2026_09_18",
@@ -217,7 +169,7 @@
       "node_kind": "heading",
       "norm_label": "bug de layout do card de comanda + vinculo de mesa/local (2026-09-18)",
       "source_file": "HANDOFF.md",
-      "source_location": "L260"
+      "source_location": "L256"
     },
     {
       "id": "handoff_campo_de_busca_de_produto_direto_na_comanda_2026_09_20",
@@ -229,7 +181,7 @@
       "node_kind": "heading",
       "norm_label": "campo de busca de produto direto na comanda (2026-09-20)",
       "source_file": "HANDOFF.md",
-      "source_location": "L346"
+      "source_location": "L342"
     },
     {
       "id": "handoff_cancelar_item_ou_comanda_inteira_com_permiss\u00e3o_por_login_2026_09_24",
@@ -241,7 +193,7 @@
       "node_kind": "heading",
       "norm_label": "cancelar item ou comanda inteira, com permissao por login (2026-09-24)",
       "source_file": "HANDOFF.md",
-      "source_location": "L437"
+      "source_location": "L433"
     },
     {
       "id": "handoff_carrinho_no_adicionar_produto_direto_da_comanda_2026_09_24",
@@ -253,7 +205,7 @@
       "node_kind": "heading",
       "norm_label": "carrinho no \"adicionar produto direto\" da comanda (2026-09-24)",
       "source_file": "HANDOFF.md",
-      "source_location": "L447"
+      "source_location": "L443"
     },
     {
       "id": "handoff_cloudflare_turnstile_no_login_cadastro_de_estabelecimento_2026_09_10",
@@ -265,7 +217,7 @@
       "node_kind": "heading",
       "norm_label": "cloudflare turnstile no login/cadastro de estabelecimento (2026-09-10)",
       "source_file": "HANDOFF.md",
-      "source_location": "L167"
+      "source_location": "L163"
     },
     {
       "id": "handoff_cobran\u00e7a_de_fiado_por_whatsapp_com_itens_do_dia_chave_pix_2026_09_24",
@@ -277,7 +229,7 @@
       "node_kind": "heading",
       "norm_label": "cobranca de fiado por whatsapp com itens do dia + chave pix (2026-09-24)",
       "source_file": "HANDOFF.md",
-      "source_location": "L428"
+      "source_location": "L424"
     },
     {
       "id": "handoff_comanda_cancelada_n\u00e3o_conta_mais_como_receita_nos_relat\u00f3rios_2026_09_24",
@@ -289,7 +241,7 @@
       "node_kind": "heading",
       "norm_label": "comanda cancelada nao conta mais como receita nos relatorios (2026-09-24)",
       "source_file": "HANDOFF.md",
-      "source_location": "L469"
+      "source_location": "L465"
     },
     {
       "id": "handoff_corre\u00e7\u00e3o_pontual_card_de_comanda_n\u00e3o_atualizava_ap\u00f3s_novo_pedido_2026_09_08",
@@ -301,7 +253,7 @@
       "node_kind": "heading",
       "norm_label": "correcao pontual \u2014 card de comanda nao atualizava apos \"novo pedido\" (2026-09-08)",
       "source_file": "HANDOFF.md",
-      "source_location": "L159"
+      "source_location": "L155"
     },
     {
       "id": "handoff_corre\u00e7\u00f5es_r\u00e1pidas_da_auditoria_2026_09_25",
@@ -313,7 +265,7 @@
       "node_kind": "heading",
       "norm_label": "correcoes rapidas da auditoria (2026-09-25)",
       "source_file": "HANDOFF.md",
-      "source_location": "L524"
+      "source_location": "L520"
     },
     {
       "id": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
@@ -325,7 +277,7 @@
       "node_kind": "heading",
       "norm_label": "estado atual (o que ja esta pronto)",
       "source_file": "HANDOFF.md",
-      "source_location": "L25"
+      "source_location": "L21"
     },
     {
       "id": "handoff_excedente_em_qualquer_forma_de_pagamento_escolha_troco_cr\u00e9dito_para_s\u00f3cios_2026_09_21",
@@ -337,7 +289,7 @@
       "node_kind": "heading",
       "norm_label": "excedente em qualquer forma de pagamento + escolha troco/credito para socios (2026-09-21)",
       "source_file": "HANDOFF.md",
-      "source_location": "L411"
+      "source_location": "L407"
     },
     {
       "id": "handoff_fase_0_bloqueante_risco_ativo_conclu\u00edda_em_2026_08_31_itens_1_4_item_5_\u00e9_a\u00e7\u00e3o_humana_n\u00e3o_c\u00f3digo",
@@ -349,7 +301,7 @@
       "node_kind": "heading",
       "norm_label": "fase 0 \u2014 bloqueante/risco ativo, concluida em 2026-08-31 (itens 1-4; item 5 e acao humana, nao codigo)",
       "source_file": "HANDOFF.md",
-      "source_location": "L66"
+      "source_location": "L62"
     },
     {
       "id": "handoff_fase_1_funda\u00e7\u00e3o_conclu\u00edda_em_2026_08_31_itens_1_3",
@@ -361,7 +313,7 @@
       "node_kind": "heading",
       "norm_label": "fase 1 \u2014 fundacao, concluida em 2026-08-31 (itens 1-3)",
       "source_file": "HANDOFF.md",
-      "source_location": "L73"
+      "source_location": "L69"
     },
     {
       "id": "handoff_fase_1_s\u00f3cios_em_tabela_relacional_limite_de_cr\u00e9dito_real_2026_08_30_31_conclu\u00edda",
@@ -373,7 +325,7 @@
       "node_kind": "heading",
       "norm_label": "fase 1 \u2014 socios em tabela relacional + limite de credito real (2026-08-30/31, concluida)",
       "source_file": "HANDOFF.md",
-      "source_location": "L47"
+      "source_location": "L43"
     },
     {
       "id": "handoff_fase_2_rls_por_papel_auditoria_append_only_conclu\u00edda_em_2026_09_08",
@@ -385,7 +337,7 @@
       "node_kind": "heading",
       "norm_label": "fase 2 \u2014 rls por papel + auditoria append-only \u2014 concluida em 2026-09-08",
       "source_file": "HANDOFF.md",
-      "source_location": "L87"
+      "source_location": "L83"
     },
     {
       "id": "handoff_fase_2b_rpcs_de_venda_security_definer_fecha_o_buraco_de_devtools_conclu\u00edda_em_2026_09_08",
@@ -397,7 +349,7 @@
       "node_kind": "heading",
       "norm_label": "fase 2b \u2014 rpcs de venda security definer + fecha o buraco de devtools \u2014 concluida em 2026-09-08",
       "source_file": "HANDOFF.md",
-      "source_location": "L129"
+      "source_location": "L125"
     },
     {
       "id": "handoff_fase_3a_pedidos_da_cozinha_em_tabela_relacional_conclu\u00edda_em_2026_09_08",
@@ -409,7 +361,7 @@
       "node_kind": "heading",
       "norm_label": "fase 3a \u2014 pedidos da cozinha em tabela relacional \u2014 concluida em 2026-09-08",
       "source_file": "HANDOFF.md",
-      "source_location": "L146"
+      "source_location": "L142"
     },
     {
       "id": "handoff_guard_de_sintaxe_js_no_index_html_hook_local_ci_2026_09_18",
@@ -421,7 +373,7 @@
       "node_kind": "heading",
       "norm_label": "guard de sintaxe js no index.html \u2014 hook local + ci (2026-09-18)",
       "source_file": "HANDOFF.md",
-      "source_location": "L272"
+      "source_location": "L268"
     },
     {
       "id": "handoff_hist\u00f3rico_da_comanda_agrupado_por_pedido_com_pedir_novamente_do_lote_inteiro_2026_09_24",
@@ -433,7 +385,7 @@
       "node_kind": "heading",
       "norm_label": "historico da comanda agrupado por pedido, com \"pedir novamente\" do lote inteiro (2026-09-24)",
       "source_file": "HANDOFF.md",
-      "source_location": "L458"
+      "source_location": "L454"
     },
     {
       "id": "handoff_hist\u00f3rico_motivo_opcional_no_pagamento_de_fiado_2026_09_20",
@@ -445,7 +397,7 @@
       "node_kind": "heading",
       "norm_label": "historico/motivo opcional no pagamento de fiado (2026-09-20)",
       "source_file": "HANDOFF.md",
-      "source_location": "L293"
+      "source_location": "L289"
     },
     {
       "id": "handoff_impress\u00e3o",
@@ -457,7 +409,7 @@
       "node_kind": "heading",
       "norm_label": "impressao",
       "source_file": "HANDOFF.md",
-      "source_location": "L33"
+      "source_location": "L29"
     },
     {
       "id": "handoff_local_de_entrega_quem_levou_e_cancelamento_de_item_lan\u00e7ado_errado_na_comanda_2026_09_20",
@@ -469,7 +421,7 @@
       "node_kind": "heading",
       "norm_label": "local de entrega, \"quem levou\" e cancelamento de item lancado errado na comanda (2026-09-20)",
       "source_file": "HANDOFF.md",
-      "source_location": "L389"
+      "source_location": "L385"
     },
     {
       "id": "handoff_modo_local_removido_resgate_das_vendas_que_ficaram_no_aparelho_2026_09_25",
@@ -481,7 +433,7 @@
       "node_kind": "heading",
       "norm_label": "modo local removido + resgate das vendas que ficaram no aparelho (2026-09-25)",
       "source_file": "HANDOFF.md",
-      "source_location": "L533"
+      "source_location": "L529"
     },
     {
       "id": "handoff_monitor_travado_por_esta\u00e7\u00e3o_em_modo_tv_uma_tv_por_\u00e1rea_2026_09_25",
@@ -493,7 +445,7 @@
       "node_kind": "heading",
       "norm_label": "monitor travado por estacao em modo tv \u2014 uma tv por area (2026-09-25)",
       "source_file": "HANDOFF.md",
-      "source_location": "L514"
+      "source_location": "L510"
     },
     {
       "id": "handoff_quantidade_de_copos_no_app_do_gar\u00e7om_2026_09_20",
@@ -505,7 +457,7 @@
       "node_kind": "heading",
       "norm_label": "quantidade de copos no app do garcom (2026-09-20)",
       "source_file": "HANDOFF.md",
-      "source_location": "L368"
+      "source_location": "L364"
     },
     {
       "id": "handoff_quantidade_de_copos_para_produtos_de_bar_2026_09_20",
@@ -517,7 +469,7 @@
       "node_kind": "heading",
       "norm_label": "quantidade de copos para produtos de bar (2026-09-20)",
       "source_file": "HANDOFF.md",
-      "source_location": "L358"
+      "source_location": "L354"
     },
     {
       "id": "handoff_quem_levou_vira_dropdown_com_cadastro_de_pessoas_2026_09_21",
@@ -529,7 +481,7 @@
       "node_kind": "heading",
       "norm_label": "\"quem levou\" vira dropdown com cadastro de pessoas (2026-09-21)",
       "source_file": "HANDOFF.md",
-      "source_location": "L401"
+      "source_location": "L397"
     },
     {
       "id": "handoff_redesign_do_card_do_monitor_de_cozinha_2026_09_12",
@@ -541,7 +493,7 @@
       "node_kind": "heading",
       "norm_label": "redesign do card do monitor de cozinha (2026-09-12)",
       "source_file": "HANDOFF.md",
-      "source_location": "L175"
+      "source_location": "L171"
     },
     {
       "id": "handoff_remove_bot\u00e3o_salvar_e_continuar_da_comanda_teste_no_app_real_2026_09_20",
@@ -553,7 +505,7 @@
       "node_kind": "heading",
       "norm_label": "remove botao \"salvar e continuar\" da comanda + teste no app real (2026-09-20)",
       "source_file": "HANDOFF.md",
-      "source_location": "L376"
+      "source_location": "L372"
     },
     {
       "id": "handoff_seguran\u00e7a",
@@ -565,7 +517,7 @@
       "node_kind": "heading",
       "norm_label": "seguranca",
       "source_file": "HANDOFF.md",
-      "source_location": "L27"
+      "source_location": "L23"
     },
     {
       "id": "handoff_seguran\u00e7a_anon_sem_execute_nas_rpcs_tokens_fora_do_settings_2026_09_25",
@@ -577,7 +529,7 @@
       "node_kind": "heading",
       "norm_label": "seguranca: anon sem execute nas rpcs + tokens fora do settings (2026-09-25)",
       "source_file": "HANDOFF.md",
-      "source_location": "L542"
+      "source_location": "L538"
     },
     {
       "id": "handoff_setup_de_automa\u00e7\u00e3o_do_claude_code_2026_09_12",
@@ -589,7 +541,7 @@
       "node_kind": "heading",
       "norm_label": "setup de automacao do claude code (2026-09-12)",
       "source_file": "HANDOFF.md",
-      "source_location": "L179"
+      "source_location": "L175"
     },
     {
       "id": "handoff_tempo_de_comanda_aberta_nos_cards_e_no_modal_2026_09_18",
@@ -601,7 +553,7 @@
       "node_kind": "heading",
       "norm_label": "tempo de comanda aberta nos cards e no modal (2026-09-18)",
       "source_file": "HANDOFF.md",
-      "source_location": "L250"
+      "source_location": "L246"
     },
     {
       "id": "handoff_time_de_agentes_especializado_diagn\u00f3stico_completo_2026_08_31",
@@ -613,7 +565,7 @@
       "node_kind": "heading",
       "norm_label": "time de agentes especializado + diagnostico completo (2026-08-31)",
       "source_file": "HANDOFF.md",
-      "source_location": "L55"
+      "source_location": "L51"
     },
     {
       "id": "handoff_trocar_cliente_editar_cadastro_na_comanda_j\u00e1_vinculada_2026_09_20",
@@ -625,7 +577,7 @@
       "node_kind": "heading",
       "norm_label": "trocar cliente / editar cadastro na comanda ja vinculada (2026-09-20)",
       "source_file": "HANDOFF.md",
-      "source_location": "L312"
+      "source_location": "L308"
     },
     {
       "id": "handoff_ux",
@@ -637,7 +589,7 @@
       "node_kind": "heading",
       "norm_label": "ux",
       "source_file": "HANDOFF.md",
-      "source_location": "L38"
+      "source_location": "L34"
     },
     {
       "id": "handoff",
@@ -673,7 +625,7 @@
       "node_kind": "heading",
       "norm_label": "limitacao importante da minha conexao",
       "source_file": "HANDOFF.md",
-      "source_location": "L21"
+      "source_location": "L17"
     },
     {
       "id": "handoff_o_que_\u00e9_o_projeto",
@@ -685,7 +637,7 @@
       "node_kind": "heading",
       "norm_label": "o que e o projeto",
       "source_file": "HANDOFF.md",
-      "source_location": "L11"
+      "source_location": "L7"
     },
     {
       "id": "handoff_onde_achar_mais_contexto",
@@ -697,7 +649,7 @@
       "node_kind": "heading",
       "norm_label": "onde achar mais contexto",
       "source_file": "HANDOFF.md",
-      "source_location": "L618"
+      "source_location": "L591"
     },
     {
       "id": "handoff_pend\u00eancias_pr\u00f3ximos_passos_backlog_priorizado_pelo_scrum_master_em_2026_08_31",
@@ -709,7 +661,7 @@
       "node_kind": "heading",
       "norm_label": "pendencias (proximos passos, backlog priorizado pelo scrum-master em 2026-08-31)",
       "source_file": "HANDOFF.md",
-      "source_location": "L584"
+      "source_location": "L558"
     },
     {
       "id": "handoff_prefer\u00eancias_de_trabalho_do_usu\u00e1rio_fabricio",
@@ -721,7 +673,7 @@
       "node_kind": "heading",
       "norm_label": "preferencias de trabalho do usuario (fabricio)",
       "source_file": "HANDOFF.md",
-      "source_location": "L610"
+      "source_location": "L583"
     },
     {
       "id": "supabase_functions_staff_auth_index",
@@ -852,43 +804,9 @@
       "norm_label": "@supabase/mcp-server-supabase",
       "source_file": ".mcp.json",
       "source_location": "L1"
-    },
-    {
-      "id": "ref_npm_bcryptjs_2_4_3",
-      "label": "ref_npm_bcryptjs_2_4_3",
-      "community": 2,
-      "community_name": "index.ts",
-      "external": true,
-      "file_type": "concept",
-      "norm_label": "ref_npm_bcryptjs_2_4_3",
-      "source_file": "",
-      "type": "external"
-    },
-    {
-      "id": "ref_npm_supabase",
-      "label": "ref_npm_supabase",
-      "community": 2,
-      "community_name": "index.ts",
-      "external": true,
-      "file_type": "concept",
-      "norm_label": "ref_npm_supabase",
-      "source_file": "",
-      "type": "external"
     }
   ],
   "links": [
-    {
-      "source": "supabase_functions_staff_auth_index_internalerror",
-      "target": "supabase_functions_staff_auth_index_json",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L27",
-      "weight": 1.0
-    },
     {
       "source": "supabase_functions_staff_auth_index_json",
       "target": "supabase_functions_staff_auth_index_corsheaders",
@@ -898,79 +816,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L38",
-      "weight": 1.0
-    },
-    {
-      "source": "supabase_functions_staff_auth_index",
-      "target": "supabase_functions_staff_auth_index_validstaffid",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L21",
-      "weight": 1.0
-    },
-    {
-      "source": "supabase_functions_staff_auth_index",
-      "target": "supabase_functions_staff_auth_index_validpin",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L22",
-      "weight": 1.0
-    },
-    {
-      "source": "supabase_functions_staff_auth_index",
-      "target": "supabase_functions_staff_auth_index_internalerror",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "supabase/functions/staff-auth/index.ts",
       "source_location": "L25",
-      "weight": 1.0
-    },
-    {
-      "source": "supabase_functions_staff_auth_index",
-      "target": "supabase_functions_staff_auth_index_corsheaders",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L30",
-      "weight": 1.0
-    },
-    {
-      "source": "supabase_functions_staff_auth_index",
-      "target": "supabase_functions_staff_auth_index_json",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L37",
-      "weight": 1.0
-    },
-    {
-      "source": "supabase_functions_staff_auth_index",
-      "target": "supabase_functions_staff_auth_index_callercontext",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L44",
       "weight": 1.0
     },
     {
@@ -983,30 +829,6 @@
       "context": "command",
       "source_file": ".mcp.json",
       "source_location": "L1",
-      "weight": 1.0
-    },
-    {
-      "source": "supabase_functions_staff_auth_index",
-      "target": "ref_npm_supabase",
-      "relation": "imports_from",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "import",
-      "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L5",
-      "weight": 1.0
-    },
-    {
-      "source": "supabase_functions_staff_auth_index",
-      "target": "ref_npm_bcryptjs_2_4_3",
-      "relation": "imports_from",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "import",
-      "source_file": "supabase/functions/staff-auth/index.ts",
-      "source_location": "L6",
       "weight": 1.0
     },
     {
@@ -1051,7 +873,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L129",
+      "source_location": "L125",
       "weight": 1.0
     },
     {
@@ -1062,7 +884,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L146",
+      "source_location": "L142",
       "weight": 1.0
     },
     {
@@ -1073,7 +895,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L159",
+      "source_location": "L155",
       "weight": 1.0
     },
     {
@@ -1084,7 +906,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L167",
+      "source_location": "L163",
       "weight": 1.0
     },
     {
@@ -1095,7 +917,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L175",
+      "source_location": "L171",
       "weight": 1.0
     },
     {
@@ -1106,7 +928,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L179",
+      "source_location": "L175",
       "weight": 1.0
     },
     {
@@ -1117,7 +939,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L190",
+      "source_location": "L186",
       "weight": 1.0
     },
     {
@@ -1128,7 +950,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L211",
+      "source_location": "L207",
       "weight": 1.0
     },
     {
@@ -1139,29 +961,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L224",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_tempo_de_comanda_aberta_nos_cards_e_no_modal_2026_09_18",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L250",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_bug_de_layout_do_card_de_comanda_v\u00ednculo_de_mesa_local_2026_09_18",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L260",
+      "source_location": "L220",
       "weight": 1.0
     },
     {
@@ -1172,7 +972,29 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L27",
+      "source_location": "L23",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_tempo_de_comanda_aberta_nos_cards_e_no_modal_2026_09_18",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L246",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_bug_de_layout_do_card_de_comanda_v\u00ednculo_de_mesa_local_2026_09_18",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L256",
       "weight": 1.0
     },
     {
@@ -1183,7 +1005,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L272",
+      "source_location": "L268",
       "weight": 1.0
     },
     {
@@ -1194,7 +1016,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L282",
+      "source_location": "L278",
       "weight": 1.0
     },
     {
@@ -1205,40 +1027,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L293",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_bot\u00e3o_de_registrar_pagamento_no_modal_de_consumo_bloqueado_2026_09_20",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L302",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_trocar_cliente_editar_cadastro_na_comanda_j\u00e1_vinculada_2026_09_20",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L312",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_atalho_j\u00e1_pedidos_nesta_comanda_no_novo_pedido_2026_09_20",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L323",
+      "source_location": "L289",
       "weight": 1.0
     },
     {
@@ -1249,7 +1038,40 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L33",
+      "source_location": "L29",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_bot\u00e3o_de_registrar_pagamento_no_modal_de_consumo_bloqueado_2026_09_20",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L298",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_trocar_cliente_editar_cadastro_na_comanda_j\u00e1_vinculada_2026_09_20",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L308",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_atalho_j\u00e1_pedidos_nesta_comanda_no_novo_pedido_2026_09_20",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L319",
       "weight": 1.0
     },
     {
@@ -1260,51 +1082,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L334",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_campo_de_busca_de_produto_direto_na_comanda_2026_09_20",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L346",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_quantidade_de_copos_para_produtos_de_bar_2026_09_20",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L358",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_quantidade_de_copos_no_app_do_gar\u00e7om_2026_09_20",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L368",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_remove_bot\u00e3o_salvar_e_continuar_da_comanda_teste_no_app_real_2026_09_20",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L376",
+      "source_location": "L330",
       "weight": 1.0
     },
     {
@@ -1315,29 +1093,40 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L38",
+      "source_location": "L34",
       "weight": 1.0
     },
     {
       "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_local_de_entrega_quem_levou_e_cancelamento_de_item_lan\u00e7ado_errado_na_comanda_2026_09_20",
+      "target": "handoff_campo_de_busca_de_produto_direto_na_comanda_2026_09_20",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L389",
+      "source_location": "L342",
       "weight": 1.0
     },
     {
       "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_quem_levou_vira_dropdown_com_cadastro_de_pessoas_2026_09_21",
+      "target": "handoff_quantidade_de_copos_para_produtos_de_bar_2026_09_20",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L401",
+      "source_location": "L354",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_quantidade_de_copos_no_app_do_gar\u00e7om_2026_09_20",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L364",
       "weight": 1.0
     },
     {
@@ -1348,7 +1137,40 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L41",
+      "source_location": "L37",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_remove_bot\u00e3o_salvar_e_continuar_da_comanda_teste_no_app_real_2026_09_20",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L372",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_local_de_entrega_quem_levou_e_cancelamento_de_item_lan\u00e7ado_errado_na_comanda_2026_09_20",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L385",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_quem_levou_vira_dropdown_com_cadastro_de_pessoas_2026_09_21",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L397",
       "weight": 1.0
     },
     {
@@ -1359,7 +1181,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L411",
+      "source_location": "L407",
       "weight": 1.0
     },
     {
@@ -1370,51 +1192,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L428",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_cancelar_item_ou_comanda_inteira_com_permiss\u00e3o_por_login_2026_09_24",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L437",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_carrinho_no_adicionar_produto_direto_da_comanda_2026_09_24",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L447",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_hist\u00f3rico_da_comanda_agrupado_por_pedido_com_pedir_novamente_do_lote_inteiro_2026_09_24",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L458",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_comanda_cancelada_n\u00e3o_conta_mais_como_receita_nos_relat\u00f3rios_2026_09_24",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L469",
+      "source_location": "L424",
       "weight": 1.0
     },
     {
@@ -1425,7 +1203,51 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L47",
+      "source_location": "L43",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_cancelar_item_ou_comanda_inteira_com_permiss\u00e3o_por_login_2026_09_24",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L433",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_carrinho_no_adicionar_produto_direto_da_comanda_2026_09_24",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L443",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_hist\u00f3rico_da_comanda_agrupado_por_pedido_com_pedir_novamente_do_lote_inteiro_2026_09_24",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L454",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_comanda_cancelada_n\u00e3o_conta_mais_como_receita_nos_relat\u00f3rios_2026_09_24",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L465",
       "weight": 1.0
     },
     {
@@ -1436,51 +1258,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L478",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_monitor_travado_por_esta\u00e7\u00e3o_em_modo_tv_uma_tv_por_\u00e1rea_2026_09_25",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L514",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_corre\u00e7\u00f5es_r\u00e1pidas_da_auditoria_2026_09_25",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L524",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_modo_local_removido_resgate_das_vendas_que_ficaram_no_aparelho_2026_09_25",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L533",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_seguran\u00e7a_anon_sem_execute_nas_rpcs_tokens_fora_do_settings_2026_09_25",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L542",
+      "source_location": "L474",
       "weight": 1.0
     },
     {
@@ -1491,7 +1269,51 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L55",
+      "source_location": "L51",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_monitor_travado_por_esta\u00e7\u00e3o_em_modo_tv_uma_tv_por_\u00e1rea_2026_09_25",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L510",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_corre\u00e7\u00f5es_r\u00e1pidas_da_auditoria_2026_09_25",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L520",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_modo_local_removido_resgate_das_vendas_que_ficaram_no_aparelho_2026_09_25",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L529",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
+      "target": "handoff_seguran\u00e7a_anon_sem_execute_nas_rpcs_tokens_fora_do_settings_2026_09_25",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L538",
       "weight": 1.0
     },
     {
@@ -1502,18 +1324,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L552",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_estado_atual_o_que_j\u00e1_est\u00e1_pronto",
-      "target": "handoff_auditoria_por_setores_2026_10_02",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L562",
+      "source_location": "L548",
       "weight": 1.0
     },
     {
@@ -1524,7 +1335,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L66",
+      "source_location": "L62",
       "weight": 1.0
     },
     {
@@ -1535,7 +1346,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L73",
+      "source_location": "L69",
       "weight": 1.0
     },
     {
@@ -1546,18 +1357,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L87",
-      "weight": 1.0
-    },
-    {
-      "source": "handoff_handoff_commandah",
-      "target": "handoff_o_que_\u00e9_o_projeto",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "HANDOFF.md",
-      "source_location": "L11",
+      "source_location": "L83",
       "weight": 1.0
     },
     {
@@ -1568,7 +1368,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L21",
+      "source_location": "L17",
       "weight": 1.0
     },
     {
@@ -1579,7 +1379,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L25",
+      "source_location": "L21",
       "weight": 1.0
     },
     {
@@ -1590,7 +1390,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L584",
+      "source_location": "L558",
       "weight": 1.0
     },
     {
@@ -1601,7 +1401,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L610",
+      "source_location": "L583",
       "weight": 1.0
     },
     {
@@ -1612,7 +1412,18 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L618",
+      "source_location": "L591",
+      "weight": 1.0
+    },
+    {
+      "source": "handoff_handoff_commandah",
+      "target": "handoff_o_que_\u00e9_o_projeto",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "HANDOFF.md",
+      "source_location": "L7",
       "weight": 1.0
     },
     {
@@ -1649,6 +1460,39 @@
       "weight": 1.0
     },
     {
+      "source": "supabase_functions_staff_auth_index",
+      "target": "supabase_functions_staff_auth_index_corsheaders",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "supabase/functions/staff-auth/index.ts",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "supabase_functions_staff_auth_index",
+      "target": "supabase_functions_staff_auth_index_json",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "supabase/functions/staff-auth/index.ts",
+      "source_location": "L24",
+      "weight": 1.0
+    },
+    {
+      "source": "supabase_functions_staff_auth_index",
+      "target": "supabase_functions_staff_auth_index_callercontext",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "supabase/functions/staff-auth/index.ts",
+      "source_location": "L31",
+      "weight": 1.0
+    },
+    {
       "source": "mcp_mcp_server_supabase",
       "target": "env_var_supabase_access_token",
       "relation": "requires_env",
@@ -1661,5 +1505,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "0044537a7333eb592eef1de5c88178fe2d1a4259"
+  "built_at_commit": "d019668dd9513b74d113b7fc84b89125a534eec0"
 }

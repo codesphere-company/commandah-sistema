@@ -1,17 +1,16 @@
-# Graph Report - commandah-sistema  (2026-10-02)
+# Graph Report - commandah-sistema  (2026-09-25)
 
 ## Corpus Check
-- 15 files · ~80,822 words
+- 13 files · ~77,000 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 2 file(s) not represented in the graph (top: (none) 2)
 
 ## Summary
-- 72 nodes · 70 edges · 5 communities (4 shown, 1 thin omitted)
+- 66 nodes · 63 edges · 5 communities (4 shown, 1 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `0044537a`
+- Built from commit: `d019668d`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -23,16 +22,16 @@
 - supabase
 
 ## God Nodes (most connected - your core abstractions)
-1. `Estado atual (o que já está pronto)` - 47 edges
+1. `Estado atual (o que já está pronto)` - 46 edges
 2. `Handoff — Commandah` - 7 edges
 3. `supabase` - 4 edges
-4. `json()` - 3 edges
-5. `internalError()` - 2 edges
-6. `corsHeaders()` - 2 edges
-7. `github` - 1 edges
-8. `npx` - 1 edges
-9. `@supabase/mcp-server-supabase` - 1 edges
-10. `SUPABASE_ACCESS_TOKEN` - 1 edges
+4. `corsHeaders()` - 2 edges
+5. `json()` - 2 edges
+6. `github` - 1 edges
+7. `npx` - 1 edges
+8. `@supabase/mcp-server-supabase` - 1 edges
+9. `SUPABASE_ACCESS_TOKEN` - 1 edges
+10. `admin` - 1 edges
 
 ## Surprising Connections (you probably didn't know these)
 - None detected - all connections are within the same source files.
@@ -44,33 +43,33 @@
 
 ### Community 0 - "Estado atual (o que já está pronto)"
 Cohesion: 0.04
-Nodes (47): Alerta de fila de impressão travada (2026-09-24), Arquitetura, Atalho "Já pedidos nesta comanda" no Novo Pedido (2026-09-20), Auditoria de código vs. HANDOFF (2026-09-12), Auditoria de propostas de funcionalidades (2026-09-12), Auditoria por setores (2026-10-02), Auditoria visual/UX — mudanças desde 2026-08-31/09-01 (2026-09-12), Backup com logins e permissões + teste de restauração toda noite (2026-09-25) (+39 more)
+Nodes (46): Alerta de fila de impressão travada (2026-09-24), Arquitetura, Atalho "Já pedidos nesta comanda" no Novo Pedido (2026-09-20), Auditoria de código vs. HANDOFF (2026-09-12), Auditoria de propostas de funcionalidades (2026-09-12), Auditoria visual/UX — mudanças desde 2026-08-31/09-01 (2026-09-12), Backup com logins e permissões + teste de restauração toda noite (2026-09-25), Backup Supabase — pg_dump 16 continuava resolvendo no PATH mesmo após instalar a 17 (2026-09-20) (+38 more)
 
 ### Community 1 - "Handoff — Commandah"
 Cohesion: 0.29
 Nodes (6): Handoff — Commandah, Limitação importante da minha conexão, O que é o projeto, Onde achar mais contexto, Pendências (próximos passos, backlog priorizado pelo scrum-master em 2026-08-31), Preferências de trabalho do usuário (Fabricio)
 
 ### Community 2 - "index.ts"
-Cohesion: 0.24
-Nodes (4): admin, corsHeaders(), internalError(), json()
+Cohesion: 0.50
+Nodes (3): admin, corsHeaders(), json()
 
 ### Community 4 - "supabase"
 Cohesion: 0.33
 Nodes (5): SUPABASE_ACCESS_TOKEN, npx, github, supabase, @supabase/mcp-server-supabase
 
 ## Knowledge Gaps
-- **57 isolated node(s):** `github`, `npx`, `@supabase/mcp-server-supabase`, `SUPABASE_ACCESS_TOKEN`, `admin` (+52 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 64 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **56 isolated node(s):** `github`, `npx`, `@supabase/mcp-server-supabase`, `SUPABASE_ACCESS_TOKEN`, `admin` (+51 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 59 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **1 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `Estado atual (o que já está pronto)` connect `Estado atual (o que já está pronto)` to `Handoff — Commandah`?**
-  _High betweenness centrality (0.546) - this node is a cross-community bridge._
+  _High betweenness centrality (0.627) - this node is a cross-community bridge._
 - **Why does `Handoff — Commandah` connect `Handoff — Commandah` to `Estado atual (o que já está pronto)`?**
-  _High betweenness centrality (0.120) - this node is a cross-community bridge._
+  _High betweenness centrality (0.140) - this node is a cross-community bridge._
 - **What connects `github`, `npx`, `@supabase/mcp-server-supabase` to the rest of the system?**
-  _57 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _56 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Estado atual (o que já está pronto)` be split into smaller, more focused modules?**
-  _Cohesion score 0.0425531914893617 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.043478260869565216 - nodes in this community are weakly interconnected._
