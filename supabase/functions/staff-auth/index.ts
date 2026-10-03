@@ -128,7 +128,10 @@ Deno.serve(async (req) => {
       await admin.from("tenant_staff").update({ failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString() }).eq("id", staffId);
 
       const { data: userRec, error: userErr } = await admin.auth.admin.getUserById(staff.auth_user_id as string);
-      if (userErr || !userRec?.user?.email) return json({ error: "Conta de acesso não encontrada para este colaborador" }, 500);
+      if (userErr || !userRec?.user?.email) {
+        if (userErr) console.error("[staff-auth] getUserById:", userErr);
+        return json({ error: "Conta de acesso não encontrada para este colaborador" }, 500);
+      }
 
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
         type: "magiclink",
@@ -187,12 +190,14 @@ Deno.serve(async (req) => {
       const pin = String(body.pin || "");
       if (!staffId || !pin) return json({ error: "Campos obrigatórios faltando" }, 400);
       if (!validStaffId(staffId) || !validPin(pin)) return json({ error: "Dados inválidos" }, 400);
-      const { data: staff } = await admin.from("tenant_staff").select("tenant_id").eq("id", staffId).maybeSingle();
+      const { data: staff, error: selErr } = await admin.from("tenant_staff").select("tenant_id").eq("id", staffId).maybeSingle();
+      if (selErr) return internalError("Falha ao consultar colaborador", selErr);
       if (!staff || staff.tenant_id !== tenantId) return json({ error: "Colaborador não encontrado" }, 404);
       const pinHash = bcrypt.hashSync(pin, 10);
-      await admin.from("tenant_staff").update({
+      const { error: updErr } = await admin.from("tenant_staff").update({
         pin_hash: pinHash, failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString(),
       }).eq("id", staffId);
+      if (updErr) return internalError("Falha ao redefinir PIN", updErr);
       return json({ ok: true });
     }
 
@@ -200,9 +205,12 @@ Deno.serve(async (req) => {
       const staffId = String(body.staff_id || "");
       const active = !!body.active;
       if (!staffId) return json({ error: "Campos obrigatórios faltando" }, 400);
-      const { data: staff } = await admin.from("tenant_staff").select("tenant_id").eq("id", staffId).maybeSingle();
+      if (!validStaffId(staffId)) return json({ error: "Dados inválidos" }, 400);
+      const { data: staff, error: selErr } = await admin.from("tenant_staff").select("tenant_id").eq("id", staffId).maybeSingle();
+      if (selErr) return internalError("Falha ao consultar colaborador", selErr);
       if (!staff || staff.tenant_id !== tenantId) return json({ error: "Colaborador não encontrado" }, 404);
-      await admin.from("tenant_staff").update({ active, updated_at: new Date().toISOString() }).eq("id", staffId);
+      const { error: updErr } = await admin.from("tenant_staff").update({ active, updated_at: new Date().toISOString() }).eq("id", staffId);
+      if (updErr) return internalError("Falha ao alterar status do colaborador", updErr);
       return json({ ok: true });
     }
 
