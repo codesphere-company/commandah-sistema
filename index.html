@@ -3110,7 +3110,15 @@ async function sendItemsToKitchen(saleId, items, who, source, local){
   if(!monitorItems.length) return true;
   const order = { id:uid(), saleId, who, local: local||'', items: monitorItems.map(i=>({productId:i.productId,name:i.name,qty:i.qty,price:i.price,notes:i.notes||'',customization:i.customization?JSON.parse(JSON.stringify(i.customization)):null})),
     status:'pendente', statusHistory:[], createdAt:new Date().toISOString(), source };
-  await OrdersStore.create(order);
+  try{
+    await OrdersStore.create(order);
+  }catch(e){
+    // consume_insumos ja descontou: sem estorno, o retry do operador baixaria o estoque de novo.
+    console.error('Falha ao criar pedido da cozinha', e);
+    try{ await restoreInsumosForItems(items); }catch(_){}
+    toast('Não foi possível enviar o pedido agora. Tente de novo.');
+    return false;
+  }
   return true;
 }
 function kOrderAgeMin(createdAt){ return Math.max(0, Math.floor((Date.now()-new Date(createdAt).getTime())/60000)); }
@@ -3719,12 +3727,22 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   const isExistingComanda = (mode==='comanda' && comandaId);
   const isExistingDelivery = (mode==='delivery' && comandaId);
   let orderNumber = null;
+  // Venda nova: reaproveita id e numero entre tentativas da MESMA venda. Sem isso, um retry
+  // depois de close_sale gravar no servidor mas a resposta se perder (timeout) gerava uid()
+  // novo -> close_sale nao reconhecia o retry e duplicava a venda (e queimava outro numero).
+  let pendingClose = null;
   if(!isExistingComanda && !isExistingDelivery){
-    try{ orderNumber = await nextOrderNumber(); }catch(e){ return false; }
+    const closeKey = JSON.stringify([mode, comandaId||null, memberId||null, total, (currentSaleDraft.items||[]).map(i=>[i.productId, i.qty, i.price, !!i.canceled])]);
+    pendingClose = (currentSaleDraft._pendingClose && currentSaleDraft._pendingClose.key===closeKey) ? currentSaleDraft._pendingClose : { key: closeKey, saleId: uid(), orderNumber: null };
+    currentSaleDraft._pendingClose = pendingClose;
+    if(pendingClose.orderNumber==null){
+      try{ pendingClose.orderNumber = await nextOrderNumber(); }catch(e){ return false; }
+    }
+    orderNumber = pendingClose.orderNumber;
   }
   const cashDisplayId = state.cashSession ? (String(state.cashSession.displayId||state.cashSession.id||'').replace(/[^a-zA-Z0-9]/g,'').slice(-6)||'1') : null;
   const sale = {
-    id: (isExistingComanda||isExistingDelivery) ? comandaId : uid(), type: mode, orderNumber, memberId, customerName: currentSaleDraft.customerName||'',
+    id: (isExistingComanda||isExistingDelivery) ? comandaId : pendingClose.saleId, type: mode, orderNumber, memberId, customerName: currentSaleDraft.customerName||'',
     items: currentSaleDraft.items, total, status:'closed', notes:currentSaleDraft.notes||'',
     payments, operatorId: currentUser.id, operatorName: currentUser.name,
     cashSessionId: state.cashSession ? state.cashSession.id : null, cashDisplayId,
@@ -3785,6 +3803,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   }
   const fiadoTotal = payments.filter(p=>p.method==='fiado').reduce((a,p)=>a+p.amount,0);
   let fiadoMemberForPrompt = null;
+  try{
   if(fiadoTotal>0 && memberId){
     const m = state.members.find(x=>x.id===memberId);
     if(m){ await MembersStore.recordDebtEntry(m.id, 'debt', fiadoTotal, { reason:'Venda #'+sale.id, saleId: sale.id }); fiadoMemberForPrompt = m; }
@@ -3798,6 +3817,13 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
     if(m) await MembersStore.recordDebtEntry(m.id, 'payment', creditFromChange, { reason:'Crédito de troco — Venda #'+sale.id, saleId: sale.id });
   }
   await applyAutomaticLoyalty(memberId,total,sale.id);
+  }catch(e){
+    // A venda JA esta gravada (close_sale). Nao devolve false: o operador tentaria de novo e
+    // duplicaria os lancamentos que ja entraram. Avisa e registra pra conferencia manual.
+    console.error('Falha ao lancar fiado/credito/pontos da venda', sale.id, e);
+    logAction('ATENÇÃO: venda '+sale.id+' registrada, mas fiado/crédito/pontos do sócio NÃO foram lançados por erro — conferir no extrato do sócio.');
+    setTimeout(()=>toast('Venda registrada, mas o fiado/crédito do sócio NÃO foi lançado. Confira o extrato do sócio.'), 2700);
+  }
   newDraft(mode); toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
   if(fiadoMemberForPrompt) promptWhatsAppCollection(fiadoMemberForPrompt);
   return true;
