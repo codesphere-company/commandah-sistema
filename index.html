@@ -1067,8 +1067,29 @@ async function loadAll(){
     state.origens.push({id:uid(), chave:'app', nome:'App do Garçom'});
     await save('origens');
   }
+  await migratePendingStaffAsOwner();
   applyBranding();
   renderLogin();
+}
+/* Estabelecimento recém-criado: os usuários semeados acima (Administrador /
+   Garçom App) nascem sem acesso seguro, e na nuvem o login por PIN de quem não
+   foi migrado é barrado de propósito (ver pinSubmit). Como só um admin logado
+   migra colaboradores, ninguém entrava nunca. Aqui a sessão do DONO — a única
+   que pode chamar create_operator sem ninguém logado — migra os pendentes pela
+   Edge Function, o mesmo caminho de "Migrar acesso seguro". Não afrouxa nada:
+   o PIN passa a ser validado no servidor e sai do cadastro local. */
+async function migratePendingStaffAsOwner(){
+  if(!isCloudMode() || !sessionIsOwner || !supabaseClient) return;
+  const pending = state.users.filter(u=>!u.migratedAuth && u.pin);
+  if(!pending.length) return;
+  let changed = false;
+  for(const u of pending){
+    try{
+      const { data: fnData, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action:'create_operator', staff_id:u.id, name:u.name, role:u.role, pin:u.pin } });
+      if(!error && fnData && !fnData.error){ u.migratedAuth = true; delete u.pin; changed = true; }
+    }catch(e){}
+  }
+  if(changed) await save('users');
 }
 async function save(key){
   if(!STORE[key]){ toast('Erro interno: conjunto de dados desconhecido.'); return false; }
