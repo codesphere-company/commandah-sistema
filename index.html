@@ -6437,7 +6437,7 @@ async function submitTotemOrder(){
       <div style="font-size:15px;color:var(--muted);margin-bottom:6px">Guarde o número do seu pedido</div>
       <div style="font-size:64px;font-weight:800;font-family:'Oswald',sans-serif;color:var(--green)">#${sale.orderNumber}</div>
       <p class="sub" style="margin-top:14px">Aguarde ser chamado no painel de senhas.</p>
-      <button class="btn btn-primary btn-block" style="margin-top:20px" onclick="closeModal();renderAll()">Novo pedido</button>
+      <button class="btn btn-primary btn-block" style="margin-top:20px" onclick="document.getElementById('modalRoot').dataset.locked='false';closeModal();renderAll()">Novo pedido</button>
     </div>`, false, true);
 }
 
