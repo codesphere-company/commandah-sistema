@@ -1,5 +1,5 @@
 -- =====================================================================
--- 20261002000000 — Hardening de GRANTs de tabela (defesa em profundidade)
+-- 20261002010000 — Hardening de GRANTs de tabela (defesa em profundidade)
 -- =====================================================================
 -- Auditoria de segurança de 2026-10-02. NÃO APLICADA — rodar pelo SQL Editor
 -- depois de revisada. Idempotente (pode rodar duas vezes).
