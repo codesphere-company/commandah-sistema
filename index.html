@@ -777,6 +777,36 @@ input[type=checkbox],input[type=radio]{accent-color:var(--c-primary)}
 .pay-method-key{font-size:12px!important;color:var(--c-text-2)!important;background:var(--c-surface-3);border-radius:4px;padding:0 5px}
 .pay-progress-panel{background:var(--c-surface-2)!important;border:1px solid var(--c-border);border-radius:var(--r-lg)}
 .pay-progress-fill{background:var(--c-brand)!important}
+
+/* ===== COZINHA E MODO TV (redesign etapa 6) =====
+   Cartão neutro; a cor do tempo fica só na faixa lateral e no selo: neutro (recente), amarelo, vermelho.
+   Verde passa a significar apenas "pronto". */
+.kcard{background:var(--c-surface)!important;border:1px solid var(--c-border)!important;border-left:6px solid var(--c-border-strong)!important;border-radius:var(--r-lg)!important;box-shadow:var(--sh-1);overflow:hidden}
+.kcard.kage-yellow{border-left-color:var(--c-warning-solid)!important;background:var(--c-surface)!important}
+.kcard.kage-red{border-left-color:var(--c-danger)!important;background:var(--c-danger-soft)!important}
+.kcard .kwho{font-size:15px;color:var(--c-text)!important}
+.kcard .ktime{color:var(--c-text-2)!important;font-size:13px}
+.kcard .khead{border-bottom:1px solid var(--c-border)!important}
+.kcard .kagebadge{background:var(--c-neutral-soft)!important;color:var(--c-text-2)!important;font-size:13px;padding:3px 10px}
+.kcard.kage-yellow .kagebadge{background:var(--c-warning-solid)!important;color:#fff!important}
+.kcard.kage-red .kagebadge{background:var(--c-danger)!important;color:#fff!important}
+html[data-theme="dark"] .kcard.kage-yellow .kagebadge,html[data-theme="dark"] .kcard.kage-red .kagebadge{color:var(--c-bg)!important}
+.kcard .klocal{color:var(--c-info)!important;font-size:13px}
+.kcard ul>li{border-bottom:1px solid var(--c-border)!important}
+.kcard .kcheck input{width:22px!important;height:22px!important;accent-color:var(--c-success)}
+.kbtn-ready{background:var(--c-success-soft)!important;color:var(--c-success)!important;border-left:1px solid var(--c-border)!important;width:76px!important;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
+.kbtn-ready svg{stroke:currentColor}
+.kbtn-ready:hover{background:var(--c-success)!important;color:var(--c-surface)!important;opacity:1!important}
+/* Modo TV: leitura de longe vem antes de suavidade */
+body.tv-mode .kcard{border-width:2px!important;border-left-width:12px!important}
+body.tv-mode .kcard .kwho{font-size:30px!important}
+body.tv-mode .kcard ul{font-size:26px!important;font-weight:500}
+body.tv-mode .kcard .ktime,body.tv-mode .kcard .klocal{font-size:20px!important}
+body.tv-mode .kcard .kagebadge{font-size:20px!important}
+body.tv-mode .kcard .khead{flex-wrap:wrap}
+body.tv-mode .kfeed{grid-template-columns:repeat(auto-fill,minmax(420px,1fr))!important}
+body.tv-mode .kbtn-ready{width:110px!important;font-size:20px!important;background:var(--c-success)!important;color:var(--c-surface)!important}
+.tv-exit-btn{background:var(--c-surface)!important;color:var(--c-text)!important;border:1px solid var(--c-border-input)!important;opacity:1!important;border-radius:var(--r-md)!important;min-height:40px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
@@ -3471,7 +3501,7 @@ function renderKitchenActiveFeed(){
           return `<li data-idx="${idx}">${showCheck?`<label class="kcheck" onclick="event.stopPropagation()"><input type="checkbox" class="kitem-check" data-idx="${idx}"> ${label}</label>`:label}${extras.length?`<ul class="kextras">${extras.map(e=>`<li>+ ${h(e)}</li>`).join('')}</ul>`:''}</li>`;
         }).join('')}</ul>
       </div>
-      <button class="kbtn-ready" onclick="event.stopPropagation();finalizeKitchenItems('${o.id}')" title="Marcar pronto">${ICN.ticket}</button>
+      <button class="kbtn-ready" onclick="event.stopPropagation();finalizeKitchenItems('${o.id}')" title="Marcar pronto">${ICN.ticket}<span>Pronto</span></button>
     </div>`;
   }).join('') : `<p class="empty">Nenhum pedido em preparo.</p>`}</div>`;
 }
