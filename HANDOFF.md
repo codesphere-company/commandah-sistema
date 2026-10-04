@@ -24,6 +24,14 @@ Commandah é o sistema de comanda/PDV do **Clube Olímpico** (Maringá — negó
 
 ## Estado atual (o que já está pronto)
 
+### Redesign visual + marca nova (2026-10-03, branch `redesign-visual`, SEM push)
+Proposta do agente `design-senior` aprovada pelo dono (seguir as recomendações nas 5 decisões; logo = conceito 2 "Prato-C", "Commandah" com C maiúsculo). Aplicado em etapas, um commit cada: 0 correções de base, 1 cores em tokens + modo escuro, 2 letras (só Inter), 3 moldura clara, marca nova (`assets/marca/`, `manifest.webmanifest`, favicon), 4 componentes, 5 telas do caixa, 6 cozinha/TV, 7 garçom. Só CSS e marcação visual — nenhuma lógica, ID ou fluxo mudou.
+- Regras de cada etapa 4–7 estão em blocos no fim do 1º `<style>` (procure `redesign etapa N`).
+- Símbolo do Commandah usa `--c-mark`/`--c-mark-ink` (fixo); `--c-brand`/`--c-primary` seguem a cor de destaque do estabelecimento. Padrões novos: destaque `#0D9E79`, principal `#1D2433`; `applyBranding()` trata quem salvou os antigos (`#0EA57E`/`#141B33`) como padrão.
+- Com o topo claro, a "Cor principal" do estabelecimento não pinta mais a moldura (só painel de senhas e telas de cadastro público).
+- Contraste medido no app (etapa 8): todos os pares principais ≥ 4,5 (texto) e ≥ 3 (borda de campo), claro e escuro.
+- **Falta**: testar num celular real à noite; ver o painel de comandas com caixa ABERTO (no Demo o caixa estava fechado, então o cartão com faixa amarela não foi visto); ver cartões de cozinha recentes/amarelos (só havia atrasados); textos em caixa alta escritos no próprio HTML (abas PRINCIPAL…, PAGAMENTO, VOLTAR, REVISAR); rótulo verde da estação no ticket impresso (sugestão: preto); merge em `main` = publicar.
+
 ### Segurança
 - **RLS crítico em `print_jobs` fechado** — antes vazava dados de pedidos entre tenants.
 - **Sistema de token por tenant pro agente de impressão** — substituiu o modelo antigo (tenant_id como se fosse segredo).
