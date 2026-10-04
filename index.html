@@ -690,6 +690,39 @@ body.tv-mode .tv-exit-btn{display:block;}
   .item-line .qty-ctrl button{width:44px;height:44px;font-size:18px;border-radius:8px}
   .kcard .kcheck input{width:24px;height:24px}
 }
+
+/* ===== COMPONENTES (redesign etapa 4): 1 botão principal, 1 secundário, 1 de perigo; 1 campo; 1 aba =====
+   Fica no fim do CSS de propósito: unifica as variações antigas (.btn, .op-btn, .record-tabs, .op-tabs...).
+   !important só onde as regras antigas já usavam !important ou estilo por janela. */
+.op-btn,.op-toolbar .op-btn,.btn{border-radius:var(--r-md)!important;border:1px solid var(--c-border-input)!important;background:var(--c-surface)!important;color:var(--c-text)!important;font-weight:600;text-transform:none;letter-spacing:0;box-shadow:none!important;transition:background .12s,border-color .12s}
+.op-btn:hover,.op-toolbar .op-btn:hover,.btn:hover{background:var(--c-surface-3)!important;color:var(--c-text)!important;border-color:var(--c-border-input)!important}
+.op-btn.primary,.op-toolbar .op-btn.primary,.record-actions .op-btn.primary,.btn-primary,.btn.btn-primary{background:var(--c-primary)!important;border-color:var(--c-primary)!important;color:var(--c-text-inverse)!important}
+.op-btn.primary:hover,.op-toolbar .op-btn.primary:hover,.btn-primary:hover,.btn.btn-primary:hover{background:var(--c-primary-hover)!important;border-color:var(--c-primary-hover)!important;color:var(--c-text-inverse)!important}
+.op-btn.primary .op-ico{color:inherit!important}
+.btn-danger,.btn.btn-danger{background:var(--c-surface)!important;color:var(--c-danger)!important;border-color:var(--c-danger)!important}
+.btn-danger:hover,.btn.btn-danger:hover{background:var(--c-danger-soft)!important;color:var(--c-danger)!important}
+.op-btn[disabled],.btn[disabled],.op-btn.disabled{opacity:1!important;background:var(--c-surface-3)!important;color:var(--c-text-3)!important;border-color:var(--c-border)!important;cursor:not-allowed}
+.op-btn[disabled] .op-ico,.op-btn[disabled] svg{opacity:.6}
+
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),select,textarea{border:1px solid var(--c-border-input);border-radius:var(--r-md);background-color:var(--c-surface);color:var(--c-text);font-family:var(--font-sans)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--c-focus);outline-offset:0;border-color:var(--c-focus)}
+input[type=checkbox],input[type=radio]{accent-color:var(--c-primary)}
+::placeholder{color:var(--c-text-3);opacity:1}
+.field label,.np-label,.cash-readonly-label{color:var(--c-text-2);text-transform:none;letter-spacing:0;font-size:13px;font-weight:600}
+.op-search input,.consumer-form-frame input,.consumer-form-frame select,.integration-form input,.integration-form select{border-radius:var(--r-md)!important;border-color:var(--c-border-input)!important}
+
+.record-tabs{background:var(--c-surface)!important;border-bottom:1px solid var(--c-border)!important}
+.record-tabs button,.op-tabs button{color:var(--c-text-2)!important;background:none!important;border:0!important;border-bottom:2px solid transparent!important;border-radius:0!important;font-weight:500}
+.record-tabs button.active,.op-tabs button.active{color:var(--c-primary-text)!important;border-bottom-color:var(--c-primary)!important;font-weight:600}
+.record-tabs button:hover:not(.active),.op-tabs button:hover:not(.active){color:var(--c-text)!important}
+.op-tabs,.product-window .op-tabs{background:var(--c-surface)!important;border-bottom:1px solid var(--c-border)!important}
+.subtabs button,.np-cat-tab{border-radius:var(--r-pill);border-color:var(--c-border-input);background:var(--c-surface);color:var(--c-text);font-size:13px}
+.subtabs button.active,.np-cat-tab.active{background:var(--c-strong);border-color:var(--c-strong);color:var(--c-on-strong)}
+
+.tag{border-radius:var(--r-pill);font-weight:600;padding:3px 10px}
+.tag-gray{background:var(--c-neutral-soft);color:var(--c-text-2)}
+.modal-close{color:var(--c-text-2);min-width:40px;min-height:40px}
+.record-actions,.consumer-modal-actions{background:var(--c-surface-2)!important;border-top:1px solid var(--c-border)!important}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
