@@ -807,6 +807,34 @@ body.tv-mode .kcard .khead{flex-wrap:wrap}
 body.tv-mode .kfeed{grid-template-columns:repeat(auto-fill,minmax(420px,1fr))!important}
 body.tv-mode .kbtn-ready{width:110px!important;font-size:20px!important;background:var(--c-success)!important;color:var(--c-surface)!important}
 .tv-exit-btn{background:var(--c-surface)!important;color:var(--c-text)!important;border:1px solid var(--c-border-input)!important;opacity:1!important;border-radius:var(--r-md)!important;min-height:40px}
+
+/* ===== APP DO GARÇOM (redesign etapa 7): cartões brancos, preço sempre visível, escolhido em destaque ===== */
+#garcomApp{background:var(--c-bg)!important}
+.gc-bar{background:var(--c-surface)!important;color:var(--c-text)!important;border-bottom:1px solid var(--c-border);box-shadow:var(--sh-1)}
+.gc-bar .gc-title{font-size:18px}
+.gc-bar .gc-title small{color:var(--c-text-2)!important;opacity:1!important;font-size:13px}
+.gc-bar .gc-menu-btn{color:var(--c-text)!important;min-width:48px;min-height:48px}
+.gc-bar .gc-menu-btn svg{stroke:var(--c-text)!important}
+#gcSearch,#gcProdSearch,#gcProdSearch2{height:var(--hit-touch);width:100%;padding:0 14px;font-size:16px;margin-bottom:12px;display:block;border:1px solid var(--c-border-input);border-radius:var(--r-md);background:var(--c-surface);color:var(--c-text);box-sizing:border-box}
+.gc-section-label{color:var(--c-text-2)!important;font-size:14px!important;font-weight:600!important}
+.gc-tile{background:var(--c-surface)!important;color:var(--c-text)!important;border:1px solid var(--c-border)!important;border-top:4px solid var(--c-success)!important;border-radius:var(--r-lg)!important;box-shadow:var(--sh-1);font-size:20px}
+.gc-tile.gc-amber{border-top-color:var(--c-warning-solid)!important}
+.gc-tile .gc-tile-cap{font-size:12px!important;color:var(--c-text-2)!important;opacity:1!important;text-transform:none!important}
+.gc-cat-tile{background:var(--c-surface)!important;color:var(--c-text)!important;border:1px solid var(--c-border)!important;border-radius:var(--r-lg)!important;box-shadow:var(--sh-1);font-size:16px!important;font-weight:600!important;min-height:64px!important}
+.gc-cat-all{border-radius:var(--r-lg)!important;border:1px dashed var(--c-border-input)!important;background:transparent!important;color:var(--c-text-2)!important;min-height:var(--hit-touch)}
+.gc-prod-tile{position:relative;background:var(--c-surface)!important;color:var(--c-text)!important;border:1px solid var(--c-border)!important;border-radius:var(--r-lg)!important;box-shadow:var(--sh-1);font-size:15px!important;font-weight:600!important;min-height:88px!important}
+.gc-prod-tile.in-cart{background:var(--c-primary-soft)!important;border:2px solid var(--c-primary)!important}
+.gc-prod-tile .gc-price-badge{background:var(--c-surface-3)!important;color:var(--c-text)!important;font-size:13px!important;font-variant-numeric:tabular-nums;padding:3px 9px!important}
+.gc-prod-tile .gc-qty-badge{position:absolute;bottom:8px;left:10px;background:var(--c-primary);color:var(--c-text-inverse);font-size:13px;font-weight:700;border-radius:var(--r-pill);padding:2px 9px}
+.gc-card{border-radius:var(--r-lg)!important;border-color:var(--c-border)!important;background:var(--c-surface)!important}
+.gc-card .gc-name{color:var(--c-text)!important}
+.gc-card button{background:var(--c-primary)!important;color:var(--c-text-inverse)!important;border-radius:var(--r-md)!important;min-height:var(--hit-touch)}
+.gc-footer{background:var(--c-surface)!important;border-top:1px solid var(--c-border)!important}
+.gc-btn-back{background:var(--c-surface)!important;border:1px solid var(--c-border-input)!important;color:var(--c-text)!important;border-radius:var(--r-md)!important;min-height:52px}
+.gc-btn-review{background:var(--c-primary)!important;color:var(--c-text-inverse)!important;border-radius:var(--r-md)!important;min-height:52px}
+.gc-btn-review:disabled{background:var(--c-surface-3)!important;color:var(--c-text-3)!important;opacity:1!important}
+.gc-review-item .gc-qty button{width:44px!important;height:44px!important;border-radius:var(--r-md)!important;border:1px solid var(--c-border-input)!important;background:var(--c-surface)!important;color:var(--c-text)!important;font-size:20px!important}
+.gc-empty{color:var(--c-text-3)!important}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
@@ -5262,7 +5290,7 @@ function gcSearchAllProducts(q){
   const list = state.products.filter(p=>p.active!==false && p.name.toLowerCase().includes(q.toLowerCase()));
   results.innerHTML = `<div class="gc-prod-grid" style="margin-top:10px">${list.length?list.map(p=>{
     const inCart = gcCart.find(i=>i.productId===p.id);
-    return `<button class="gc-prod-tile" onclick="gcAddToCart('${p.id}');gcSearchAllProducts(document.getElementById('gcProdSearch').value)"><span>${h(p.name)}</span><span class="gc-price-badge">${inCart?'x'+inCart.qty:fmt(p.price)}</span></button>`;
+    return `<button class="gc-prod-tile${inCart?' in-cart':''}" onclick="gcAddToCart('${p.id}');gcSearchAllProducts(document.getElementById('gcProdSearch').value)"><span>${h(p.name)}</span>${inCart?`<span class="gc-qty-badge">x${inCart.qty}</span>`:''}<span class="gc-price-badge">${fmt(p.price)}</span></button>`;
   }).join(''):'<p class="gc-empty">Nada encontrado.</p>'}</div>`;
 }
 function gcSelectCategory(cat){
@@ -5287,7 +5315,7 @@ function gcRenderProducts(q){
         ${list.length ? list.map(p=>{
           const av = productAvailable(p); const out = av!==Infinity && av<=0;
           const inCart = gcCart.find(i=>i.productId===p.id);
-          return `<button class="gc-prod-tile" ${out?'disabled style="opacity:.5"':''} onclick="gcAddToCart('${p.id}')"><span>${h(p.name)}</span><span class="gc-price-badge">${inCart?'x'+inCart.qty:fmt(p.price)}</span></button>`;
+          return `<button class="gc-prod-tile${inCart?' in-cart':''}" ${out?'disabled style="opacity:.5"':''} onclick="gcAddToCart('${p.id}')"><span>${h(p.name)}</span>${inCart?`<span class="gc-qty-badge">x${inCart.qty}</span>`:''}<span class="gc-price-badge">${fmt(p.price)}</span></button>`;
         }).join('') : '<p class="gc-empty">Nenhum produto encontrado.</p>'}
       </div>
     </div>` + gcFooterHtml("gcFlow.step='categories';gcRenderCategories()");
