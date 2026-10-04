@@ -723,6 +723,60 @@ input[type=checkbox],input[type=radio]{accent-color:var(--c-primary)}
 .tag-gray{background:var(--c-neutral-soft);color:var(--c-text-2)}
 .modal-close{color:var(--c-text-2);min-width:40px;min-height:40px}
 .record-actions,.consumer-modal-actions{background:var(--c-surface-2)!important;border-top:1px solid var(--c-border)!important}
+
+/* ===== TELAS DO CAIXA (redesign etapa 5) ===== */
+/* Caixa: estado em selo legível, não faixa saturada */
+.cash-state{background:var(--c-danger-soft)!important;color:var(--c-danger)!important;border:1px solid currentColor;border-radius:var(--r-md);font-size:16px}
+.cash-state.opened{background:var(--c-success-soft)!important;color:var(--c-success)!important}
+.cash-state::before{content:"● "}
+.cash-open-side,.cash-side{background:var(--c-surface-2);border-right:1px solid var(--c-border)!important}
+.cash-readonly-value,.cash-open-note{border:1px solid var(--c-border);background:var(--c-surface);border-radius:var(--r-md);color:var(--c-text);font-variant-numeric:tabular-nums}
+.cash-movement-area{background:var(--c-surface);border-right:1px solid var(--c-border)!important}
+.cash-summary{background:var(--c-surface-2);color:var(--c-text)}
+.cash-section-title{background:transparent!important;color:var(--c-text)!important;font-weight:600}
+.cash-empty,.cash-summary-empty{color:var(--c-text-3)!important}
+/* Caixa livre: menos espaço morto, título sem caixa alta gritada */
+.free-cash{background:var(--c-surface)!important;border:1px solid var(--c-border)!important;border-radius:var(--r-lg);box-shadow:var(--sh-1)!important}
+.free-cash h2{color:var(--c-success)!important;font-size:34px!important;font-weight:700}
+
+/* Painel de comandas: cartão branco com faixa de cor no topo (antes laranja sólido) */
+.table-seat{background:var(--c-surface)!important;color:var(--c-text)!important;border:1px solid var(--c-border)!important;border-radius:var(--r-lg)!important;box-shadow:var(--sh-1)}
+.table-seat.occupied{border-top:4px solid var(--c-warning-solid)!important}
+.table-seat:hover{background:var(--c-surface-2)!important;box-shadow:var(--sh-2)}
+.comanda-add-card{border:1.5px dashed var(--c-border-input)!important;color:var(--c-text-2)!important;background:transparent!important;box-shadow:none!important}
+.comanda-time-badge{background:var(--c-warning-soft)!important;color:var(--c-warning)!important}
+.comanda-card-local{color:var(--c-text-2)!important}
+.tile{background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);border-radius:var(--r-lg);box-shadow:var(--sh-1)}
+.tile:hover{background:var(--c-surface-2)}
+.tile .tile-cap{color:var(--c-primary-text)}
+.tile .tile-sub{color:var(--c-text-3)}
+
+/* Comanda aberta: estado e dívida discretos, Total em destaque */
+.cash-order-head{background:var(--c-surface)!important;border-bottom:1px solid var(--c-border)!important}
+.cash-order-quota{font-size:28px!important;color:var(--c-text)!important;font-weight:700!important;font-variant-numeric:tabular-nums}
+.delivery-open-badge{background:var(--c-success-soft)!important;color:var(--c-success)!important;border-radius:var(--r-pill)!important;font-size:13px!important;padding:5px 12px!important}
+.cash-order-main{background:var(--c-surface)!important;border:1px solid var(--c-border)!important;border-radius:var(--r-lg);overflow:hidden}
+.delivery-meta{background:var(--c-surface)!important;border:1px solid var(--c-border)!important;border-radius:var(--r-md);color:var(--c-text-2)!important}
+.cash-order-links{margin-top:12px!important}
+.cash-order-links button{color:var(--c-text)!important;border-radius:var(--r-md)!important;min-height:36px;font-size:14px!important}
+.cash-order-links button:hover{background:var(--c-surface-3)!important}
+.np-section{background:var(--c-surface-2)!important;border:1px solid var(--c-border)!important;border-radius:var(--r-md)!important}
+.cash-order-total,.cash-order-total-breakdown{border-top:1px solid var(--c-border)!important;font-size:20px!important;color:var(--c-text)}
+.cash-order-total b,.cash-order-total span:last-child{font-variant-numeric:tabular-nums;font-weight:700}
+.comanda-audit-group-row,.comanda-audit-group-row td{background:var(--c-surface-2)!important;color:var(--c-text)!important}
+.finance-grid td select{min-height:32px;height:32px;font-size:13px}
+.comp-switch span{background:var(--c-border-input)!important}
+.comp-switch input:checked+span{background:var(--c-primary)!important}
+
+/* Pagamento: total grande, forma escolhida com contorno verde, atalho legível */
+.pay-summary{background:var(--c-surface-2)!important;border:1px solid var(--c-border)!important;border-radius:var(--r-lg)!important}
+.pay-summary .pay-total-row{font-size:24px!important;color:var(--c-text)!important;font-weight:700!important}
+.pay-method-btn{border:1px solid var(--c-border-input)!important;border-radius:var(--r-md)!important;background:var(--c-surface)!important;color:var(--c-text)!important;min-height:64px}
+.pay-method-btn:hover{background:var(--c-surface-2)!important}
+.pay-method-btn.active{background:var(--c-primary-soft)!important;border:2px solid var(--c-primary)!important;color:var(--c-primary-text)!important}
+.pay-method-key{font-size:12px!important;color:var(--c-text-2)!important;background:var(--c-surface-3);border-radius:4px;padding:0 5px}
+.pay-progress-panel{background:var(--c-surface-2)!important;border:1px solid var(--c-border);border-radius:var(--r-lg)}
+.pay-progress-fill{background:var(--c-brand)!important}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
@@ -6463,7 +6517,7 @@ function renderPainelSenhas(){
   const preparando = state.orders.filter(o=>o.status==='pendente'||o.status==='preparo');
   el.innerHTML = `<div class="panel" style="background:var(--c-frame);color:var(--c-frame-text)"><div style="display:flex;justify-content:space-between;align-items:center"><div><h2 style="color:var(--c-frame-text)">${h(cfg.title||'Painel de senhas — pedidos prontos')}</h2><p class="sub" style="color:var(--c-frame-text-3)">Tela para exibir num monitor da cantina, mostrando quem pode retirar o pedido.</p></div><div><button class="op-btn" onclick="toggleScoreboardFullscreen()">⛶ Tela cheia</button><button class="op-btn" onclick="openScoreboardSettings()">⚙ Configurar</button></div></div>
     <div class="tile-grid" style="margin-top:16px">
-      ${prontos.length ? prontos.map(o=>`<div class="tile" style="background:var(--green)"><div class="tile-cap">Pronto</div><div class="tile-num">${h(o.who)}</div></div>`).join('') : '<p class="empty" style="color:var(--c-frame-text-3)">Nenhum pedido pronto no momento.</p>'}
+      ${prontos.length ? prontos.map(o=>`<div class="tile" style="background:var(--green);color:#fff;border:0"><div class="tile-cap">Pronto</div><div class="tile-num">${h(o.who)}</div></div>`).join('') : '<p class="empty" style="color:var(--c-frame-text-3)">Nenhum pedido pronto no momento.</p>'}
     </div>
   </div>
   ${cfg.showPreparing===false?'':`<div class="panel"><h2>Em preparo</h2>
