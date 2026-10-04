@@ -4,8 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Commandah — Sistema de Gestão</title>
+<link rel="icon" href="assets/marca/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/marca/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="assets/marca/favicon-16.png" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="assets/marca/apple-touch-icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14171C" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script>try{if(localStorage.getItem('cantina2:theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 <style>
 /* ===== CORES, LETRAS E ESPAÇOS (tokens) =====
@@ -29,7 +36,7 @@
   --c-border-strong:#CDD2DA;
   --c-border-input:#8B94A3;  /* 3.06:1 sobre branco */
   /* ação primária */
-  --c-brand:#0EA57E;         /* verde da marca: logotipo e detalhes (não usar com texto branco) */
+  --c-brand:#0D9E79;         /* verde da marca: logotipo e detalhes (não usar com texto branco) */
   --c-primary:#0B7A5E;       /* botão principal; texto branco 5.3:1 */
   --c-primary-hover:#086650;
   --c-primary-soft:#E2F3EC;
@@ -44,14 +51,16 @@
   /* destaque invertido (aba/chip ativo, aviso flutuante): escuro no claro, claro no escuro */
   --c-strong:var(--c-text); --c-on-strong:var(--c-surface);
   /* Cores da marca do estabelecimento: applyBranding() sobrescreve estas 5 com as escolhidas em Configurações */
-  --navy:#141B33; --navy2:#1D2547; --navy3:#242C57; --amber:#0EA57E; --amber-dark:#0B7F62;
+  --navy:#141B33; --navy2:#1D2547; --navy3:#242C57; --amber:#0D9E79; --amber-dark:#0B7F62;
   /* moldura azul-marinho (barra do topo, abas, rodapé, títulos de janela) — segue a cor principal da marca, escura nos dois temas */
+  /* símbolo do Commandah: fixo, não segue a cor escolhida pelo estabelecimento */
+  --c-mark:#0D9E79; --c-mark-ink:#1D2433;
   --c-frame:var(--navy); --c-frame-2:var(--navy2); --c-frame-3:var(--navy3);
   --c-frame-text:#FFFFFF; --c-frame-text-2:#CFD8E8; --c-frame-text-3:#9FB0CC;
   --c-backdrop:#707070;      /* fundo atrás da folha de relatório */
   /* letras */
   --font-sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-  --font-brand:'Sora',var(--font-sans);
+  --font-brand:var(--font-sans);
   --fs-xs:12px; --fs-sm:13px; --fs-md:14px; --fs-lg:16px; --fs-xl:18px; --fs-2xl:22px; --fs-3xl:28px;
   /* cantos, sombras, espaços */
   --r-sm:6px; --r-md:10px; --r-lg:14px; --r-pill:999px;
@@ -67,6 +76,7 @@ html[data-theme="dark"]{
   --c-overlay:rgba(0,0,0,.55);
   --c-text:#E6E8ED; --c-text-2:#B5BBC6; --c-text-3:#9AA2AF; --c-text-inverse:#08201A;
   --c-border:#2E343E; --c-border-strong:#3B424E; --c-border-input:#6E7787;
+  --c-mark:#3DBE93; --c-mark-ink:#F5F6F8;
   --c-brand:#3DBE93; --c-primary:#3DBE93; --c-primary-hover:#55CBA3; --c-primary-soft:#16352C; --c-primary-text:#6AD6AE; --c-focus:#3DBE93;
   --c-success:#6CD39C; --c-success-soft:#17321F;
   --c-warning:#F2BC5B; --c-warning-solid:#D9952B; --c-warning-soft:#382B12;
@@ -77,7 +87,7 @@ html[data-theme="dark"]{
   --sh-1:0 1px 2px rgba(0,0,0,.30); --sh-2:0 4px 12px rgba(0,0,0,.35); --sh-3:0 18px 44px rgba(0,0,0,.50);
 }
 /* Verde de ação derivado da cor de destaque da marca (--amber), para respeitar a cor
-   escolhida por cada estabelecimento. Com a cor padrão (#0EA57E) dá os mesmos tons aprovados.
+   escolhida por cada estabelecimento. Com a cor padrão (#0D9E79) dá os mesmos tons aprovados.
    Navegador antigo sem color-mix fica com os valores fixos acima. */
 @supports (color:color-mix(in srgb,red 50%,blue)){
   :root{
@@ -117,11 +127,11 @@ input,select,textarea{font-family:var(--font-sans);}
 #app.show{display:flex;flex-direction:column;}
 
 /* ===== LOGIN ===== */
-#loginOverlay{position:fixed;inset:0;background:var(--c-frame);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;}
+#loginOverlay{position:fixed;inset:0;background:var(--c-bg);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;}
 #loginOverlay.hide{display:none;}
-.login-box{background:var(--paper);border-radius:12px;padding:32px;max-width:480px;width:100%;position:relative;}
-.login-powered{position:absolute;top:16px;right:20px;display:flex;align-items:center;gap:6px;font-family:'Sora';font-weight:700;font-size:12px;color:var(--muted);}
-.login-brand{width:72px;height:72px;margin:0 auto 14px;border-radius:18px;background:var(--c-brand);color:#fff;display:flex;align-items:center;justify-content:center;font:700 30px var(--font-brand);overflow:hidden;box-shadow:0 10px 30px #0002}.login-brand img{width:100%;height:100%;object-fit:contain;background:var(--c-surface)}.brand-preview{width:110px;height:110px;border:1px dashed var(--line);border-radius:18px;background:var(--c-surface);display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--muted);font-size:12px;text-align:center}.brand-preview img{width:100%;height:100%;object-fit:contain}.color-choice{display:flex;align-items:center;gap:10px}.color-choice input[type=color]{width:52px;height:38px;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--c-surface)}
+.login-box{background:var(--c-surface);border:1px solid var(--c-border);box-shadow:var(--sh-3);border-radius:var(--r-lg);padding:32px;max-width:480px;width:100%;position:relative;}
+.login-powered{position:absolute;top:16px;right:20px;display:flex;align-items:center;gap:6px;font-family:var(--font-sans);font-weight:700;font-size:12px;color:var(--muted);}
+.login-brand{width:72px;height:72px;margin:0 auto 14px;border-radius:18px;background:var(--c-brand);color:#fff;display:flex;align-items:center;justify-content:center;font:700 30px var(--font-brand);overflow:hidden;box-shadow:0 10px 30px #0002}.login-brand.login-brand--commandah{width:auto;height:auto;background:none;box-shadow:none;border-radius:0;margin-bottom:18px}.login-brand.login-brand--commandah img{height:40px;width:auto;object-fit:initial;background:none}.login-brand img{width:100%;height:100%;object-fit:contain;background:var(--c-surface)}.brand-preview{width:110px;height:110px;border:1px dashed var(--line);border-radius:18px;background:var(--c-surface);display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--muted);font-size:12px;text-align:center}.brand-preview img{width:100%;height:100%;object-fit:contain}.color-choice{display:flex;align-items:center;gap:10px}.color-choice input[type=color]{width:52px;height:38px;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--c-surface)}
 .login-box h1{color:var(--c-text);font-family:var(--font-brand);letter-spacing:-.01em;font-size:22px;margin:0 0 4px;text-align:center;}
 .login-box p.sub{text-align:center;color:var(--muted);font-size:13px;margin:0 0 24px;}
 .user-pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -137,8 +147,12 @@ input,select,textarea{font-family:var(--font-sans);}
 .pin-pad button:hover{background:var(--c-strong);color:var(--c-on-strong);}
 
 /* ===== WINDOW TITLE BAR ===== */
+.wb-wordmark,.wb-wordmark-dk{display:block;height:16px;width:auto;margin-bottom:2px}
+.wb-wordmark-dk,.login-mark-dk{display:none!important}
+html[data-theme="dark"] .wb-wordmark,html[data-theme="dark"] .login-mark{display:none!important}
+html[data-theme="dark"] .wb-wordmark-dk,html[data-theme="dark"] .login-mark-dk{display:block!important}
 .winbar{background:var(--c-surface);color:var(--c-text-2);border-bottom:1px solid var(--c-border);display:flex;align-items:center;padding:0 14px;height:48px;font-size:13px;gap:14px;}
-.winbar .wb-logo{width:26px;height:26px;border-radius:8px;background:var(--c-brand);color:#fff;font-family:var(--font-brand);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.winbar .wb-logo{width:26px;height:26px;border-radius:8px;background:transparent;color:#fff;font-family:var(--font-brand);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .winbar .wb-title{font-family:var(--font-brand);font-weight:700;font-size:14px;color:var(--c-text);letter-spacing:-.01em;}
 .winbar .wb-title small{display:block;font-family:var(--font-sans);font-weight:400;font-size:12px;color:var(--c-text-3);margin-top:1px;}
 .winbar .wb-right{display:flex;align-items:center;gap:14px;margin-left:auto;}
@@ -690,8 +704,8 @@ body.tv-mode .tv-exit-btn{display:block;}
 <div id="app">
   <button id="tvModeExit" class="tv-exit-btn" onclick="toggleTvMode()" title="Sair do Modo TV">✕ Sair do Modo TV</button>
   <div class="winbar">
-    <div class="wb-logo"><svg width="16" height="16" viewBox="0 0 64 64"><g transform="translate(32,32)"><path d="M-17 -22 a8 8 0 0 1 8-8 h18 a8 8 0 0 1 8 8 v44 a8 8 0 0 1-8 8 h-18 a8 8 0 0 1-8-8 z" fill="#141B33"/><circle cx="-17" cy="0" r="6" fill="#0EA57E"/><path d="M-5 -8l5 5 11-11" stroke="#0EA57E" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="-7" y1="12" x2="9" y2="12" stroke="#0EA57E" stroke-width="4" stroke-linecap="round"/></g></svg></div>
-    <div class="wb-title" id="wbTitleWrap">Commandah<small id="wbTitle">Sistema de gestão</small></div>
+    <div class="wb-logo"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><path d="M48.55 44.93A21 21 0 1 1 48.55 19.07" fill="none" stroke="var(--c-mark)" stroke-width="10" stroke-linecap="round"/><circle cx="32" cy="32" r="7.5" fill="var(--c-mark-ink)"/></svg></div>
+    <div class="wb-title" id="wbTitleWrap"><img class="wb-wordmark" src="assets/marca/logotipo-cor.svg" alt="Commandah" height="16"><img class="wb-wordmark-dk" src="assets/marca/logotipo-cor-escuro.svg" alt="" height="16"><small id="wbTitle">Sistema de gestão</small></div>
     <div class="wb-right">
       <label class="wb-dark"><input type="checkbox" id="darkToggle"> Modo escuro</label>
       <button class="wb-user" id="btnLogout">Bloquear ou trocar usuário</button>
@@ -829,7 +843,7 @@ const ICN = {
   trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7M18.5 7l-.8 12a2 2 0 0 1-2 1.9H8.3a2 2 0 0 1-2-1.9L5.5 7"/><path d="M10 11v6M14 11v6"/></svg>',
   scale:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M7 21h10"/><path d="M4 7h6M14 7h6"/><path d="M4 7l-2.5 5.5a3 3 0 0 0 5 0z"/><path d="M20 7l-2.5 5.5a3 3 0 0 0 5 0z"/></svg>',
   grid:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.3"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.3"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.3"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.3"/></svg>',
-  brandmark:(fg,notch,accent)=>`<svg width="16" height="16" viewBox="0 0 64 64"><g transform="translate(32,32)"><path d="M-17 -22 a8 8 0 0 1 8-8 h18 a8 8 0 0 1 8 8 v44 a8 8 0 0 1-8 8 h-18 a8 8 0 0 1-8-8 z" fill="${fg}"/><circle cx="-17" cy="0" r="6" fill="${notch}"/><path d="M-5 -8l5 5 11-11" stroke="${accent}" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="-7" y1="12" x2="9" y2="12" stroke="${accent}" stroke-width="4" stroke-linecap="round"/></g></svg>`,
+  brandmark:(ring='var(--c-mark)',dot='var(--c-mark-ink)',size=16)=>`<svg width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><path d="M48.55 44.93A21 21 0 1 1 48.55 19.07" fill="none" stroke="${ring}" stroke-width="10" stroke-linecap="round"/><circle cx="32" cy="32" r="7.5" fill="${dot}"/></svg>`,
 };
 const RIBBON_TABS = [
   { id:'principal', label:'Principal', groups:[
@@ -1843,12 +1857,12 @@ function renderLogin(){
     ? `<img src="${state.settings.brandLogo}" alt="${h(state.settings.clubName||'Estabelecimento')}">`
     : hasCustomBrand
       ? h((state.settings.clubName||'E').trim().charAt(0).toUpperCase())
-      : `<svg width="38" height="38" viewBox="0 0 64 64"><g transform="translate(32,32)"><path d="M-17 -22 a8 8 0 0 1 8-8 h18 a8 8 0 0 1 8 8 v44 a8 8 0 0 1-8 8 h-18 a8 8 0 0 1-8-8 z" fill="#fff"/><circle cx="-17" cy="0" r="6" fill="var(--amber)"/><path d="M-5 -8l5 5 11-11" stroke="#141B33" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="-7" y1="12" x2="9" y2="12" stroke="#141B33" stroke-width="4" stroke-linecap="round"/></g></svg>`;
+      : `<img class="login-mark" src="assets/marca/horizontal-cor.svg" alt="Commandah"><img class="login-mark-dk" src="assets/marca/horizontal-cor-escuro.svg" alt="">`;
   overlay.innerHTML = `
   <div class="login-box">
-    ${hasCustomBrand?`<div class="login-powered"><svg width="18" height="18" viewBox="0 0 64 64"><g transform="translate(32,32)"><path d="M-17 -22 a8 8 0 0 1 8-8 h18 a8 8 0 0 1 8 8 v44 a8 8 0 0 1-8 8 h-18 a8 8 0 0 1-8-8 z" fill="#141B33"/><circle cx="-17" cy="0" r="6" fill="#fff"/><path d="M-5 -8l5 5 11-11" stroke="#0EA57E" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="-7" y1="12" x2="9" y2="12" stroke="#0EA57E" stroke-width="4" stroke-linecap="round"/></g></svg><span>Commandah</span></div>`:''}
-    <div class="login-brand">${brandBadge}</div>
-    <h1>${h(state.settings.clubName||'Commandah')}</h1>
+    ${hasCustomBrand?`<div class="login-powered">${ICN.brandmark(undefined,undefined,18)}<span>Commandah</span></div>`:''}
+    <div class="login-brand${hasCustomBrand?'':' login-brand--commandah'}">${brandBadge}</div>
+    ${hasCustomBrand?`<h1>${h(state.settings.clubName)}</h1>`:''}
     <p class="sub">${isDefaultOnly? 'Primeiro acesso — toque em Administrador e troque o PIN padrão em Configurações' : 'Selecione seu usuário para entrar'}</p>
     <div class="user-pick">${state.users.filter(u=>u.active!==false).map(u=>`
       <button onclick="startPin('${u.id}')"><div class="un">${h(u.name)}</div><div class="ur">${h(roleLabel(u.role))}</div></button>
@@ -1858,7 +1872,7 @@ function renderLogin(){
   document.getElementById('app').classList.remove('show');
 }
 function shadeColor(hex,amount){const clean=/^#[0-9a-f]{6}$/i.test(hex)?hex:'#3568b0',n=parseInt(clean.slice(1),16),r=Math.max(0,Math.min(255,(n>>16)+amount)),g=Math.max(0,Math.min(255,((n>>8)&255)+amount)),b=Math.max(0,Math.min(255,(n&255)+amount));return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');}
-function applyBranding(){const s=state.settings||{},primary=/^#[0-9a-f]{6}$/i.test(s.brandPrimary)?s.brandPrimary:'#141B33',accent=/^#[0-9a-f]{6}$/i.test(s.brandAccent)?s.brandAccent:'#0EA57E',root=document.documentElement;root.style.setProperty('--navy',primary);root.style.setProperty('--navy2',shadeColor(primary,14));root.style.setProperty('--navy3',shadeColor(primary,28));root.style.setProperty('--amber',accent);root.style.setProperty('--amber-dark',shadeColor(accent,-22));root.style.setProperty('--gc-blue',primary);document.title=(s.clubName||'Commandah')+' — Sistema de Gestão';const logo=document.querySelector('.wb-logo');if(logo){const hasCustom=s.clubName||s.brandLogo;logo.innerHTML=s.brandLogo?`<img src="${s.brandLogo}" alt="" style="width:100%;height:100%;object-fit:cover">`:(hasCustom?h((s.clubName||'E').charAt(0).toUpperCase()):ICN.brandmark(primary,accent,accent));logo.style.background=hasCustom?accent:accent;}}
+function applyBranding(){const s=state.settings||{},savedPrimary=/^#141b33$/i.test(s.brandPrimary)?'':s.brandPrimary,savedAccent=/^#0ea57e$/i.test(s.brandAccent)?'':s.brandAccent,primary=/^#[0-9a-f]{6}$/i.test(savedPrimary)?savedPrimary:'#1D2433',accent=/^#[0-9a-f]{6}$/i.test(savedAccent)?savedAccent:'#0D9E79',root=document.documentElement;root.style.setProperty('--navy',primary);root.style.setProperty('--navy2',shadeColor(primary,14));root.style.setProperty('--navy3',shadeColor(primary,28));root.style.setProperty('--amber',accent);root.style.setProperty('--amber-dark',shadeColor(accent,-22));root.style.setProperty('--gc-blue',primary);document.title=(s.clubName||'Commandah')+' — Sistema de Gestão';const logo=document.querySelector('.wb-logo');if(logo){const hasCustom=s.clubName||s.brandLogo;logo.innerHTML=s.brandLogo?`<img src="${s.brandLogo}" alt="" style="width:100%;height:100%;object-fit:cover">`:(hasCustom?h((s.clubName||'E').charAt(0).toUpperCase()):ICN.brandmark(undefined,undefined,26));logo.style.background=hasCustom?accent:'transparent';}}
 function roleLabel(r){ return r==='admin'?'Administrador':r==='caixa'?'Operador de caixa':'Cozinha'; }
 function startPin(userId){
   pinTargetUser = state.users.find(u=>u.id===userId);
@@ -6295,7 +6309,7 @@ function renderConfigSistema(){
   if(settingsPane==='impressora'){renderPrinterStandalone(el,s);return;}
   const nav=[['geral','⚙ Geral'],['definicoes','☷ Minhas Definições'],['cupom','▤ Ajustes do Cupom'],['fundo','▧ Imagem de Fundo'],['entrega','🗺 Áreas de Entrega'],['origem','◯ Origem de Clientes'],['cozinhas','♨ Locais/Cozinhas'],['balanca','▥ Código de Barras por KG'],['sobre','▣ Sobre']];
   el.innerHTML=`<div class="workspace-gray"><section class="settings-window"><header class="op-titlebar">Configurações</header><div class="settings-layout"><nav class="settings-nav">${nav.map(([id,label])=>`<button class="${settingsPane===id?'active':''}" onclick="setSettingsPane('${id}')">${label}</button>`).join('')}</nav><div class="settings-content">
-  <section class="settings-pane ${settingsPane==='geral'?'active':''}"><h3>Dados do Estabelecimento</h3><div class="settings-section" style="display:grid;grid-template-columns:130px 1fr;gap:22px;align-items:center"><div class="brand-preview" id="brandPreview">${s.brandLogo?`<img src="${s.brandLogo}" alt="Logotipo">`:'Seu logotipo'}</div><div><b>Identidade visual</b><p class="sub">Personalize a instalação para cada estabelecimento.</p><div style="display:flex;gap:8px;margin-bottom:12px"><button class="op-btn" onclick="selectBrandLogo()">Selecionar logotipo</button><button class="op-btn" onclick="clearBrandLogo()">Limpar</button><button class="op-btn" onclick="resetBrandColors()">Restaurar cores padrão</button><input id="brandLogoFile" type="file" accept="image/*" hidden></div><div class="grid2"><div class="field color-choice"><label>Cor principal</label><input id="cfgBrandPrimary" type="color" value="${h(s.brandPrimary||'#141B33')}"></div><div class="field color-choice"><label>Cor de destaque</label><input id="cfgBrandAccent" type="color" value="${h(s.brandAccent||'#0EA57E')}"></div></div></div></div><div class="grid2"><div class="field"><label>Nome fantasia</label><input id="cfgName" value="${h(s.clubName||'')}"></div><div class="field"><label>CNPJ</label><input id="cfgCnpj" value="${h(s.cnpj||'')}"></div><div class="field"><label>Razão Social</label><input id="cfgLegalName" value="${h(s.legalName||'')}"></div><div class="field"><label>Inscrição Estadual</label><input id="cfgStateReg" value="${h(s.stateRegistration||'')}"></div><div class="field"><label>Telefone Principal</label><input id="cfgPhone" value="${h(s.phone||'')}"></div><div class="field"><label>CEP</label><input id="cfgZip" value="${h(s.zip||'')}"></div></div><div class="row"><div class="field"><label>Endereço</label><input id="cfgAddress" value="${h(s.address||'')}"></div><div class="field"><label>Número</label><input id="cfgNumber" value="${h(s.addressNumber||'')}"></div></div><div class="grid3"><div class="field"><label>Bairro</label><input id="cfgDistrict" value="${h(s.district||'')}"></div><div class="field"><label>Cidade</label><input id="cfgCity" value="${h(s.city||'')}"></div><div class="field"><label>UF</label><input id="cfgUf" maxlength="2" value="${h(s.uf||'')}"></div></div><div class="settings-section"><h3>Modelo de negócio</h3><p class="sub">Isso muda como as comandas são abertas em todo o sistema.</p><div class="field"><label>Tipo de estabelecimento</label><select id="cfgOperationMode">
+  <section class="settings-pane ${settingsPane==='geral'?'active':''}"><h3>Dados do Estabelecimento</h3><div class="settings-section" style="display:grid;grid-template-columns:130px 1fr;gap:22px;align-items:center"><div class="brand-preview" id="brandPreview">${s.brandLogo?`<img src="${s.brandLogo}" alt="Logotipo">`:'Seu logotipo'}</div><div><b>Identidade visual</b><p class="sub">Personalize a instalação para cada estabelecimento.</p><div style="display:flex;gap:8px;margin-bottom:12px"><button class="op-btn" onclick="selectBrandLogo()">Selecionar logotipo</button><button class="op-btn" onclick="clearBrandLogo()">Limpar</button><button class="op-btn" onclick="resetBrandColors()">Restaurar cores padrão</button><input id="brandLogoFile" type="file" accept="image/*" hidden></div><div class="grid2"><div class="field color-choice"><label>Cor principal</label><input id="cfgBrandPrimary" type="color" value="${h(s.brandPrimary||'#1D2433')}"></div><div class="field color-choice"><label>Cor de destaque</label><input id="cfgBrandAccent" type="color" value="${h(s.brandAccent||'#0D9E79')}"></div></div></div></div><div class="grid2"><div class="field"><label>Nome fantasia</label><input id="cfgName" value="${h(s.clubName||'')}"></div><div class="field"><label>CNPJ</label><input id="cfgCnpj" value="${h(s.cnpj||'')}"></div><div class="field"><label>Razão Social</label><input id="cfgLegalName" value="${h(s.legalName||'')}"></div><div class="field"><label>Inscrição Estadual</label><input id="cfgStateReg" value="${h(s.stateRegistration||'')}"></div><div class="field"><label>Telefone Principal</label><input id="cfgPhone" value="${h(s.phone||'')}"></div><div class="field"><label>CEP</label><input id="cfgZip" value="${h(s.zip||'')}"></div></div><div class="row"><div class="field"><label>Endereço</label><input id="cfgAddress" value="${h(s.address||'')}"></div><div class="field"><label>Número</label><input id="cfgNumber" value="${h(s.addressNumber||'')}"></div></div><div class="grid3"><div class="field"><label>Bairro</label><input id="cfgDistrict" value="${h(s.district||'')}"></div><div class="field"><label>Cidade</label><input id="cfgCity" value="${h(s.city||'')}"></div><div class="field"><label>UF</label><input id="cfgUf" maxlength="2" value="${h(s.uf||'')}"></div></div><div class="settings-section"><h3>Modelo de negócio</h3><p class="sub">Isso muda como as comandas são abertas em todo o sistema.</p><div class="field"><label>Tipo de estabelecimento</label><select id="cfgOperationMode">
       <option value="clube" ${(s.operationMode||'clube')==='clube'?'selected':''}>Clube com associados (cota, titular e dependentes)</option>
       <option value="bar" ${s.operationMode==='bar'?'selected':''}>Bar/Restaurante/Lanchonete (mesa ou nome do cliente, sem cadastro de sócio)</option>
     </select></div></div><div class="settings-section"><h3>Outras configurações</h3><div class="grid3"><div class="field"><label>Sistema</label><select id="cfgServiceMode"><option value="mesa" ${s.serviceMode!=='comanda'?'selected':''}>Mesa</option><option value="comanda" ${s.serviceMode==='comanda'?'selected':''}>Comanda</option></select></div><div class="field"><label>Quantidade de mesas</label><input id="cfgTables" type="number" min="1" max="200" value="${Number(s.tableCount)||20}"></div><div class="field"><label>Taxa de serviço (%)</label><input id="cfgServiceRate" type="number" min="0" step="0.01" value="${Number(s.serviceRate)||0}"></div></div></div></section>
