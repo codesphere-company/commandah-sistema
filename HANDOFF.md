@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-10-02** (auditoria de produto/documentação: números de linha e tamanho do `index.html` conferidos contra o código, decisões revertidas marcadas, achados de LGPD e de módulos "premium" sem função registrados nas Pendências). Antes disso, 2026-09-25: Modo TV por estação, correções rápidas da auditoria, remoção do Modo Local, revoke do anon + tokens fora do settings, backup com logins e teste de restauração (ver seções próprias).
+Última atualização: **2026-10-03** (redesign visual + marca aplicados no branch `redesign-visual`; publicação pendente — ver "Redesign visual + marca nova"). Antes, 2026-10-02 (auditoria de produto/documentação: números de linha e tamanho do `index.html` conferidos contra o código, decisões revertidas marcadas, achados de LGPD e de módulos "premium" sem função registrados nas Pendências). Antes disso, 2026-09-25: Modo TV por estação, correções rápidas da auditoria, remoção do Modo Local, revoke do anon + tokens fora do settings, backup com logins e teste de restauração (ver seções próprias).
 
 > **Sobre os números de linha** (`index.html:NNNN`): nas seções datadas eles valem para o código **daquela data** e envelhecem a cada mudança — procure pelo nome da função, não pela linha. Só as Pendências abertas são mantidas com linha atual (conferida em 2026-10-02).
 
@@ -31,6 +31,13 @@ Proposta do agente `design-senior` aprovada pelo dono (seguir as recomendações
 - Com o topo claro, a "Cor principal" do estabelecimento não pinta mais a moldura (só painel de senhas e telas de cadastro público).
 - Contraste medido no app (etapa 8): todos os pares principais ≥ 4,5 (texto) e ≥ 3 (borda de campo), claro e escuro.
 - **Falta**: testar num celular real à noite; ver o painel de comandas com caixa ABERTO (no Demo o caixa estava fechado, então o cartão com faixa amarela não foi visto); ver cartões de cozinha recentes/amarelos (só havia atrasados); textos em caixa alta escritos no próprio HTML (abas PRINCIPAL…, PAGAMENTO, VOLTAR, REVISAR); rótulo verde da estação no ticket impresso (sugestão: preto); merge em `main` = publicar.
+- **PUBLICAÇÃO PENDENTE (parou em 2026-10-03):** o dono pediu para publicar TUDO (redesign + auditoria 02/10, que está no mesmo branch). O auto mode bloqueou o deploy em produção; nada foi aplicado. Estado conferido no Supabase (`ezfoymdesmarpunmixbs`): as migrations `20261002000000_integridade_rpcs_e_indices` e `20261002010000_hardening_grants_tabelas` NÃO estão aplicadas (índice `idx_print_jobs_tenant_pendente_created` ausente, `recalc_member_debt` sem `for update`, `authenticated` ainda lê `tenant_staff`); `staff-auth` no ar é a v2 (pré-auditoria); `tenant_staff` já tem `failed_attempts`/`locked_until`. O index.html novo não depende dessas mudanças. O histórico de migrations do banco está vazio (tudo foi aplicado à mão no SQL Editor), então não confie em `migration list`. CLI do Supabase já está logado e com `supabase link` feito neste diretório.
+- **Ordem para publicar** (o dono roda com `!` ou libera a permissão):
+  1. `npx supabase db query --linked -f supabase/migrations/20261002000000_integridade_rpcs_e_indices.sql`
+  2. `npx supabase db query --linked -f supabase/migrations/20261002010000_hardening_grants_tabelas.sql`
+  3. `npx supabase functions deploy staff-auth --project-ref ezfoymdesmarpunmixbs`
+  4. `git checkout main && git pull && git merge --no-ff redesign-visual && git push origin main`
+  Depois: Ctrl+Shift+R e retestar login do dono, login de operador (PIN), abrir/fechar venda, cadastrar sócio, gerar token da impressora. Rollback de cada migration está no fim do próprio arquivo.
 
 ### Segurança
 - **RLS crítico em `print_jobs` fechado** — antes vazava dados de pedidos entre tenants.
