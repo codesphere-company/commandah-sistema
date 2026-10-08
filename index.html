@@ -874,6 +874,10 @@ body.tv-mode .kbtn-ready{width:110px!important;font-size:20px!important;backgrou
 /* UX-17: janelas grandes com o mesmo arredondamento das pequenas (as regras antigas forçavam canto reto) */
 .app-config-modal,.scale-config-modal,.campaign-modal,.sms-window-modal,.integration-modal,.nfe-stock-modal,.record-modal,.cash-order-modal,.cash-close-modal,.cash-entry-modal,.finance-record-modal,.columns-record-modal,.scheduled-record-modal,.bulk-product-modal{border-radius:var(--r-lg)!important}
 .app-config-modal>:first-child,.scale-config-modal>:first-child,.campaign-modal>:first-child,.sms-window-modal>:first-child,.integration-modal>:first-child,.nfe-stock-modal>:first-child,.record-modal>:first-child,.cash-order-modal>:first-child,.cash-close-modal>:first-child,.cash-entry-modal>:first-child,.finance-record-modal>:first-child,.columns-record-modal>:first-child,.scheduled-record-modal>:first-child,.bulk-product-modal>:first-child{border-top-left-radius:inherit;border-top-right-radius:inherit}
+/* UX-07: adicionais legíveis fora do Modo TV; observação em destaque */
+.kcard .kextras{font-size:14px;color:var(--c-text-2)}
+.kcard .kobs{margin:2px 0 4px;font-size:14px;font-weight:700;color:var(--c-warning)}
+body.tv-mode .kcard .kobs{font-size:18px}
 .kcanceled-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:var(--r-pill);background:var(--c-danger);color:var(--c-text-inverse);font-size:.8em;font-weight:700}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
@@ -3543,9 +3547,10 @@ function kitchenItemExtras(i){
   if(c.size) extras.push(c.size.name);
   (c.answers||[]).forEach(a=>(a.values||[]).forEach(v=>extras.push(a.question+': '+v.text)));
   (c.complements||[]).forEach(comp=>extras.push(comp.name));
-  if(c.notes) extras.push(c.notes);
   return extras;
 }
+// UX-07: observação livre ("sem cebola") em linha própria e destacada, não como "+ adicional".
+function kitchenItemNote(i){ return String((i.customization&&i.customization.notes)||i.notes||'').trim(); }
 let kitchenStationFilter = (function(){ try{ return localStorage.getItem('cantina2:kitchenStation')||'todas'; }catch(e){ return 'todas'; } })();
 function setKitchenStationFilter(chave){
   kitchenStationFilter = chave;
@@ -3580,9 +3585,9 @@ function renderCozinha(){
   }
   const stationNome = kitchenStationFilter!=='todas' ? estacaoLabel(kitchenStationFilter) : (stations.length===1 ? stations[0].nome : '');
   const titulo = stationNome ? 'Monitor — '+h(stationNome) : 'Monitor de preparo';
-  const filterHtml = stations.length>1 && !tv ? `<div class="kfilter">
-    <button class="btn btn-sm ${kitchenStationFilter==='todas'?'btn-primary':''}" onclick="setKitchenStationFilter('todas')">Todas</button>
-    ${stations.map(e=>`<button class="btn btn-sm ${kitchenStationFilter===e.chave?'btn-primary':''}" onclick="setKitchenStationFilter('${e.chave}')">${h(e.nome)}</button>`).join('')}
+  const filterHtml = stations.length>1 && !tv ? `<div class="kfilter subtabs">
+    <button class="${kitchenStationFilter==='todas'?'active':''}" onclick="setKitchenStationFilter('todas')">Todas</button>
+    ${stations.map(e=>`<button class="${kitchenStationFilter===e.chave?'active':''}" onclick="setKitchenStationFilter('${e.chave}')">${h(e.nome)}</button>`).join('')}
   </div>` : '';
   const subtabsHtml = `<div class="subtabs">
     <button class="${kitchenViewTab==='ativos'?'active':''}" onclick="setKitchenViewTab('ativos')">Em preparo</button>
@@ -3621,7 +3626,7 @@ function renderKitchenActiveFeed(){
           const extras=kitchenItemExtras(item);
           if(item.canceled) return `<li data-idx="${idx}" class="kitem-canceled"><s>${item.qty}x ${h(item.name)}</s> <span class="kcanceled-tag">Cancelado</span></li>`;
           const label=`${item.qty}x ${h(item.name)}`;
-          return `<li data-idx="${idx}">${showCheck?`<label class="kcheck" onclick="event.stopPropagation()"><input type="checkbox" class="kitem-check" data-idx="${idx}"> ${label}</label>`:label}${extras.length?`<ul class="kextras">${extras.map(e=>`<li>+ ${h(e)}</li>`).join('')}</ul>`:''}</li>`;
+          return `<li data-idx="${idx}">${showCheck?`<label class="kcheck" onclick="event.stopPropagation()"><input type="checkbox" class="kitem-check" data-idx="${idx}"> ${label}</label>`:label}${extras.length?`<ul class="kextras">${extras.map(e=>`<li>+ ${h(e)}</li>`).join('')}</ul>`:''}${kitchenItemNote(item)?`<div class="kobs">Obs.: ${h(kitchenItemNote(item))}</div>`:''}</li>`;
         }).join('')}</ul>
       </div>
       <button class="kbtn-ready" onclick="event.stopPropagation();finalizeKitchenItems('${o.id}')" title="Marcar pronto">${ICN.ticket}<span>Pronto</span></button>
@@ -3647,7 +3652,7 @@ function renderKitchenReadyFeed(){
         <ul>${items.map(item=>{
           const extras=kitchenItemExtras(item);
           if(item.canceled) return `<li class="kitem-canceled"><s>${item.qty}x ${h(item.name)}</s> <span class="kcanceled-tag">Cancelado</span></li>`;
-          return `<li>${item.qty}x ${h(item.name)}${extras.length?`<ul class="kextras">${extras.map(e=>`<li>+ ${h(e)}</li>`).join('')}</ul>`:''}</li>`;
+          return `<li>${item.qty}x ${h(item.name)}${extras.length?`<ul class="kextras">${extras.map(e=>`<li>+ ${h(e)}</li>`).join('')}</ul>`:''}${kitchenItemNote(item)?`<div class="kobs">Obs.: ${h(kitchenItemNote(item))}</div>`:''}</li>`;
         }).join('')}</ul>
         <div class="kdone-badge">✓ Pronto às ${timeFmt(kitchenReadyAt(o))}</div>
       </div>
