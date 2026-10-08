@@ -1831,20 +1831,24 @@ const MembersStore = {
     const createdBy = extra.createdBy || (currentUser&&currentUser.name) || '';
     if(isCloudMode()){
       const row = {
-        id: uid(), tenant_id: storageApi.tenantId, member_id: memberId, type, value: Number(value),
+        id: extra.id||uid(), tenant_id: storageApi.tenantId, member_id: memberId, type, value: Number(value),
         reason: extra.reason||null, info: extra.info||null, method: extra.method||null,
         sale_id: extra.saleId||null, created_by: createdBy, at
       };
       const { error } = await supabaseClient.from('member_debt_entries').insert(row);
-      if(error) throw error;
+      // 23505 = o mesmo id já gravou numa tentativa anterior cuja resposta se perdeu.
+      if(error && error.code!=='23505') throw error;
       member.debtHistory = member.debtHistory||[];
-      member.debtHistory.unshift(debtEntryFromRow(row));
-    } else {
-      member.debtHistory = Array.isArray(member.debtHistory)?member.debtHistory:[];
-      member.debtHistory.unshift({ id:uid(), type, value:Number(value), reason:extra.reason||'', info:extra.info||'', method:extra.method||'', at, user:createdBy, reversed:false });
-      await save('members');
+      if(!member.debtHistory.some(x=>x.id===row.id)) member.debtHistory.unshift(debtEntryFromRow(row));
+      recalcMemberDebtLocal(member);
+      return row.id;
     }
+    const id = extra.id||uid();
+    member.debtHistory = Array.isArray(member.debtHistory)?member.debtHistory:[];
+    member.debtHistory.unshift({ id, type, value:Number(value), reason:extra.reason||'', info:extra.info||'', method:extra.method||'', at, user:createdBy, reversed:false });
+    await save('members');
     recalcMemberDebtLocal(member);
+    return id;
   },
   async reverseDebtEntry(memberId, entryId, reversedBy){
     const member = state.members.find(x=>x.id===memberId);
@@ -5489,11 +5493,36 @@ function methodLabel(m){ return m==='dinheiro'?'Dinheiro':m==='credito'?'Crédit
 /* Pagamento de fiado recebido com o caixa aberto vira entrada no caixa. Antes ele
    só ia pro extrato do sócio: o dinheiro entrava na gaveta e o fechamento acusava
    sobra. Sem caixa aberto (ex.: lançamento retroativo) fica só no extrato. */
-function recordFiadoPaymentInCash(member, value, methodLabel){
+function recordFiadoPaymentInCash(member, value, methodLabel, debtEntryId){
   if(!state.cashSession) return;
   const method = ({'Dinheiro':'dinheiro','Pix':'pix','Cartão':'cartao'})[methodLabel] || methodLabel || 'dinheiro';
   const description = 'Recebimento de fiado — '+member.name;
-  state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'suprimento', amount:Math.round(Number(value)*100)/100, reason:description, description, method, note:'', origin:'fiado', operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
+  state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'suprimento', amount:Math.round(Number(value)*100)/100, reason:description, description, method, note:'', origin:'fiado', debtEntryId:debtEntryId||null, operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
+  save('cashMovements');
+}
+// OP-06: estornar um pagamento de fiado também tira o valor do caixa. Com o caixa
+// do recebimento ainda aberto, a entrada sai; se ele já fechou, entra uma saída de
+// mesmo valor no caixa aberto agora (sem caixa aberto, avisa).
+function reverseFiadoPaymentInCash(member, entry){
+  const value = Math.round(Number(entry.value)*100)/100;
+  const desc = 'Recebimento de fiado — '+member.name;
+  let mv = state.cashMovements.find(x=>x.origin==='fiado' && x.debtEntryId===entry.id);
+  // Lançamentos de antes deste vínculo: mesma descrição e valor, no caixa aberto, o mais próximo do horário.
+  if(!mv && state.cashSession){
+    const t = new Date(entry.at).getTime();
+    mv = state.cashMovements.filter(x=>x.origin==='fiado' && !x.debtEntryId && x.cashSessionId===state.cashSession.id && x.description===desc && Math.abs((Number(x.amount)||0)-value)<0.005)
+      .sort((a,b)=>Math.abs(new Date(a.at).getTime()-t)-Math.abs(new Date(b.at).getTime()-t))[0];
+  }
+  // Sem entrada achada: foi recebido com o caixa fechado (nunca entrou em caixa) ou é antigo demais.
+  if(!mv){ if(state.cashSession) toast('Este recebimento não aparece no caixa. Se o dinheiro saiu da gaveta, lance a saída em Caixa.'); return; }
+  if(state.cashSession && mv.cashSessionId===state.cashSession.id){
+    state.cashMovements = state.cashMovements.filter(x=>x.id!==mv.id);
+    save('cashMovements');
+    return;
+  }
+  if(!state.cashSession){ toast('Caixa fechado: lance a devolução de '+fmt(value)+' manualmente quando abrir o caixa.'); return; }
+  const description = 'Estorno de recebimento de fiado — '+member.name;
+  state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'sangria', amount:value, reason:description, description, method:mv.method||'dinheiro', note:'', origin:'fiado-estorno', debtEntryId:entry.id, operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
   save('cashMovements');
 }
 // Devolução em dinheiro de excedente pago em Pix/cartão (decisão do dono no OP-02:
@@ -6887,8 +6916,22 @@ function exportFiadoClientListCsv(){const rows=[['Cliente','Saldo Atual','Situa�
 function exportFiadoStatementCsv(){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId);if(!m){toast('Selecione um cliente.');return;}const limit=Number(state.settings.fiadoStatement&&state.settings.fiadoStatement.maxEntries)||60,showUser=!!(state.settings.fiadoStatement&&state.settings.fiadoStatement.showUser),header=['Data','Histórico','Fiado','Pago','Info',...(showUser?['Usuário']:[])],rows=[header,...(m.debtHistory||[]).slice(0,limit).map(x=>[new Date(x.at).toLocaleString('pt-BR'),x.reason||'',x.type==='debt'?Number(x.value).toFixed(2):'',x.type==='payment'?Number(x.value).toFixed(2):'',x.info||'',...(showUser?[x.user||'']:[])])];downloadCsv('extrato-fiado-'+String(m.name).replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'.csv',rows);}
 function printFiadoSection(section){document.body.dataset.printFiado=section;window.print();setTimeout(()=>delete document.body.dataset.printFiado,200);}
 function applyFiadoStatementSettings(){if(contasTab!=='fiado')return;const table=document.querySelector('.fiado-history table');if(!table)return;const settings=state.settings.fiadoStatement||{showUser:false,maxEntries:60},rows=[...table.querySelectorAll('tbody tr')];rows.forEach((row,index)=>{if(index>=Number(settings.maxEntries||60))row.remove();if(settings.showUser&&row.cells.length>=5){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId),entry=m&&m.debtHistory&&m.debtHistory[index];if(entry&&entry.user)row.cells[4].textContent=entry.user;}});}
-function openFiadoEntry(type){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId);if(!m){toast('Selecione um cliente.');return;}const paymentMethods=['Dinheiro','Cartão','Pix',...(state.paymentMethods||[]).map(p=>p.nome)];openModal(type==='debt'?'Registrar Dívida':'Registrar Pagamento',`<div class="fiado-entry"><div class="fiado-client-summary"><b>${h(m.name)}</b><span>Saldo atual: <strong>${fmt(m.debt)}</strong></span></div><div class="row"><div class="field"><label>Data / Hora</label><input id="fiadoAt" type="datetime-local" value="${new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)}"></div><div class="field"><label>Valor</label><input id="fiadoValue" type="number" min="0.01" step="0.01"></div></div>${type==='payment'?`<div class="field"><label>Forma de Pagamento</label><select id="fiadoMethod">${paymentMethods.map(x=>`<option>${h(x)}</option>`).join('')}</select></div>`:''}<div class="field"><label>Histórico / Motivo${type==='payment'?' (opcional)':''}</label><input id="fiadoReason" placeholder="${type==='payment'?'Opcional — informe a descrição do pagamento':'Informe a descrição do lançamento'}"></div><div class="field"><label>Observação</label><textarea id="fiadoInfo"></textarea></div></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button><button class="consumer-save" id="fiadoSave">✓ &nbsp; Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal','fiado-entry-modal');document.getElementById('fiadoSave').onclick=async ()=>{const value=parseFloat(document.getElementById('fiadoValue').value),reason=document.getElementById('fiadoReason').value.trim(),at=document.getElementById('fiadoAt').value;if(!Number.isFinite(value)||value<=0||!at||(type==='debt'&&!reason)){toast(type==='debt'?'Informe data, valor e histórico.':'Informe data e valor.');return;}if(type==='payment'&&value>Number(m.debt||0)){toast('O pagamento não pode superar o saldo devedor.');return;}await MembersStore.recordDebtEntry(m.id,type,value,{reason:reason||(type==='payment'?'Pagamento':''),info:document.getElementById('fiadoInfo').value.trim(),method:type==='payment'?document.getElementById('fiadoMethod').value:'',at:new Date(at).toISOString()});if(type==='payment')recordFiadoPaymentInCash(m,value,document.getElementById('fiadoMethod').value);logAction(`${type==='debt'?'Dívida':'Pagamento de fiado'}: ${m.name} — ${fmt(value)}`);closeModal();renderAll();toast('Conta corrente atualizada.');};}
-async function reverseFiadoEntry(memberId,entryId){const m=state.members.find(x=>x.id===memberId),entry=m&&Array.isArray(m.debtHistory)?m.debtHistory.find(x=>x.id===entryId):null;if(!entry||entry.reversed)return;if(!confirm('Estornar este lançamento?'))return;await MembersStore.reverseDebtEntry(memberId,entryId,currentUser.name);logAction('Estorno de fiado: '+m.name+' — '+fmt(entry.value));renderAll();toast('Lançamento estornado.');}
+function openFiadoEntry(type){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId);if(!m){toast('Selecione um cliente.');return;}const paymentMethods=['Dinheiro','Cartão','Pix',...(state.paymentMethods||[]).map(p=>p.nome)];openModal(type==='debt'?'Registrar Dívida':'Registrar Pagamento',`<div class="fiado-entry"><div class="fiado-client-summary"><b>${h(m.name)}</b><span>Saldo atual: <strong>${fmt(m.debt)}</strong></span></div><div class="row"><div class="field"><label>Data / Hora</label><input id="fiadoAt" type="datetime-local" value="${new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)}"></div><div class="field"><label>Valor</label><input id="fiadoValue" type="number" min="0.01" step="0.01"></div></div>${type==='payment'?`<div class="field"><label>Forma de Pagamento</label><select id="fiadoMethod">${paymentMethods.map(x=>`<option>${h(x)}</option>`).join('')}</select></div>`:''}<div class="field"><label>Histórico / Motivo${type==='payment'?' (opcional)':''}</label><input id="fiadoReason" placeholder="${type==='payment'?'Opcional — informe a descrição do pagamento':'Informe a descrição do lançamento'}"></div><div class="field"><label>Observação</label><textarea id="fiadoInfo"></textarea></div></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button><button class="consumer-save" id="fiadoSave">✓ &nbsp; Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal','fiado-entry-modal');const entryId=uid(),saveBtn=document.getElementById('fiadoSave');saveBtn.onclick=async ()=>{if(saveBtn.disabled)return;const value=parseFloat(document.getElementById('fiadoValue').value),reason=document.getElementById('fiadoReason').value.trim(),at=document.getElementById('fiadoAt').value;if(!Number.isFinite(value)||value<=0||!at||(type==='debt'&&!reason)){toast(type==='debt'?'Informe data, valor e histórico.':'Informe data e valor.');return;}if(type==='payment'&&value>Number(m.debt||0)){toast('O pagamento não pode superar o saldo devedor.');return;}
+  /* OP-05: trava o botão enquanto grava (duplo clique lançava duas vezes) e mostra a falha.
+     O id do lançamento é o mesmo em todas as tentativas deste modal: um retry depois de
+     resposta perdida não duplica no extrato. Só lança no caixa e fecha depois de gravar. */
+  saveBtn.disabled=true;const method=type==='payment'?document.getElementById('fiadoMethod').value:'';
+  try{const savedId=await MembersStore.recordDebtEntry(m.id,type,value,{id:entryId,reason:reason||(type==='payment'?'Pagamento':''),info:document.getElementById('fiadoInfo').value.trim(),method,at:new Date(at).toISOString()});if(!savedId){toast('Cliente não encontrado. Recarregue a tela.');return;}
+    if(type==='payment')recordFiadoPaymentInCash(m,value,method,savedId);
+  }catch(e){console.error('Falha ao gravar lançamento de fiado',e);toast('Não foi possível gravar agora. Confira a internet e tente de novo.');return;}
+  finally{saveBtn.disabled=false;}
+  logAction(`${type==='debt'?'Dívida':'Pagamento de fiado'}: ${m.name} — ${fmt(value)}`);closeModal();renderAll();toast('Conta corrente atualizada.');};}
+async function reverseFiadoEntry(memberId,entryId){const m=state.members.find(x=>x.id===memberId),entry=m&&Array.isArray(m.debtHistory)?m.debtHistory.find(x=>x.id===entryId):null;if(!entry||entry.reversed)return;if(!confirm('Estornar este lançamento?'))return;
+  try{await MembersStore.reverseDebtEntry(memberId,entryId,currentUser.name);}
+  catch(e){console.error('Falha ao estornar fiado',e);toast('Não foi possível estornar agora. Confira a internet e tente de novo.');return;}
+  if(entry.type==='payment')reverseFiadoPaymentInCash(m,entry);
+  logAction('Estorno de fiado: '+m.name+' — '+fmt(entry.value));renderAll();toast('Lançamento estornado.');}
+reverseFiadoEntry = singleFlight('reverseFiadoEntry', reverseFiadoEntry);
 async function toggleSelectedMemberArchived(){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId);if(!m){toast('Selecione um cliente.');return;}await MembersStore.setArchived(m.id,!m.archived,currentUser.name);renderAll();toast(m.archived?'Cliente arquivado.':'Cliente desarquivado.');}
 function exportFiadoCsv(){const rows=[['Cliente','Saldo Atual','Situação'],...state.members.map(m=>[m.name,Number(m.debt||0).toFixed(2),Number(m.debt)>0?'Devedor':Number(m.debt)<0?'Crédito':'Regular'])];downloadCsv('conta-corrente-fiado.csv',rows);}
 function downloadCsv(filename,rows){const csv='\uFEFF'+rows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
