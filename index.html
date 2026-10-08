@@ -4060,20 +4060,31 @@ function openPaymentModal(mode, comandaId){
     const payments = tempPayments.map(p=>({...p}));
     const change = Math.max(0,received-finalTotal);
     let creditFromChange = 0;
+    // Troco que sai da gaveta por excedente pago em Pix/cartão (OP-02).
+    const cashChangeOut = [];
     if(change>0.009){
       if(member && changeDecision==='credito'){
         creditFromChange = change; // dinheiro fica todo registrado; excedente vira crédito do sócio
       } else {
+        // O troco físico sai da gaveta: desconta primeiro das linhas em dinheiro
+        // (a mais recente antes). Antes saía da última forma lançada, e "dinheiro
+        // e depois Pix" gravava o Pix a menos e a gaveta fechava com falta.
+        const order = payments.map((p,i)=>i).sort((a,b)=>((payments[b].method==='dinheiro')-(payments[a].method==='dinheiro')) || (b-a));
         let remaining = change;
-        for(let i=payments.length-1; i>=0 && remaining>0.009; i--){
+        for(const i of order){
+          if(remaining<=0.009) break;
           const p = payments[i];
-          const take = Math.min(p.amount, remaining);
-          p.received = p.amount; p.change = Math.round(((p.change||0)+take)*100)/100; p.amount = Math.round((p.amount-take)*100)/100; remaining -= take;
+          const take = Math.round(Math.min(p.amount, remaining)*100)/100;
+          if(take<=0) continue;
+          p.received = p.amount; p.change = Math.round(((p.change||0)+take)*100)/100; p.amount = Math.round((p.amount-take)*100)/100; remaining = Math.round((remaining-take)*100)/100;
+          // Excedente em Pix/cartão devolvido em dinheiro: a gaveta perde esse valor.
+          if(p.method!=='dinheiro' && p.method!=='fiado') cashChangeOut.push({method:p.method, amount:take});
         }
       }
     }
     document.removeEventListener('keydown', payKeyHandler);
     if(await finalizeSale(mode, comandaId, memberId, payments, finalTotal, creditApplied, creditFromChange)){
+      recordChangeOutInCash(cashChangeOut);
       if(mode==='balcao') document.getElementById('modalRoot').dataset.confirmPdv='false';
       closeModal();
     }
@@ -5475,6 +5486,18 @@ function recordFiadoPaymentInCash(member, value, methodLabel){
   const description = 'Recebimento de fiado — '+member.name;
   state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'suprimento', amount:Math.round(Number(value)*100)/100, reason:description, description, method, note:'', origin:'fiado', operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
   save('cashMovements');
+}
+// Devolução em dinheiro de excedente pago em Pix/cartão (decisão do dono no OP-02:
+// permitir e lançar como saída do caixa, para o dinheiro esperado bater com a gaveta).
+function recordChangeOutInCash(list){
+  const total = Math.round((list||[]).reduce((a,x)=>a+(Number(x.amount)||0),0)*100)/100;
+  if(total<=0.009) return;
+  if(!state.cashSession){ toast('Troco de '+fmt(total)+' em dinheiro sem caixa aberto: não entrou em nenhum fechamento.'); return; }
+  const methods = [...new Set(list.map(x=>paymentMethodLabel(x.method)))].join(', ');
+  const description = 'Troco em dinheiro de excedente pago em '+methods;
+  state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'sangria', amount:total, reason:description, description, method:'dinheiro', note:'', origin:'troco', operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
+  save('cashMovements');
+  toast('Troco de '+fmt(total)+' lançado como saída de dinheiro do caixa.');
 }
 function methodBucket(m){ return (m==='dinheiro'||m==='pix'||m==='fiado') ? m : (m==='cartao'||m==='credito'||m==='debito') ? 'cartao' : 'outros'; }
 let scheduleMode='week';
