@@ -4160,7 +4160,11 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
     // de duplicar a venda).
     let patch;
     if(isExistingComanda){
+      // OP-11: o sócio escolhido no pagamento vai também para a venda. Antes o fiado
+      // caía no sócio escolhido e a venda continuava sem sócio (ou no antigo), e o
+      // histórico, o "consumo de hoje" e o consumo do associado saíam errados.
       patch = { items:currentSaleDraft.items, total, status:'closed', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt };
+      if(memberId) patch.memberId = memberId;
     } else if(isExistingDelivery){
       const current = state.sales.find(s=>s.id===comandaId);
       patch = { memberId, customerName:currentSaleDraft.customerName||(current?current.customerName:''), items:currentSaleDraft.items, total, status:'closed', deliveryStatus:'entregue', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt };
@@ -4174,7 +4178,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   } else {
     if(mode==='comanda' && comandaId){
       const idx = state.sales.findIndex(s=>s.id===comandaId);
-      if(idx>-1) state.sales[idx] = {...state.sales[idx], items:currentSaleDraft.items, total, status:'closed', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt};
+      if(idx>-1) state.sales[idx] = {...state.sales[idx], ...(memberId?{memberId}:{}), items:currentSaleDraft.items, total, status:'closed', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt};
     } else if(isExistingDelivery){const idx=state.sales.findIndex(s=>s.id===comandaId);if(idx>-1)state.sales[idx]={...state.sales[idx],memberId,customerName:currentSaleDraft.customerName||state.sales[idx].customerName,items:currentSaleDraft.items,total,status:'closed',deliveryStatus:'entregue',payments:sale.payments,operatorId:sale.operatorId,operatorName:sale.operatorName,closedAt:sale.closedAt};}
     else { state.sales.push(sale); }
     save('sales');
