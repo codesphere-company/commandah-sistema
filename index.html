@@ -3457,6 +3457,14 @@ function saleTotal(items){ return (items||[]).filter(i=>!i.canceled).reduce((a,i
 /* Único lugar que decide se uma venda entra em relatório/faturamento: fechada, não cancelada
    como delivery (deliveryStatus) e não cancelada como comanda inteira (s.canceled, ver
    confirmCancelComanda). Todo relatório novo deve usar isto em vez de repetir a condição. */
+// OP-10: pedido novo só entra em comanda aberta. Se o caixa fechou ou cancelou a
+// comanda enquanto o garçom montava o pedido, nada vai para a cozinha nem baixa
+// estoque numa conta que ninguém mais vai cobrar.
+function comandaAcceptsOrders(s){
+  if(s && s.status==='open' && !s.canceled) return true;
+  toast((s&&s.canceled?'Esta comanda foi cancelada':'Esta comanda já foi fechada')+'. Nada foi enviado: abra uma nova comanda para este cliente.');
+  return false;
+}
 function saleCountsAsRevenue(s){ return !!s && s.status==='closed' && s.deliveryStatus!=='cancelado' && !s.canceled; }
 function saidaModoEstacao(estacao){
   const e = state.estacoes.find(x=>x.chave===estacao);
@@ -4523,6 +4531,7 @@ function renderNpCart(){
 }
 async function confirmNovoPedidoModal(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  if(!comandaAcceptsOrders(s)) return;
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const reqValue = document.getElementById('npRequester').value;
   if(!reqValue){ toast('Selecione quem está pedindo.'); return; }
@@ -4874,6 +4883,7 @@ async function confirmReorderComandaItem(){
   const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
   const item = (currentSaleDraft.items||[])[reorderItemIdx]; if(!item) return;
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  if(!comandaAcceptsOrders(s)) return;
   const product = state.products.find(p=>p.id===item.productId);
   if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
   const who = item.requesterName || s.customerName || 'Cliente';
@@ -5055,6 +5065,7 @@ function openComandaQuickAddConfirm(){
 async function confirmComandaQuickAdd(){
   const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  if(!comandaAcceptsOrders(s)) return;
   if(!comandaQuickCart.length) return;
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const reqValue = document.getElementById('comandaQuickAddRequester').value;
@@ -5452,6 +5463,7 @@ function gcCartChangeCopos(idx,delta){
 }
 async function gcConfirmOrder(){
   const s = state.sales.find(x=>x.id===gcFlow.saleId); if(!s) return;
+  if(!comandaAcceptsOrders(s)) return;
   if(!gcCart.length){ toast('Adicione ao menos um produto.'); return; }
   const local = document.getElementById('gcLocal')?.value || '';
   s.notes = (document.getElementById('gcObs')?.value||'').trim();
