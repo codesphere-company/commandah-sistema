@@ -4377,8 +4377,17 @@ function openComanda(id, keepRequester){
     if(s.locked){ toast('Este pedido está bloqueado. Desbloqueie antes de fechar.'); return; }
     if(closingComanda) return; // duplo clique: não reenviar os mesmos itens pra cozinha
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
-    if(unsent.length){ closingComanda = true; let ok; try{ ok = await sendItemsToKitchen(s.id, unsent, who, 'comanda'); }finally{ closingComanda = false; } if(!ok) return; unsent.forEach(i=>i.sent=true); }
+    if(unsent.length){ closingComanda = true; let ok; try{ ok = await sendItemsToKitchen(s.id, unsent, who, 'comanda', s.local); }finally{ closingComanda = false; } if(!ok) return; unsent.forEach(i=>i.sent=true); }
     s.items = currentSaleDraft.items; s.total = draftTotal(); save('sales');
+    // OP-04: os itens que iam para a cozinha só neste clique também saem na
+    // ficha da estação, como nos outros fluxos. Sem isso, estação "só imprime"
+    // (bar, churrasqueira) nunca ficava sabendo e o cliente pagava sem receber.
+    if(unsent.length){
+      const origem = currentUser.origem||'caixa', groups = {};
+      unsent.forEach(i=>{ const key=i.estacao||itemStation(i); (groups[key]=groups[key]||[]).push(i); });
+      const printJobs = Object.keys(groups).map(estacao=>{ const printer = resolvePrinterFor(estacao, origem); return { estacao, items:groups[estacao], printer: printer?printer.nome:null }; });
+      printNovoPedidoTickets(person, member?member.code:'', s.local, printJobs, s.orderNumber);
+    }
     closeModal(); openPaymentModal('comanda', s.id);
   };
 }
