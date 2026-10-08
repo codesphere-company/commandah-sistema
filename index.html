@@ -870,6 +870,7 @@ body.tv-mode .kbtn-ready{width:110px!important;font-size:20px!important;backgrou
 /* OP-09: item cancelado na comanda continua visível no Monitor, riscado, para a cozinha não preparar */
 .kitem-canceled{color:var(--c-danger)}
 .kitem-canceled s{text-decoration-thickness:2px}
+.sale-pending-warning{margin:0 0 10px;padding:10px 12px;border:2px solid var(--c-danger);border-radius:var(--r-md);background:var(--c-danger-soft);color:var(--c-text);font-weight:600}
 .kcanceled-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:var(--r-pill);background:var(--c-danger);color:var(--c-text-inverse);font-size:.8em;font-weight:700}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
@@ -4109,6 +4110,13 @@ function openPaymentModal(mode, comandaId){
     }
   };
 }
+function showSalePendingWarning(){
+  const btn = document.getElementById('confirmPayBtn'); if(!btn || document.getElementById('salePendingWarning')) return;
+  const box = document.createElement('div');
+  box.id = 'salePendingWarning'; box.className = 'sale-pending-warning'; box.setAttribute('role','alert');
+  box.textContent = 'O pedido já foi para a cozinha, mas a venda ainda não foi registrada. Clique em confirmar de novo antes de fechar esta tela.';
+  btn.parentNode.insertBefore(box, btn);
+}
 async function finalizeSale(mode, comandaId, memberId, payments, total, creditApplied, creditFromChange){
   const saleMember = memberId ? state.members.find(m=>m.id===memberId) : null;
   const who = memberId ? (saleMember||{}).name : (currentSaleDraft.customerName||'Cliente avulso');
@@ -4179,7 +4187,12 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
       patch = sale;
     }
     const { data: savedSale, error } = await supabaseClient.rpc('close_sale', { p_sale_id: sale.id, p_existing: !!(isExistingComanda||isExistingDelivery), p_sale_patch: patch });
-    if(error){ toast('Não foi possível registrar a venda agora. Tente de novo.'); return false; }
+    if(error){
+      // OP-12: no balcão a comida já foi para a cozinha antes deste ponto. Se o
+      // operador desistir aqui, sai pedido sem venda: o aviso fica fixo na tela.
+      if(mode==='balcao' && (currentSaleDraft.items||[]).some(i=>i.sent)) showSalePendingWarning();
+      toast('Não foi possível registrar a venda agora. Tente de novo.'); return false;
+    }
     const idx = state.sales.findIndex(s=>s.id===sale.id);
     if(idx>-1) state.sales[idx] = savedSale; else state.sales.push(savedSale);
   } else {
