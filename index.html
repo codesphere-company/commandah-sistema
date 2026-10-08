@@ -2825,7 +2825,7 @@ function pickImportExcelFile(){
 }
 function renderImportSheetList(){
   const el=document.getElementById('importSheetList'); if(!el) return;
-  el.innerHTML = importWorkbook.SheetNames.map(name=>`<button class="import-sheet-item ${name===importSheetName?'active':''}" onclick="selectImportSheet('${h(name).replace(/'/g,"\\'")}')">${h(name)}</button>`).join('');
+  el.innerHTML = importWorkbook.SheetNames.map(name=>`<button class="import-sheet-item ${name===importSheetName?'active':''}" onclick="selectImportSheet(${h(JSON.stringify(name))})">${h(name)}</button>`).join('');
 }
 function selectImportSheet(name){ importSheetName=name; renderImportSheetList(); loadImportSheet(); }
 function loadImportSheet(){
@@ -3093,7 +3093,7 @@ function pickImportMembersExcelFile(){
 }
 function renderImportMembersSheetList(){
   const el=document.getElementById('importMembersSheetList'); if(!el) return;
-  el.innerHTML = importMembersWorkbook.SheetNames.map(name=>`<button class="import-sheet-item ${name===importMembersSheetName?'active':''}" onclick="selectImportMembersSheet('${h(name).replace(/'/g,"\\'")}')">${h(name)}</button>`).join('');
+  el.innerHTML = importMembersWorkbook.SheetNames.map(name=>`<button class="import-sheet-item ${name===importMembersSheetName?'active':''}" onclick="selectImportMembersSheet(${h(JSON.stringify(name))})">${h(name)}</button>`).join('');
 }
 function selectImportMembersSheet(name){ importMembersSheetName=name; renderImportMembersSheetList(); loadImportMembersSheet(); }
 function loadImportMembersSheet(){
@@ -4470,7 +4470,7 @@ function renderNpCatTabs(){
   const cats = [...new Set(state.products.filter(p=>p.active!==false).map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   if(!cats.length){ el.innerHTML=''; return; }
   el.innerHTML = `<button class="np-cat-tab ${!npCategory?'active':''}" onclick="npCategory='';renderNpCatTabs();renderNpProductGrid(document.getElementById('npProductSearch').value)">Todas</button>` +
-    cats.map(c=>`<button class="np-cat-tab ${npCategory===c?'active':''}" onclick="npCategory='${h(c).replace(/'/g,"\\'")}';renderNpCatTabs();renderNpProductGrid(document.getElementById('npProductSearch').value)">${h(c)}</button>`).join('');
+    cats.map(c=>`<button class="np-cat-tab ${npCategory===c?'active':''}" onclick="npCategory=${h(JSON.stringify(c))};renderNpCatTabs();renderNpProductGrid(document.getElementById('npProductSearch').value)">${h(c)}</button>`).join('');
 }
 function renderNpProductGrid(q){
   const el = document.getElementById('npProductGrid'); if(!el) return;
@@ -5343,7 +5343,7 @@ function gcRenderCategories(){
       <input id="gcProdSearch" placeholder="Buscar em todas categorias por nome" oninput="gcSearchAllProducts(this.value)">
       <div id="gcSearchProductResults"></div>
       <div class="gc-cat-grid" id="gcCatGrid" style="margin-top:14px">
-        ${cats.map(c=>`<button class="gc-cat-tile" onclick="gcSelectCategory('${h(c).replace(/'/g,"\\'")}')">${h(c)}</button>`).join('')}
+        ${cats.map(c=>`<button class="gc-cat-tile" onclick="gcSelectCategory(${h(JSON.stringify(c))})">${h(c)}</button>`).join('')}
         <button class="gc-cat-all" onclick="gcSelectCategory('')">Todos os produtos</button>
       </div>
     </div>` + gcFooterHtml('gcBackFromCategories()');
@@ -6238,7 +6238,7 @@ function openPaymentMethodModal(id){
   const types=['Vale Presente','Vale Combustível','Depósito Bancário','Pix','Transferência bancária, Carteira Digital','Programa de fidelidade, Cashback, Crédito Virtual','Outros'];
   const acquirers=[['03106213000190','Administradora de Cartões Sicredi Ltda.'],['03106213000271','Administradora de Cartões Sicredi Ltda. (filial RS)'],['60419645000195','Banco American Express S/A - AMEX'],['62421979000129','Banco CIFRA S/A'],['58160789000128','BANCO SAFRA S/A'],['07679404000100','BANCO TOPÁZIO S/A'],['01027058000191','Cielo S.A.'],['01425787000104','Redecard S.A.'],['10573521000191','Stone Instituição de Pagamento S.A.'],['08561701000101','PagSeguro Internet Instituição de Pagamento S.A.']];
   window.paymentAcquirerDraft=item&&item.credenciadoraCnpj?{cnpj:item.credenciadoraCnpj,empresa:item.credenciadora}:null;
-  openModal('Formas de Pagamento',`<div class="consumer-form-frame"><div class="field"><label>Descrição:</label><input id="pmDescription" value="${h(item&&item.nome||'')}" autofocus></div><div class="field"><label>Tipo:</label><select id="pmType">${types.map(t=>`<option ${item&&item.tipo===t?'selected':''}>${h(t)}</option>`).join('')}</select></div><div class="field acquirer-field"><label>Credenciadora do Cartão ou Pix / Adquirente:</label><button type="button" id="pmAcquirerButton" class="acquirer-select" onclick="toggleAcquirerPicker()"><span id="pmAcquirerLabel">${h(item&&item.credenciadoraCnpj?item.credenciadoraCnpj+' — '+item.credenciadora:'')}</span><span>▾</span></button><div id="pmAcquirerPicker" class="acquirer-picker" hidden><input id="pmAcquirerSearch" placeholder="Pesquisar CNPJ ou empresa..." oninput="filterAcquirers(this.value)"><table><thead><tr><th>CNPJ</th><th>Empresa</th></tr></thead><tbody id="pmAcquirerRows">${acquirers.map(([cnpj,empresa])=>`<tr data-search="${h((cnpj+' '+empresa).toLowerCase())}" onclick="selectPaymentAcquirer('${cnpj}','${h(empresa).replace(/'/g,'&#39;')}')"><td>${cnpj}</td><td>${h(empresa)}</td></tr>`).join('')}</tbody></table></div></div></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button><button class="consumer-save" id="pmSave">✓ &nbsp; Salvar</button></div>`);
+  openModal('Formas de Pagamento',`<div class="consumer-form-frame"><div class="field"><label>Descrição:</label><input id="pmDescription" value="${h(item&&item.nome||'')}" autofocus></div><div class="field"><label>Tipo:</label><select id="pmType">${types.map(t=>`<option ${item&&item.tipo===t?'selected':''}>${h(t)}</option>`).join('')}</select></div><div class="field acquirer-field"><label>Credenciadora do Cartão ou Pix / Adquirente:</label><button type="button" id="pmAcquirerButton" class="acquirer-select" onclick="toggleAcquirerPicker()"><span id="pmAcquirerLabel">${h(item&&item.credenciadoraCnpj?item.credenciadoraCnpj+' — '+item.credenciadora:'')}</span><span>▾</span></button><div id="pmAcquirerPicker" class="acquirer-picker" hidden><input id="pmAcquirerSearch" placeholder="Pesquisar CNPJ ou empresa..." oninput="filterAcquirers(this.value)"><table><thead><tr><th>CNPJ</th><th>Empresa</th></tr></thead><tbody id="pmAcquirerRows">${acquirers.map(([cnpj,empresa])=>`<tr data-search="${h((cnpj+' '+empresa).toLowerCase())}" onclick="selectPaymentAcquirer('${cnpj}',${h(JSON.stringify(empresa))})"><td>${cnpj}</td><td>${h(empresa)}</td></tr>`).join('')}</tbody></table></div></div></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button><button class="consumer-save" id="pmSave">✓ &nbsp; Salvar</button></div>`);
   const modal=document.querySelector('#modalRoot .modal');modal.classList.add('finance-record-modal');
   document.getElementById('pmSave').onclick=()=>{const nome=document.getElementById('pmDescription').value.trim();if(!nome){toast('Informe a descrição.');return;}const chosen=window.paymentAcquirerDraft||{};const data={nome,tipo:document.getElementById('pmType').value,credenciadora:chosen.empresa||'',credenciadoraCnpj:chosen.cnpj||''};if(item)Object.assign(item,data);else state.paymentMethods.push({id:uid(),...data});save('paymentMethods');closeModal();renderAll();toast('Forma de pagamento salva.');};
 }
