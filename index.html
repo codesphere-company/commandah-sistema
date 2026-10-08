@@ -878,6 +878,11 @@ body.tv-mode .kbtn-ready{width:110px!important;font-size:20px!important;backgrou
 .kcard .kextras{font-size:14px;color:var(--c-text-2)}
 .kcard .kobs{margin:2px 0 4px;font-size:14px;font-weight:700;color:var(--c-warning)}
 body.tv-mode .kcard .kobs{font-size:18px}
+/* UX-11: no app do garçom, campos e botões com 48px e letra de 16px (abaixo disso o iPhone dá zoom ao tocar) */
+#garcomApp input:not([type=checkbox]):not([type=radio]),#garcomApp select,#garcomApp .np-section select,#garcomApp .np-section input{min-height:48px;height:auto;font-size:16px}
+#garcomApp textarea{min-height:48px;font-size:16px}
+#garcomApp .btn{min-height:48px}
+#garcomApp .gc-menu-panel button{min-height:48px;font-size:16px}
 .kcanceled-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:var(--r-pill);background:var(--c-danger);color:var(--c-text-inverse);font-size:.8em;font-weight:700}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
@@ -2190,6 +2195,7 @@ function afterLogin(){
   }
   if(currentUser.origem==='app' && currentUser.role!=='admin'){
     document.getElementById('garcomApp').classList.add('show');
+    gcApplyDeviceTheme();
     gcRenderHome();
     toast('Bem-vindo(a), '+currentUser.name+'.');
     logAction('Login realizado (modo garçom)');
@@ -5365,7 +5371,7 @@ function gcRenderHome(){
   const open = state.sales.filter(s=>s.status==='open');
   const isBar = (state.settings.operationMode||'clube')==='bar';
   screen.innerHTML = `
-    <div class="gc-bar"><div class="gc-title">Comandas</div><button class="gc-menu-btn" onclick="gcToggleMenu()">${ICN.menu}</button><div class="gc-menu-panel" id="gcMenuPanel"><button onclick="gcLogout()">Sair</button></div></div>
+    <div class="gc-bar"><div class="gc-title">Comandas</div><button class="gc-menu-btn" onclick="gcToggleMenu()">${ICN.menu}</button><div class="gc-menu-panel" id="gcMenuPanel"><button onclick="gcToggleTheme()">${document.documentElement.getAttribute('data-theme')==='dark'?'Modo claro':'Modo escuro'}</button><button onclick="gcLogout()">Sair</button></div></div>
     <div class="gc-body">
       ${isBar ? `<input id="gcSearch" placeholder="Número da mesa ou nome do cliente..." oninput="gcRenderHomeSearch(this.value)" autocomplete="off">
       <button class="btn btn-primary btn-block" style="margin-top:10px" onclick="gcOpenBarComanda()">+ Abrir nova comanda</button>`
@@ -5402,6 +5408,28 @@ function gcRenderHomeSearch(q){
     return `<div class="gc-card ${m.debt>0?'gc-debt':''}"><div><div class="gc-name">${h(m.name)}</div><div class="gc-sub">${m.code?'Cota '+h(m.code):''}${m.debt>0?' · Deve '+fmt(m.debt):m.debt<0?' · Crédito '+fmt(-m.debt):''}</div></div><button onclick="gcSelectMember('${m.id}')">${existing?'Abrir':'+ Comanda'}</button></div>`;
   }).join('') : '<p class="gc-empty">Nenhum associado encontrado.</p>';
 }
+// UX-11: no celular do garçom, sem escolha salva, o tema segue o do aparelho (e muda junto
+// se o celular mudar); o botão do menu ☰ grava a escolha, como a caixinha do computador.
+function setAppTheme(tema, persist){
+  document.documentElement.setAttribute('data-theme', tema);
+  const t = document.getElementById('darkToggle'); if(t) t.checked = tema==='dark';
+  if(persist){ try{ localStorage.setItem('cantina2:theme', tema); }catch(e){} }
+}
+function gcApplyDeviceTheme(){
+  let saved = null; try{ saved = localStorage.getItem('cantina2:theme'); }catch(e){}
+  if(saved || !window.matchMedia) return;
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  setAppTheme(mq.matches?'dark':'light', false);
+  if(!gcApplyDeviceTheme.bound && mq.addEventListener){
+    gcApplyDeviceTheme.bound = true;
+    mq.addEventListener('change', e=>{ let s2=null; try{ s2=localStorage.getItem('cantina2:theme'); }catch(_){} if(!s2) setAppTheme(e.matches?'dark':'light', false); });
+  }
+}
+function gcToggleTheme(){
+  setAppTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark', true);
+  gcToggleMenu();
+  if(!gcFlow||gcFlow.step==='home') gcRenderHome();
+}
 function gcToggleMenu(){ const p=document.getElementById('gcMenuPanel'); if(p) p.classList.toggle('open'); }
 async function gcLogout(){ logAction('Logout realizado'); currentUser=null; try{ if(supabaseClient) await supabaseClient.auth.signOut(); }catch(e){} sessionIsOwner=false; document.getElementById('garcomApp').classList.remove('show'); renderLogin(); }
 
@@ -5411,7 +5439,7 @@ function gcOpenFlow(saleId){
   gcRenderCategories();
 }
 function gcBarHtml(title, sub){
-  return `<div class="gc-bar"><div class="gc-title">${h(title)}${sub?`<small>${h(sub)}</small>`:''}</div><button class="gc-menu-btn" onclick="gcToggleMenu()">${ICN.menu}</button><div class="gc-menu-panel" id="gcMenuPanel"><button onclick="gcLogout()">Sair</button></div></div>`;
+  return `<div class="gc-bar"><div class="gc-title">${h(title)}${sub?`<small>${h(sub)}</small>`:''}</div><button class="gc-menu-btn" onclick="gcToggleMenu()">${ICN.menu}</button><div class="gc-menu-panel" id="gcMenuPanel"><button onclick="gcToggleTheme()">${document.documentElement.getAttribute('data-theme')==='dark'?'Modo claro':'Modo escuro'}</button><button onclick="gcLogout()">Sair</button></div></div>`;
 }
 function gcFooterHtml(backFn){
   const count = gcCart.reduce((a,i)=>a+i.qty,0);
