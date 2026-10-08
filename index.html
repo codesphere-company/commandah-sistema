@@ -910,6 +910,8 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .report-period-links button.active,.history-quick-links button.active{background:var(--c-primary-soft);color:var(--c-primary-text);font-weight:700;border-radius:var(--r-pill)}
 .report-search-button{background:var(--c-primary)!important;border:1px solid var(--c-primary)!important;color:var(--c-text-inverse)!important;border-radius:var(--r-md)!important;font-weight:600;min-height:40px}
 .report-search-button:hover{background:var(--c-primary-hover)!important}
+/* UX-10: ícone de traço na tela de pagamento */
+.pay-method-icon svg{width:22px;height:22px;display:block}
 .kcanceled-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:var(--r-pill);background:var(--c-danger);color:var(--c-text-inverse);font-size:.8em;font-weight:700}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
@@ -1012,6 +1014,32 @@ const STORE = {
   stockMovements:'cantina2:stockMovements', eventQueue:'cantina2:eventQueue', locais:'cantina2:locais', quemLevou:'cantina2:quemLevou', impressoras:'cantina2:impressoras', estacoes:'cantina2:estacoes', origens:'cantina2:origens'
 };
 const ICN = {
+  // UX-10: ícones de traço novos (pagamento e itens do menu que repetiam desenho)
+  cash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6.5 9.5h.01M17.5 14.5h.01"/></svg>',
+  pix:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 9-9 9-9-9z"/><path d="M8.5 12h7"/></svg>',
+  meal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a2 2 0 0 0 4 0V3M8 11v10"/><path d="M17 21V3c-2 1-3 3.5-3 7h3"/></svg>',
+  dots:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/></svg>',
+  station:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16v4a6 6 0 0 1-6 6h-4a6 6 0 0 1-6-6z"/><path d="M2 10h2M20 10h2M9 6.5c0-1.2 1.2-1.2 1.2-2.5M13.8 6.5c0-1.2 1.2-1.2 1.2-2.5"/></svg>',
+  route:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7"/></svg>',
+  handoff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 11h5m-2-2 2 2-2 2"/></svg>',
+  history:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 4v4h4"/><path d="M12 8v4l3 2"/></svg>',
+  listCheck:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>',
+  cashbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="18" height="10" rx="2"/><path d="M7 10V6h10v4"/><path d="M10 15h4"/></svg>',
+  medal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="15" r="5"/><path d="M8.5 11.5 6 3h4l2 5 2-5h4l-2.5 8.5"/></svg>',
+  fileIn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 11v6m-3-3 3 3 3-3"/></svg>',
+  percent:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg>',
+  folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  pie:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9h9"/><path d="M21 12a9 9 0 1 1-9-9"/></svg>',
+  layers:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 8l10 5 10-5z"/><path d="M2 13l10 5 10-5"/></svg>',
+  menuBook:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5a2 2 0 0 1 2-2h12v18H7a2 2 0 0 1-2-2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>',
+  sliders:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
+  star:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3l-5.5 2.9 1-6.2L3 9.6l6.2-.9z"/></svg>',
+  inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h5l1 3h6l1-3h5"/><path d="M5 5h14l2 8v6H3v-6z"/></svg>',
+  map:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>',
+  bot:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9 16h6"/></svg>',
+  globe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>',
+  plug:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v5M15 3v5M7 8h10v3a5 5 0 0 1-10 0z"/><path d="M12 16v5"/></svg>',
+  stamp:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l-1 7h4a2 2 0 0 1 2 2v3H4v-3a2 2 0 0 1 2-2h4z"/><path d="M5 20h14"/></svg>',
   lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
   table:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 9h6M9 13h6M9 17h3"/></svg>',
   cart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l1 6a7 7 0 0 1-14 0z"/><path d="M12 13v6M9 21h6"/></svg>',
@@ -1082,39 +1110,39 @@ const RIBBON_TABS = [
           {label:'Categorias', icon:ICN.tag, view:'categorias'}, {label:'Tipos e Tamanhos', icon:ICN.resize, perm:'complementos', action:'openTypesSizesView'}, {label:'Perguntas', icon:ICN.question, view:'perguntas'}
       ]},
       { label:'Insumos', items:[ {label:'Insumos', icon:ICN.box, view:'insumos'} ] },
-      { label:'Estoque', items:[ {label:'Alterar em Lote', icon:ICN.editlist, perm:'produtos', action:'openBulkPriceModal'}, {label:'Alterar com NFe', icon:ICN.doc, perm:'insumos', action:'openNfeStockWindow'} ] }
+      { label:'Estoque', items:[ {label:'Alterar em Lote', icon:ICN.editlist, perm:'produtos', action:'openBulkPriceModal'}, {label:'Alterar com NFe', icon:ICN.fileIn, perm:'insumos', action:'openNfeStockWindow'} ] }
   ]},
   { id:'marketing', label:'Marketing', groups:[
-      { label:'Benefícios', items:[ {label:'Promoções', icon:ICN.tag, perm:'cupons', action:"openMarketingView", actionArg:'promocoes'}, {label:'Fidelidade', icon:ICN.heart, perm:'cupons', action:'toggleMarketingRibbonMenu', actionArg:'fidelidade'}, {label:'Cupons', icon:ICN.ticket, perm:'cupons', action:"openMarketingView", actionArg:'cupons'} ] },
+      { label:'Benefícios', items:[ {label:'Promoções', icon:ICN.percent, perm:'cupons', action:"openMarketingView", actionArg:'promocoes'}, {label:'Fidelidade', icon:ICN.heart, perm:'cupons', action:'toggleMarketingRibbonMenu', actionArg:'fidelidade'}, {label:'Cupons', icon:ICN.ticket, perm:'cupons', action:"openMarketingView", actionArg:'cupons'} ] },
       { label:'Divulgação', items:[ {label:'SMS', icon:ICN.chat, perm:'cupons', action:'openSmsWindow'} ] },
       { label:'Relacionamento', items:[ {label:'Disparador Inteligente', icon:ICN.megaphone, perm:'cupons', action:'toggleMarketingRibbonMenu', actionArg:'disparador'} ] }
   ]},
   { id:'financeiro', label:'Financeiro', groups:[
-      { label:'Organização de Contas', items:[ {label:'Formas de Pagamento', icon:ICN.card, view:'pagamentos'}, {label:'Categoria de Contas', icon:ICN.tag, view:'contascategorias'}, {label:'Fornecedores', icon:ICN.truck, view:'fornecedores'} ] },
+      { label:'Organização de Contas', items:[ {label:'Formas de Pagamento', icon:ICN.card, view:'pagamentos'}, {label:'Categoria de Contas', icon:ICN.folder, view:'contascategorias'}, {label:'Fornecedores', icon:ICN.truck, view:'fornecedores'} ] },
       { label:'Contas a Pagar / Receber', items:[ {label:'Contas a Pagar', icon:ICN.arrowUpBox, perm:'contas', action:'openFinancialView', actionArg:'pagar'}, {label:'Contas a Receber', icon:ICN.arrowDownBox, perm:'contas', action:'openFinancialView', actionArg:'receber'} ] },
       { label:'Fiado', items:[ {label:'Conta Corrente (Fiado)', icon:ICN.idcard, perm:'contas', action:'openFinancialView', actionArg:'fiado'} ] },
-      { label:'Integrações', items:[ {label:'Pix Online', icon:ICN.link, perm:'config-sistema', action:'openPixOnlineConfig'} ] }
+      { label:'Integrações', items:[ {label:'Pix Online', icon:ICN.pix, perm:'config-sistema', action:'openPixOnlineConfig'} ] }
   ]},
   { id:'relatorios', label:'Relatórios', groups:[
-      { label:'Vendas', items:[ {label:'Mais Vendidos', icon:ICN.trophy, perm:'relatorios', action:'openReportView', actionArg:'Mais Vendidos'}, {label:'Histórico de Pedidos', icon:ICN.clock, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Pedidos'}, {label:'Histórico de Itens Vendidos', icon:ICN.clock, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Itens Vendidos'}, {label:'Ranking de Atendimentos', icon:ICN.chef, perm:'relatorios', action:'openReportView', actionArg:'Ranking de Atendimentos'} ] },
-      { label:'Caixa', items:[ {label:'Histórico do Caixa', icon:ICN.clock, perm:'relatorios', action:'openReportView', actionArg:'Histórico do Caixa'} ] },
-      { label:'Financeiro', items:[ {label:'Meu Negócio', icon:ICN.chart, perm:'relatorios', action:'openReportView', actionArg:'Meu Negócio'}, {label:'Meu Delivery', icon:ICN.delivery, perm:'relatorios', action:'openReportView', actionArg:'Meu Delivery'}, {label:'Recebimentos (Pedidos e Fiado)', icon:ICN.card, perm:'relatorios', action:'openReportView', actionArg:'Recebimentos (Pedidos e Fiado)'}, {label:'Resumo Financeiro', icon:ICN.chart, perm:'relatorios', action:'openReportView', actionArg:'Resumo Financeiro'}, {label:'DRE Simplificado', icon:ICN.receipt, perm:'relatorios', action:'openReportView', actionArg:'DRE Simplificado'} ] },
-      { label:'Estoque', items:[ {label:'Entradas e Saídas', icon:ICN.swap, perm:'relatorios', action:'openReportView', actionArg:'Entradas e Saídas'}, {label:'Posição por Data', icon:ICN.calendar, perm:'relatorios', action:'openReportView', actionArg:'Posição por Data'} ] }
+      { label:'Vendas', items:[ {label:'Mais Vendidos', icon:ICN.trophy, perm:'relatorios', action:'openReportView', actionArg:'Mais Vendidos'}, {label:'Histórico de Pedidos', icon:ICN.history, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Pedidos'}, {label:'Histórico de Itens Vendidos', icon:ICN.listCheck, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Itens Vendidos'}, {label:'Ranking de Atendimentos', icon:ICN.medal, perm:'relatorios', action:'openReportView', actionArg:'Ranking de Atendimentos'} ] },
+      { label:'Caixa', items:[ {label:'Histórico do Caixa', icon:ICN.cashbox, perm:'relatorios', action:'openReportView', actionArg:'Histórico do Caixa'} ] },
+      { label:'Financeiro', items:[ {label:'Meu Negócio', icon:ICN.chart, perm:'relatorios', action:'openReportView', actionArg:'Meu Negócio'}, {label:'Meu Delivery', icon:ICN.clock, perm:'relatorios', action:'openReportView', actionArg:'Meu Delivery'}, {label:'Recebimentos (Pedidos e Fiado)', icon:ICN.cash, perm:'relatorios', action:'openReportView', actionArg:'Recebimentos (Pedidos e Fiado)'}, {label:'Resumo Financeiro', icon:ICN.pie, perm:'relatorios', action:'openReportView', actionArg:'Resumo Financeiro'}, {label:'DRE Simplificado', icon:ICN.receipt, perm:'relatorios', action:'openReportView', actionArg:'DRE Simplificado'} ] },
+      { label:'Estoque', items:[ {label:'Entradas e Saídas', icon:ICN.swap, perm:'relatorios', action:'openReportView', actionArg:'Entradas e Saídas'}, {label:'Posição por Data', icon:ICN.layers, perm:'relatorios', action:'openReportView', actionArg:'Posição por Data'} ] }
   ]},
   { id:'apps', label:'Apps', groups:[
-      { label:'Outros atendimentos', items:[ {label:'Fila de Atendimento', icon:ICN.queue, view:'fila-atendimento'}, {label:'Agendados', icon:ICN.calendar, view:'agendamentos'}, {label:'Cardápio Digital', icon:ICN.phone, view:'cardapio'} ] },
-      { label:'Atendimento', items:[ {label:'Bot WhatsApp', icon:ICN.chat, perm:'config-sistema', action:'openWhatsAppBotConfig'} ] },
-      { label:'Ferramentas', items:[ {label:'Bina', icon:ICN.phone, perm:'config-sistema', action:'toggleAppRibbonMenu', actionArg:'bina'}, {label:'Mapas', icon:ICN.mapPin, perm:'config-sistema', action:'toggleAppRibbonMenu', actionArg:'maps'}, {label:'Painel de Senhas', icon:ICN.grid, view:'painel-senhas'}, {label:'Balança', icon:ICN.scale, perm:'config-sistema', action:'openScaleConfig'} ] },
-      { label:'Módulos (Recursos Premium)', items:[ {label:'Mobile', icon:ICN.phone, view:'mobile-qr'}, {label:'Pedidos Online', icon:ICN.link, view:'cardapio'}, {label:'Connect', icon:ICN.link, perm:'modulos', action:'openAppModuleConfig', actionArg:'Connect'}, {label:'Emissão Fiscal', icon:ICN.receipt, perm:'modulos', action:'openAppModuleConfig', actionArg:'Emissão Fiscal'}, {label:'TEF', icon:ICN.card, perm:'modulos', action:'openAppModuleConfig', actionArg:'TEF'} ] }
+      { label:'Outros atendimentos', items:[ {label:'Fila de Atendimento', icon:ICN.queue, view:'fila-atendimento'}, {label:'Agendados', icon:ICN.calendar, view:'agendamentos'}, {label:'Cardápio Digital', icon:ICN.menuBook, view:'cardapio'} ] },
+      { label:'Atendimento', items:[ {label:'Bot WhatsApp', icon:ICN.bot, perm:'config-sistema', action:'openWhatsAppBotConfig'} ] },
+      { label:'Ferramentas', items:[ {label:'Bina', icon:ICN.user, perm:'config-sistema', action:'toggleAppRibbonMenu', actionArg:'bina'}, {label:'Mapas', icon:ICN.map, perm:'config-sistema', action:'toggleAppRibbonMenu', actionArg:'maps'}, {label:'Painel de Senhas', icon:ICN.grid, view:'painel-senhas'}, {label:'Balança', icon:ICN.scale, perm:'config-sistema', action:'openScaleConfig'} ] },
+      { label:'Módulos (Recursos Premium)', items:[ {label:'Mobile', icon:ICN.phone, view:'mobile-qr'}, {label:'Pedidos Online', icon:ICN.globe, view:'cardapio'}, {label:'Connect', icon:ICN.link, perm:'modulos', action:'openAppModuleConfig', actionArg:'Connect'}, {label:'Emissão Fiscal', icon:ICN.stamp, perm:'modulos', action:'openAppModuleConfig', actionArg:'Emissão Fiscal'}, {label:'TEF', icon:ICN.plug, perm:'modulos', action:'openAppModuleConfig', actionArg:'TEF'} ] }
   ]},
   { id:'config', label:'Configurações', groups:[
       { label:'Configurações', items:[
-          {label:'Configurações do Sistema', icon:ICN.gear, perm:'config-sistema', action:'openSystemSettings'}, {label:'Numeração de Pedidos', icon:ICN.hash, perm:'config-sistema', action:'openNumberingSettings'}, {label:'Impressora', icon:ICN.printer, perm:'config-sistema', action:'openPrinterSettings'},
+          {label:'Configurações do Sistema', icon:ICN.gear, perm:'config-sistema', action:'openSystemSettings'}, {label:'Numeração de Pedidos', icon:ICN.hash, perm:'config-sistema', action:'openNumberingSettings'}, {label:'Impressora', icon:ICN.sliders, perm:'config-sistema', action:'openPrinterSettings'},
           {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios'}, {label:'Alterar Minha Senha', icon:ICN.key, perm:'senha-propria', action:'openChangePinModal'}, {label:'Backup', icon:ICN.save, view:'backup'}
       ]},
-      { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Quem Levou', icon:ICN.users, view:'quemlevou'}, {label:'Estações', icon:ICN.printer, view:'estacoes'}, {label:'Origens de Pedido', icon:ICN.printer, view:'origens'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },
-      { label:'Logs e Fila de Eventos', items:[ {label:'Logs', icon:ICN.scroll, perm:'logs', action:'openLogsView', actionArg:'Logs'}, {label:'Fila de Eventos', icon:ICN.scroll, perm:'logs', action:'openLogsView', actionArg:'Fila de Eventos'} ] },
-      { label:'Versão Premium', items:[ {label:'Minha Assinatura', icon:ICN.key, perm:'config-sistema', action:'openSubscriptionView'} ] },
+      { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Quem Levou', icon:ICN.handoff, view:'quemlevou'}, {label:'Estações', icon:ICN.station, view:'estacoes'}, {label:'Origens de Pedido', icon:ICN.route, view:'origens'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },
+      { label:'Logs e Fila de Eventos', items:[ {label:'Logs', icon:ICN.scroll, perm:'logs', action:'openLogsView', actionArg:'Logs'}, {label:'Fila de Eventos', icon:ICN.inbox, perm:'logs', action:'openLogsView', actionArg:'Fila de Eventos'} ] },
+      { label:'Versão Premium', items:[ {label:'Minha Assinatura', icon:ICN.star, perm:'config-sistema', action:'openSubscriptionView'} ] },
       { label:'Ajuda e Suporte', items:[ {label:'Ajuda e Suporte', icon:ICN.headset, view:'ajuda'}, {label:'Diagnóstico de Serviços', icon:ICN.pulse, view:'diagnostico'} ] }
   ]}
 ];
@@ -4024,21 +4052,21 @@ function finalizeSelectedPdvSale(){ editSelectedPdvSale(); }
 /* ============ PAGAMENTO ============ */
 function methodConfig(){
   const base=[
-    {key:'A',method:'dinheiro',label:'Dinheiro',icon:'💵'},
-    {key:'P',method:'pix',label:'Pix',icon:'⚡'},
-    {key:'C',method:'credito',label:'Crédito',icon:'💳'},
-    {key:'B',method:'debito',label:'Débito',icon:'💳'},
-    {key:'V',method:'vale',label:'Vale Refeição',icon:'🍽'},
-    {key:'F',method:'fiado',label:'Fiado',icon:'📋'},
+    {key:'A',method:'dinheiro',label:'Dinheiro',icon:ICN.cash},
+    {key:'P',method:'pix',label:'Pix',icon:ICN.pix},
+    {key:'C',method:'credito',label:'Crédito',icon:ICN.card},
+    {key:'B',method:'debito',label:'Débito',icon:ICN.card},
+    {key:'V',method:'vale',label:'Vale Refeição',icon:ICN.meal},
+    {key:'F',method:'fiado',label:'Fiado',icon:ICN.doc},
   ];
   const usedKeys=new Set(base.map(b=>b.key));
   const extras=state.paymentMethods.map((pm,i)=>{
     let key = pm.nome.trim().charAt(0).toUpperCase();
     if(!key || usedKeys.has(key)) key = 'ZYXWQJK'[i%7];
     usedKeys.add(key);
-    return {key,method:'outro:'+pm.nome,label:pm.nome,icon:'●'};
+    return {key,method:'outro:'+pm.nome,label:pm.nome,icon:ICN.dots};
   });
-  base.push({key:'O',method:'outro',label:'Outros',icon:'●'});
+  base.push({key:'O',method:'outro',label:'Outros',icon:ICN.dots});
   return [...base,...extras];
 }
 function openPaymentModal(mode, comandaId){
