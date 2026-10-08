@@ -891,6 +891,11 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 @keyframes cmd-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){button[aria-busy="true"]::after{animation:none}}
 .boot-loading{text-align:center}
+/* UX-13: avisos empilhados; erro com cara própria */
+#toastRoot{position:fixed;right:20px;bottom:20px;z-index:300;display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:min(440px,calc(100vw - 40px));pointer-events:none}
+#toastRoot .toast{position:static;pointer-events:auto;display:flex;align-items:center;gap:10px}
+#toastRoot .toast-erro{background:var(--c-danger-soft);color:var(--c-text);border:1px solid var(--c-danger);border-left-width:4px}
+#toastRoot .toast-close{background:none;border:0;color:inherit;font-size:20px;line-height:1;min-width:32px;min-height:32px;cursor:pointer}
 .kcanceled-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:var(--r-pill);background:var(--c-danger);color:var(--c-text-inverse);font-size:.8em;font-weight:700}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
@@ -976,7 +981,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 </div>
 
 <div id="modalRoot"></div>
-<div id="toastRoot"></div>
+<div id="toastRoot" aria-live="polite"></div>
 <div id="saveFailRoot"></div>
 <div id="localModeRoot"></div>
 
@@ -2074,10 +2079,21 @@ const OrdersStore = {
   }
 };
 
-function toast(msg){
-  const el = document.createElement('div'); el.className='toast'; el.textContent=msg;
-  document.getElementById('toastRoot').appendChild(el);
-  setTimeout(()=>el.remove(),2600);
+// UX-13: aviso de erro tem cara própria (vermelho suave, 5 s, botão de fechar) e os avisos
+// se empilham em vez de ficar um em cima do outro. Sem tipo informado, mensagens de falha
+// são reconhecidas pelo texto ("Não foi possível…", "Falha…", "…inválido", "Sem permissão"…).
+const TOAST_ERROR_RE = /^(n[ãa]o foi poss[íi]vel|falha|erro|sem permiss[ãa]o|sem conex[ãa]o|aviso:)|n[ãa]o (pode|gravou|foi poss)|inv[áa]lid|insuficiente|incorret|bloquead|recusad/i;
+function toast(msg, type){
+  const root = document.getElementById('toastRoot'); if(!root) return;
+  const isError = type==='erro' || (type===undefined && TOAST_ERROR_RE.test(String(msg||'')));
+  const el = document.createElement('div');
+  el.className = 'toast'+(isError?' toast-erro':'');
+  el.setAttribute('role', isError?'alert':'status');
+  const text = document.createElement('span'); text.textContent = msg; el.appendChild(text);
+  if(isError){ const x=document.createElement('button'); x.type='button'; x.className='toast-close'; x.setAttribute('aria-label','Fechar aviso'); x.textContent='×'; x.onclick=()=>el.remove(); el.appendChild(x); }
+  root.appendChild(el);
+  while(root.children.length>4) root.firstElementChild.remove();
+  setTimeout(()=>el.remove(), isError?5000:2600);
 }
 
 /* ============ LOGIN ============ */
