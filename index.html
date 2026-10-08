@@ -873,9 +873,10 @@ body.tv-mode .kbtn-ready{width:110px!important;font-size:20px!important;backgrou
 .sale-pending-warning{margin:0 0 10px;padding:10px 12px;border:2px solid var(--c-danger);border-radius:var(--r-md);background:var(--c-danger-soft);color:var(--c-text);font-weight:600}
 .kcanceled-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:var(--r-pill);background:var(--c-danger);color:var(--c-text-inverse);font-size:.8em;font-weight:700}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
+<!-- Versão exata + integridade (SEG-05): "@2" puxava a última 2.x a cada carregamento, sem conferência. Ao atualizar, troque a versão aqui, em SUPABASE_SDK_URLS e o hash nos dois lugares. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.0/dist/umd/supabase.js" integrity="sha384-xPW3QHswsICVC2mW6BFNwMbhpLkbZ133fKOhxNx3QGGgAOJfL3O9t8r2aWn1aez6" crossorigin="anonymous" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" defer></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
@@ -7136,13 +7137,16 @@ function startApp(){
 /* Se o jsdelivr não entregou o SDK, tenta de novo por ele e depois pelo unpkg.
    Cada tentativa injeta uma tag nova: a <script> original já falhou e não recarrega. */
 const SUPABASE_SDK_URLS = [
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-  'https://unpkg.com/@supabase/supabase-js@2'
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.0/dist/umd/supabase.js',
+  'https://unpkg.com/@supabase/supabase-js@2.117.0/dist/umd/supabase.js'
 ];
-function loadScriptOnce(src, timeoutMs){
+// Mesmo arquivo nos dois CDNs (conferido byte a byte): mesmo hash.
+const SUPABASE_SDK_SRI = 'sha384-xPW3QHswsICVC2mW6BFNwMbhpLkbZ133fKOhxNx3QGGgAOJfL3O9t8r2aWn1aez6';
+function loadScriptOnce(src, timeoutMs, integrity){
   return new Promise(resolve=>{
     const s = document.createElement('script');
     const timer = setTimeout(()=>{ s.onload = s.onerror = null; resolve(false); }, timeoutMs);
+    if(integrity){ s.integrity = integrity; s.crossOrigin = 'anonymous'; }
     s.src = src;
     s.onload = ()=>{ clearTimeout(timer); resolve(true); };
     s.onerror = ()=>{ clearTimeout(timer); resolve(false); };
@@ -7151,7 +7155,7 @@ function loadScriptOnce(src, timeoutMs){
 }
 async function loadSupabaseSdkFallback(){
   for(const url of SUPABASE_SDK_URLS){
-    await loadScriptOnce(url, 8000);
+    await loadScriptOnce(url, 8000, SUPABASE_SDK_SRI);
     if(window.supabase && typeof window.supabase.createClient==='function') return true;
   }
   return false;
