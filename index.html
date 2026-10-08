@@ -883,6 +883,14 @@ body.tv-mode .kcard .kobs{font-size:18px}
 #garcomApp textarea{min-height:48px;font-size:16px}
 #garcomApp .btn{min-height:48px}
 #garcomApp .gc-menu-panel button{min-height:48px;font-size:16px}
+/* UX-12: campo e botão desabilitados não parecem ativos; botão processando mostra indicador */
+input:disabled,select:disabled,textarea:disabled{background-color:var(--c-surface-3)!important;color:var(--c-text-3)!important;border-color:var(--c-border)!important;cursor:not-allowed}
+.cash-order-links button:disabled,.pdv-options-inner button:disabled{color:var(--c-text-3)!important;opacity:.6;cursor:not-allowed}
+button[aria-busy="true"]{pointer-events:none;opacity:.8}
+button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;height:14px;margin-left:8px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:cmd-spin .7s linear infinite}
+@keyframes cmd-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){button[aria-busy="true"]::after{animation:none}}
+.boot-loading{text-align:center}
 .kcanceled-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:var(--r-pill);background:var(--c-danger);color:var(--c-text-inverse);font-size:.8em;font-weight:700}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
@@ -894,7 +902,7 @@ body.tv-mode .kcard .kobs{font-size:18px}
 <body>
 
 <div id="tenantSetupOverlay" style="display:none"></div>
-<div id="loginOverlay"></div>
+<div id="loginOverlay"><div class="login-box boot-loading"><div class="login-brand login-brand--commandah"><img class="login-mark" src="assets/marca/horizontal-cor.svg" alt="Commandah"><img class="login-mark-dk" src="assets/marca/horizontal-cor-escuro.svg" alt=""></div><p class="sub">Carregando…</p></div></div>
 
 <div id="app">
   <button id="tvModeExit" class="tv-exit-btn" onclick="toggleTvMode()" title="Sair do Modo TV">✕ Sair do Modo TV</button>
@@ -1430,14 +1438,20 @@ async function save(key){
    singleFlight ignora a chamada repetida enquanto a primeira (mesmo 1º argumento)
    não terminar. */
 const _singleFlightBusy = new Set();
+// UX-12: o botão tocado por último (até 1,5 s antes) fica com aria-busy e um indicador
+// girando enquanto o fluxo roda. Antes nada mudava, e o operador tocava de novo.
+let _lastPressedBtn = null, _lastPressedAt = 0;
+if(typeof document.addEventListener==='function') document.addEventListener('click', e=>{ const b = e.target && e.target.closest && e.target.closest('button'); if(b){ _lastPressedBtn = b; _lastPressedAt = Date.now(); } }, true);
 function singleFlight(name, fn){
   return async function(...args){
     const a0 = args[0];
     const key = name+':'+((typeof a0==='string'||typeof a0==='number')?a0:'');
     if(_singleFlightBusy.has(key)){ toast('Aguarde, processando...'); return; }
     _singleFlightBusy.add(key);
+    const btn = (Date.now()-_lastPressedAt < 1500) ? _lastPressedBtn : null;
+    if(btn) btn.setAttribute('aria-busy','true');
     try{ return await fn.apply(this, args); }
-    finally{ _singleFlightBusy.delete(key); }
+    finally{ _singleFlightBusy.delete(key); if(btn) btn.removeAttribute('aria-busy'); }
   };
 }
 finalizeSale = singleFlight('finalizeSale', finalizeSale);
@@ -7226,7 +7240,7 @@ function startApp(){
     const overlay = document.getElementById('loginOverlay');
     const appShown = document.getElementById('app') && document.getElementById('app').classList.contains('show');
     const garcomShown = document.getElementById('garcomApp') && document.getElementById('garcomApp').classList.contains('show');
-    if(overlay && !overlay.innerHTML.trim() && !appShown && !garcomShown){
+    if(overlay && (!overlay.innerHTML.trim() || overlay.querySelector('.boot-loading')) && !appShown && !garcomShown){
       overlay.innerHTML = '<div class="login-box"><h1>Não foi possível carregar</h1><p class="sub">A tela não terminou de carregar. Isso costuma acontecer quando o computador bloqueia algum recurso externo (rede corporativa/firewall) ou por falta de conexão à internet. Tente: 1) recarregar a página, 2) checar sua conexão, 3) se estiver numa rede de trabalho, tentar em outra rede.</p><button class="btn btn-primary btn-block" onclick="location.reload()">Recarregar</button></div>';
     }
   }, 6000);
