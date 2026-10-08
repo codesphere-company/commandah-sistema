@@ -3466,6 +3466,36 @@ function saleTotal(items){ return (items||[]).filter(i=>!i.canceled).reduce((a,i
 // OP-10: pedido novo só entra em comanda aberta. Se o caixa fechou ou cancelou a
 // comanda enquanto o garçom montava o pedido, nada vai para a cozinha nem baixa
 // estoque numa conta que ninguém mais vai cobrar.
+/* OP-01 (auditoria 07/10): cada aparelho gravava a lista inteira de vendas a partir
+   da cópia que tinha na memória (até 6 s velha). O caixa fechando ou cancelando um
+   item gravava por cima do que o garçom tinha acabado de lançar: o item saía na
+   cozinha e sumia da conta. Agora as gravações de comanda buscam a lista mais nova
+   no servidor e JUNTAM os itens pela identidade (lineId; itens antigos, por produto +
+   horário + nome + quem lançou). A solução definitiva é vendas em tabela (EST-01). */
+function comandaItemKey(i){ return i.lineId || [i.productId||'', i.addedAt||'', i.name||'', i.addedBy||''].join('|'); }
+async function fetchFreshSales(){
+  try{ await (saveQueues.sales||Promise.resolve()); }catch(e){}
+  try{ const r = await storageApi.get(STORE.sales); return r ? JSON.parse(r.value) : []; }
+  catch(e){ return null; }
+}
+// Aplica a mudança na versão mais nova da venda e grava. Se mutate devolver false, não grava.
+// Sem rede, cai no estado local (comportamento antigo) e o aviso de falha de gravação aparece.
+async function commitSaleChange(saleId, mutate){
+  const fresh = await fetchFreshSales();
+  if(fresh) state.sales = fresh;
+  const cur = state.sales.find(x=>x.id===saleId);
+  if(!cur) return null;
+  if(mutate(cur)===false) return cur;
+  await save('sales');
+  return cur;
+}
+// O rascunho deste aparelho vale para os itens que ele conhece; os que chegaram de outro
+// aparelho (extras) entram no fim.
+function mergeDraftItems(serverItems, draftItems){
+  const keys = new Set((draftItems||[]).map(comandaItemKey));
+  const extras = (serverItems||[]).filter(i=>!keys.has(comandaItemKey(i)));
+  return { items:[...(draftItems||[]), ...extras], extras };
+}
 function comandaAcceptsOrders(s){
   if(s && s.status==='open' && !s.canceled) return true;
   toast((s&&s.canceled?'Esta comanda foi cancelada':'Esta comanda já foi fechada')+'. Nada foi enviado: abra uma nova comanda para este cliente.');
@@ -3695,7 +3725,7 @@ function commitDraftItem(productId,customization){
   const requester=currentSaleDraft.type==='comanda'?window.currentComandaRequester:null,requesterKey=requester&&requester.key||'';
   const signature=(customization?JSON.stringify({sizeId:customization.sizeId||null,answers:customization.answers,complementIds:customization.complementIds,observationIds:customization.observationIds,notes:customization.notes}):'')+'|'+requesterKey;
   const existing = currentSaleDraft.items.find(i=>i.productId===productId && !i.sent && (i.customizationSignature||'')===signature);
-  const candidate={productId,name:p.name,basePrice:Number(p.price)||0,price:(Number(p.price)||0)+extra,qty:1,sent:false,isCombo:productKind(p)==='combo',comboItems,customization:customization||null,customizationSignature:signature,notes:customization&&customization.summary||'',addedAt:new Date().toISOString(),addedById:currentUser&&currentUser.id||null,addedBy:currentUser&&currentUser.name||'—',requesterId:requester&&requester.id||null,requesterName:requester&&requester.name||'',requesterType:requester&&requester.type||''};
+  const candidate={lineId:uid(),productId,name:p.name,basePrice:Number(p.price)||0,price:(Number(p.price)||0)+extra,qty:1,sent:false,isCombo:productKind(p)==='combo',comboItems,customization:customization||null,customizationSignature:signature,notes:customization&&customization.summary||'',addedAt:new Date().toISOString(),addedById:currentUser&&currentUser.id||null,addedBy:currentUser&&currentUser.name||'—',requesterId:requester&&requester.id||null,requesterName:requester&&requester.name||'',requesterType:requester&&requester.type||''};
   const unsent=currentSaleDraft.items.filter(i=>!i.sent).map(i=>({...i}));
   const proposed=unsent.find(i=>i.productId===productId&&(i.customizationSignature||'')===signature);
   if(proposed) proposed.qty+=1; else unsent.push(candidate);
@@ -4169,6 +4199,19 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
     if(unsent.length && !await sendItemsToKitchen(sale.id, unsent, who, mode)) return false;
     unsent.forEach(i=>i.sent=true);
   }
+  if(isExistingComanda){
+    // OP-01: se o garçom lançou algo enquanto o caixa recebia, o valor pago não cobre a
+    // comanda. Não fecha: avisa para reabrir e conferir o total.
+    const fresh = await fetchFreshSales();
+    const cur = fresh && fresh.find(x=>x.id===comandaId);
+    if(cur){
+      if(cur.status!=='open'||cur.canceled){ state.sales = fresh; toast('Esta comanda já foi fechada ou cancelada em outro aparelho.'); return false; }
+      const merged = mergeDraftItems(cur.items, currentSaleDraft.items);
+      const novos = merged.extras.filter(i=>!i.canceled);
+      if(novos.length){ state.sales = fresh; toast('Chegou '+novos.length+' item(ns) novo(s) nesta comanda por outro aparelho. Feche o pagamento e reabra a comanda para conferir o total.'); return false; }
+      currentSaleDraft.items = merged.items;
+    }
+  }
   if(isCloudMode()){
     // Grava a venda no servidor via RPC close_sale — atomica (trava a linha de
     // cantina2:sales, sem last-write-wins entre dois dispositivos) e idempotente
@@ -4415,7 +4458,10 @@ function openComanda(id, keepRequester){
     if(closingComanda) return; // duplo clique: não reenviar os mesmos itens pra cozinha
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
     if(unsent.length){ closingComanda = true; let ok; try{ ok = await sendItemsToKitchen(s.id, unsent, who, 'comanda', s.local); }finally{ closingComanda = false; } if(!ok) return; unsent.forEach(i=>i.sent=true); }
-    s.items = currentSaleDraft.items; s.total = draftTotal(); save('sales');
+    const fresh = await commitSaleChange(s.id, cur=>{ if(cur.status!=='open'||cur.canceled) return false; cur.items=mergeDraftItems(cur.items, currentSaleDraft.items).items; cur.total=saleTotal(cur.items); });
+    if(!fresh) return;
+    if(fresh.status!=='open'||fresh.canceled){ toast('Esta comanda já foi fechada ou cancelada em outro aparelho.'); closeModal(); renderAll(); return; }
+    currentSaleDraft.items = JSON.parse(JSON.stringify(fresh.items)); // itens do garçom entram no total do pagamento
     // OP-04: os itens que iam para a cozinha só neste clique também saem na
     // ficha da estação, como nos outros fluxos. Sem isso, estação "só imprime"
     // (bar, churrasqueira) nunca ficava sabendo e o cliente pagava sem receber.
@@ -4569,12 +4615,10 @@ async function confirmNovoPedidoModal(saleId){
   const local = document.getElementById('npLocal').value;
   const origem = currentUser.origem||'caixa';
   const who = requester.name;
-  const items = npCart.map(i=>({...i, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:local||s.local||'', requesterId:requester.id, requesterName:who, requesterType:requester.type}));
+  const items = npCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:local||s.local||'', requesterId:requester.id, requesterName:who, requesterType:requester.type}));
   if(!await sendItemsToKitchen(saleId, items, who, 'comanda', local)) return;
   items.forEach(i=>i.sent=true);
-  s.items = [...s.items, ...items];
-  s.total = saleTotal(s.items);
-  save('sales');
+  await commitSaleChange(s.id, cur=>{ cur.items=[...(cur.items||[]), ...items]; cur.total=saleTotal(cur.items); });
   const groups = {};
   items.forEach(i=>{ const key=i.estacao||'cozinha'; (groups[key]=groups[key]||[]).push(i); });
   const printJobs = Object.keys(groups).map(estacao=>{
@@ -4862,7 +4906,7 @@ function setComandaItemDeliveredBy(idx,value){
   item.deliveredBy=String(value||'').trim();
   if(currentSaleDraft.type==='comanda' && currentSaleDraft.id){
     const s=state.sales.find(x=>x.id===currentSaleDraft.id);
-    if(s){ s.items=currentSaleDraft.items; save('sales'); }
+    if(s){ const draftItems=currentSaleDraft.items; commitSaleChange(s.id, cur=>{ cur.items=mergeDraftItems(cur.items, draftItems).items; }); }
   }
 }
 let reorderQty = 1, reorderItemIdx = null, reorderCopos = 0;
@@ -4912,12 +4956,10 @@ async function confirmReorderComandaItem(){
   const product = state.products.find(p=>p.id===item.productId);
   if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
   const who = item.requesterName || s.customerName || 'Cliente';
-  const newItem = {productId:product.id, name:product.name, price:product.price, qty:reorderQty, estacao:product.estacao||'cozinha', copos:product.estacao==='bar'?reorderCopos:undefined, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
+  const newItem = {lineId:uid(), productId:product.id, name:product.name, price:product.price, qty:reorderQty, estacao:product.estacao||'cozinha', copos:product.estacao==='bar'?reorderCopos:undefined, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
   if(!await sendItemsToKitchen(saleId, [newItem], who, 'comanda', s.local)) return;
   newItem.sent = true;
-  s.items = [...s.items, newItem];
-  s.total = saleTotal(s.items);
-  save('sales');
+  await commitSaleChange(s.id, cur=>{ cur.items=[...(cur.items||[]), newItem]; cur.total=saleTotal(cur.items); });
   if(saidaTemImpressao(newItem.estacao)){
     const origem = currentUser.origem||'caixa';
     const printer = resolvePrinterFor(newItem.estacao, origem);
@@ -4955,9 +4997,7 @@ async function confirmCancelComandaItem(){
   const reason = (document.getElementById('cancelItemReason').value||'').trim();
   if(!await restoreInsumosForItems([item])){ toast('Falha ao devolver o estoque. Tente novamente.'); return; }
   item.canceled = true; item.canceledAt = new Date().toISOString(); item.canceledBy = currentUser.name; item.canceledReason = reason;
-  s.items = currentSaleDraft.items;
-  s.total = saleTotal(s.items);
-  save('sales');
+  await commitSaleChange(saleId, cur=>{ cur.items=mergeDraftItems(cur.items, currentSaleDraft.items).items; cur.total=saleTotal(cur.items); });
   if(item.sent) await markKitchenItemCanceled(saleId, item);
   logAction('Item cancelado: '+item.name+' x'+item.qty+' — pedido #'+(s.orderNumber||saleId)+(reason?' — motivo: '+reason:''));
   toast('Item cancelado e estoque devolvido.');
@@ -5118,12 +5158,10 @@ async function confirmComandaQuickAdd(){
   if(!requester.canOrder){ toast('Esta pessoa está bloqueada para consumir nesta cota.'); return; }
   const who = requester.name;
   const origem = currentUser.origem||'caixa';
-  const items = comandaQuickCart.map(i=>({...i, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:requester.id, requesterName:who, requesterType:requester.type}));
+  const items = comandaQuickCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:requester.id, requesterName:who, requesterType:requester.type}));
   if(!await sendItemsToKitchen(saleId, items, who, 'comanda', s.local)) return;
   items.forEach(i=>i.sent=true);
-  s.items = [...s.items, ...items];
-  s.total = saleTotal(s.items);
-  save('sales');
+  await commitSaleChange(s.id, cur=>{ cur.items=[...(cur.items||[]), ...items]; cur.total=saleTotal(cur.items); });
   const groups = {};
   items.forEach(i=>{ const key=i.estacao||'cozinha'; (groups[key]=groups[key]||[]).push(i); });
   const printJobs = Object.keys(groups).map(estacao=>{
@@ -5511,12 +5549,10 @@ async function gcConfirmOrder(){
   s.peopleCount = Math.max(1, parseInt(document.getElementById('gcPeople')?.value,10)||1);
   const origem = currentUser.origem||'app';
   const who = gcRequester.name;
-  const items = gcCart.map(i=>({...i, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:local||s.local||'', requesterId:gcRequester.id, requesterName:who, requesterType:gcRequester.type}));
+  const items = gcCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:local||s.local||'', requesterId:gcRequester.id, requesterName:who, requesterType:gcRequester.type}));
   if(!await sendItemsToKitchen(s.id, items, who, 'comanda', local)) return;
   items.forEach(i=>i.sent=true);
-  s.items = [...s.items, ...items];
-  s.total = saleTotal(s.items);
-  save('sales');
+  await commitSaleChange(s.id, cur=>{ cur.notes=s.notes; cur.peopleCount=s.peopleCount; cur.items=[...(cur.items||[]), ...items]; cur.total=saleTotal(cur.items); });
   const groups = {};
   items.forEach(i=>{ const key=i.estacao||'cozinha'; (groups[key]=groups[key]||[]).push(i); });
   const printJobs = Object.keys(groups).map(estacao=>{
