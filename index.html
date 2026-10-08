@@ -2065,17 +2065,15 @@ function toast(msg){
 function renderLogin(){
   const overlay = document.getElementById('loginOverlay');
   const isDefaultOnly = state.users.length<=2 && state.users.some(u=>u.username==='admin'&&u.pin==='1234');
-  const hasCustomBrand = state.settings.clubName || state.settings.brandLogo;
-  const brandBadge = state.settings.brandLogo
+  const clubLogo = !!state.settings.brandLogo;
+  const brandBadge = clubLogo
     ? `<img src="${state.settings.brandLogo}" alt="${h(state.settings.clubName||'Estabelecimento')}">`
-    : hasCustomBrand
-      ? h((state.settings.clubName||'E').trim().charAt(0).toUpperCase())
-      : `<img class="login-mark" src="assets/marca/horizontal-cor.svg" alt="Commandah"><img class="login-mark-dk" src="assets/marca/horizontal-cor-escuro.svg" alt="">`;
+    : `<img class="login-mark" src="assets/marca/horizontal-cor.svg" alt="Commandah"><img class="login-mark-dk" src="assets/marca/horizontal-cor-escuro.svg" alt="">`;
   overlay.innerHTML = `
   <div class="login-box">
-    ${hasCustomBrand?`<div class="login-powered">${ICN.brandmark(undefined,undefined,18)}<span>Commandah</span></div>`:''}
-    <div class="login-brand${hasCustomBrand?'':' login-brand--commandah'}">${brandBadge}</div>
-    ${hasCustomBrand?`<h1>${h(state.settings.clubName)}</h1>`:''}
+    ${clubLogo?`<div class="login-powered">${ICN.brandmark(undefined,undefined,18)}<span>Commandah</span></div>`:''}
+    <div class="login-brand${clubLogo?'':' login-brand--commandah'}">${brandBadge}</div>
+    ${state.settings.clubName?`<h1>${h(state.settings.clubName)}</h1>`:''}
     <p class="sub">${isDefaultOnly? 'Primeiro acesso — toque em Administrador e troque o PIN padrão em Configurações' : 'Selecione seu usuário para entrar'}</p>
     <div class="user-pick">${state.users.filter(u=>u.active!==false).map(u=>`
       <button onclick="startPin('${u.id}')"><div class="un">${h(u.name)}</div><div class="ur">${h(roleLabel(u.role))}</div></button>
@@ -2085,7 +2083,7 @@ function renderLogin(){
   document.getElementById('app').classList.remove('show');
 }
 function shadeColor(hex,amount){const clean=/^#[0-9a-f]{6}$/i.test(hex)?hex:'#3568b0',n=parseInt(clean.slice(1),16),r=Math.max(0,Math.min(255,(n>>16)+amount)),g=Math.max(0,Math.min(255,((n>>8)&255)+amount)),b=Math.max(0,Math.min(255,(n&255)+amount));return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');}
-function applyBranding(){const s=state.settings||{},savedPrimary=/^#141b33$/i.test(s.brandPrimary)?'':s.brandPrimary,savedAccent=/^#0ea57e$/i.test(s.brandAccent)?'':s.brandAccent,primary=/^#[0-9a-f]{6}$/i.test(savedPrimary)?savedPrimary:'#1D2433',accent=/^#[0-9a-f]{6}$/i.test(savedAccent)?savedAccent:'#0D9E79',root=document.documentElement;root.style.setProperty('--navy',primary);root.style.setProperty('--navy2',shadeColor(primary,14));root.style.setProperty('--navy3',shadeColor(primary,28));root.style.setProperty('--amber',accent);root.style.setProperty('--amber-dark',shadeColor(accent,-22));root.style.setProperty('--gc-blue',primary);document.title=(s.clubName||'Commandah')+' — Sistema de Gestão';const logo=document.querySelector('.wb-logo');if(logo){const hasCustom=s.clubName||s.brandLogo;logo.innerHTML=s.brandLogo?`<img src="${s.brandLogo}" alt="" style="width:100%;height:100%;object-fit:cover">`:(hasCustom?h((s.clubName||'E').charAt(0).toUpperCase()):ICN.brandmark(undefined,undefined,26));logo.style.background=hasCustom?accent:'transparent';}}
+function applyBranding(){const s=state.settings||{},savedPrimary=/^#141b33$/i.test(s.brandPrimary)?'':s.brandPrimary,savedAccent=/^#0ea57e$/i.test(s.brandAccent)?'':s.brandAccent,primary=/^#[0-9a-f]{6}$/i.test(savedPrimary)?savedPrimary:'#1D2433',accent=/^#[0-9a-f]{6}$/i.test(savedAccent)?savedAccent:'#0D9E79',root=document.documentElement;root.style.setProperty('--navy',primary);root.style.setProperty('--navy2',shadeColor(primary,14));root.style.setProperty('--navy3',shadeColor(primary,28));root.style.setProperty('--amber',accent);root.style.setProperty('--amber-dark',shadeColor(accent,-22));root.style.setProperty('--gc-blue',primary);document.title=(s.clubName||'Commandah')+' — Sistema de Gestão';const logo=document.querySelector('.wb-logo');if(logo){logo.innerHTML=s.brandLogo?`<img src="${s.brandLogo}" alt="" style="width:100%;height:100%;object-fit:cover">`:ICN.brandmark(undefined,undefined,26);logo.style.background='transparent';}const sub=document.getElementById('wbTitle');if(sub)sub.textContent=s.clubName||'Sistema de gestão';}
 function roleLabel(r){ return r==='admin'?'Administrador':r==='caixa'?'Operador de caixa':'Cozinha'; }
 function startPin(userId){
   pinTargetUser = state.users.find(u=>u.id===userId);
@@ -7077,8 +7075,9 @@ function previewBulkProductChange(){syncBulkProductSelection();const field=docum
 function renderTenantSetup(){
   const overlay = document.getElementById('tenantSetupOverlay');
   overlay.style.display = 'flex';
-  overlay.style.cssText = 'display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--navy);position:fixed;inset:0;z-index:999;padding:20px;overflow:auto;';
+  overlay.style.cssText = 'display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--c-bg);position:fixed;inset:0;z-index:999;padding:20px;overflow:auto;';
   overlay.innerHTML = `<div class="login-box" style="max-width:440px">
+    <div class="login-brand login-brand--commandah"><img class="login-mark" src="assets/marca/horizontal-cor.svg" alt="Commandah"><img class="login-mark-dk" src="assets/marca/horizontal-cor-escuro.svg" alt=""></div>
     <h1>Entrar no Commandah</h1>
     <p class="sub">Uma conta por estabelecimento. Compartilhe esse login (e-mail/senha) com quem for configurar outros computadores e celulares do mesmo lugar.</p>
     <div class="field" style="text-align:left"><label>E-mail</label><input id="tsEmail" type="email" placeholder="seu@email.com" autocomplete="username"></div>
@@ -7237,8 +7236,8 @@ const BOOT_RETRY_MS = 10000;
 let bootRetryTimer = null;
 function renderBootNetworkError(sub){
   const overlay = document.getElementById('tenantSetupOverlay');
-  overlay.style.cssText = 'display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--navy);position:fixed;inset:0;z-index:999;padding:20px;overflow:auto;';
-  overlay.innerHTML = '<div class="login-box" style="max-width:440px"><h1>Sem conexão com o servidor</h1><p class="sub">'+(sub||'Você continua logado, mas o servidor não respondeu. Confira a internet e toque em Recarregar.')+'</p><p class="sub">Tentando de novo automaticamente...</p><button class="btn btn-primary btn-block" onclick="location.reload()">Recarregar</button></div>';
+  overlay.style.cssText = 'display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--c-bg);position:fixed;inset:0;z-index:999;padding:20px;overflow:auto;';
+  overlay.innerHTML = '<div class="login-box" style="max-width:440px"><div class="login-brand login-brand--commandah"><img class="login-mark" src="assets/marca/horizontal-cor.svg" alt="Commandah"><img class="login-mark-dk" src="assets/marca/horizontal-cor-escuro.svg" alt=""></div><h1>Sem conexão com o servidor</h1><p class="sub">'+(sub||'Você continua logado, mas o servidor não respondeu. Confira a internet e toque em Recarregar.')+'</p><p class="sub">Tentando de novo automaticamente...</p><button class="btn btn-primary btn-block" onclick="location.reload()">Recarregar</button></div>';
   clearTimeout(bootRetryTimer);
   bootRetryTimer = setTimeout(boot, BOOT_RETRY_MS);
 }
