@@ -1061,16 +1061,11 @@ const RIBBON_TABS = [
       { label:'Caixa', items:[ {label:'Abrir/Fechar', icon:ICN.lock, view:'caixa'} ] },
       { label:'Pedidos', items:[
           {label:'Mesas/Comandas', icon:ICN.table, view:'comandas'},
-          {label:'Delivery', icon:ICN.delivery, view:'delivery'},
           {label:'Caixa/PDV', icon:ICN.cart, view:'balcao'},
-          {label:'Fila de Atendimento', icon:ICN.queue, view:'fila-atendimento'},
-          {label:'Agendados', icon:ICN.calendar, view:'agendamentos'},
-          {label:'Cardápio Digital', icon:ICN.phone, view:'cardapio'},
+          {label:'Delivery', icon:ICN.delivery, view:'delivery'},
           {label:'Monitor de Cozinha', icon:ICN.chef, view:'cozinha'}
       ]},
-      { label:'Clientes', items:[ {label:'Clientes', icon:ICN.users, view:'associados'} ] },
-      { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Quem Levou', icon:ICN.users, view:'quemlevou'}, {label:'Estações', icon:ICN.printer, view:'estacoes'}, {label:'Origens de Pedido', icon:ICN.printer, view:'origens'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },
-      { label:'Atendimento', items:[ {label:'Bot WhatsApp', icon:ICN.chat, perm:'config-sistema', action:'openWhatsAppBotConfig'} ] }
+      { label:'Clientes', items:[ {label:'Clientes', icon:ICN.users, view:'associados'} ] }
   ]},
   { id:'produtos', label:'Produtos', groups:[
       { label:'Produtos', items:[ {label:'Produtos', icon:ICN.burger, view:'produtos'} ] },
@@ -1099,6 +1094,8 @@ const RIBBON_TABS = [
       { label:'Estoque', items:[ {label:'Entradas e Saídas', icon:ICN.swap, perm:'relatorios', action:'openReportView', actionArg:'Entradas e Saídas'}, {label:'Posição por Data', icon:ICN.calendar, perm:'relatorios', action:'openReportView', actionArg:'Posição por Data'} ] }
   ]},
   { id:'apps', label:'Apps', groups:[
+      { label:'Outros atendimentos', items:[ {label:'Fila de Atendimento', icon:ICN.queue, view:'fila-atendimento'}, {label:'Agendados', icon:ICN.calendar, view:'agendamentos'}, {label:'Cardápio Digital', icon:ICN.phone, view:'cardapio'} ] },
+      { label:'Atendimento', items:[ {label:'Bot WhatsApp', icon:ICN.chat, perm:'config-sistema', action:'openWhatsAppBotConfig'} ] },
       { label:'Ferramentas', items:[ {label:'Bina', icon:ICN.phone, perm:'config-sistema', action:'toggleAppRibbonMenu', actionArg:'bina'}, {label:'Mapas', icon:ICN.mapPin, perm:'config-sistema', action:'toggleAppRibbonMenu', actionArg:'maps'}, {label:'Painel de Senhas', icon:ICN.grid, view:'painel-senhas'}, {label:'Balança', icon:ICN.scale, perm:'config-sistema', action:'openScaleConfig'} ] },
       { label:'Módulos (Recursos Premium)', items:[ {label:'Mobile', icon:ICN.phone, view:'mobile-qr'}, {label:'Pedidos Online', icon:ICN.link, view:'cardapio'}, {label:'Connect', icon:ICN.link, perm:'modulos', action:'openAppModuleConfig', actionArg:'Connect'}, {label:'Emissão Fiscal', icon:ICN.receipt, perm:'modulos', action:'openAppModuleConfig', actionArg:'Emissão Fiscal'}, {label:'TEF', icon:ICN.card, perm:'modulos', action:'openAppModuleConfig', actionArg:'TEF'} ] }
   ]},
@@ -1107,6 +1104,7 @@ const RIBBON_TABS = [
           {label:'Configurações do Sistema', icon:ICN.gear, perm:'config-sistema', action:'openSystemSettings'}, {label:'Numeração de Pedidos', icon:ICN.hash, perm:'config-sistema', action:'openNumberingSettings'}, {label:'Impressora', icon:ICN.printer, perm:'config-sistema', action:'openPrinterSettings'},
           {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios'}, {label:'Alterar Minha Senha', icon:ICN.key, perm:'senha-propria', action:'openChangePinModal'}, {label:'Backup', icon:ICN.save, view:'backup'}
       ]},
+      { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Quem Levou', icon:ICN.users, view:'quemlevou'}, {label:'Estações', icon:ICN.printer, view:'estacoes'}, {label:'Origens de Pedido', icon:ICN.printer, view:'origens'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },
       { label:'Logs e Fila de Eventos', items:[ {label:'Logs', icon:ICN.scroll, perm:'logs', action:'openLogsView', actionArg:'Logs'}, {label:'Fila de Eventos', icon:ICN.scroll, perm:'logs', action:'openLogsView', actionArg:'Fila de Eventos'} ] },
       { label:'Versão Premium', items:[ {label:'Minha Assinatura', icon:ICN.key, perm:'config-sistema', action:'openSubscriptionView'} ] },
       { label:'Ajuda e Suporte', items:[ {label:'Ajuda e Suporte', icon:ICN.headset, view:'ajuda'}, {label:'Diagnóstico de Serviços', icon:ICN.pulse, view:'diagnostico'} ] }
@@ -3386,7 +3384,7 @@ function openUserModal(id){
     </select></div>
     <div class="field"><label>Origem dos pedidos deste usuário</label><select id="uOrigem" onchange="document.getElementById('uCaixaPrinterBox').style.display=this.value!=='app'?'block':'none'">
       ${state.origens.map(o=>`<option value="${h(o.chave)}" ${(u&&u.origem===o.chave)||(!u&&o.chave==='caixa')?'selected':''}>${h(o.nome)}</option>`).join('')}
-    </select><p class="sub">Define para qual impressora o pedido vai quando esse usuário confirma um "Novo Pedido" (bar e churrasqueira têm impressoras diferentes por origem). Cadastre novas origens em Áreas do Clube → Origens de Pedido.</p></div>
+    </select><p class="sub">Define para qual impressora o pedido vai quando esse usuário confirma um "Novo Pedido" (bar e churrasqueira têm impressoras diferentes por origem). Cadastre novas origens em Configurações → Áreas do Clube → Origens de Pedido.</p></div>
     <div class="field" id="uCaixaPrinterBox" style="display:${!u||u.origem!=='app'?'block':'none'}"><label>Impressora local deste usuário (nome exato no Windows)</label><input id="uCaixaPrinter" value="${h(u?u.caixaPrinterOsName||'':'')}" placeholder="Ex: POS-80C (Caixa 1)"><p class="sub">Se este usuário fica num ponto fixo com impressora própria (caixa, totem etc.), informe o nome exato dela. Toda venda de balcão feita por este usuário imprime automaticamente aqui, além de ir pra cozinha/bar/churrasqueira normalmente.</p></div>
     <label class="item-line"><span>Colaborador ativo</span><input id="uActive" type="checkbox" ${!u||u.active!==false?'checked':''}></label><p class="sub">O perfil define quais módulos podem ser acessados. O PIN é usado para entrar e trocar de operador.</p></section><div class="record-actions"><button class="op-btn" onclick="closeModal()">Voltar</button><button class="op-btn primary" id="uSaveBtn">Salvar e Voltar</button></div></div>`,true);
   document.querySelector('#modalRoot .modal').classList.add('record-modal');
@@ -6542,7 +6540,7 @@ function renderImpressoras(){
     <button class="btn btn-sm btn-danger" onclick="deleteImpressora('${p.id}')">Excluir</button></td></tr>`).join('')
     : `<tr><td colspan="6" class="empty">Nenhuma impressora cadastrada.</td></tr>`;
   el.innerHTML = `<div class="panel"><h2>Impressoras</h2>
-    <p class="sub">Cada impressora atende uma estação. Gerencie quais estações existem e o modo de saída (imprimir/tela) de cada uma em <a href="#" onclick="switchView('estacoes');return false" style="color:var(--c-primary-text);font-weight:600">Áreas do Clube → Estações</a>.</p>
+    <p class="sub">Cada impressora atende uma estação. Gerencie quais estações existem e o modo de saída (imprimir/tela) de cada uma em <a href="#" onclick="switchView('estacoes');return false" style="color:var(--c-primary-text);font-weight:600">Configurações → Áreas do Clube → Estações</a>.</p>
     <div id="agentStatusBox" class="tag tag-gray" style="margin-bottom:14px">Verificando agentes de impressão...</div>
     ${supabaseClient?`<div class="field" style="margin-bottom:14px"><label>Token do agente de impressão</label>
       <div id="printTokenStatus" class="sub">Verificando...</div>
