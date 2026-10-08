@@ -1203,7 +1203,9 @@ function localDay(value){
 function todayStr(){ return localDay(new Date()); }
 function timeFmt(d){ return new Date(d).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
 function h(value){ return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function validPin(value){ return /^\d{4}$/.test(String(value)); }
+function validPin(value, len){ return new RegExp('^\\d{'+(len===6?6:4)+'}$').test(String(value)); }
+// Tamanho do PIN de cada colaborador. Quem já tinha PIN de 4 continua com 4 até redefinir.
+function pinLengthFor(u){ return Number(u&&u.pinLength)===6 ? 6 : 4; }
 const saveQueues = {};
 
 const SUPABASE_URL = 'https://ezfoymdesmarpunmixbs.supabase.co';
@@ -1396,7 +1398,7 @@ async function migratePendingStaffAsOwner(){
   let changed = false;
   for(const u of pending){
     try{
-      const { data: fnData, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action:'create_operator', staff_id:u.id, name:u.name, role:u.role, pin:u.pin } });
+      const { data: fnData, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action:'create_operator', staff_id:u.id, name:u.name, role:u.role, pin:u.pin, legacy_migration:true } });
       if(!error && fnData && !fnData.error){ u.migratedAuth = true; delete u.pin; changed = true; }
     }catch(e){}
   }
@@ -2079,8 +2081,8 @@ function startPin(userId){
   overlay.innerHTML = `
   <div class="login-box">
     <h1>${h(pinTargetUser.name)}</h1>
-    <p class="sub">Digite seu PIN de 4 dígitos</p>
-    <div class="pin-dots" id="pinDots">${'<span></span>'.repeat(4)}</div>
+    <p class="sub">Digite seu PIN de ${pinLengthFor(pinTargetUser)} dígitos</p>
+    <div class="pin-dots" id="pinDots">${'<span></span>'.repeat(pinLengthFor(pinTargetUser))}</div>
     <div class="pin-pad">
       ${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="pinPress('${n}')">${n}</button>`).join('')}
       <button onclick="renderLogin()">Voltar</button>
@@ -2090,10 +2092,11 @@ function startPin(userId){
   </div>`;
 }
 function pinPress(d){
-  if(pinBuffer.length>=4) return;
+  const len = pinLengthFor(pinTargetUser);
+  if(pinBuffer.length>=len) return;
   pinBuffer += d;
   updatePinDots();
-  if(pinBuffer.length===4){
+  if(pinBuffer.length===len){
     setTimeout(attemptPinLogin,150);
   }
 }
@@ -3269,7 +3272,7 @@ async function deleteMember(id){const member=state.members.find(m=>m.id===id);if
 function renderUsuarios(){
   const el = document.getElementById('view-usuarios');
   const rows = state.users.map(u=>`
-    <tr><td>${h(u.name)}</td><td>${h(u.username)}</td><td>${h(u.email||'—')}</td><td>${h(u.phone||'—')}</td><td><span class="tag tag-blue">${h(roleLabel(u.role))}</span></td><td>${u.active===false?'<span class="tag tag-gray">Inativo</span>':'<span class="tag tag-green">Ativo</span>'}${u.migratedAuth?' <span class="tag tag-green" title="Login verificado pelo servidor">🔒</span>':' <span class="tag tag-gray" title="Ainda no PIN local — salve o cadastro pra migrar">local</span>'}</td>
+    <tr><td>${h(u.name)}</td><td>${h(u.username)}</td><td>${h(u.email||'—')}</td><td>${h(u.phone||'—')}</td><td><span class="tag tag-blue">${h(roleLabel(u.role))}</span>${u.role==='admin'&&pinLengthFor(u)!==6?' <span class="tag tag-amber" title="Redefina o PIN deste administrador para 6 dígitos">PIN de 4 dígitos</span>':''}</td><td>${u.active===false?'<span class="tag tag-gray">Inativo</span>':'<span class="tag tag-green">Ativo</span>'}${u.migratedAuth?' <span class="tag tag-green" title="Login verificado pelo servidor">🔒</span>':' <span class="tag tag-gray" title="Ainda no PIN local — salve o cadastro pra migrar">local</span>'}</td>
     <td><button class="btn btn-sm" onclick="editUser('${u.id}')">Editar</button>
     <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">Excluir</button></td></tr>`).join('');
   el.innerHTML = `<div class="workspace-gray"><section class="op-window"><header class="op-titlebar">Colaboradores <span class="op-controls"><span onclick="closeOperationalWindow()" style="cursor:pointer" title="Fechar">×</span></span></header><div class="op-toolbar"><div class="op-search"><input id="userSearch" placeholder="Pesquisar aqui..."></div><div class="op-toolbar-spacer"></div><div class="pdv-menu-wrap"><button class="op-btn" onclick="toggleUserOptions()">••• &nbsp; Opções ▾</button>${userOptionsOpen?`<div class="pdv-menu" style="top:48px;min-width:230px"><button onclick="window.print()">▣ &nbsp; Imprimir</button><button onclick="exportUsersCsv()">⇩ &nbsp; Exportar colaboradores</button><button onclick="openPermissionMatrix()">▦ &nbsp; Perfis e permissões</button><button onclick="openAccessLog()">▤ &nbsp; Histórico de acesso</button>${supabaseClient?`<button onclick="migrateAllStaffAuth()">🔒 &nbsp; Migrar acesso seguro (todos)</button>`:''}</div>`:''}</div><button class="op-btn primary" onclick="openUserModal()"><span class="op-ico">＋</span> Novo</button></div><div class="op-grid"><table><thead><tr><th>Nome</th><th>Usuário</th><th>E-mail</th><th>Telefone</th><th>Perfil</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="userRows">${rows||'<tr><td colspan="7" class="empty">Não há registros para mostrar</td></tr>'}</tbody></table></div><footer class="op-footer"><span>Total Itens=${state.users.length}</span><span>Controle de acesso e permissões</span></footer></section></div>`;
@@ -3293,7 +3296,7 @@ function openUserModal(id){
   openModal(u?'Editar Colaborador':'Novo Colaborador', `<div class="record-body"><div class="record-tabs"><button data-tab="principal" class="active" onclick="setProductModalTab('principal')">Dados Principais</button><button data-tab="acesso" onclick="setProductModalTab('acesso')">Acesso e Permissões</button></div><section class="record-pane active" data-pane="principal">
     <div class="field"><label>Nome completo</label><input id="uName" value="${h(u?u.name:'')}"></div><div class="row"><div class="field"><label>E-mail</label><input id="uEmail" type="email" value="${h(u?u.email||'':'')}"></div><div class="field"><label>Telefone</label><input id="uPhone" value="${h(u?u.phone||'':'')}"></div></div></section><section class="record-pane" data-pane="acesso"><div class="row">
       <div class="field"><label>Usuário (login)</label><input id="uUsername" value="${h(u?u.username:'')}"></div>
-      <div class="field"><label>PIN (4 dígitos)</label><input id="uPin" inputmode="numeric" maxlength="4" autocomplete="off" value="${isMigrated?'':h(u?u.pin:'')}" placeholder="${isMigrated?'Manter atual':''}"></div>
+      <div class="field"><label>PIN (4 dígitos; administrador: 6)</label><input id="uPin" inputmode="numeric" maxlength="6" autocomplete="off" value="${isMigrated?'':h(u?u.pin:'')}" placeholder="${isMigrated?'Manter atual':''}"></div>
     </div>
     ${isMigrated?'<p class="sub">🔒 O PIN deste colaborador é verificado pelo servidor e não fica guardado aqui. Deixe o campo em branco pra manter o PIN atual — preencha só se quiser definir um PIN novo.</p>':''}
     <div class="field"><label>Perfil</label><select id="uRole">
@@ -3315,9 +3318,10 @@ function openUserModal(id){
     // Migrado com campo vazio = mantém o PIN que já está no servidor.
     const changingPin = !isMigrated || pin!=='';
     if(!name || !username){ toast('Preencha nome e usuário.'); return; }
-    if(changingPin && !validPin(pin)){ toast('Informe um PIN numérico de 4 dígitos.'); return; }
+    const pinLen = document.getElementById('uRole').value==='admin' ? 6 : 4;
+    if(changingPin && !validPin(pin, pinLen)){ toast(pinLen===6?'Administrador precisa de um PIN numérico de 6 dígitos.':'Informe um PIN numérico de 4 dígitos.'); return; }
     const data = { name, username, role:document.getElementById('uRole').value, origem:document.getElementById('uOrigem').value, caixaPrinterOsName:document.getElementById('uCaixaPrinter').value.trim(), email:document.getElementById('uEmail').value.trim(), phone:document.getElementById('uPhone').value.trim(), active:document.getElementById('uActive').checked };
-    if(changingPin) data.pin = pin;
+    if(changingPin){ data.pin = pin; data.pinLength = pin.length; }
     if(state.users.some(x=>x.id!==(u&&u.id)&&String(x.username).toLowerCase()===username.toLowerCase())){toast('Já existe um colaborador com este usuário.');return;}
     if(u&&u.id===currentUser.id&&!data.active){toast('Você não pode desativar o colaborador atualmente conectado.');return;}
     if(u&&u.role==='admin'&&(!data.active||data.role!=='admin')&&!state.users.some(x=>x.id!==u.id&&x.role==='admin'&&x.active!==false)){toast('Mantenha ao menos um administrador ativo.');return;}
@@ -3363,7 +3367,7 @@ async function migrateAllStaffAuth(){
   let ok=0, fail=0;
   for(const u of pending){
     try{
-      const { data: fnData, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action:'create_operator', staff_id:u.id, name:u.name, role:u.role, pin:u.pin } });
+      const { data: fnData, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action:'create_operator', staff_id:u.id, name:u.name, role:u.role, pin:u.pin, legacy_migration:true } });
       // Migrou: o PIN passa a viver como hash no servidor e sai do cadastro local,
       // que é legível por qualquer operador do tenant.
       if(error || !fnData || fnData.error) fail++; else { u.migratedAuth = true; delete u.pin; ok++; }

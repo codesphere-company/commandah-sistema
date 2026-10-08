@@ -12,7 +12,12 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
 const MAX_ATTEMPTS = 5;
-const LOCK_MINUTES = 15;
+// Bloqueio progressivo (SEG-01): 15 min, depois 1 h, depois 24 h (até o dono redefinir o PIN).
+// Antes era sempre 15 min: ~480 tentativas por dia, PIN de 4 dígitos caía em ~10 dias.
+const LOCK_STEPS_MIN = [15, 60, 1440];
+// Administrador precisa de PIN de 6 dígitos ao criar ou redefinir (SEG-01). PINs de 4
+// que já existiam continuam valendo até serem redefinidos.
+const ADMIN_PIN_MIN_LEN = 6;
 
 // staff_id vem do uid() do frontend (base36) e entra no e-mail sintético da conta;
 // PIN tem teto porque o bcrypt ignora o que passa de 72 bytes.
@@ -20,6 +25,41 @@ const STAFF_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const PIN_MAX_LEN = 64;
 function validStaffId(v: string) { return STAFF_ID_RE.test(v); }
 function validPin(v: string) { return v.length >= 1 && v.length <= PIN_MAX_LEN; }
+
+function lockLabel(min: number) { return min >= 1440 ? "24 h" : min >= 60 ? `${min / 60} h` : `${min} min`; }
+
+// Bloqueia o colaborador pelo próximo degrau e registra no audit_log (aparece em Logs para o dono).
+async function lockStaff(staff: Record<string, unknown>, matchAttempts?: number) {
+  const count = ((staff.lock_count as number | null) ?? 0) + 1;
+  const minutes = LOCK_STEPS_MIN[Math.min(count, LOCK_STEPS_MIN.length) - 1];
+  let upd = admin.from("tenant_staff").update({
+    failed_attempts: 0,
+    lock_count: count,
+    locked_until: new Date(Date.now() + minutes * 60000).toISOString(),
+    updated_at: new Date().toISOString(),
+  }).eq("id", staff.id as string);
+  if (matchAttempts !== undefined) upd = upd.eq("failed_attempts", matchAttempts);
+  const { error } = await upd;
+  if (error) console.error("[staff-auth] falha ao gravar bloqueio:", error);
+  let name = String(staff.id);
+  try {
+    const { data } = await admin.auth.admin.getUserById(staff.auth_user_id as string);
+    const meta = data?.user?.user_metadata as { staff_name?: string } | undefined;
+    if (meta?.staff_name) name = meta.staff_name;
+  } catch { /* nome é só cosmético no log */ }
+  const { error: logErr } = await admin.from("audit_log").insert({
+    tenant_id: staff.tenant_id, actor_name: "Sistema", entity: "staff", entity_id: staff.id,
+    action: `PIN bloqueado por ${lockLabel(minutes)} após ${MAX_ATTEMPTS} tentativas erradas: ${name} (${count}º bloqueio seguido)`,
+    meta: { lock_count: count, minutes },
+  });
+  if (logErr) console.error("[staff-auth] falha ao registrar bloqueio no audit_log:", logErr);
+  return minutes;
+}
+function lockedMessage(minutes: number) {
+  return minutes >= 1440
+    ? "Muitas tentativas erradas. Bloqueado por 24 h ou até o dono redefinir o PIN."
+    : `Muitas tentativas erradas. Bloqueado por ${lockLabel(minutes)}.`;
+}
 
 // Erro interno vai pro log da função, nunca pro navegador.
 function internalError(publicMsg: string, detail?: unknown) {
@@ -94,12 +134,8 @@ Deno.serve(async (req) => {
       const prevCount = prevAttempts || 0;
       if (prevCount >= MAX_ATTEMPTS) {
         // Contador ficou no teto sem bloqueio gravado (a gravação do bloqueio falhou): bloqueia agora.
-        await admin.from("tenant_staff").update({
-          failed_attempts: 0,
-          locked_until: new Date(Date.now() + LOCK_MINUTES * 60000).toISOString(),
-          updated_at: new Date().toISOString(),
-        }).eq("id", staffId).eq("failed_attempts", prevCount);
-        return json({ error: `Muitas tentativas erradas. Bloqueado por ${LOCK_MINUTES} min.` }, 423);
+        const minutes = await lockStaff(staff, prevCount);
+        return json({ error: lockedMessage(minutes) }, 423);
       }
       const attempts = prevCount + 1;
       let reserve = admin.from("tenant_staff")
@@ -115,17 +151,13 @@ Deno.serve(async (req) => {
       const ok = bcrypt.compareSync(pin, staff.pin_hash as string);
       if (!ok) {
         if (attempts >= MAX_ATTEMPTS) {
-          await admin.from("tenant_staff").update({
-            failed_attempts: 0,
-            locked_until: new Date(Date.now() + LOCK_MINUTES * 60000).toISOString(),
-            updated_at: new Date().toISOString(),
-          }).eq("id", staffId);
-          return json({ error: `Muitas tentativas erradas. Bloqueado por ${LOCK_MINUTES} min.` }, 423);
+          const minutes = await lockStaff(staff);
+          return json({ error: lockedMessage(minutes) }, 423);
         }
         return json({ error: "PIN incorreto" }, 401);
       }
 
-      await admin.from("tenant_staff").update({ failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString() }).eq("id", staffId);
+      await admin.from("tenant_staff").update({ failed_attempts: 0, lock_count: 0, locked_until: null, updated_at: new Date().toISOString() }).eq("id", staffId);
 
       const { data: userRec, error: userErr } = await admin.auth.admin.getUserById(staff.auth_user_id as string);
       if (userErr || !userRec?.user?.email) {
@@ -164,6 +196,10 @@ Deno.serve(async (req) => {
       if (!["admin", "caixa", "cozinha"].includes(role)) return json({ error: "Perfil inválido" }, 400);
       if (!validStaffId(staffId)) return json({ error: "Identificador de colaborador inválido" }, 400);
       if (!validPin(pin)) return json({ error: "PIN inválido" }, 400);
+      // legacy_migration: "Migrar acesso seguro" leva os PINs que já existiam (de 4 dígitos).
+      if (role === "admin" && pin.length < ADMIN_PIN_MIN_LEN && body.legacy_migration !== true) {
+        return json({ error: `PIN de administrador precisa ter ${ADMIN_PIN_MIN_LEN} dígitos` }, 400);
+      }
       if (name.length > 120) return json({ error: "Nome muito longo" }, 400);
 
       const email = `staff-${staffId}@${tenantId}.commandah.internal`;
@@ -190,12 +226,17 @@ Deno.serve(async (req) => {
       const pin = String(body.pin || "");
       if (!staffId || !pin) return json({ error: "Campos obrigatórios faltando" }, 400);
       if (!validStaffId(staffId) || !validPin(pin)) return json({ error: "Dados inválidos" }, 400);
-      const { data: staff, error: selErr } = await admin.from("tenant_staff").select("tenant_id").eq("id", staffId).maybeSingle();
+      const { data: staff, error: selErr } = await admin.from("tenant_staff").select("tenant_id, role").eq("id", staffId).maybeSingle();
       if (selErr) return internalError("Falha ao consultar colaborador", selErr);
       if (!staff || staff.tenant_id !== tenantId) return json({ error: "Colaborador não encontrado" }, 404);
+      // Vale o perfil que o formulário está salvando agora (pode ser promoção ou rebaixamento).
+      const role = String(body.role || staff.role || "");
+      if (role === "admin" && pin.length < ADMIN_PIN_MIN_LEN) {
+        return json({ error: `PIN de administrador precisa ter ${ADMIN_PIN_MIN_LEN} dígitos` }, 400);
+      }
       const pinHash = bcrypt.hashSync(pin, 10);
       const { error: updErr } = await admin.from("tenant_staff").update({
-        pin_hash: pinHash, failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString(),
+        pin_hash: pinHash, failed_attempts: 0, lock_count: 0, locked_until: null, updated_at: new Date().toISOString(),
       }).eq("id", staffId);
       if (updErr) return internalError("Falha ao redefinir PIN", updErr);
       return json({ ok: true });
