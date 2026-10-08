@@ -896,6 +896,12 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 #toastRoot .toast{position:static;pointer-events:auto;display:flex;align-items:center;gap:10px}
 #toastRoot .toast-erro{background:var(--c-danger-soft);color:var(--c-text);border:1px solid var(--c-danger);border-left-width:4px}
 #toastRoot .toast-close{background:none;border:0;color:inherit;font-size:20px;line-height:1;min-width:32px;min-height:32px;cursor:pointer}
+/* UX-04: janela de confirmação do sistema (acima dos modais) */
+.confirm-backdrop{position:fixed;inset:0;z-index:400;background:rgba(15,20,30,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.confirm-box{background:var(--c-surface);color:var(--c-text);border-radius:var(--r-lg);padding:22px;width:100%;max-width:420px;box-shadow:var(--sh-2);display:grid;gap:10px}
+.confirm-box h3{margin:0;font-size:18px}
+.confirm-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px}
+.confirm-actions .btn{min-height:44px;padding:0 16px}
 .kcanceled-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:var(--r-pill);background:var(--c-danger);color:var(--c-text-inverse);font-size:.8em;font-weight:700}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
@@ -2522,13 +2528,42 @@ function openModal(title, bodyHtml, wide, locked=false){
   document.getElementById('modalCloseBtn').onclick = closeModal;
   document.getElementById('modalOverlay').addEventListener('click', e=>{ if(e.target.id==='modalOverlay') closeModal(); });}
 if(typeof document.addEventListener==='function')document.addEventListener('click',event=>{const button=event.target.closest&&event.target.closest('.question-record-modal .record-tabs button');if(!button)return;const modal=button.closest('.question-record-modal'),buttons=[...modal.querySelectorAll('.record-tabs button')],responses=buttons.indexOf(button)===1;modal.classList.toggle('question-tab-responses',responses);buttons.forEach((b,i)=>b.classList.toggle('active',responses?i===1:i===0));});
+/* UX-04: confirmação do próprio sistema, numa camada acima dos modais (não fecha a janela
+   aberta). Título com o verbo, botão de perigo dizendo a ação e botão neutro ("Manter")
+   já focado: Enter e Esc nunca confirmam por engano. Na caixinha do navegador o botão
+   "Cancelar" de "Cancelar este agendamento?" queria dizer NÃO cancelar. */
+function askConfirm(opts){
+  const o = Object.assign({ title:'Confirmar?', message:'', confirmLabel:'Confirmar', cancelLabel:'Manter', danger:true }, opts||{});
+  return new Promise(resolve=>{
+    const old = document.getElementById('confirmRoot'); if(old) old.remove();
+    const root = document.createElement('div');
+    root.id = 'confirmRoot'; root.className = 'confirm-backdrop';
+    root.innerHTML = `<div class="confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMsg"><h3 id="confirmTitle"></h3><p id="confirmMsg" class="sub"></p><div class="confirm-actions"><button type="button" class="btn" data-a="no"></button><button type="button" class="btn ${o.danger?'btn-danger-solid':'btn-primary'}" data-a="yes"></button></div></div>`;
+    root.querySelector('#confirmTitle').textContent = o.title;
+    root.querySelector('#confirmMsg').textContent = o.message;
+    root.querySelector('#confirmMsg').hidden = !o.message;
+    root.querySelector('[data-a="no"]').textContent = o.cancelLabel;
+    root.querySelector('[data-a="yes"]').textContent = o.confirmLabel;
+    const done = v=>{ document.removeEventListener('keydown', onKey, true); root.remove(); resolve(v); };
+    const onKey = e=>{ if(e.key==='Escape'){ e.preventDefault(); e.stopImmediatePropagation(); done(false); } };
+    root.addEventListener('click', e=>{ const b = e.target.closest && e.target.closest('[data-a]'); if(b) done(b.dataset.a==='yes'); else if(e.target===root) done(false); });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(root);
+    root.querySelector('[data-a="no"]').focus();
+  });
+}
 function closeModal(){
   const root=document.getElementById('modalRoot');
   if(root.dataset.locked==='true') return;
   if(root.dataset.confirmPdv==='true'){
-    if(!confirm('Deseja cancelar o pedido em andamento?')) return;
-    root.dataset.confirmPdv='false';
-    currentSaleDraft=null;
+    const shown = root.firstElementChild;
+    askConfirm({ title:'Cancelar o pedido em andamento?', message:'Os itens deste pedido não serão salvos.', confirmLabel:'Cancelar pedido', cancelLabel:'Continuar pedido' }).then(ok=>{
+      if(!ok) return;
+      root.dataset.confirmPdv='false';
+      currentSaleDraft=null;
+      if(root.firstElementChild===shown) root.innerHTML=''; // não apaga outra janela aberta enquanto perguntava
+    });
+    return;
   }
   root.innerHTML='';
 }
@@ -3967,9 +4002,9 @@ async function savePdvQuickClient(){const name=document.getElementById('pdvNewCl
 function togglePdvOrderOptions(force){const el=document.getElementById('pdvOrderOptions');if(el)el.classList.toggle('visible',force===undefined?!el.classList.contains('visible'):!!force);}
 function recalculatePdvOrder(){renderDraftItems();togglePdvOrderOptions(false);toast('Pedido recalculado.');}
 function printPdvConsumption(){window.print();}
-function deletePdvDraft(){if(!confirm('Excluir o pedido em andamento?'))return;document.getElementById('modalRoot').dataset.confirmPdv='false';currentSaleDraft=null;closeModal();renderBalcao();}
+async function deletePdvDraft(){if(!await askConfirm({title:'Excluir o pedido em andamento?',message:'Os itens deste pedido serão descartados.',confirmLabel:'Excluir pedido'}))return;document.getElementById('modalRoot').dataset.confirmPdv='false';currentSaleDraft=null;closeModal();renderBalcao();}
 function openPdvTransferOptions(){togglePdvOrderOptions(false);openModal('Trocar pedido para...',`<p class="sub">Escolha o novo tipo de atendimento.</p><div class="grid2"><button class="op-btn" onclick="toast('Use Mesas / Comandas para vincular este atendimento a uma mesa.')">Mesa / Comanda</button><button class="op-btn" onclick="toast('Use Delivery para informar cliente e endereço de entrega.')">Delivery</button></div><button class="op-btn" style="margin-top:14px" onclick="closeModal()">Cancelar</button>`);document.getElementById('modalRoot').dataset.confirmPdv='true';}
-function clearPdvDraft(){if(!currentSaleDraft.items.length)return;if(!confirm('Remover todos os itens ainda não pagos?'))return;currentSaleDraft.items=[];renderDraftItems();}
+async function clearPdvDraft(){if(!currentSaleDraft.items.length)return;if(!await askConfirm({title:'Remover todos os itens?',message:'Os itens ainda não pagos saem deste pedido.',confirmLabel:'Remover itens'}))return;currentSaleDraft.items=[];renderDraftItems();}
 function editSelectedPdvSale(){
   if(!selectedPdvSaleId){ toast('Selecione um pedido para editar.'); return; }
   const s=state.sales.find(x=>x.id===selectedPdvSaleId); if(!s) return;
@@ -4406,7 +4441,7 @@ if(typeof document.addEventListener==='function')document.addEventListener('clic
 async function saveDeliveryOrder(id){const existing=id?state.sales.find(s=>s.id===id):null;if(!currentSaleDraft.items.length){toast('Adicione ao menos um produto.');return;}const address=document.getElementById('delAddress').value.trim(),deliveryLocal=document.getElementById('delLocal')?.value||'',customer=document.getElementById('delCustomer').value.trim(),areaId=document.getElementById('delArea')?.value||null,area=(state.settings.deliveryAreas||[]).find(a=>a.id===areaId),itemsValue=currentSaleDraft.items.reduce((s,i)=>s+Number(i.price||0)*Number(i.qty||0),0);if(!customer){toast('Informe o cliente.');return;}if(!address&&!deliveryLocal){toast('Informe o local de entrega no clube ou o endereço.');return;}if(area&&itemsValue<Number(area.minimum||0)){toast('O pedido não atingiu o valor mínimo de '+fmt(area.minimum)+' para esta área.');return;}const unsent=currentSaleDraft.items.filter(i=>!i.sent),saleId=existing?existing.id:uid();if(unsent.length&&!await sendItemsToKitchen(saleId,unsent,customer,'delivery',deliveryLocal))return;unsent.forEach(i=>i.sent=true);const data={type:'delivery',memberId:window.selectedDeliveryMemberId||null,customerName:customer,address,deliveryLocal,deliveryReference:document.getElementById('delReference').value.trim(),deliveryAreaId:areaId,estimatedMinutes:area?Number(area.minutes)||0:0,notes:document.getElementById('delNotes').value.trim(),driver:document.getElementById('delDriver').value.trim(),deliveryFee:Math.max(0,Number(document.getElementById('delFee').value)||0),items:currentSaleDraft.items,total:draftTotal(),deliveryStatus:existing?(existing.deliveryStatus||'iniciado'):'iniciado',deliveryStatusAt:new Date().toISOString()};if(existing)Object.assign(existing,data);else{let orderNumber;try{orderNumber=await nextOrderNumber();}catch(e){return;}state.sales.push({id:saleId,orderNumber,status:'open',payments:[],operatorId:currentUser.id,operatorName:currentUser.name,openedAt:new Date().toISOString(),...data});}save('sales');closeModal();selectedDeliveryId=saleId;renderAll();toast(existing?'Delivery atualizado.':'Pedido Delivery criado e enviado para preparo.');}
 function setDeliveryStatus(id,status){if(!id){toast('Crie o pedido antes de alterar o status.');return;}const s=state.sales.find(x=>x.id===id);if(!s||s.status==='closed')return;s.deliveryStatus=status;s.deliveryStatusAt=new Date().toISOString();save('sales');logAction('Delivery #'+(s.orderNumber||'')+' — '+deliveryStatusLabel(status));openDeliveryModal(id);renderAll();}
 function openDeliveryPayment(id){const s=state.sales.find(x=>x.id===id);if(!s)return;if(!state.cashSession||state.cashSession.status!=='open'){toast('Abra o caixa antes de receber o pedido Delivery.');return;}currentSaleDraft={items:JSON.parse(JSON.stringify(s.items||[])),memberId:s.memberId||null,customerName:s.customerName||'',type:'delivery',deliveryFee:Number(s.deliveryFee)||0};openPaymentModal('delivery',id);}
-async function cancelDelivery(id){const s=state.sales.find(x=>x.id===id);if(!s||s.status==='closed')return;if(!confirm('Cancelar este Delivery e devolver os insumos enviados ao estoque?'))return;(s.items||[]).filter(i=>i.sent).forEach(it=>{const p=state.products.find(x=>x.id===it.productId);(p&&p.recipe||[]).forEach(r=>{const ins=state.insumos.find(x=>x.id===r.insumoId);if(ins){const qty=(Number(r.qty)||0)*(Number(it.qty)||0),before=Number(ins.stock)||0;ins.stock+=qty;state.stockMovements.unshift({id:uid(),insumoId:ins.id,name:ins.name,unit:ins.unit,type:'entrada',operation:'Estorno de Delivery cancelado',before,qty,after:ins.stock,user:currentUser.name,at:new Date().toISOString()});}});});s.status='closed';s.deliveryStatus='cancelado';s.deliveryStatusAt=new Date().toISOString();s.closedAt=s.deliveryStatusAt;await OrdersStore.cancelBySale(id);save('insumos');save('stockMovements');save('sales');logAction('Delivery #'+(s.orderNumber||'')+' cancelado');closeModal();renderAll();toast('Delivery cancelado e estoque devolvido.');}
+async function cancelDelivery(id){const s=state.sales.find(x=>x.id===id);if(!s||s.status==='closed')return;if(!await askConfirm({title:'Cancelar este delivery?',message:'Os insumos já enviados voltam ao estoque.',confirmLabel:'Cancelar delivery',cancelLabel:'Manter delivery'}))return;(s.items||[]).filter(i=>i.sent).forEach(it=>{const p=state.products.find(x=>x.id===it.productId);(p&&p.recipe||[]).forEach(r=>{const ins=state.insumos.find(x=>x.id===r.insumoId);if(ins){const qty=(Number(r.qty)||0)*(Number(it.qty)||0),before=Number(ins.stock)||0;ins.stock+=qty;state.stockMovements.unshift({id:uid(),insumoId:ins.id,name:ins.name,unit:ins.unit,type:'entrada',operation:'Estorno de Delivery cancelado',before,qty,after:ins.stock,user:currentUser.name,at:new Date().toISOString()});}});});s.status='closed';s.deliveryStatus='cancelado';s.deliveryStatusAt=new Date().toISOString();s.closedAt=s.deliveryStatusAt;await OrdersStore.cancelBySale(id);save('insumos');save('stockMovements');save('sales');logAction('Delivery #'+(s.orderNumber||'')+' cancelado');closeModal();renderAll();toast('Delivery cancelado e estoque devolvido.');}
 function openDeliveryReadOnly(s){openModal('Delivery #'+(s.orderNumber||'—'),`<div class="panel"><p><b>Cliente:</b> ${h(s.customerName||'—')}</p><p><b>Endereço:</b> ${h(s.address||'—')}</p><p><b>Entregador:</b> ${h(s.driver||'—')}</p><p><b>Status:</b> ${deliveryStatusLabel(s.deliveryStatus)}</p><p><b>Total:</b> ${fmt(s.total)}</p><p><b>Finalizado:</b> ${reportDateTime(s.closedAt)}</p></div>`);}
 
 /* ============ COMANDAS ============ */
@@ -5348,7 +5383,7 @@ function openComandaItemTransfer(saleId){toggleComandaOrderOptions(false);const 
 function confirmComandaItemTransfer(saleId){const targetId=document.getElementById('transferTargetSale').value,mode=document.getElementById('transferMode').value,target=state.sales.find(x=>x.id===targetId);if(!target){toast('Selecione um pedido de destino.');return;}const unsent=currentSaleDraft.items.filter(i=>!i.sent);if(!unsent.length){toast('Não há itens novos (ainda não enviados) para transferir ou copiar.');return;}target.items=[...(target.items||[]),...unsent.map(i=>({...i}))];target.total=saleTotal(target.items);if(mode==='move'){currentSaleDraft.items=currentSaleDraft.items.filter(i=>i.sent);const s=state.sales.find(x=>x.id===saleId);if(s){s.items=currentSaleDraft.items;s.total=draftTotal();}}save('sales');closeModal();renderAll();toast(mode==='move'?'Itens transferidos.':'Itens copiados.');logAction('Itens '+(mode==='move'?'transferidos':'copiados')+' entre pedidos');if(mode==='move')openComanda(saleId,true);}
 function printComandaConsumption(saleId){toggleComandaOrderOptions(false);window.print();}
 function recalculateComandaOrder(saleId){toggleComandaOrderOptions(false);renderDraftItems();toast('Pedido recalculado.');}
-function deleteComandaOrder(saleId){toggleComandaOrderOptions(false);const s=state.sales.find(x=>x.id===saleId);if(!s)return;if((s.items||[]).some(i=>i.sent)){toast('Este pedido já tem itens enviados à cozinha e não pode ser excluído. Use o fechamento normal.');return;}if(!confirm('Excluir este pedido? Essa ação não pode ser desfeita.'))return;state.sales=state.sales.filter(x=>x.id!==saleId);save('sales');closeModal();renderAll();toast('Pedido excluído.');logAction('Pedido excluído: '+saleId);}
+async function deleteComandaOrder(saleId){toggleComandaOrderOptions(false);const s=state.sales.find(x=>x.id===saleId);if(!s)return;if((s.items||[]).some(i=>i.sent)){toast('Este pedido já tem itens enviados à cozinha e não pode ser excluído. Use o fechamento normal.');return;}if(!await askConfirm({title:'Excluir este pedido?',message:'Essa ação não pode ser desfeita.',confirmLabel:'Excluir pedido'}))return;state.sales=state.sales.filter(x=>x.id!==saleId);save('sales');closeModal();renderAll();toast('Pedido excluído.');logAction('Pedido excluído: '+saleId);}
 
 /* Comandas nominais: exibe somente atendimentos abertos, sem grade fixa numerada. */
 function comandaPersonData(s){const member=s.memberId?state.members.find(m=>m.id===s.memberId):null,person=member&&member.name||s.customerName||'Sem identificação',quota=member&&member.code?String(member.code):'';return{member,person,quota,label:quota?person+' — Cota '+quota:person};}
@@ -5497,8 +5532,8 @@ function gcRenderCategories(){
   if(!member){ gcSetRequester('guest'); document.getElementById('gcRequesterSel').value='guest'; }
   else if(gcRequester) document.getElementById('gcRequesterSel').value = gcRequester.key||'';
 }
-function gcBackFromCategories(){
-  if(gcCart.length && !confirm('Você tem itens ainda não confirmados neste pedido. Sair mesmo assim?')) return;
+async function gcBackFromCategories(){
+  if(gcCart.length && !await askConfirm({title:'Sair sem enviar o pedido?',message:'Você tem itens ainda não confirmados neste pedido.',confirmLabel:'Sair sem enviar',cancelLabel:'Continuar pedido'})) return;
   gcRenderHome();
 }
 function gcSetRequester(value){
@@ -5588,8 +5623,8 @@ function gcRenderReview(){
     <div class="gc-footer"><button class="gc-btn-back" onclick="gcRenderProducts()">‹ Voltar</button><button class="gc-btn-review" onclick="gcConfirmOrder()">✓ Enviar pedido</button></div>`;
   gcRenderReviewList();
 }
-function gcDiscardOrder(){
-  if(!confirm('Descartar este pedido? Os itens ainda não foram enviados pra cozinha.')) return;
+async function gcDiscardOrder(){
+  if(!await askConfirm({title:'Descartar este pedido?',message:'Os itens ainda não foram enviados para a cozinha.',confirmLabel:'Descartar pedido'})) return;
   gcCart=[]; gcRenderProducts();
 }
 function gcRenderReviewList(){
@@ -5767,8 +5802,8 @@ async function sendScheduledToKitchen(id){
   s.items.forEach(i=>i.sent=true);
   s.status='enviado';s.statusAt=new Date().toISOString();s.statusHistory=s.statusHistory||[];s.statusHistory.push({status:'Enviado à cozinha',at:s.statusAt,user:currentUser.name}); save('scheduled');logAction('Pedido agendado #'+(s.orderNumber||'')+' enviado à cozinha');renderAll(); toast('Pedido enviado para a cozinha.');
 }
-function cancelScheduled(id){
-  if(!confirm('Cancelar este agendamento?')) return;
+async function cancelScheduled(id){
+  if(!await askConfirm({title:'Cancelar este agendamento?',confirmLabel:'Cancelar agendamento',cancelLabel:'Manter agendamento'})) return;
   const s = state.scheduled.find(x=>x.id===id); if(!s) return;
   s.status='cancelado';s.statusAt=new Date().toISOString();s.statusHistory=s.statusHistory||[];s.statusHistory.push({status:'Cancelado',at:s.statusAt,user:currentUser.name}); save('scheduled');logAction('Pedido agendado #'+(s.orderNumber||'')+' cancelado');renderAll();
 }
