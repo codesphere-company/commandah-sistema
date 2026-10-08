@@ -2,8 +2,18 @@ name: Backup Supabase DB
 
 # Backup noturno do schema public (members, app_data, print_jobs, audit_log etc.)
 # + dos logins (auth.users / auth.identities) do Postgres do Supabase. O repo eh
-# publico (GitHub Pages), entao o dump NUNCA vai pra dentro do git - fica so
-# como artifact privado do Actions, que expira sozinho depois de retention-days.
+# publico (GitHub Pages), entao o dump NUNCA vai pra dentro do git.
+#
+# ATENCAO (auditoria 2026-10-07): em repo PUBLICO, artifact do Actions NAO eh
+# privado - qualquer pessoa logada no GitHub consegue baixar. Por isso os dumps
+# sobem CRIPTOGRAFADOS (gpg, AES256) com a senha do secret BACKUP_PASSPHRASE.
+# Sem esse secret o workflow falha antes de tocar na producao. Guarde a mesma
+# senha num gerenciador de senhas: sem ela o backup nao abre.
+#
+# Para abrir um backup baixado (Actions -> run -> Artifacts):
+#   gpg --decrypt public-AAAAMMDDTHHMMSSZ.dump.gpg > public.dump
+#   gpg --decrypt auth-AAAAMMDDTHHMMSSZ.dump.gpg  > auth.dump
+# (o gpg pede a senha). Depois siga a restauracao descrita abaixo.
 #
 # Depois do upload, o mesmo job RESTAURA os dois arquivos num Postgres
 # temporario (service container) e compara a contagem de linhas de cada
@@ -94,8 +104,14 @@ jobs:
             echo "Secret SUPABASE_DB_URL nao configurado (Settings > Secrets and variables > Actions)." >&2
             exit 1
           fi
+          # Sem a senha o dump subiria aberto num repo publico: para aqui.
+          if [ "${#BACKUP_PASSPHRASE}" -lt 20 ]; then
+            echo "::error::Secret BACKUP_PASSPHRASE ausente ou curto (minimo 20 caracteres). Sem ele o backup nao pode ser publicado criptografado." >&2
+            exit 1
+          fi
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
 
       - name: Dump do schema public e dos logins
         # --no-acl saiu: sem os GRANT/REVOKE, uma restauracao voltava com o
@@ -118,14 +134,34 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
-      - name: Upload como artifact privado
+      - name: Criptografar os dumps
+        # Artifact de repo publico pode ser baixado por qualquer conta do
+        # GitHub: so o .gpg sobe. A senha vai por arquivo (nao aparece em ps).
+        # Abre cada .gpg de volta e compara com o original, para nao guardar
+        # backup que nao abre.
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$BACKUP_PASSPHRASE" > "$RUNNER_TEMP/pass"
+          for f in public-*.dump auth-*.dump; do
+            gpg --batch --yes --pinentry-mode loopback --passphrase-file "$RUNNER_TEMP/pass" \
+              --symmetric --cipher-algo AES256 --output "$f.gpg" "$f"
+            gpg --batch --quiet --pinentry-mode loopback --passphrase-file "$RUNNER_TEMP/pass" \
+              --decrypt "$f.gpg" | cmp - "$f"
+            echo "ok $f.gpg"
+          done
+          rm -f "$RUNNER_TEMP/pass"
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+
+      - name: Upload do backup criptografado
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: supabase-backup
+          name: supabase-backup-criptografado
           if-no-files-found: error
           path: |
-            public-*.dump
-            auth-*.dump
+            public-*.dump.gpg
+            auth-*.dump.gpg
           retention-days: 90
 
       - name: Restaurar num Postgres temporario
