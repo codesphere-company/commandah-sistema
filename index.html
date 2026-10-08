@@ -867,6 +867,10 @@ body.tv-mode .kbtn-ready{width:110px!important;font-size:20px!important;backgrou
 .consumer-modal-actions button.consumer-delete{border:1px solid var(--c-danger);background:var(--c-surface);color:var(--c-danger);border-radius:var(--r-md);min-height:40px}
 .consumer-modal-actions button.consumer-delete:hover{background:var(--c-danger-soft)}
 .consumer-modal-actions button:disabled{background:var(--c-surface-3);border-color:var(--c-border);color:var(--c-text-3);cursor:not-allowed}
+/* OP-09: item cancelado na comanda continua visível no Monitor, riscado, para a cozinha não preparar */
+.kitem-canceled{color:var(--c-danger)}
+.kitem-canceled s{text-decoration-thickness:2px}
+.kcanceled-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:var(--r-pill);background:var(--c-danger);color:var(--c-text-inverse);font-size:.8em;font-weight:700}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
@@ -3479,7 +3483,7 @@ async function sendItemsToKitchen(saleId, items, who, source, local){
   if(!await consumeInsumosForItems(items)){ toast('Estoque insuficiente para enviar todos os itens. Revise as quantidades.'); return false; }
   const monitorItems=items.filter(i=>{const product=state.products.find(p=>p.id===i.productId);const estacao=product&&product.estacao?product.estacao:'cozinha';return saidaTemTela(estacao);});
   if(!monitorItems.length) return true;
-  const order = { id:uid(), saleId, who, local: local||'', items: monitorItems.map(i=>({productId:i.productId,name:i.name,qty:i.qty,price:i.price,notes:i.notes||'',customization:i.customization?JSON.parse(JSON.stringify(i.customization)):null})),
+  const order = { id:uid(), saleId, who, local: local||'', items: monitorItems.map(i=>({productId:i.productId,batchId:i.batchId||null,name:i.name,qty:i.qty,price:i.price,notes:i.notes||'',customization:i.customization?JSON.parse(JSON.stringify(i.customization)):null})),
     status:'pendente', statusHistory:[], createdAt:new Date().toISOString(), source };
   try{
     await OrdersStore.create(order);
@@ -3579,6 +3583,7 @@ function renderKitchenActiveFeed(){
         <div class="ktime">${timeFmt(o.createdAt)} · ${o.source==='cardapio'?'Cardápio digital':o.source==='balcao'?'Balcão':o.source==='agendamento'?'Agendamento':o.source==='totem'?'Totem':o.source==='pedido-avulso'?'Novo Pedido':'Comanda'}</div>
         <ul>${items.map(({item,idx})=>{
           const extras=kitchenItemExtras(item);
+          if(item.canceled) return `<li data-idx="${idx}" class="kitem-canceled"><s>${item.qty}x ${h(item.name)}</s> <span class="kcanceled-tag">Cancelado</span></li>`;
           const label=`${item.qty}x ${h(item.name)}`;
           return `<li data-idx="${idx}">${showCheck?`<label class="kcheck" onclick="event.stopPropagation()"><input type="checkbox" class="kitem-check" data-idx="${idx}"> ${label}</label>`:label}${extras.length?`<ul class="kextras">${extras.map(e=>`<li>+ ${h(e)}</li>`).join('')}</ul>`:''}</li>`;
         }).join('')}</ul>
@@ -3605,6 +3610,7 @@ function renderKitchenReadyFeed(){
         <div class="ktime">${o.source==='cardapio'?'Cardápio digital':o.source==='balcao'?'Balcão':o.source==='agendamento'?'Agendamento':o.source==='totem'?'Totem':o.source==='pedido-avulso'?'Novo Pedido':'Comanda'}</div>
         <ul>${items.map(item=>{
           const extras=kitchenItemExtras(item);
+          if(item.canceled) return `<li class="kitem-canceled"><s>${item.qty}x ${h(item.name)}</s> <span class="kcanceled-tag">Cancelado</span></li>`;
           return `<li>${item.qty}x ${h(item.name)}${extras.length?`<ul class="kextras">${extras.map(e=>`<li>+ ${h(e)}</li>`).join('')}</ul>`:''}</li>`;
         }).join('')}</ul>
         <div class="kdone-badge">✓ Pronto às ${timeFmt(kitchenReadyAt(o))}</div>
@@ -3625,7 +3631,8 @@ async function finalizeKitchenItems(orderId){
   }
   const items = o.items.map((item,idx)=> idxs.includes(idx) ? {...item, ready:true} : item);
   await OrdersStore.setItems(orderId, items);
-  if(items.every(item=>item.ready)){
+  // Item cancelado na comanda não fica pronto nunca: não pode travar o pedido (OP-09).
+  if(items.every(item=>item.ready||item.canceled)){
     await OrdersStore.advance(orderId, 'pronto');
     toast('Pedido pronto.');
   } else {
@@ -4937,10 +4944,25 @@ async function confirmCancelComandaItem(){
   s.items = currentSaleDraft.items;
   s.total = saleTotal(s.items);
   save('sales');
+  if(item.sent) await markKitchenItemCanceled(saleId, item);
   logAction('Item cancelado: '+item.name+' x'+item.qty+' — pedido #'+(s.orderNumber||saleId)+(reason?' — motivo: '+reason:''));
   toast('Item cancelado e estoque devolvido.');
   cancelItemIdx = null;
   closeModal(); openComanda(saleId, true); renderComandas();
+}
+confirmCancelComandaItem = singleFlight('confirmCancelComandaItem', confirmCancelComandaItem);
+// OP-09: marca no Monitor o item cancelado na comanda, para a cozinha não preparar.
+// Acha pelo lote (batchId); pedidos de antes desse vínculo, pelo produto, nome e quantidade.
+async function markKitchenItemCanceled(saleId, item){
+  const orders = state.orders.filter(o=>o.saleId===saleId && o.status!=='entregue');
+  const same = x=>!x.canceled && x.productId===item.productId;
+  let target = null, pos = -1;
+  for(const o of orders){ const k=(o.items||[]).findIndex(x=>same(x) && item.batchId && x.batchId===item.batchId); if(k>-1){ target=o; pos=k; break; } }
+  if(!target) for(const o of orders){ const k=(o.items||[]).findIndex(x=>same(x) && !x.batchId && x.name===item.name && Number(x.qty)===Number(item.qty)); if(k>-1){ target=o; pos=k; break; } }
+  if(!target) return;
+  const items = target.items.map((x,k)=>k===pos?{...x, canceled:true, canceledAt:new Date().toISOString()}:x);
+  try{ await OrdersStore.setItems(target.id, items); renderAll(); }
+  catch(e){ console.error('Falha ao marcar cancelamento no Monitor', e); toast('Item cancelado, mas o Monitor não foi avisado. Avise a cozinha.'); }
 }
 let cancelComandaSaleId = null;
 function openCancelComanda(saleId){
@@ -4980,6 +5002,7 @@ async function confirmCancelComanda(){
   cancelComandaSaleId = null;
   closeModal(); renderAll();
 }
+confirmCancelComanda = singleFlight('confirmCancelComanda', confirmCancelComanda);
 function renderComandaQuickSearch(q){
   const el = document.getElementById('comandaQuickSearchResults'); if(!el) return;
   const query = String(q||'').trim().toLowerCase();
