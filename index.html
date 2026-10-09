@@ -1027,6 +1027,32 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .cash-over{color:var(--c-warning);font-weight:700}
 .cash-close-actions button.primary{background:var(--c-primary);border-color:var(--c-primary);color:var(--c-text-inverse);font-weight:700}
 @media (max-width:600px){.cash-count-grid{grid-template-columns:1fr}}
+/* PROD-07: extrato por período e saldos em atraso */
+.finance-top.fiado-top{height:auto!important;min-height:74px;flex-wrap:wrap;padding:10px 14px!important;row-gap:10px}
+.fiado-top .finance-actions{flex-wrap:wrap;gap:8px;margin-left:auto}
+.fiado-top .finance-actions .op-btn{white-space:nowrap}
+.modal.aging-modal,.modal.statement-modal{width:min(860px,calc(100vw - 32px))!important;max-width:none!important}
+.aging-body,.statement-body{display:grid;gap:12px}
+.aging-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.aging-chip{border:1px solid var(--c-border);border-left:5px solid var(--c-border-strong);border-radius:var(--r-md);padding:10px 12px;display:grid;gap:2px;background:var(--c-surface)}
+.aging-chip span{font-size:13px;color:var(--c-text-2)}
+.aging-chip b{font-size:20px}
+.aging-chip small{color:var(--c-text-3)}
+.aging-chip.ok{border-left-color:var(--c-success)}
+.aging-chip.warn{border-left-color:var(--c-warning-solid)}
+.aging-chip.late{border-left-color:var(--c-danger)}
+.aging-grid,.statement-grid{max-height:min(52vh,460px);overflow:auto}
+.aging-grid tr{cursor:pointer}
+.aging-grid tr.aging-late td:last-child{color:var(--c-danger);font-weight:700}
+.aging-grid tr.aging-warn td:last-child{color:var(--c-warning);font-weight:700}
+.statement-filter{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.statement-filter .field{margin:0}
+.statement-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.statement-sum div{background:var(--c-surface-2);border-radius:var(--r-md);padding:10px 12px;display:grid;gap:2px}
+.statement-sum span{font-size:12px;color:var(--c-text-2)}
+.statement-sum b{font-size:17px}
+.statement-sum .statement-final{background:var(--c-primary-soft)}
+@media (max-width:700px){.aging-chips,.statement-sum{grid-template-columns:1fr 1fr}}
 .kcanceled-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:var(--r-pill);background:var(--c-danger);color:var(--c-text-inverse);font-size:.8em;font-weight:700}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
@@ -7381,7 +7407,79 @@ function editSelectedCardBrand(){const item=state.cardBrands.find(x=>x.id===sele
 function updatePaymentBrandLink(brandId,key,value){state.settings.paymentBrandLinks=state.settings.paymentBrandLinks||{};const links=state.settings.paymentBrandLinks[selectedPaymentMethodId]||(state.settings.paymentBrandLinks[selectedPaymentMethodId]={});const link=links[brandId]||(links[brandId]={});link[key]=key==='enabled'?Boolean(value):Math.max(0,Number(value)||0);save('settings');}
 /* ============ CONTA CORRENTE (FIADO) — FLUXO COMPLETO ============ */
 let fiadoFilters={hideClients:false,showZero:true,showArchived:true};
-function renderFiado(el){const all=state.members||[],customers=all.filter(m=>(fiadoFilters.showZero||Number(m.debt||0)!==0)&&(fiadoFilters.showArchived||!m.archived)),selected=customers.find(m=>m.id===window.selectedFiadoMemberId)||customers[0];if(selected)window.selectedFiadoMemberId=selected.id;const customerRows=customers.length&&!fiadoFilters.hideClients?customers.map(m=>`<tr class="${selected&&selected.id===m.id?'selected':''}" onclick="window.selectedFiadoMemberId='${m.id}';renderContas()"><td>${h(m.name)}</td><td>${fmt(m.debt)}</td><td>${m.archived?'Arquivado':Number(m.debt)>0?'Devedor':Number(m.debt)<0?'Crédito':'Regular'}</td></tr>`).join(''):'<tr><td colspan="3" class="empty" style="height:380px">Nenhum cliente para mostrar.</td></tr>',history=selected&&Array.isArray(selected.debtHistory)?selected.debtHistory:[],historyRows=history.length?history.map(x=>`<tr class="${x.reversed?'reversed':''}"><td>${h(x.at?new Date(x.at).toLocaleString('pt-BR'):'—')}</td><td>${h(x.reason||'Lançamento')}${x.reversed?' (Estornado)':''}</td><td>${x.type==='debt'?fmt(x.value):''}</td><td>${x.type==='payment'?fmt(x.value):''}</td><td title="${h(x.info||x.user||'')}">ⓘ</td><td>${x.reversed||!hasPerm('contas')?'':`<button class="op-mini" onclick="reverseFiadoEntry('${selected.id}','${x.id}')">↩</button>`}</td></tr>`).join(''):'<tr><td colspan="6" class="empty" style="height:340px">Nenhum lançamento para este cliente.</td></tr>';el.innerHTML=`<section class="finance-page"><div class="finance-top fiado-top"><div class="op-search"><input id="fiadoSearch" placeholder="Pesquisar cliente..."></div><label><input type="checkbox" ${fiadoFilters.hideClients?'checked':''} onchange="fiadoFilters.hideClients=this.checked;renderContas()"> Ocultar clientes</label><label><input type="checkbox" ${fiadoFilters.showZero?'checked':''} onchange="fiadoFilters.showZero=this.checked;renderContas()"> Saldo Zerado</label><label><input type="checkbox" ${fiadoFilters.showArchived?'checked':''} onchange="fiadoFilters.showArchived=this.checked;renderContas()"> Arquivados</label><div class="finance-actions"><button class="op-btn" onclick="toggleFiadoOptions(this)">••• &nbsp; Opções &nbsp; ▾</button>${hasPerm('contas')?`<button class="op-btn" onclick="openFiadoEntry('debt')" ${selected?'':'disabled'}>⊖ &nbsp; Registrar Dívida</button>`:''}<button class="op-btn" onclick="openFiadoEntry('payment')" ${selected&&Number(selected.debt)>0?'':'disabled'}>⊕ &nbsp; Registrar Pagamento</button><button class="op-btn" onclick="${selected?`openWhatsAppCollection('${selected.id}')`:''}" ${selected&&Number(selected.debt)>0?'':'disabled'}>📱 &nbsp; Cobrar via WhatsApp</button></div></div><div class="fiado-grids"><div class="finance-grid"><table><thead><tr><th>Cliente</th><th>Saldo Atual</th><th>Situação</th></tr></thead><tbody id="fiadoCustomers">${customerRows}</tbody></table></div><div class="finance-grid fiado-history"><table><thead><tr><th>Data</th><th>Histórico</th><th>Fiado</th><th>Pago</th><th>Info</th><th>Estornar</th></tr></thead><tbody>${historyRows}</tbody></table></div></div><footer class="op-footer"><span>Clientes=${customers.length}</span><span>Saldo total=${fmt(customers.reduce((s,m)=>s+Number(m.debt||0),0))}</span></footer></section>`;document.getElementById('fiadoSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#fiadoCustomers tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none');};}
+function renderFiado(el){const all=state.members||[],customers=all.filter(m=>(fiadoFilters.showZero||Number(m.debt||0)!==0)&&(fiadoFilters.showArchived||!m.archived)),selected=customers.find(m=>m.id===window.selectedFiadoMemberId)||customers[0];if(selected)window.selectedFiadoMemberId=selected.id;const customerRows=customers.length&&!fiadoFilters.hideClients?customers.map(m=>`<tr class="${selected&&selected.id===m.id?'selected':''}" onclick="window.selectedFiadoMemberId='${m.id}';renderContas()"><td>${h(m.name)}</td><td>${fmt(m.debt)}</td><td>${m.archived?'Arquivado':Number(m.debt)>0?'Devedor':Number(m.debt)<0?'Crédito':'Regular'}</td></tr>`).join(''):'<tr><td colspan="3" class="empty" style="height:380px">Nenhum cliente para mostrar.</td></tr>',history=selected&&Array.isArray(selected.debtHistory)?selected.debtHistory:[],historyRows=history.length?history.map(x=>`<tr class="${x.reversed?'reversed':''}"><td>${h(x.at?new Date(x.at).toLocaleString('pt-BR'):'—')}</td><td>${h(x.reason||'Lançamento')}${x.reversed?' (Estornado)':''}</td><td>${x.type==='debt'?fmt(x.value):''}</td><td>${x.type==='payment'?fmt(x.value):''}</td><td title="${h(x.info||x.user||'')}">ⓘ</td><td>${x.reversed||!hasPerm('contas')?'':`<button class="op-mini" onclick="reverseFiadoEntry('${selected.id}','${x.id}')">↩</button>`}</td></tr>`).join(''):'<tr><td colspan="6" class="empty" style="height:340px">Nenhum lançamento para este cliente.</td></tr>';el.innerHTML=`<section class="finance-page"><div class="finance-top fiado-top"><div class="op-search"><input id="fiadoSearch" placeholder="Pesquisar cliente..."></div><label><input type="checkbox" ${fiadoFilters.hideClients?'checked':''} onchange="fiadoFilters.hideClients=this.checked;renderContas()"> Ocultar clientes</label><label><input type="checkbox" ${fiadoFilters.showZero?'checked':''} onchange="fiadoFilters.showZero=this.checked;renderContas()"> Saldo Zerado</label><label><input type="checkbox" ${fiadoFilters.showArchived?'checked':''} onchange="fiadoFilters.showArchived=this.checked;renderContas()"> Arquivados</label><div class="finance-actions"><button class="op-btn" onclick="toggleFiadoOptions(this)">••• &nbsp; Opções &nbsp; ▾</button>${hasPerm('contas')?`<button class="op-btn" onclick="openFiadoEntry('debt')" ${selected?'':'disabled'}>⊖ &nbsp; Registrar Dívida</button>`:''}<button class="op-btn" onclick="openFiadoEntry('payment')" ${selected&&Number(selected.debt)>0?'':'disabled'}>⊕ &nbsp; Registrar Pagamento</button><button class="op-btn" onclick="${selected?`openWhatsAppCollection('${selected.id}')`:''}" ${selected&&Number(selected.debt)>0?'':'disabled'}>📱 &nbsp; Cobrar via WhatsApp</button><button class="op-btn" onclick="openFiadoStatementModal()" ${selected?'':'disabled'}>Extrato do período</button><button class="op-btn" onclick="openFiadoAgingModal()">Saldos em atraso</button></div></div><div class="fiado-grids"><div class="finance-grid"><table><thead><tr><th>Cliente</th><th>Saldo Atual</th><th>Situação</th></tr></thead><tbody id="fiadoCustomers">${customerRows}</tbody></table></div><div class="finance-grid fiado-history"><table><thead><tr><th>Data</th><th>Histórico</th><th>Fiado</th><th>Pago</th><th>Info</th><th>Estornar</th></tr></thead><tbody>${historyRows}</tbody></table></div></div><footer class="op-footer"><span>Clientes=${customers.length}</span><span>Saldo total=${fmt(customers.reduce((s,m)=>s+Number(m.debt||0),0))}</span></footer></section>`;document.getElementById('fiadoSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#fiadoCustomers tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none');};}
+/* PROD-07 (decisão do dono: extrato e lista de atraso; cobrança quando quiser).
+   Sem limite de fiado, a dívida cresce sem ciclo de cobrança. Agora há:
+   - extrato por período de um sócio, com saldo anterior e saldo linha a linha;
+   - lista de saldos em atraso: para cada devedor, a dívida mais antiga ainda em aberto
+     (os pagamentos quitam primeiro as dívidas mais antigas) e há quantos dias está aberta. */
+function fiadoOpenDebts(member){
+  const entries = (member.debtHistory||[]).filter(e=>!e.reversed).slice().sort((a,b)=>new Date(a.at)-new Date(b.at));
+  const queue = []; let credit = 0;
+  for(const e of entries){
+    let v = Number(e.value)||0;
+    if(e.type==='debt'){ const use=Math.min(credit,v); credit-=use; v-=use; if(v>0.004) queue.push({at:e.at, remaining:v}); }
+    else { while(v>0.004 && queue.length){ const q=queue[0], use=Math.min(q.remaining,v); q.remaining-=use; v-=use; if(q.remaining<=0.004) queue.shift(); } credit+=v; }
+  }
+  return queue;
+}
+function fiadoAgingRows(){
+  const now = Date.now();
+  return (state.members||[]).filter(m=>!m.archived && Number(m.debt)>0.009).map(m=>{
+    const open = fiadoOpenDebts(m), oldest = open.length ? open[0].at : null;
+    const days = oldest ? Math.max(0, Math.floor((now-new Date(oldest).getTime())/86400000)) : 0;
+    return { m, debt:Number(m.debt)||0, oldest, days, bucket: days>60?'60+':days>30?'31-60':'0-30' };
+  }).sort((a,b)=>b.days-a.days || b.debt-a.debt);
+}
+function openFiadoAgingModal(){
+  const rows = fiadoAgingRows();
+  const sum = k => rows.filter(r=>r.bucket===k).reduce((t,r)=>t+r.debt,0), cnt = k => rows.filter(r=>r.bucket===k).length;
+  const chip = (k,label,cls) => `<div class="aging-chip ${cls}"><span>${label}</span><b class="mono">${fmt(sum(k))}</b><small>${cnt(k)} ${cnt(k)===1?'sócio':'sócios'}</small></div>`;
+  openModal('Saldos em atraso', `<div class="aging-body">
+    <div class="aging-chips">${chip('0-30','Até 30 dias','ok')}${chip('31-60','31 a 60 dias','warn')}${chip('60+','Mais de 60 dias','late')}</div>
+    <div class="finance-grid aging-grid"><table><thead><tr><th>Sócio</th><th>Saldo</th><th>Em aberto desde</th><th>Dias</th></tr></thead><tbody>${rows.length?rows.map(r=>`<tr class="aging-${r.bucket==='60+'?'late':r.bucket==='31-60'?'warn':'ok'}" onclick="window.selectedFiadoMemberId='${r.m.id}';closeModal();renderContas()" title="Abrir o fiado deste sócio"><td>${h(r.m.name)}${r.m.code?` <span class="sub">· Cota ${h(r.m.code)}</span>`:''}</td><td class="mono">${fmt(r.debt)}</td><td>${r.oldest?new Date(r.oldest).toLocaleDateString('pt-BR'):'—'}</td><td class="mono">${r.days}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Nenhum sócio com saldo devedor.</td></tr>'}</tbody></table></div>
+    <div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button><button class="consumer-save" onclick="exportFiadoAgingCsv()">▧ &nbsp; Exportar (CSV)</button></div>
+  </div>`, true);
+  document.querySelector('#modalRoot .modal').classList.add('aging-modal');
+}
+function exportFiadoAgingCsv(){
+  const rows = fiadoAgingRows();
+  downloadCsvFile('fiado-em-atraso-'+todayStr()+'.csv', [['Sócio','Cota','Telefone','Saldo','Em aberto desde','Dias','Faixa'], ...rows.map(r=>[r.m.name, r.m.code||'', r.m.phone||'', String((r.debt).toFixed(2)).replace('.',','), r.oldest?new Date(r.oldest).toLocaleDateString('pt-BR'):'', r.days, r.bucket==='60+'?'Mais de 60 dias':r.bucket==='31-60'?'31 a 60 dias':'Até 30 dias'])]);
+}
+function fiadoStatementData(member, from, to){
+  const entries = (member.debtHistory||[]).filter(e=>!e.reversed).slice().sort((a,b)=>new Date(a.at)-new Date(b.at));
+  const sign = e => (e.type==='debt'?1:-1)*(Number(e.value)||0);
+  let before = 0; const inside = [];
+  for(const e of entries){ const d = localDay(e.at); if(from && d<from) before += sign(e); else if(!to || d<=to) inside.push(e); }
+  let bal = before; const lines = inside.map(e=>{ bal += sign(e); return {e, bal}; });
+  const fiado = inside.filter(e=>e.type==='debt').reduce((t,e)=>t+(Number(e.value)||0),0);
+  const pago = inside.filter(e=>e.type!=='debt').reduce((t,e)=>t+(Number(e.value)||0),0);
+  return { before, lines, fiado, pago, after: bal };
+}
+function openFiadoStatementModal(){
+  const m = state.members.find(x=>x.id===window.selectedFiadoMemberId); if(!m){ toast('Selecione um sócio.'); return; }
+  const first = new Date(); first.setDate(1);
+  openModal('Extrato do fiado — '+m.name, `<div class="statement-body">
+    <div class="statement-filter"><div class="field"><label>De</label><input id="stFrom" type="date" value="${localDay(first)}"></div><div class="field"><label>Até</label><input id="stTo" type="date" value="${todayStr()}"></div><button class="op-btn primary" onclick="renderFiadoStatement()">Ver extrato</button></div>
+    <div id="stResult"></div>
+    <div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button><button class="consumer-save" onclick="exportFiadoPeriodCsv()">▧ &nbsp; Exportar (CSV)</button></div>
+  </div>`, true);
+  document.querySelector('#modalRoot .modal').classList.add('statement-modal');
+  renderFiadoStatement();
+}
+function renderFiadoStatement(){
+  const m = state.members.find(x=>x.id===window.selectedFiadoMemberId), box = document.getElementById('stResult'); if(!m||!box) return;
+  const from = document.getElementById('stFrom').value, to = document.getElementById('stTo').value;
+  const d = fiadoStatementData(m, from, to);
+  box.innerHTML = `<div class="statement-sum"><div><span>Saldo anterior</span><b class="mono">${fmt(d.before)}</b></div><div><span>Fiado no período</span><b class="mono">${fmt(d.fiado)}</b></div><div><span>Pago no período</span><b class="mono">${fmt(d.pago)}</b></div><div class="statement-final"><span>Saldo no fim</span><b class="mono">${fmt(d.after)}</b></div></div>
+    <div class="finance-grid statement-grid"><table><thead><tr><th>Data</th><th>Histórico</th><th>Fiado</th><th>Pago</th><th>Saldo</th></tr></thead><tbody>${d.lines.length?d.lines.map(({e,bal})=>`<tr><td>${new Date(e.at).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}</td><td>${h(e.reason||'Lançamento')}${e.method?` <span class="sub">· ${h(e.method)}</span>`:''}</td><td class="mono">${e.type==='debt'?fmt(e.value):''}</td><td class="mono">${e.type!=='debt'?fmt(e.value):''}</td><td class="mono">${fmt(bal)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">Nenhum lançamento no período.</td></tr>'}</tbody></table></div>`;
+}
+function exportFiadoPeriodCsv(){
+  const m = state.members.find(x=>x.id===window.selectedFiadoMemberId); if(!m) return;
+  const from = document.getElementById('stFrom').value, to = document.getElementById('stTo').value, d = fiadoStatementData(m, from, to);
+  const money = v => String((Number(v)||0).toFixed(2)).replace('.',',');
+  downloadCsvFile('extrato-fiado-'+(m.code||m.name).toString().replace(/[^\w-]+/g,'_')+'-'+from+'-a-'+to+'.csv', [['Data','Histórico','Forma','Fiado','Pago','Saldo'], ['','Saldo anterior','','','',money(d.before)], ...d.lines.map(({e,bal})=>[new Date(e.at).toLocaleString('pt-BR'), e.reason||'Lançamento', e.method||'', e.type==='debt'?money(e.value):'', e.type!=='debt'?money(e.value):'', money(bal)])]);
+}
 function toggleFiadoOptions(button){let menu=button.parentElement.querySelector('.finance-options-menu');if(menu){menu.remove();return;}menu=document.createElement('div');menu.className='finance-options-menu fiado-options consumer-group-menu';menu.innerHTML=`<b>Lista de Clientes</b><button onclick="renderAll()">↻ &nbsp; Atualizar</button><button onclick="exportFiadoClientListCsv()">▧ &nbsp; Exportar para Excel</button><button onclick="printFiadoSection('clientes')">▣ &nbsp; Imprimir</button><b>Extrato</b><button onclick="renderAll()">↻ &nbsp; Atualizar</button><button onclick="exportFiadoStatementCsv()">▧ &nbsp; Exportar para Excel</button><button onclick="printFiadoSection('extrato')">▣ &nbsp; Imprimir</button><button onclick="openFiadoStatementOptions()">••• &nbsp; Mais Opções...</button>`;button.parentElement.appendChild(menu);}
 function openFiadoStatementOptions(){const settings=state.settings.fiadoStatement||{showUser:false,maxEntries:60};openModal('Opções do Extrato',`<div class="consumer-form-frame fiado-statement-options"><b>Exibir no Extrato</b><label><input id="fiadoShowUser" type="checkbox" ${settings.showUser?'checked':''}> Usuário que fez a movimentação</label><div class="field"><label>Quantidade máxima de lançamentos</label><input id="fiadoMaxEntries" type="number" min="1" max="1000" value="${Number(settings.maxEntries)||60}"></div></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button><button class="consumer-save" id="fiadoOptionsSave">↻ &nbsp; Atualizar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal','fiado-options-modal');document.getElementById('fiadoOptionsSave').onclick=()=>{state.settings.fiadoStatement={showUser:document.getElementById('fiadoShowUser').checked,maxEntries:Math.max(1,parseInt(document.getElementById('fiadoMaxEntries').value,10)||60)};save('settings');closeModal();renderAll();toast('Opções do extrato atualizadas.');};}
 function exportFiadoClientListCsv(){const rows=[['Cliente','Saldo Atual','Situação'],...state.members.map(m=>[m.name,Number(m.debt||0).toFixed(2),m.archived?'Arquivado':Number(m.debt)>0?'Devedor':Number(m.debt)<0?'Crédito':'Regular'])];downloadCsv('lista-clientes-fiado.csv',rows);}
