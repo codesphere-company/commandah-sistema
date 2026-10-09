@@ -2,3 +2,6 @@
 !.claude/settings.json
 supabase/.temp/
 .local-backups/
+
+# Mapa do código gerado pelo graphify: só local (decisão OPS-03, auditoria 07/10)
+graphify-out/

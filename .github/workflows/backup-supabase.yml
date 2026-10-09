@@ -2,8 +2,18 @@ name: Backup Supabase DB
 
 # Backup noturno do schema public (members, app_data, print_jobs, audit_log etc.)
 # + dos logins (auth.users / auth.identities) do Postgres do Supabase. O repo eh
-# publico (GitHub Pages), entao o dump NUNCA vai pra dentro do git - fica so
-# como artifact privado do Actions, que expira sozinho depois de retention-days.
+# publico (GitHub Pages), entao o dump NUNCA vai pra dentro do git.
+#
+# ATENCAO (auditoria 2026-10-07): em repo PUBLICO, artifact do Actions NAO eh
+# privado - qualquer pessoa logada no GitHub consegue baixar. Por isso os dumps
+# sobem CRIPTOGRAFADOS (gpg, AES256) com a senha do secret BACKUP_PASSPHRASE.
+# Sem esse secret o workflow falha antes de tocar na producao. Guarde a mesma
+# senha num gerenciador de senhas: sem ela o backup nao abre.
+#
+# Para abrir um backup baixado (Actions -> run -> Artifacts):
+#   gpg --decrypt public-AAAAMMDDTHHMMSSZ.dump.gpg > public.dump
+#   gpg --decrypt auth-AAAAMMDDTHHMMSSZ.dump.gpg  > auth.dump
+# (o gpg pede a senha). Depois siga a restauracao descrita abaixo.
 #
 # Depois do upload, o mesmo job RESTAURA os dois arquivos num Postgres
 # temporario (service container) e compara a contagem de linhas de cada
@@ -31,9 +41,21 @@ on:
     - cron: '0 6 * * *' # 03:00 America/Sao_Paulo (UTC-3, Brasil nao tem mais horario de verao)
   workflow_dispatch: {} # permite rodar manualmente em Actions -> Backup Supabase DB -> Run workflow
 
+# GITHUB_TOKEN so-leitura: o job nao faz checkout nem escreve no repo
+# (upload-artifact usa o token proprio do runtime do Actions).
+permissions:
+  contents: read
+
+# Dois backups simultaneos (cron + dispatch manual) so dobrariam a carga no
+# pooler do Supabase; o segundo espera o primeiro terminar.
+concurrency:
+  group: backup-supabase
+  cancel-in-progress: false
+
 jobs:
   backup:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     services:
       restore:
         image: postgres:17
@@ -61,6 +83,7 @@ jobs:
         # de instalar a 17). Solucao: colocar /usr/lib/postgresql/17/bin
         # na FRENTE do PATH via GITHUB_PATH, em vez de confiar em alternatives.
         run: |
+          sudo apt-get update
           sudo apt-get install -y postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y postgresql-client-17
@@ -81,8 +104,14 @@ jobs:
             echo "Secret SUPABASE_DB_URL nao configurado (Settings > Secrets and variables > Actions)." >&2
             exit 1
           fi
+          # Sem a senha o dump subiria aberto num repo publico: para aqui.
+          if [ "${#BACKUP_PASSPHRASE}" -lt 20 ]; then
+            echo "::error::Secret BACKUP_PASSPHRASE ausente ou curto (minimo 20 caracteres). Sem ele o backup nao pode ser publicado criptografado." >&2
+            exit 1
+          fi
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
 
       - name: Dump do schema public e dos logins
         # --no-acl saiu: sem os GRANT/REVOKE, uma restauracao voltava com o
@@ -105,13 +134,34 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
-      - name: Upload como artifact privado
-        uses: actions/upload-artifact@v4
+      - name: Criptografar os dumps
+        # Artifact de repo publico pode ser baixado por qualquer conta do
+        # GitHub: so o .gpg sobe. A senha vai por arquivo (nao aparece em ps).
+        # Abre cada .gpg de volta e compara com o original, para nao guardar
+        # backup que nao abre.
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$BACKUP_PASSPHRASE" > "$RUNNER_TEMP/pass"
+          for f in public-*.dump auth-*.dump; do
+            gpg --batch --yes --pinentry-mode loopback --passphrase-file "$RUNNER_TEMP/pass" \
+              --symmetric --cipher-algo AES256 --output "$f.gpg" "$f"
+            gpg --batch --quiet --pinentry-mode loopback --passphrase-file "$RUNNER_TEMP/pass" \
+              --decrypt "$f.gpg" | cmp - "$f"
+            echo "ok $f.gpg"
+          done
+          rm -f "$RUNNER_TEMP/pass"
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+
+      - name: Upload do backup criptografado
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: supabase-backup
+          name: supabase-backup-criptografado
+          if-no-files-found: error
           path: |
-            public-*.dump
-            auth-*.dump
+            public-*.dump.gpg
+            auth-*.dump.gpg
           retention-days: 90
 
       - name: Restaurar num Postgres temporario
@@ -158,6 +208,11 @@ jobs:
         # ficar entre as duas (alguem pode ter vendido durante o dump).
         run: |
           set -euo pipefail
+          # Contagem vazia faria o loop abaixo passar sem comparar nada.
+          if [ ! -s counts-before.txt ] || [ ! -s counts-restored.txt ]; then
+            echo "::error::Contagem de linhas vazia - nada foi comparado."
+            exit 1
+          fi
           fail=0
           while IFS='|' read -r table before; do
             after=$(awk -F'|' -v t="$table" '$1==t{print $2}' counts-after.txt)
