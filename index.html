@@ -1027,6 +1027,10 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .cash-over{color:var(--c-warning);font-weight:700}
 .cash-close-actions button.primary{background:var(--c-primary);border-color:var(--c-primary);color:var(--c-text-inverse);font-weight:700}
 @media (max-width:600px){.cash-count-grid{grid-template-columns:1fr}}
+/* OPS-11: aviso de versão nova */
+.new-version-bar{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:320;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border-strong);border-left:5px solid var(--c-primary);border-radius:var(--r-lg);box-shadow:var(--sh-2);padding:10px 14px;font-weight:600;max-width:calc(100vw - 24px)}
+.new-version-bar button{min-height:38px;border-radius:var(--r-md);border:1px solid var(--c-primary);background:var(--c-primary);color:var(--c-text-inverse);font-weight:700;padding:0 14px;cursor:pointer}
+.new-version-bar .nv-later{background:none;color:var(--c-text-2);border-color:var(--c-border-input)}
 /* PROD-07: extrato por período e saldos em atraso */
 .finance-top.fiado-top{height:auto!important;min-height:74px;flex-wrap:wrap;padding:10px 14px!important;row-gap:10px}
 .fiado-top .finance-actions{flex-wrap:wrap;gap:8px;margin-left:auto}
@@ -1129,6 +1133,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
       <span>Comandas abertas: <b id="sbComandas">0</b></span>
       <span>Na cozinha: <b id="sbCozinha">0</b></span>
       <span>Vendido hoje: <b id="sbVendidoHoje">R$ 0,00</b></span>
+      <span title="Data da versão do sistema aberta neste aparelho">Versão: <b id="sbVersion">—</b></span>
     </div>
   </div>
 </div>
@@ -1891,6 +1896,29 @@ function noteSyncResult(ok){
   updateConnectionLabel();
 }
 // UX-16: o rodapé diz se o aparelho está falando com o servidor, não o nome do banco.
+/* OPS-11: a versão aberta no aparelho (data de publicação da página) aparece no rodapé. A cada
+   5 min o aparelho pergunta ao servidor se há versão mais nova; se houver, mostra um aviso para
+   recarregar (sem recarregar sozinho, para não perder um pedido em andamento). */
+function appVersionDate(){ const d = new Date(document.lastModified); return isNaN(d) ? null : d; }
+function renderAppVersion(){
+  const el = document.getElementById('sbVersion'); if(!el) return;
+  const d = appVersionDate();
+  el.textContent = d ? d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '—';
+}
+async function checkNewAppVersion(){
+  if(!/^https?:/.test(location.protocol) || document.getElementById('newVersionBar')) return;
+  try{
+    const r = await fetch(location.href.split('#')[0], { method:'HEAD', cache:'no-store' });
+    const server = new Date(r.headers.get('last-modified')), mine = appVersionDate();
+    if(isNaN(server) || !mine || server.getTime() <= mine.getTime()+1000) return;
+    const bar = document.createElement('div');
+    bar.id = 'newVersionBar'; bar.className = 'new-version-bar'; bar.setAttribute('role','status');
+    bar.innerHTML = '<span>Há uma versão nova do Commandah.</span><button type="button" onclick="location.reload()">Recarregar agora</button><button type="button" class="nv-later" onclick="this.parentNode.remove()">Depois</button>';
+    document.body.appendChild(bar);
+  }catch(e){}
+}
+setTimeout(()=>{ renderAppVersion(); checkNewAppVersion(); }, 3000);
+setInterval(checkNewAppVersion, 5*60000);
 function updateConnectionLabel(){
   const el = document.getElementById('sbStorageMode'); if(!el) return;
   const offline = storageApi.mode==='Indisponível' || syncFailCount >= SYNC_FAIL_THRESHOLD;
