@@ -1940,6 +1940,10 @@ async function checkNewAppVersion(){
   }catch(e){}
 }
 setTimeout(()=>{ renderAppVersion(); checkNewAppVersion(); }, 3000);
+// PROD-17: guarda só o aplicativo (sw.js) para abrir mesmo recarregando sem internet.
+if(typeof navigator!=='undefined' && 'serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
 setInterval(checkNewAppVersion, 5*60000);
 function updateConnectionLabel(){
   const el = document.getElementById('sbStorageMode'); if(!el) return;
