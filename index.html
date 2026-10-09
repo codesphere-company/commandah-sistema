@@ -1583,6 +1583,7 @@ async function loadAll(){
   const readFailed = {};
   for(const key of Object.keys(STORE)){
     if(key==='members'||key==='orders') continue;
+    if(key==='sales' && isCloudMode()) continue; // EST-01: tabela sales (SalesStore)
     try{
       const r = await storageApi.get(STORE[key]);
       state[key] = r ? JSON.parse(r.value) : (key in scalarDefaults ? scalarDefaults[key] : []);
@@ -1593,6 +1594,7 @@ async function loadAll(){
   setInsumosBase(state.insumos);
   try{ state.members = await MembersStore.load(); }catch(e){ state.members = []; }
   try{ state.orders = await OrdersStore.load(); }catch(e){ state.orders = []; }
+  if(isCloudMode()){ try{ state.sales = await SalesStore.load(); }catch(e){ state.sales = []; setSalesBase([]); } }
 
   /* ---- SEMEADURA DE PADRÕES: quando é seguro gravar ----------------------
      storageApi.get() usa .maybeSingle(): linha filtrada pela RLS volta como
@@ -1674,7 +1676,7 @@ async function save(key){
   if(!STORE[key]){ toast('Erro interno: conjunto de dados desconhecido.'); return false; }
   const payload = JSON.stringify(state[key]);
   const previous = saveQueues[key] || Promise.resolve(true);
-  const operation = previous.catch(()=>false).then(()=> key==='cashMovements' && isCloudMode() ? pushCashMovements() : key==='insumos' && isCloudMode() ? pushInsumos() : storageApi.set(STORE[key], payload));
+  const operation = previous.catch(()=>false).then(()=> key==='cashMovements' && isCloudMode() ? pushCashMovements() : key==='insumos' && isCloudMode() ? pushInsumos() : key==='sales' && isCloudMode() ? pushSales() : storageApi.set(STORE[key], payload));
   saveQueues[key] = operation;
   try{ await operation; clearSaveFailBanner(key); return true; }
   catch(e){ saveFailBanner(key); return false; }
@@ -1765,6 +1767,63 @@ async function pushInsumos(){
   setInsumosBase(server);
   const later = insumosDiff(cashMovementsMap(snapshot), state.insumos||[]);
   state.insumos = applyInsumosDiffLocal(server, later);
+}
+/* EST-01 (decisão do dono, 09/10: todo o histórico vai para a tabela): vendas na
+   tabela public.sales, uma linha por venda (migration 20261010030000). O site continua
+   trabalhando com state.sales (o JSON de sempre); o que muda é a gravação e a leitura:
+   - save('sales') manda só as vendas que mudaram desde a última leitura/gravação
+     (salesBase, por id) para sales_apply; venda tirada da lista vira deleted_at;
+   - o poll de 6 s busca só as linhas com updated_at depois do último visto
+     (salesCursor, com 15 s de folga para gravações que terminaram fora de ordem);
+   - venda com mudança local ainda não gravada não é sobrescrita pelo poll.
+   O blob cantina2:sales ficou só como cópia de segurança e recusa gravação. */
+let salesBase = new Map(), salesCursor = null;
+function setSalesBase(list){ salesBase = cashMovementsMap(list); }
+function markSaleServer(sale){ if(sale && sale.id) salesBase.set(sale.id, JSON.stringify(sale)); }
+function noteSalesCursor(rows){ (rows||[]).forEach(r=>{ if(r.updated_at && (!salesCursor || r.updated_at > salesCursor)) salesCursor = r.updated_at; }); }
+const SalesStore = {
+  async load(){
+    const out = [];
+    for(let from = 0; ; from += 1000){
+      const { data, error } = await supabaseClient.from('sales').select('id,data,updated_at').eq('tenant_id', storageApi.tenantId)
+        .is('deleted_at', null).order('seq', { ascending:true }).range(from, from + 999);
+      if(error) throw error;
+      noteSalesCursor(data); out.push(...(data||[]).map(r=>r.data));
+      if(!data || data.length < 1000) break;
+    }
+    setSalesBase(out);
+    return out;
+  },
+  async changes(){
+    const since = salesCursor ? new Date(new Date(salesCursor).getTime() - 15000).toISOString() : '1970-01-01T00:00:00Z';
+    const { data, error } = await supabaseClient.from('sales').select('id,data,updated_at,deleted_at').eq('tenant_id', storageApi.tenantId)
+      .gt('updated_at', since).order('updated_at', { ascending:true }).limit(1000);
+    if(error) throw error;
+    noteSalesCursor(data);
+    return data || [];
+  }
+};
+// Junta no state.sales o que mudou no servidor. Devolve true se algo mudou na tela.
+function mergeSalesChanges(rows){
+  let changed = false;
+  rows.forEach(r=>{
+    const idx = state.sales.findIndex(x=>x && x.id===r.id), local = idx>-1 ? state.sales[idx] : null;
+    if(local && salesBase.get(r.id)!==JSON.stringify(local)) return; // mudança local ainda indo para o servidor
+    if(r.deleted_at){ if(idx>-1){ state.sales.splice(idx,1); changed = true; } salesBase.delete(r.id); return; }
+    const js = JSON.stringify(r.data);
+    if(local && JSON.stringify(local)===js){ salesBase.set(r.id, js); return; }
+    if(idx>-1) state.sales[idx] = r.data; else state.sales.push(r.data);
+    salesBase.set(r.id, js); changed = true;
+  });
+  return changed;
+}
+async function pushSales(){
+  const snapshot = JSON.parse(JSON.stringify(state.sales||[]));
+  const d = cashMovementsDiff(salesBase, snapshot);
+  if(!d.upserts.length && !d.deletes.length) return;
+  const { error } = await supabaseClient.rpc('sales_apply', { p_upserts:d.upserts, p_delete_ids:d.deletes });
+  if(error) throw error;
+  d.upserts.forEach(markSaleServer); d.deletes.forEach(id=>salesBase.delete(id));
 }
 function parseAppDataValue(r, fallback){ if(!r) return fallback; const v = JSON.parse(r.value); return v===null ? null : v; }
 // Traz o caixa (sessão, lançamentos e, se a sessão mudou, o histórico) feito em outro aparelho.
@@ -4114,6 +4173,10 @@ function saleTotal(items){ return (items||[]).filter(i=>!i.canceled).reduce((a,i
 function comandaItemKey(i){ return i.lineId || [i.productId||'', i.addedAt||'', i.name||'', i.addedBy||''].join('|'); }
 async function fetchFreshSales(){
   try{ await (saveQueues.sales||Promise.resolve()); }catch(e){}
+  if(isCloudMode()){
+    try{ mergeSalesChanges(await SalesStore.changes()); return state.sales; }
+    catch(e){ return null; }
+  }
   try{ const r = await storageApi.get(STORE.sales); return r ? JSON.parse(r.value) : []; }
   catch(e){ return null; }
 }
@@ -4959,6 +5022,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
     }
     const idx = state.sales.findIndex(s=>s.id===sale.id);
     if(idx>-1) state.sales[idx] = savedSale; else state.sales.push(savedSale);
+    markSaleServer(savedSale);
   } else {
     if(mode==='comanda' && comandaId){
       const idx = state.sales.findIndex(s=>s.id===comandaId);
@@ -8239,18 +8303,23 @@ function startApp(){
   loadAll().then(checkLocalModeLeftovers);
   setInterval(async ()=>{
     if(!currentUser) return;
-    let freshOrders, rSales;
+    let freshOrders, rSales, salesRows;
     try{
       freshOrders = await OrdersStore.load();
-      rSales = await storageApi.get(STORE.sales);
+      if(isCloudMode()) salesRows = await SalesStore.changes(); // EST-01: só o que mudou
+      else rSales = await storageApi.get(STORE.sales);
     }catch(e){ noteSyncResult(false); return; }
     noteSyncResult(true);
     try{
       const changedOrders = JSON.stringify(freshOrders) !== JSON.stringify(state.orders);
-      const freshSales = rSales ? JSON.parse(rSales.value) : [];
-      const changedSales = JSON.stringify(freshSales) !== JSON.stringify(state.sales);
+      let changedSales;
+      if(salesRows) changedSales = mergeSalesChanges(salesRows);
+      else {
+        const freshSales = rSales ? JSON.parse(rSales.value) : [];
+        changedSales = JSON.stringify(freshSales) !== JSON.stringify(state.sales);
+        if(changedSales) state.sales = freshSales;
+      }
       if(changedOrders) state.orders = freshOrders;
-      if(changedSales) state.sales = freshSales;
       if(changedOrders || changedSales){
         const cozView = document.getElementById('view-cozinha');
         if(cozView && cozView.classList.contains('active')) renderCozinha();
