@@ -1583,6 +1583,7 @@ async function loadAll(){
   }
   stripIntegrationTokens(state.settings);
   setCashMovementsBase(state.cashMovements);
+  setInsumosBase(state.insumos);
   try{ state.members = await MembersStore.load(); }catch(e){ state.members = []; }
   try{ state.orders = await OrdersStore.load(); }catch(e){ state.orders = []; }
 
@@ -1666,7 +1667,7 @@ async function save(key){
   if(!STORE[key]){ toast('Erro interno: conjunto de dados desconhecido.'); return false; }
   const payload = JSON.stringify(state[key]);
   const previous = saveQueues[key] || Promise.resolve(true);
-  const operation = previous.catch(()=>false).then(()=> key==='cashMovements' && isCloudMode() ? pushCashMovements() : storageApi.set(STORE[key], payload));
+  const operation = previous.catch(()=>false).then(()=> key==='cashMovements' && isCloudMode() ? pushCashMovements() : key==='insumos' && isCloudMode() ? pushInsumos() : storageApi.set(STORE[key], payload));
   saveQueues[key] = operation;
   try{ await operation; clearSaveFailBanner(key); return true; }
   catch(e){ saveFailBanner(key); return false; }
@@ -1706,6 +1707,57 @@ async function pushCashMovements(){
   // O que mudou neste aparelho enquanto a gravação ia e voltava continua pendente.
   const later = cashMovementsDiff(cashMovementsMap(snapshot), state.cashMovements||[]);
   state.cashMovements = applyCashMovementsDiffLocal(server, later);
+}
+/* BD-10: o cadastro de insumos também vai por diferença. Regravar a lista inteira
+   desfazia as baixas de venda feitas em outro aparelho (consume_insumos). Agora o
+   aparelho manda os insumos que mudou e, no estoque, só QUANTO mudou (delta); o
+   servidor soma o delta ao estoque atual (insumos_apply, migration 20261010020000).
+   insumosBase = a lista como o servidor a tinha na última leitura/gravação. Quando o
+   estoque muda pelo servidor (venda, estorno, contagem), markInsumoServerStock acerta
+   a base para essa mudança não ser mandada de novo como delta. */
+let insumosBase = new Map();
+function setInsumosBase(list){ insumosBase = cashMovementsMap(list); }
+function markInsumoServerStock(id, stock){
+  const b = insumosBase.get(id); if(b===undefined) return;
+  const o = JSON.parse(b); o.stock = stock; insumosBase.set(id, JSON.stringify(o));
+}
+// Insumo novo vai inteiro; insumo existente vai só com os campos que mudaram (dois
+// aparelhos editando campos diferentes do mesmo insumo não se desfazem) e o estoque
+// vai como delta.
+function insumosDiff(baseMap, list){
+  const upserts = [], deltas = {}, ids = new Set();
+  (list||[]).forEach(i=>{
+    if(!i || !i.id) return; ids.add(i.id);
+    const b = baseMap.get(i.id); if(b===JSON.stringify(i)) return;
+    if(b===undefined){ upserts.push(i); return; }
+    const base = JSON.parse(b), patch = { id:i.id };
+    new Set([...Object.keys(base), ...Object.keys(i)]).forEach(k=>{ if(k!=='id' && k!=='stock' && JSON.stringify(i[k])!==JSON.stringify(base[k])) patch[k] = i[k]===undefined ? null : i[k]; });
+    const d = Math.round(((Number(i.stock)||0)-(Number(base.stock)||0))*1000)/1000;
+    if(d) deltas[i.id] = d;
+    if(Object.keys(patch).length>1 || d) upserts.push(patch);
+  });
+  return { upserts, deltas, deletes:[...baseMap.keys()].filter(id=>!ids.has(id)) };
+}
+// Mesma regra do servidor: estoque de insumo existente = estoque da lista + delta.
+function applyInsumosDiffLocal(list, d){
+  const up = new Map(d.upserts.map(i=>[i.id,i])), del = new Set(d.deletes);
+  const out = (list||[]).filter(i=>!(i && del.has(i.id))).map(i=>{
+    if(!i || !up.has(i.id)) return i;
+    return { ...i, ...up.get(i.id), stock: Math.round(((Number(i.stock)||0)+(d.deltas[i.id]||0))*1000)/1000 };
+  });
+  const have = new Set(out.map(i=>i && i.id));
+  return out.concat(d.upserts.filter(i=>!have.has(i.id) && 'name' in i));
+}
+async function pushInsumos(){
+  const snapshot = JSON.parse(JSON.stringify(state.insumos||[]));
+  const d = insumosDiff(insumosBase, snapshot);
+  if(!d.upserts.length && !d.deletes.length) return;
+  const { data, error } = await supabaseClient.rpc('insumos_apply', { p_upserts:d.upserts, p_deltas:d.deltas, p_delete_ids:d.deletes });
+  if(error) throw error;
+  const server = Array.isArray(data) ? data : [];
+  setInsumosBase(server);
+  const later = insumosDiff(cashMovementsMap(snapshot), state.insumos||[]);
+  state.insumos = applyInsumosDiffLocal(server, later);
 }
 function parseAppDataValue(r, fallback){ if(!r) return fallback; const v = JSON.parse(r.value); return v===null ? null : v; }
 // Traz o caixa (sessão, lançamentos e, se a sessão mudou, o histórico) feito em outro aparelho.
@@ -3059,7 +3111,7 @@ function stockCountInput(id, value){
 function filterStockCountRows(q){ q = String(q||'').toLowerCase(); document.querySelectorAll('#stockCountRows tr[data-search]').forEach(r=>r.style.display=r.dataset.search.includes(q)?'':'none'); }
 async function openStockCountModal(){
   if(isCloudMode()){
-    try{ await (saveQueues.insumos||Promise.resolve()); const r = await storageApi.get(STORE.insumos); if(r) state.insumos = JSON.parse(r.value); }catch(e){}
+    try{ await (saveQueues.insumos||Promise.resolve()); const r = await storageApi.get(STORE.insumos); if(r){ state.insumos = JSON.parse(r.value); setInsumosBase(state.insumos); } }catch(e){}
   }
   stockCountDraft = {};
   const list = stockCountInsumos();
@@ -3087,7 +3139,7 @@ async function saveStockCount(){
   const note = (document.getElementById('stockCountNote')?.value||'').trim().slice(0,200);
   // Lê o estoque de novo: a diferença é calculada sobre o número mais atual.
   if(isCloudMode()){
-    try{ await (saveQueues.insumos||Promise.resolve()); const r = await storageApi.get(STORE.insumos); if(r) state.insumos = JSON.parse(r.value); }catch(e){}
+    try{ await (saveQueues.insumos||Promise.resolve()); const r = await storageApi.get(STORE.insumos); if(r){ state.insumos = JSON.parse(r.value); setInsumosBase(state.insumos); } }catch(e){}
   }
   const countId = uid(), at = new Date().toISOString(), user = currentUser ? currentUser.name : '—';
   const consume = {}, restore = {};
@@ -3111,7 +3163,7 @@ async function saveStockCount(){
       if(error) toast('As faltas foram lançadas, mas as sobras não: '+(error.message||'erro no servidor')+'. Lance as sobras pela opção Estoque.', 'error');
       else (data||[]).forEach(m=>pushMove(m,'entrada'));
     }
-    moves.forEach(x=>{ if(x.ins) x.ins.stock = x.m.after; });
+    moves.forEach(x=>{ if(x.ins){ x.ins.stock = x.m.after; markInsumoServerStock(x.ins.id, x.m.after); } });
   } else {
     Object.entries(consume).forEach(([id,qty])=>{ const i = state.insumos.find(x=>x.id===id); const before = Number(i.stock)||0; i.stock = Math.round((before-qty)*1000)/1000; pushMove({insumoId:id,before,qty,after:i.stock},'saida'); });
     Object.entries(restore).forEach(([id,qty])=>{ const i = state.insumos.find(x=>x.id===id); const before = Number(i.stock)||0; i.stock = Math.round((before+qty)*1000)/1000; pushMove({insumoId:id,before,qty,after:i.stock},'entrada'); });
@@ -3990,7 +4042,7 @@ async function consumeInsumosForItems(items){
     if(error) return false;
     (data||[]).forEach(m=>{
       const ins = state.insumos.find(x=>x.id===m.insumoId);
-      if(ins) ins.stock = m.after;
+      if(ins){ ins.stock = m.after; markInsumoServerStock(ins.id, m.after); }
       state.stockMovements.unshift({id:uid(),insumoId:m.insumoId,name:ins?ins.name:'',unit:ins?ins.unit:'',type:'saida',operation:'Baixa por venda',before:m.before,qty:m.qty,after:m.after,user:currentUser?currentUser.name:'—',at:new Date().toISOString()});
     });
     save('stockMovements');
@@ -4026,7 +4078,7 @@ async function restoreInsumosForItems(items){
     if(error) return false;
     (data||[]).forEach(m=>{
       const ins = state.insumos.find(x=>x.id===m.insumoId);
-      if(ins) ins.stock = m.after;
+      if(ins){ ins.stock = m.after; markInsumoServerStock(ins.id, m.after); }
       state.stockMovements.unshift({id:uid(),insumoId:m.insumoId,name:ins?ins.name:'',unit:ins?ins.unit:'',type:'entrada',operation:'Estorno por cancelamento de item',before:m.before,qty:m.qty,after:m.after,user:currentUser?currentUser.name:'—',at:new Date().toISOString()});
     });
     save('stockMovements');
