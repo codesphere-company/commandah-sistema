@@ -1165,6 +1165,7 @@ const STORE = {
 };
 const ICN = {
   // UX-10: ícones de traço novos (pagamento e itens do menu que repetiam desenho)
+  alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg>',
   cash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6.5 9.5h.01M17.5 14.5h.01"/></svg>',
   pix:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 9-9 9-9-9z"/><path d="M8.5 12h7"/></svg>',
   meal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a2 2 0 0 0 4 0V3M8 11v10"/><path d="M17 21V3c-2 1-3 3.5-3 7h3"/></svg>',
@@ -1295,7 +1296,7 @@ const RIBBON_TABS = [
           {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios'}, {label:'Alterar Minha Senha', icon:ICN.key, perm:'senha-propria', action:'openChangePinModal'}, {label:'Backup', icon:ICN.save, view:'backup'}
       ]},
       { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Quem Levou', icon:ICN.handoff, view:'quemlevou'}, {label:'Estações', icon:ICN.station, view:'estacoes'}, {label:'Origens de Pedido', icon:ICN.route, view:'origens'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },
-      { label:'Logs e Fila de Eventos', items:[ {label:'Logs', icon:ICN.scroll, perm:'logs', action:'openLogsView', actionArg:'Logs'}, {label:'Fila de Eventos', icon:ICN.inbox, perm:'logs', action:'openLogsView', actionArg:'Fila de Eventos'} ] },
+      { label:'Logs e Fila de Eventos', items:[ {label:'Logs', icon:ICN.scroll, perm:'logs', action:'openLogsView', actionArg:'Logs'}, {label:'Fila de Eventos', icon:ICN.inbox, perm:'logs', action:'openLogsView', actionArg:'Fila de Eventos'}, {label:'Erros do Sistema', icon:ICN.alert, perm:'logs', action:'openLogsView', actionArg:'Erros do Sistema'} ] },
       { label:'Versão Premium', items:[ {label:'Minha Assinatura', icon:ICN.star, perm:'config-sistema', action:'openSubscriptionView'} ] },
       { label:'Ajuda e Suporte', items:[ {label:'Ajuda e Suporte', icon:ICN.headset, view:'ajuda'}, {label:'Diagnóstico de Serviços', icon:ICN.pulse, view:'diagnostico'} ] }
   ]}
@@ -2563,8 +2564,45 @@ function openReferenceModule(label){ activeModuleReference=label; switchView('mo
 async function openLogsView(label){
   if(!requirePerm('logs')) return;
   activeRibbonAction=label;
-  await loadAuditLog();
+  if(label==='Erros do Sistema') await loadClientErrors(); else await loadAuditLog();
   switchView('logs');
+}
+/* OPS-10 (decisão do dono: tabela própria): erros de JavaScript não tratados vão para
+   public.client_errors, com o mesmo erro gravado uma vez só e no máximo 20 por sessão.
+   O dono vê em Configurações > Erros do Sistema. */
+const _clientErrSeen = new Set(); let _clientErrCount = 0;
+function reportClientError(message, source, line, col, stack){
+  try{
+    if(!isCloudMode() || !supabaseClient || !currentUser) return;
+    const msg = String(message||'Erro sem mensagem').slice(0,2000), src = String(source||'').slice(0,500);
+    if(/^(chrome|moz|safari)-extension:/.test(src) || /ResizeObserver loop/.test(msg)) return; // ruído de extensão/navegador
+    const key = msg+'|'+src+'|'+(line||0);
+    if(_clientErrSeen.has(key) || _clientErrCount >= 20) return;
+    _clientErrSeen.add(key); _clientErrCount++;
+    const v = typeof appVersionDate==='function' ? appVersionDate() : null;
+    supabaseClient.from('client_errors').insert({
+      message: msg, source: src || null, line: Number(line)||null, col: Number(col)||null,
+      stack: stack ? String(stack).slice(0,8000) : null,
+      page: String((activeView||'')+(activeRibbonAction?' / '+activeRibbonAction:'')).slice(0,500),
+      user_agent: String(navigator.userAgent||'').slice(0,500),
+      app_version: v ? v.toISOString().slice(0,16) : null,
+      actor_name: String(currentUser.name||'').slice(0,120)
+    }).then(()=>{}, ()=>{});
+  }catch(e){}
+}
+if(typeof window!=='undefined' && window.addEventListener){
+  window.addEventListener('error', e=>reportClientError(e.message, e.filename, e.lineno, e.colno, e.error && e.error.stack));
+  window.addEventListener('unhandledrejection', e=>{ const r = e.reason; reportClientError((r && r.message) || String(r), 'promessa não tratada', 0, 0, r && r.stack); });
+}
+async function loadClientErrors(){
+  state.clientErrors = [];
+  if(!isCloudMode() || !supabaseClient) return;
+  try{
+    const { data, error } = await supabaseClient.from('client_errors')
+      .select('id,at,actor_name,message,source,line,page,app_version,user_agent')
+      .order('at',{ascending:false}).limit(300);
+    if(!error && Array.isArray(data)) state.clientErrors = data;
+  }catch(e){}
 }
 async function loadAuditLog(){
   if(!isCloudMode() || !supabaseClient) return; // modo Local: state.logs já é o blob
@@ -6599,6 +6637,13 @@ function setLogPeriod(period){
 function exportLogsCsv(){const rows=[['Data/Hora','Usuário','Evento'],...state.logs.map(l=>[new Date(l.at).toLocaleString('pt-BR'),l.user,l.text])];const csv=rows.map(r=>r.map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(';')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download='logs-'+todayStr()+'.csv';a.click();URL.revokeObjectURL(a.href);}
 function renderLogs(){
   const el = document.getElementById('view-logs');
+  if(activeRibbonAction==='Erros do Sistema'){
+    const list = state.clientErrors||[];
+    const rows = list.length ? list.map(x=>`<tr><td>${reportDateTime(x.at)}</td><td>${h(x.actor_name||'—')}</td><td>${h(x.message)}</td><td class="sub">${h(x.page||'')}</td><td class="sub">${h((x.source||'').split('/').pop()||'página')}${x.line?':'+x.line:''}</td><td class="sub">${x.app_version&&x.app_version.length>=16?h(x.app_version.slice(8,10)+'/'+x.app_version.slice(5,7)+' '+x.app_version.slice(11,16)):h(x.app_version||'')}</td></tr>`).join('')
+      : '<tr><td colspan="6" class="empty">Nenhum erro registrado. Quando der erro em algum aparelho, ele aparece aqui.</td></tr>';
+    el.innerHTML=`<div class="workspace-gray"><section class="op-window"><header class="op-titlebar">Erros do Sistema</header><div class="op-toolbar"><span class="sub">Últimos 300 erros dos aparelhos (caixa, garçom, cozinha). Um erro repetido aparece uma vez por sessão.</span><span class="op-toolbar-spacer"></span><button class="op-btn" onclick="openLogsView('Erros do Sistema')">↻ &nbsp; Atualizar</button></div><div class="finance-grid" style="flex:1;min-height:0"><table><thead><tr><th>Data</th><th>Usuário</th><th>Erro</th><th>Tela</th><th>Onde</th><th>Versão</th></tr></thead><tbody>${rows}</tbody></table></div><footer class="op-footer"><span>Registros: ${list.length}</span></footer></section></div>`;
+    return;
+  }
   const isQueue=activeRibbonAction==='Fila de Eventos';
   if(isQueue){
     const queue=state.eventQueue||[],now=Date.now();let queueChanged=false;queue.forEach(e=>{if(e.expiresAt&&new Date(e.expiresAt).getTime()<now&&e.status==='pendente'){e.status='expirado';queueChanged=true;}});
