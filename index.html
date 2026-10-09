@@ -1027,6 +1027,14 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .cash-over{color:var(--c-warning);font-weight:700}
 .cash-close-actions button.primary{background:var(--c-primary);border-color:var(--c-primary);color:var(--c-text-inverse);font-weight:700}
 @media (max-width:600px){.cash-count-grid{grid-template-columns:1fr}}
+/* OPS-11: aviso de versão nova */
+.new-version-bar{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:320;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border-strong);border-left:5px solid var(--c-primary);border-radius:var(--r-lg);box-shadow:var(--sh-2);padding:10px 14px;font-weight:600;max-width:calc(100vw - 24px)}
+.new-version-bar button{min-height:38px;border-radius:var(--r-md);border:1px solid var(--c-primary);background:var(--c-primary);color:var(--c-text-inverse);font-weight:700;padding:0 14px;cursor:pointer}
+.new-version-bar .nv-later{background:none;color:var(--c-text-2);border-color:var(--c-border-input)}
+/* OP-13: pagamentos parciais na comanda */
+.partial-box{margin-top:8px;border:1px solid var(--c-border);border-left:4px solid var(--c-primary);border-radius:var(--r-md);padding:8px 12px;background:var(--c-surface);display:grid;gap:4px}
+.partial-head{display:flex;justify-content:space-between;gap:10px;font-size:14px}
+.partial-line{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--c-text-2)}
 /* PROD-07: extrato por período e saldos em atraso */
 .finance-top.fiado-top{height:auto!important;min-height:74px;flex-wrap:wrap;padding:10px 14px!important;row-gap:10px}
 .fiado-top .finance-actions{flex-wrap:wrap;gap:8px;margin-left:auto}
@@ -1129,6 +1137,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
       <span>Comandas abertas: <b id="sbComandas">0</b></span>
       <span>Na cozinha: <b id="sbCozinha">0</b></span>
       <span>Vendido hoje: <b id="sbVendidoHoje">R$ 0,00</b></span>
+      <span title="Data da versão do sistema aberta neste aparelho">Versão: <b id="sbVersion">—</b></span>
     </div>
   </div>
 </div>
@@ -1891,6 +1900,29 @@ function noteSyncResult(ok){
   updateConnectionLabel();
 }
 // UX-16: o rodapé diz se o aparelho está falando com o servidor, não o nome do banco.
+/* OPS-11: a versão aberta no aparelho (data de publicação da página) aparece no rodapé. A cada
+   5 min o aparelho pergunta ao servidor se há versão mais nova; se houver, mostra um aviso para
+   recarregar (sem recarregar sozinho, para não perder um pedido em andamento). */
+function appVersionDate(){ const d = new Date(document.lastModified); return isNaN(d) ? null : d; }
+function renderAppVersion(){
+  const el = document.getElementById('sbVersion'); if(!el) return;
+  const d = appVersionDate();
+  el.textContent = d ? d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '—';
+}
+async function checkNewAppVersion(){
+  if(!/^https?:/.test(location.protocol) || document.getElementById('newVersionBar')) return;
+  try{
+    const r = await fetch(location.href.split('#')[0], { method:'HEAD', cache:'no-store' });
+    const server = new Date(r.headers.get('last-modified')), mine = appVersionDate();
+    if(isNaN(server) || !mine || server.getTime() <= mine.getTime()+1000) return;
+    const bar = document.createElement('div');
+    bar.id = 'newVersionBar'; bar.className = 'new-version-bar'; bar.setAttribute('role','status');
+    bar.innerHTML = '<span>Há uma versão nova do Commandah.</span><button type="button" onclick="location.reload()">Recarregar agora</button><button type="button" class="nv-later" onclick="this.parentNode.remove()">Depois</button>';
+    document.body.appendChild(bar);
+  }catch(e){}
+}
+setTimeout(()=>{ renderAppVersion(); checkNewAppVersion(); }, 3000);
+setInterval(checkNewAppVersion, 5*60000);
 function updateConnectionLabel(){
   const el = document.getElementById('sbStorageMode'); if(!el) return;
   const offline = storageApi.mode==='Indisponível' || syncFailCount >= SYNC_FAIL_THRESHOLD;
@@ -3767,6 +3799,69 @@ function mergeDraftItems(serverItems, draftItems){
   const extras = (serverItems||[]).filter(i=>!keys.has(comandaItemKey(i)));
   return { items:[...(draftItems||[]), ...extras], extras };
 }
+/* OP-13 (decisão do dono: fazer): pagamento parcial de comanda. Quem paga a sua parte e vai
+   embora fica registrado na comanda aberta; o fechamento cobra só o que falta. */
+function comandaPartialPaid(s){ return Math.round(((s&&s.partialPayments)||[]).filter(p=>!p.reversed).reduce((t,p)=>t+(Number(p.amount)||0),0)*100)/100; }
+function openPartialPayment(saleId){
+  const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  if(!state.cashSession){ toast('Abra o caixa para receber pagamento.'); return; }
+  const items = (currentSaleDraft && currentSaleDraft.id===saleId) ? currentSaleDraft.items : s.items;
+  const due = Math.max(0, Math.round((saleTotal(items) - comandaPartialPaid(s))*100)/100);
+  if(due<=0.009){ toast('Não há saldo a receber nesta comanda.'); return; }
+  const methods = methodConfig().filter(m=>m.method!=='fiado');
+  openModal('Receber pagamento parcial', `<p class="sub">Para quando alguém paga a sua parte e a comanda continua aberta. Em aberto agora: <b class="mono">${fmt(due)}</b>.</p>
+    <div class="field"><label>Valor recebido</label><input id="ppAmount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0,00"></div>
+    <div class="field"><label>Forma de pagamento</label><select id="ppMethod">${methods.map(m=>`<option value="${h(m.method)}">${h(m.label)}</option>`).join('')}</select></div>
+    <div class="field"><label>Quem pagou (opcional)</label><input id="ppWho" placeholder="Ex.: João, amigo do titular"></div>
+    <div class="row"><button class="btn" onclick="openComanda('${saleId}',true)">Voltar</button><button class="btn btn-primary" id="ppSave">Registrar pagamento parcial</button></div>`);
+  document.getElementById('ppSave').onclick = ()=>savePartialPayment(saleId);
+  setTimeout(()=>document.getElementById('ppAmount')?.focus(),50);
+}
+async function savePartialPayment(saleId){
+  const amount = Math.round(parseFloat(document.getElementById('ppAmount').value)*100)/100;
+  const method = document.getElementById('ppMethod').value, who = document.getElementById('ppWho').value.trim();
+  if(!Number.isFinite(amount)||amount<=0){ toast('Informe o valor recebido.'); return; }
+  if(!state.cashSession){ toast('Abra o caixa para receber pagamento.'); return; }
+  const pay = { id:uid(), method, amount, who, at:new Date().toISOString(), operatorId:currentUser.id, operatorName:currentUser.name, cashSessionId:state.cashSession.id };
+  let refused = '';
+  const cur = await commitSaleChange(saleId, c=>{
+    if(c.status!=='open'||c.canceled){ refused='Esta comanda já foi fechada ou cancelada em outro aparelho.'; return false; }
+    const due = Math.round((saleTotal(c.items) - comandaPartialPaid(c))*100)/100;
+    if(amount > due+0.009){ refused='O valor passa do que está em aberto ('+fmt(due)+').'; return false; }
+    c.partialPayments = [...(c.partialPayments||[]), pay];
+  });
+  if(!cur) return;
+  if(refused){ toast(refused); return; }
+  const desc = 'Pagamento parcial — pedido #'+(cur.orderNumber||saleId)+(who?' ('+who+')':'');
+  state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'suprimento', amount, method, origin:'parcial', saleId, partialId:pay.id, reason:desc, description:desc, note:'', operatorId:currentUser.id, operatorName:currentUser.name, at:pay.at});
+  save('cashMovements');
+  logAction('Pagamento parcial: '+fmt(amount)+' ('+paymentMethodLabel(method)+') — pedido #'+(cur.orderNumber||saleId));
+  toast('Pagamento parcial de '+fmt(amount)+' registrado.');
+  openComanda(saleId, true);
+}
+async function reversePartialPayment(saleId, pid){
+  if(!(currentUser && (currentUser.role==='admin' || sessionIsOwner))){ toast('Só o administrador estorna pagamento parcial.'); return; }
+  if(!state.cashSession){ toast('Abra o caixa para estornar (o valor sai do caixa).'); return; }
+  const s = state.sales.find(x=>x.id===saleId); const pay = s && (s.partialPayments||[]).find(p=>p.id===pid); if(!pay||pay.reversed) return;
+  if(!await askConfirm({title:'Estornar pagamento parcial de '+fmt(pay.amount)+'?', message:'O valor volta a ficar em aberto na comanda e sai do caixa.', confirmLabel:'Estornar pagamento'})) return;
+  const cur = await commitSaleChange(saleId, c=>{ const p=(c.partialPayments||[]).find(x=>x.id===pid); if(!p||p.reversed) return false; p.reversed=true; p.reversedAt=new Date().toISOString(); p.reversedBy=currentUser.name; });
+  if(!cur) return;
+  const mv = state.cashMovements.find(m=>m.origin==='parcial' && m.partialId===pid && m.cashSessionId===state.cashSession.id);
+  if(mv) state.cashMovements = state.cashMovements.filter(m=>m.id!==mv.id);
+  else { const desc='Estorno de pagamento parcial — pedido #'+(cur.orderNumber||saleId); state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'sangria', amount:pay.amount, method:pay.method, origin:'parcial-estorno', saleId, partialId:pid, reason:desc, description:desc, note:'', operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()}); }
+  save('cashMovements');
+  logAction('Estorno de pagamento parcial: '+fmt(pay.amount)+' — pedido #'+(cur.orderNumber||saleId));
+  toast('Pagamento parcial estornado.');
+  openComanda(saleId, true);
+}
+function renderComandaPartials(saleId){
+  const el = document.getElementById('comandaPartialWrap'); if(!el) return;
+  const s = state.sales.find(x=>x.id===saleId); const list = (s&&s.partialPayments||[]).filter(p=>!p.reversed);
+  if(!list.length){ el.innerHTML=''; return; }
+  const paid = comandaPartialPaid(s), due = Math.max(0, Math.round((saleTotal(currentSaleDraft.items)-paid)*100)/100);
+  const admin = currentUser && (currentUser.role==='admin' || sessionIsOwner);
+  el.innerHTML = `<div class="partial-box"><div class="partial-head"><span>Já pago (parcial): <b class="mono">${fmt(paid)}</b></span><span>Falta: <b class="mono">${fmt(due)}</b></span></div>${list.map(p=>`<div class="partial-line"><span>${comandaShortTime(p.at)} · ${h(paymentMethodLabel(p.method))}${p.who?' · '+h(p.who):''}</span><span class="mono">${fmt(p.amount)}${admin?` <button class="op-mini" title="Estornar este pagamento" onclick="reversePartialPayment('${saleId}','${p.id}')">↩</button>`:''}</span></div>`).join('')}</div>`;
+}
 function comandaAcceptsOrders(s){
   if(s && s.status==='open' && !s.canceled) return true;
   toast((s&&s.canceled?'Esta comanda foi cancelada':'Esta comanda já foi fechada')+'. Nada foi enviado: abra uma nova comanda para este cliente.');
@@ -4229,6 +4324,7 @@ function openPaymentModal(mode, comandaId){
   if(!currentSaleDraft.items.length && mode!=='comanda'){ toast('Adicione ao menos um item.'); return; }
   const subtotal = draftTotal();
   const applyService = mode==='comanda' && serviceRatePct()>0;
+  const partialPaid = mode==='comanda' && comandaId ? comandaPartialPaid(state.sales.find(x=>x.id===comandaId)) : 0;
   const memberOptions = state.members.filter(m=>!m.archived).map(m=>`<option value="${m.id}" ${memberBlockedByDebt(m)?'data-blocked="1"':''}>${h((m.code?m.code+' — ':'')+m.name+memberDebtLabel(m))}</option>`).join('');
   const preselected = currentSaleDraft.memberId || '';
   const methods = methodConfig();
@@ -4238,6 +4334,7 @@ function openPaymentModal(mode, comandaId){
       <div id="payDiscountRow" style="display:none"><span>Desconto</span><span class="mono" id="payDiscountLine">− R$ 0,00</span></div>
       <div id="payCreditRow" style="display:none"><span>Crédito do cliente</span><span class="mono" id="payCreditLine">− R$ 0,00</span></div>
       ${applyService?`<div><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono" id="payServiceLine">R$ 0,00</span></div>`:''}
+      ${partialPaid>0.009?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(partialPaid)}</span></div>`:''}
       <div class="pay-total-row"><span>Total a pagar</span><span class="mono" id="payFinalTotal">${fmt(subtotal)}</span></div>
     </div>
     <div class="row" style="align-items:flex-end;margin-top:10px">
@@ -4272,17 +4369,18 @@ function openPaymentModal(mode, comandaId){
     <button class="btn btn-primary btn-block" id="confirmPayBtn">Confirmar pagamento</button>`,true);
   const modal=document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal'); modal.style.width='520px';
   const selMember = document.getElementById('paySelMember');
-  let finalTotal = subtotal, discount = 0, selectedMethodKey = 'A', creditApplied = 0, changeDecision = 'troco';
+  let finalTotal = subtotal, discount = 0, selectedMethodKey = 'A', creditApplied = 0, changeDecision = 'troco', appliedCouponCode = '', serviceAmount = 0;
   tempPayments = [];
   if(preselected) selMember.value = preselected;
   function currentMethod(){ return methods.find(m=>m.key===selectedMethodKey)||methods[0]; }
   function recomputeTotals(){
     const afterCoupon = Math.max(0, subtotal-discount);
     const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
-    creditApplied = Math.min(memberAvailableCredit(member), afterCoupon);
+    creditApplied = Math.min(memberAvailableCredit(member), Math.max(0, afterCoupon-partialPaid));
     const afterDiscount = Math.max(0, afterCoupon-creditApplied);
     const service = applyService ? serviceChargeAmount(afterDiscount) : 0;
-    finalTotal = Math.round((afterDiscount+service)*100)/100; // centavos exatos (evita total 36,663 gravado na venda)
+    serviceAmount = Math.round(service*100)/100;
+    finalTotal = Math.max(0, Math.round((afterDiscount+service-partialPaid)*100)/100); // centavos exatos; parcial já pago sai do total
     document.getElementById('payDiscountRow').style.display = discount>0 ? 'flex':'none';
     if(discount>0) document.getElementById('payDiscountLine').textContent = '− '+fmt(discount);
     document.getElementById('payCreditRow').style.display = creditApplied>0.009 ? 'flex':'none';
@@ -4305,7 +4403,8 @@ function openPaymentModal(mode, comandaId){
     document.querySelectorAll('.pay-method-btn').forEach(b=>b.classList.toggle('active', b.dataset.key===key));
     const received = tempPayments.reduce((a,p)=>a+p.amount,0);
     const remaining = Math.max(0, finalTotal-received);
-    const suggested = splitActive() ? Math.min(remaining, finalTotal/splitCount()) : remaining;
+    const share = Math.round(finalTotal/splitCount()*100)/100;
+    const suggested = splitActive() ? (remaining-share < 0.05 ? remaining : Math.min(remaining, share)) : remaining;
     document.getElementById('payPartAmount').value = suggested.toFixed(2);
     checkFiado();
   };
@@ -4360,6 +4459,7 @@ function openPaymentModal(mode, comandaId){
     discount = c.type==='percent' ? Math.round(subtotal*c.value)/100 : Math.min(subtotal,c.value);
     recomputeTotals();
     tempPayments = []; renderPaymentParts();
+    appliedCouponCode = code;
     toast('Cupom '+code+' aplicado.');
   };
   function payKeyHandler(e){
@@ -4406,7 +4506,8 @@ function openPaymentModal(mode, comandaId){
       }
     }
     document.removeEventListener('keydown', payKeyHandler);
-    if(await finalizeSale(mode, comandaId, memberId, payments, finalTotal, creditApplied, creditFromChange)){
+    // OP-15: a venda guarda como o total foi formado (antes só o total final, sem saber de cupom ou desconto).
+    if(await finalizeSale(mode, comandaId, memberId, payments, finalTotal, creditApplied, creditFromChange, { subtotal: Math.round(subtotal*100)/100, discount: Math.round(discount*100)/100, couponCode: appliedCouponCode||null, creditApplied: Math.round((creditApplied||0)*100)/100, serviceCharge: serviceAmount, partialPaid })){
       recordChangeOutInCash(cashChangeOut);
       if(mode==='balcao') document.getElementById('modalRoot').dataset.confirmPdv='false';
       closeModal();
@@ -4425,7 +4526,8 @@ function showSalePendingWarning(){
   box.textContent = 'O pedido já foi para a cozinha, mas a venda ainda não foi registrada. Clique em confirmar de novo antes de fechar esta tela.';
   btn.parentNode.insertBefore(box, btn);
 }
-async function finalizeSale(mode, comandaId, memberId, payments, total, creditApplied, creditFromChange){
+async function finalizeSale(mode, comandaId, memberId, payments, total, creditApplied, creditFromChange, saleMeta){
+  saleMeta = saleMeta || {};
   const saleMember = memberId ? state.members.find(m=>m.id===memberId) : null;
   const who = memberId ? (saleMember||{}).name : (currentSaleDraft.customerName||'Cliente avulso');
   const cota = saleMember ? saleMember.code : '';
@@ -4451,7 +4553,8 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
     items: currentSaleDraft.items, total, status:'closed', notes:currentSaleDraft.notes||'',
     payments, operatorId: currentUser.id, operatorName: currentUser.name,
     cashSessionId: state.cashSession ? state.cashSession.id : null, cashDisplayId,
-    openedAt: new Date().toISOString(), closedAt: new Date().toISOString()
+    openedAt: new Date().toISOString(), closedAt: new Date().toISOString(),
+    ...saleMeta
   };
   if(mode==='balcao'){
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
@@ -4487,6 +4590,10 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
       const novos = merged.extras.filter(i=>!i.canceled);
       if(novos.length){ state.sales = fresh; toast('Chegou '+novos.length+' item(ns) novo(s) nesta comanda por outro aparelho. Feche o pagamento e reabra a comanda para conferir o total.'); return false; }
       currentSaleDraft.items = merged.items;
+      // OP-13: os parciais entram nas formas de pagamento da venda (marcados partial, já contados
+      // no caixa quando foram recebidos) e o total da venda volta a ser o total cheio.
+      const parts = (cur.partialPayments||[]).filter(p=>!p.reversed).map(p=>({method:p.method, amount:Number(p.amount)||0, partial:true, partialId:p.id, at:p.at, who:p.who||''}));
+      if(parts.length){ sale.payments=[...parts, ...sale.payments]; total=Math.round((total+parts.reduce((t,p)=>t+p.amount,0))*100)/100; sale.total=total; }
     }
   }
   if(isCloudMode()){
@@ -4499,11 +4606,11 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
       // OP-11: o sócio escolhido no pagamento vai também para a venda. Antes o fiado
       // caía no sócio escolhido e a venda continuava sem sócio (ou no antigo), e o
       // histórico, o "consumo de hoje" e o consumo do associado saíam errados.
-      patch = { items:currentSaleDraft.items, total, status:'closed', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt };
+      patch = { items:currentSaleDraft.items, total, status:'closed', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt, ...saleMeta };
       if(memberId) patch.memberId = memberId;
     } else if(isExistingDelivery){
       const current = state.sales.find(s=>s.id===comandaId);
-      patch = { memberId, customerName:currentSaleDraft.customerName||(current?current.customerName:''), items:currentSaleDraft.items, total, status:'closed', deliveryStatus:'entregue', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt };
+      patch = { memberId, customerName:currentSaleDraft.customerName||(current?current.customerName:''), items:currentSaleDraft.items, total, status:'closed', deliveryStatus:'entregue', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt, ...saleMeta };
     } else {
       patch = sale;
     }
@@ -4692,6 +4799,7 @@ function openComanda(id, keepRequester){
           <button onclick="openComandaLinkClient('${s.id}')"><span class="icn">${ICN.user}</span> ${member?'Trocar Cliente':'Vincular Cliente'}</button>
           ${member&&hasPerm('associados')?`<button onclick="editMember('${member.id}')"><span class="icn">${ICN.idcard}</span> Editar Cadastro</button>`:''}
           <button onclick="openNovoPedidoModal('${s.id}')" ${locked?'disabled':''}><span class="icn">${ICN.plus}</span> Novo Pedido</button>
+          <button onclick="openPartialPayment('${s.id}')" ${locked?'disabled':''}><span class="icn">${ICN.cash}</span> Receber parcial</button>
           <div class="pdv-menu-wrap" style="position:relative">
             <button id="comandaMoreBtn" onclick="toggleComandaOrderOptions()" aria-haspopup="true"><span class="icn">${ICN.menu}</span> Mais Opções</button>
             <div id="comandaOrderOptions" class="pdv-options-panel" style="left:0;right:auto;bottom:100%;top:auto;margin-bottom:6px;width:290px">
@@ -4721,6 +4829,7 @@ function openComanda(id, keepRequester){
         </div>
         <div class="comanda-history-panel" style="margin:0;border:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="comanda-history-head"><b>Histórico da Comanda</b><span>Toque num pedido para ver os itens</span></div><div class="finance-grid" style="flex:1;min-height:0"><table><thead><tr><th>Lançado</th><th>Produto</th><th class="cmd-total">Total</th><th>Entrega</th><th>Situação</th></tr></thead><tbody id="comandaAuditRows"></tbody></table></div></div>
         <div id="draftTotalWrap">${renderTotalWithService(0)}</div>
+        <div id="comandaPartialWrap"></div>
       </main>
     </div>
     <div class="record-actions">
@@ -4729,7 +4838,7 @@ function openComanda(id, keepRequester){
     </div>
   </div>`, true);
   document.querySelector('#modalRoot .modal').classList.add('record-modal','cash-order-modal');
-  renderDraftItems(); renderComandaAuditHistory(); renderComandaQuickCart();
+  renderDraftItems(); renderComandaAuditHistory(); renderComandaQuickCart(); renderComandaPartials(s.id);
   let closingComanda = false;
   document.getElementById('btnCloseComanda').onclick = async ()=>{
     if(s.locked){ toast('Este pedido está bloqueado. Desbloqueie antes de fechar.'); return; }
@@ -5320,6 +5429,7 @@ function openCancelComanda(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
   if(s.locked){ toast('Este pedido está bloqueado. Desbloqueie antes de cancelar.'); return; }
   if(s.status!=='open'){ toast('Este pedido já está fechado.'); return; }
+  if(comandaPartialPaid(s)>0.009){ toast('Esta comanda tem pagamento parcial de '+fmt(comandaPartialPaid(s))+'. Estorne os pagamentos parciais antes de cancelar.'); return; }
   cancelComandaSaleId = saleId;
   const activeItems = (currentSaleDraft.items||[]).filter(i=>!i.canceled);
   openModal('Cancelar comanda inteira', `
@@ -6256,7 +6366,10 @@ function renderCaixa(){
 }
 
 function paymentMethodLabel(method){if(method==='dinheiro')return'Dinheiro';if(method==='credito')return'Crédito';if(method==='debito')return'Débito';if(method==='cartao')return'Cartão';if(method==='pix')return'Pix';if(method==='vale')return'Vale Refeição';if(method==='fiado')return'Fiado';return String(method||'Outro').replace(/^outro:/,'');}
-function cashClosingSnapshot(){const s=state.cashSession;if(!s)return null;const sales=state.sales.filter(sl=>saleCountsAsRevenue(sl)&&new Date(sl.closedAt)>=new Date(s.openedAt));const totals={dinheiro:0,cartao:0,pix:0,fiado:0,outros:0};sales.forEach(sl=>(sl.payments||[]).forEach(p=>totals[methodBucket(p.method)]+=Number(p.amount)||0));const movements=state.cashMovements.filter(m=>m.cashSessionId===s.id),suprimentos=movements.filter(m=>m.type==='suprimento').reduce((a,m)=>a+(Number(m.amount)||0),0),sangrias=movements.filter(m=>m.type==='sangria').reduce((a,m)=>a+(Number(m.amount)||0),0),cashIn=movements.filter(m=>m.type==='suprimento'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+(Number(m.amount)||0),0),cashOut=movements.filter(m=>m.type==='sangria'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+(Number(m.amount)||0),0),totalVendido=Object.values(totals).reduce((a,b)=>a+b,0),money=(Number(s.openingAmount)||0)+totals.dinheiro+cashIn-cashOut,final=(Number(s.openingAmount)||0)+totalVendido+suprimentos-sangrias;return{s,totals,suprimentos,sangrias,totalVendido,money,final};}
+// OP-13: pagamento parcial de comanda entra no caixa na hora (movimento origin 'parcial'), por
+// forma de pagamento; quando a comanda fecha, essas linhas vêm marcadas partial:true na venda e
+// não são contadas de novo. Estorno de parcial ('parcial-estorno') desconta da mesma forma.
+function cashClosingSnapshot(){const s=state.cashSession;if(!s)return null;const sales=state.sales.filter(sl=>saleCountsAsRevenue(sl)&&new Date(sl.closedAt)>=new Date(s.openedAt));const totals={dinheiro:0,cartao:0,pix:0,fiado:0,outros:0};sales.forEach(sl=>(sl.payments||[]).forEach(p=>{if(p.partial)return;totals[methodBucket(p.method)]+=Number(p.amount)||0;}));const movements=state.cashMovements.filter(m=>m.cashSessionId===s.id),isPartial=m=>m.origin==='parcial'||m.origin==='parcial-estorno',manual=movements.filter(m=>!isPartial(m));movements.filter(isPartial).forEach(m=>{totals[methodBucket(m.method||'dinheiro')]+=(m.origin==='parcial-estorno'?-1:1)*(Number(m.amount)||0);});const suprimentos=manual.filter(m=>m.type==='suprimento').reduce((a,m)=>a+(Number(m.amount)||0),0),sangrias=manual.filter(m=>m.type==='sangria').reduce((a,m)=>a+(Number(m.amount)||0),0),cashIn=manual.filter(m=>m.type==='suprimento'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+(Number(m.amount)||0),0),cashOut=manual.filter(m=>m.type==='sangria'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+(Number(m.amount)||0),0),totalVendido=Object.values(totals).reduce((a,b)=>a+b,0),money=(Number(s.openingAmount)||0)+totals.dinheiro+cashIn-cashOut,final=(Number(s.openingAmount)||0)+totalVendido+suprimentos-sangrias;return{s,totals,suprimentos,sangrias,totalVendido,money,final};}
 // PROD-05 (decisão do dono: conferência às cegas obrigatória). Antes o "dinheiro esperado"
 // aparecia antes da contagem e o operador tendia a "achar" o valor esperado. Agora: 1) conta
 // a gaveta e informa o total da maquininha sem ver o esperado; 2) "Conferir" mostra esperado x
