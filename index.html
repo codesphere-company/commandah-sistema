@@ -4272,7 +4272,7 @@ function openPaymentModal(mode, comandaId){
     <button class="btn btn-primary btn-block" id="confirmPayBtn">Confirmar pagamento</button>`,true);
   const modal=document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal'); modal.style.width='520px';
   const selMember = document.getElementById('paySelMember');
-  let finalTotal = subtotal, discount = 0, selectedMethodKey = 'A', creditApplied = 0, changeDecision = 'troco';
+  let finalTotal = subtotal, discount = 0, selectedMethodKey = 'A', creditApplied = 0, changeDecision = 'troco', appliedCouponCode = '', serviceAmount = 0;
   tempPayments = [];
   if(preselected) selMember.value = preselected;
   function currentMethod(){ return methods.find(m=>m.key===selectedMethodKey)||methods[0]; }
@@ -4282,6 +4282,7 @@ function openPaymentModal(mode, comandaId){
     creditApplied = Math.min(memberAvailableCredit(member), afterCoupon);
     const afterDiscount = Math.max(0, afterCoupon-creditApplied);
     const service = applyService ? serviceChargeAmount(afterDiscount) : 0;
+    serviceAmount = Math.round(service*100)/100;
     finalTotal = Math.round((afterDiscount+service)*100)/100; // centavos exatos (evita total 36,663 gravado na venda)
     document.getElementById('payDiscountRow').style.display = discount>0 ? 'flex':'none';
     if(discount>0) document.getElementById('payDiscountLine').textContent = '− '+fmt(discount);
@@ -4305,7 +4306,8 @@ function openPaymentModal(mode, comandaId){
     document.querySelectorAll('.pay-method-btn').forEach(b=>b.classList.toggle('active', b.dataset.key===key));
     const received = tempPayments.reduce((a,p)=>a+p.amount,0);
     const remaining = Math.max(0, finalTotal-received);
-    const suggested = splitActive() ? Math.min(remaining, finalTotal/splitCount()) : remaining;
+    const share = Math.round(finalTotal/splitCount()*100)/100;
+    const suggested = splitActive() ? (remaining-share < 0.05 ? remaining : Math.min(remaining, share)) : remaining;
     document.getElementById('payPartAmount').value = suggested.toFixed(2);
     checkFiado();
   };
@@ -4360,6 +4362,7 @@ function openPaymentModal(mode, comandaId){
     discount = c.type==='percent' ? Math.round(subtotal*c.value)/100 : Math.min(subtotal,c.value);
     recomputeTotals();
     tempPayments = []; renderPaymentParts();
+    appliedCouponCode = code;
     toast('Cupom '+code+' aplicado.');
   };
   function payKeyHandler(e){
@@ -4406,7 +4409,8 @@ function openPaymentModal(mode, comandaId){
       }
     }
     document.removeEventListener('keydown', payKeyHandler);
-    if(await finalizeSale(mode, comandaId, memberId, payments, finalTotal, creditApplied, creditFromChange)){
+    // OP-15: a venda guarda como o total foi formado (antes só o total final, sem saber de cupom ou desconto).
+    if(await finalizeSale(mode, comandaId, memberId, payments, finalTotal, creditApplied, creditFromChange, { subtotal: Math.round(subtotal*100)/100, discount: Math.round(discount*100)/100, couponCode: appliedCouponCode||null, creditApplied: Math.round((creditApplied||0)*100)/100, serviceCharge: serviceAmount })){
       recordChangeOutInCash(cashChangeOut);
       if(mode==='balcao') document.getElementById('modalRoot').dataset.confirmPdv='false';
       closeModal();
@@ -4425,7 +4429,8 @@ function showSalePendingWarning(){
   box.textContent = 'O pedido já foi para a cozinha, mas a venda ainda não foi registrada. Clique em confirmar de novo antes de fechar esta tela.';
   btn.parentNode.insertBefore(box, btn);
 }
-async function finalizeSale(mode, comandaId, memberId, payments, total, creditApplied, creditFromChange){
+async function finalizeSale(mode, comandaId, memberId, payments, total, creditApplied, creditFromChange, saleMeta){
+  saleMeta = saleMeta || {};
   const saleMember = memberId ? state.members.find(m=>m.id===memberId) : null;
   const who = memberId ? (saleMember||{}).name : (currentSaleDraft.customerName||'Cliente avulso');
   const cota = saleMember ? saleMember.code : '';
@@ -4451,7 +4456,8 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
     items: currentSaleDraft.items, total, status:'closed', notes:currentSaleDraft.notes||'',
     payments, operatorId: currentUser.id, operatorName: currentUser.name,
     cashSessionId: state.cashSession ? state.cashSession.id : null, cashDisplayId,
-    openedAt: new Date().toISOString(), closedAt: new Date().toISOString()
+    openedAt: new Date().toISOString(), closedAt: new Date().toISOString(),
+    ...saleMeta
   };
   if(mode==='balcao'){
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
@@ -4499,11 +4505,11 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
       // OP-11: o sócio escolhido no pagamento vai também para a venda. Antes o fiado
       // caía no sócio escolhido e a venda continuava sem sócio (ou no antigo), e o
       // histórico, o "consumo de hoje" e o consumo do associado saíam errados.
-      patch = { items:currentSaleDraft.items, total, status:'closed', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt };
+      patch = { items:currentSaleDraft.items, total, status:'closed', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt, ...saleMeta };
       if(memberId) patch.memberId = memberId;
     } else if(isExistingDelivery){
       const current = state.sales.find(s=>s.id===comandaId);
-      patch = { memberId, customerName:currentSaleDraft.customerName||(current?current.customerName:''), items:currentSaleDraft.items, total, status:'closed', deliveryStatus:'entregue', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt };
+      patch = { memberId, customerName:currentSaleDraft.customerName||(current?current.customerName:''), items:currentSaleDraft.items, total, status:'closed', deliveryStatus:'entregue', payments:sale.payments, operatorId:sale.operatorId, operatorName:sale.operatorName, closedAt:sale.closedAt, ...saleMeta };
     } else {
       patch = sale;
     }
