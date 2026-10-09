@@ -943,6 +943,77 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .cash-order-modal{position:relative}
 .cash-order-modal>.modal-close{position:absolute!important;top:6px;right:10px;margin:0!important;float:none}
 .pdv-options-panel.floating .pdv-options-inner .danger small{flex-basis:100%;margin:0 0 0 24px}
+/* Lista de comandas abertas (09/10) */
+.comanda-workspace .table-toolbar{gap:10px;flex-wrap:wrap}
+.seg-toggle{display:inline-flex;background:var(--c-surface-3);border-radius:var(--r-pill);padding:3px;gap:2px}
+.seg-toggle button{border:0;background:none;color:var(--c-text-2);border-radius:var(--r-pill);padding:7px 14px;font-weight:600;font-size:13px;cursor:pointer;min-height:36px}
+.seg-toggle button.active{background:var(--c-surface);color:var(--c-text);box-shadow:var(--sh-1)}
+.comanda-list-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:18px 0 10px}
+.comanda-list-head .table-heading{margin:0}
+.comanda-list-head .table-heading span{display:inline-block;min-width:26px;padding:1px 8px;margin-left:6px;border-radius:var(--r-pill);background:var(--c-primary-soft);color:var(--c-primary-text);font-size:14px;text-align:center}
+.comanda-list-sum{color:var(--c-text-2);font-size:14px}
+.comanda-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.comanda-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:4px 10px;text-align:left;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);border-left:5px solid var(--c-border-strong);border-radius:var(--r-lg);padding:12px 14px;min-height:92px;cursor:pointer;box-shadow:var(--sh-1);font:inherit}
+.comanda-card:hover{border-color:var(--c-border-strong);box-shadow:var(--sh-2)}
+.comanda-card:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
+.comanda-card .cc-name{font-size:16px;font-weight:700;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.comanda-card .cc-total{font-size:16px;font-weight:700;white-space:nowrap}
+.comanda-card .cc-meta{grid-column:1/-1;font-size:13px;color:var(--c-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.comanda-card .cc-time{grid-column:1/-1;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--c-text-2)}
+.comanda-card .cc-dot{width:9px;height:9px;border-radius:50%;background:var(--c-text-3);display:inline-block}
+.comanda-card.ctime-green{border-left-color:var(--c-success)}
+.comanda-card.ctime-green .cc-dot{background:var(--c-success)}
+.comanda-card.ctime-yellow{border-left-color:var(--c-warning-solid)}
+.comanda-card.ctime-yellow .cc-dot{background:var(--c-warning-solid)}
+.comanda-card.ctime-yellow .cc-time{color:var(--c-warning)}
+.comanda-card.ctime-red{border-left-color:var(--c-danger)}
+.comanda-card.ctime-red .cc-dot{background:var(--c-danger)}
+.comanda-card.ctime-red .cc-time{color:var(--c-danger)}
+.comanda-card-add{display:flex;align-items:center;justify-content:center;gap:8px;border:2px dashed var(--c-border-strong);border-left-width:2px;box-shadow:none;background:transparent;color:var(--c-primary-text);font-weight:700}
+.comanda-card-add .cc-plus{font-size:22px;line-height:1}
+.comanda-card-add:hover{background:var(--c-primary-soft);border-color:var(--c-primary)}
+/* Novo Pedido em duas colunas (09/10) */
+.modal.np-modal{width:min(1180px,calc(100vw - 32px))!important;max-width:none!important;height:calc(100dvh - 32px);display:flex;flex-direction:column;padding:0 0 0 0!important}
+.np-modal .modal-title{padding:14px 18px;margin:0;border-bottom:1px solid var(--c-border)}
+.np-modal>.modal-close{position:absolute!important;top:8px;right:10px;margin:0!important;float:none}
+.np-modal{position:relative}
+.np-layout{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 360px;background:var(--c-surface-2)}
+.np-menu{min-width:0;min-height:0;display:flex;flex-direction:column;padding:14px 16px;gap:10px}
+.np-search-row{display:flex;align-items:center;gap:12px}
+.np-search-row input{flex:1;height:46px;font-size:16px;padding:0 14px}
+.np-search-row .sub{white-space:nowrap;font-size:13px}
+.np-modal .np-cat-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.np-modal .np-cat-tab{min-height:38px;padding:0 14px;font-size:14px;font-weight:600}
+.np-cat-hist b{margin-left:4px;font-weight:700}
+.np-modal .np-menu-grid{flex:1;min-height:0;max-height:none;overflow:auto;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;align-content:start;padding:2px 4px 8px 2px}
+.np-modal .np-prod-btn{min-height:118px!important;height:118px!important;padding:12px!important;border-radius:var(--r-md)!important;background:var(--c-surface)!important;gap:3px;overflow:hidden}
+.np-modal .np-prod-btn .np-prod-name{font-size:15px;font-weight:600;line-height:1.3;color:var(--c-text);display:block;max-height:2.6em;overflow:hidden;word-break:normal;overflow-wrap:anywhere;padding-right:24px;flex:none}
+.np-modal .np-prod-btn .np-prod-cat{font-size:12px;color:var(--c-text-3)}
+.np-modal .np-prod-btn .np-prod-price{align-self:flex-start;margin-top:auto;font-size:16px;font-weight:700;color:var(--c-primary-text)}
+.np-modal .np-prod-btn.has-qty{background:var(--c-primary-soft)!important;border-color:var(--c-primary)!important}
+.np-modal .np-prod-btn .np-qty-badge{top:8px;right:8px;min-width:24px;height:24px;border-radius:12px;font-size:13px}
+.np-side{min-height:0;display:flex;flex-direction:column;gap:10px;padding:14px 16px;background:var(--c-surface);border-left:1px solid var(--c-border);overflow:auto}
+.np-side .np-section{margin:0;padding:12px}
+.np-side select{height:44px;font-size:15px}
+.np-side .np-origin-badge{margin-top:8px;display:inline-block}
+.np-side .np-cart{flex:1;min-height:120px;display:flex;flex-direction:column;background:var(--c-surface)!important}
+.np-cart-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+#npCartList{flex:1;overflow:auto}
+.np-line{padding:10px 0;border-bottom:1px solid var(--c-border);display:grid;gap:6px}
+.np-line:last-child{border-bottom:0}
+.np-line-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.np-line-name{font-weight:600;font-size:15px;line-height:1.3}
+.np-line-sub{font-weight:700;white-space:nowrap}
+.np-line-ctrl{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.np-line .qty-ctrl{gap:6px}
+.np-line .qty-ctrl button{min-width:38px;min-height:38px;font-size:18px}
+.np-line .qty-ctrl .mono{display:inline-block;min-width:30px;text-align:center;font-weight:700;font-size:16px}
+.np-cart-head .sub{font-size:13px}
+.np-side-foot{border-top:1px solid var(--c-border);padding-top:10px;display:grid;gap:10px}
+.np-side-foot .np-total{margin:0;padding:0;border:0;font-size:20px}
+.np-actions{display:grid;grid-template-columns:auto 1fr;gap:8px}
+.np-actions .btn{min-height:48px;font-size:15px}
+@media (max-width:900px){.modal.np-modal{height:auto;max-height:none}.np-layout{grid-template-columns:1fr}.np-side{border-left:0;border-top:1px solid var(--c-border)}.np-modal .np-menu-grid{max-height:50vh}}
 .kcanceled-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:var(--r-pill);background:var(--c-danger);color:var(--c-text-inverse);font-size:.8em;font-weight:700}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
@@ -4651,37 +4722,37 @@ function openNovoPedidoModal(saleId){
       <p id="npRequesterWarn" class="sub" style="display:none;color:var(--red);margin:6px 0 0">Esta pessoa está bloqueada para consumir nesta cota.</p>
       ${memberBlockedByDebt(member)?`<button class="btn btn-sm" style="margin-top:6px" onclick="openWhatsAppCollection('${member.id}')">📱 &nbsp; Cobrar via WhatsApp</button>`:''}
     </div>` : `<select id="npRequester" style="display:none">${requesterOptions}</select>`;
-  openModal('Novo Pedido', `
-    ${requesterSection}
-    <div class="np-section">
-      <div style="display:flex;align-items:flex-end;gap:12px">
-        <div style="flex:1"><label class="np-label">Local de entrega</label><select id="npLocal"><option value="">— No balcão / retirar aqui —</option>${state.locais.map(l=>`<option value="${h(l.nome)}">${h(l.nome)}</option>`).join('')}</select></div>
-        <div class="np-origin-badge" title="Origem deste pedido">${h(origemLabel(currentUser.origem)||'Caixa')} · ${h(currentUser.name)}</div>
-      </div>
-    </div>
-    <div class="np-section" id="npHistorySection" style="display:none">
-      <label class="np-label">Já pedidos nesta comanda</label>
-      <div id="npHistoryGrid" class="np-product-grid" style="margin-top:8px"></div>
-    </div>
-    <div class="np-section">
-      <div style="display:flex;justify-content:space-between;align-items:baseline"><label class="np-label" style="margin:0">Produtos</label><span class="sub" id="npResultCount" style="font-size:12px"></span></div>
-      <input id="npProductSearch" placeholder="Buscar produto..." oninput="renderNpProductGrid(this.value)" style="margin-top:8px">
-      <div class="np-cat-tabs" id="npCatTabs"></div>
-      <div id="npProductGrid" class="np-product-grid"></div>
-    </div>
-    <div class="np-section np-cart">
-      <div style="display:flex;justify-content:space-between;align-items:baseline"><label class="np-label" style="margin:0">Itens do pedido</label><span class="sub" id="npItemCount" style="font-size:12px"></span></div>
-      <div id="npCartList" style="margin-top:8px"></div>
-      <div class="np-total"><span>Total</span><span class="mono" id="npCartTotal">R$ 0,00</span></div>
-    </div>
-    <div class="row">
-      <button class="btn" onclick="closeModal();openComanda('${saleId}',true)">Cancelar</button>
-      <button class="btn btn-primary" id="npConfirmBtn">Confirmar e Imprimir</button>
+  // Novo Pedido em duas colunas (pedido do dono, 09/10): cardápio à esquerda com cartões
+  // legíveis e aba "Já pedidos"; à direita, sempre visíveis, quem pede, local, itens,
+  // total e Confirmar (antes ficavam abaixo do cardápio, fora da tela).
+  openModal('Novo Pedido — '+(member?member.name+(member.code?' · Cota '+member.code:''):(s.customerName||'Cliente avulso')), `
+    <div class="np-layout">
+      <section class="np-menu">
+        <div class="np-search-row"><input id="npProductSearch" type="search" placeholder="Buscar produto pelo nome..." oninput="renderNpProductGrid(this.value)" autocomplete="off"><span class="sub" id="npResultCount"></span></div>
+        <div class="np-cat-tabs" id="npCatTabs"></div>
+        <div id="npProductGrid" class="np-product-grid np-menu-grid"></div>
+      </section>
+      <aside class="np-side">
+        ${requesterSection}
+        <div class="np-section">
+          <label class="np-label">Local de entrega</label><select id="npLocal"><option value="">— No balcão / retirar aqui —</option>${state.locais.map(l=>`<option value="${h(l.nome)}" ${s.local===l.nome?'selected':''}>${h(l.nome)}</option>`).join('')}</select>
+          <div class="np-origin-badge" title="Origem deste pedido">${h(origemLabel(currentUser.origem)||'Caixa')} · ${h(currentUser.name)}</div>
+        </div>
+        <div class="np-section np-cart">
+          <div class="np-cart-head"><label class="np-label" style="margin:0">Itens do pedido</label><span class="sub" id="npItemCount"></span></div>
+          <div id="npCartList"></div>
+        </div>
+        <div class="np-side-foot">
+          <div class="np-total"><span>Total</span><span class="mono" id="npCartTotal">R$ 0,00</span></div>
+          <div class="np-actions"><button class="btn" onclick="closeModal();openComanda('${saleId}',true)">Cancelar</button><button class="btn btn-primary" id="npConfirmBtn">Confirmar e imprimir</button></div>
+        </div>
+      </aside>
     </div>
   `, true);
-  const modal = document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal'); modal.style.width='620px';
-  npCategory='';
-  renderNpHistoryGrid(); renderNpCatTabs(); renderNpProductGrid(''); renderNpCart();
+  const modal = document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal','np-modal');
+  npCategory = npHistoryProducts().length ? '__hist' : '';
+  renderNpCatTabs(); renderNpProductGrid(''); renderNpCart();
+  setTimeout(()=>{ const q=document.getElementById('npProductSearch'); if(q && window.matchMedia && matchMedia('(pointer:fine)').matches) q.focus(); }, 50);
   document.getElementById('npRequester').onchange = (e)=>{
     const opt = e.target.selectedOptions[0];
     document.getElementById('npRequesterWarn').style.display = opt&&opt.disabled ? 'block':'none';
@@ -4693,19 +4764,21 @@ function renderNpCatTabs(){
   const el = document.getElementById('npCatTabs'); if(!el) return;
   const cats = [...new Set(state.products.filter(p=>p.active!==false).map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   if(!cats.length){ el.innerHTML=''; return; }
-  el.innerHTML = `<button class="np-cat-tab ${!npCategory?'active':''}" onclick="npCategory='';renderNpCatTabs();renderNpProductGrid(document.getElementById('npProductSearch').value)">Todas</button>` +
+  const hist = npHistoryProducts().length;
+  el.innerHTML = (hist?`<button class="np-cat-tab np-cat-hist ${npCategory==='__hist'?'active':''}" onclick="npCategory='__hist';renderNpCatTabs();renderNpProductGrid(document.getElementById('npProductSearch').value)">Já pedidos <b>${hist}</b></button>`:'') + `<button class="np-cat-tab ${!npCategory?'active':''}" onclick="npCategory='';renderNpCatTabs();renderNpProductGrid(document.getElementById('npProductSearch').value)">Todas</button>` +
     cats.map(c=>`<button class="np-cat-tab ${npCategory===c?'active':''}" onclick="npCategory=${h(JSON.stringify(c))};renderNpCatTabs();renderNpProductGrid(document.getElementById('npProductSearch').value)">${h(c)}</button>`).join('');
 }
 function renderNpProductGrid(q){
   const el = document.getElementById('npProductGrid'); if(!el) return;
   const query = String(q||'').toLowerCase();
-  let list = state.products.filter(p=>p.active!==false && p.name.toLowerCase().includes(query));
-  if(npCategory) list = list.filter(p=>p.category===npCategory);
+  // Buscar sempre procura no cardápio todo; sem busca, vale a aba escolhida.
+  let list = npCategory==='__hist' && !query ? npHistoryProducts() : state.products.filter(p=>p.active!==false && p.name.toLowerCase().includes(query));
+  if(npCategory && npCategory!=='__hist' ) list = list.filter(p=>p.category===npCategory);
   const countEl = document.getElementById('npResultCount'); if(countEl) countEl.textContent = list.length+' produto'+(list.length===1?'':'s');
   el.innerHTML = list.length ? list.map(p=>{
     const av = productAvailable(p); const out = av!==Infinity && av<=0;
     const inCart = npCart.find(i=>i.productId===p.id);
-    return `<button class="btn np-prod-btn ${inCart?'has-qty':''}" ${out?'disabled':''} onclick="npCartAdd('${p.id}')">${inCart?`<span class="np-qty-badge">${inCart.qty}</span>`:''}<span class="np-prod-name">${h(p.name)}</span><span class="mono np-prod-price">${fmt(p.price)}</span></button>`;
+    return `<button class="btn np-prod-btn ${inCart?'has-qty':''}" ${out?'disabled':''} title="${h(p.name)}" onclick="npCartAdd('${p.id}')">${inCart?`<span class="np-qty-badge">${inCart.qty}</span>`:''}<span class="np-prod-name">${h(p.name)}</span>${p.category?`<span class="np-prod-cat">${h(p.category)}</span>`:''}<span class="mono np-prod-price">${fmt(p.price)}</span></button>`;
   }).join('') : '<p class="np-empty">Nenhum produto encontrado.</p>';
 }
 function npCartAdd(productId){
@@ -4729,6 +4802,14 @@ function npCartChangeCopos(idx,delta){
   it.copos = Math.max(0, (it.copos||0)+delta);
   renderNpCart();
 }
+// Produtos já pedidos nesta comanda (o mais recente primeiro): aba "Já pedidos" do Novo Pedido.
+function npHistoryProducts(){
+  const s = state.sales.find(x=>x.id===npSaleId);
+  const history = s ? s.items||[] : [];
+  const seen = new Set(), out = [];
+  for(let i=history.length-1;i>=0;i--){ const pid=history[i].productId; if(pid&&!seen.has(pid)){ seen.add(pid); const p=state.products.find(x=>x.id===pid); if(p&&p.active!==false) out.push(p); } }
+  return out;
+}
 function renderNpHistoryGrid(){
   const el = document.getElementById('npHistoryGrid'), section = document.getElementById('npHistorySection');
   if(!el||!section) return;
@@ -4747,15 +4828,13 @@ function renderNpHistoryGrid(){
 function renderNpCart(){
   const el = document.getElementById('npCartList'); if(!el) return;
   el.innerHTML = npCart.length ? npCart.map((i,idx)=>`
-    <div class="item-line" style="flex-wrap:wrap">
-      <span>${h(i.name)}</span>
-      <div class="qty-ctrl"><button onclick="npCartChangeQty(${idx},-1)">−</button><span class="mono">${i.qty}</span>
-      <button onclick="npCartChangeQty(${idx},1)">+</button>
-      <span class="mono" style="min-width:70px;text-align:right">${fmt(i.price*i.qty)}</span></div>
-      ${i.estacao==='bar'?`<div class="qty-ctrl" style="width:100%;justify-content:flex-end"><span class="sub" style="margin-right:6px">Quantidade de copos:</span><button onclick="npCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="npCartChangeCopos(${idx},1)">+</button></div>`:''}
-    </div>`).join('') : '<p class="np-empty">Nenhum item adicionado ainda.</p>';
+    <div class="np-line">
+      <div class="np-line-top"><span class="np-line-name">${h(i.name)}</span><span class="mono np-line-sub">${fmt(i.price*i.qty)}</span></div>
+      <div class="np-line-ctrl"><span class="sub mono">${fmt(i.price)} cada</span><div class="qty-ctrl"><button onclick="npCartChangeQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${i.qty}</span><button onclick="npCartChangeQty(${idx},1)" aria-label="Aumentar">+</button></div></div>
+      ${i.estacao==='bar'?`<div class="np-line-ctrl"><span class="sub">Copos</span><div class="qty-ctrl"><button onclick="npCartChangeCopos(${idx},-1)" aria-label="Menos copos">−</button><span class="mono">${i.copos||0}</span><button onclick="npCartChangeCopos(${idx},1)" aria-label="Mais copos">+</button></div></div>`:''}
+    </div>`).join('') : '<p class="np-empty">Toque nos produtos à esquerda para adicionar.</p>';
   const totEl = document.getElementById('npCartTotal'); if(totEl) totEl.textContent = fmt(npCart.reduce((a,i)=>a+i.price*i.qty,0));
-  const countEl = document.getElementById('npItemCount'); if(countEl){ const n=npCart.reduce((a,i)=>a+i.qty,0); countEl.textContent = n?n+' item'+(n===1?'':'s'):''; }
+  const countEl = document.getElementById('npItemCount'); if(countEl){ const n=npCart.reduce((a,i)=>a+i.qty,0); countEl.textContent = n?n+(n===1?' item':' itens'):''; }
 }
 async function confirmNovoPedidoModal(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
@@ -5490,13 +5569,29 @@ async function deleteComandaOrder(saleId){toggleComandaOrderOptions(false);const
 
 /* Comandas nominais: exibe somente atendimentos abertos, sem grade fixa numerada. */
 function comandaPersonData(s){const member=s.memberId?state.members.find(m=>m.id===s.memberId):null,person=member&&member.name||s.customerName||'Sem identificação',quota=member&&member.code?String(member.code):'';return{member,person,quota,label:quota?person+' — Cota '+quota:person};}
+function comandaListOrder(){ try{ return localStorage.getItem('cantina2:comandaOrder')==='nome'?'nome':'antigas'; }catch(e){ return 'antigas'; } }
+function setComandaListOrder(v){ try{ localStorage.setItem('cantina2:comandaOrder', v); }catch(e){} renderComandas(); }
 function renderComandas(){
   const el=document.getElementById('view-comandas');
   if(!state.cashSession||state.cashSession.status!=='open'){el.innerHTML=`<div class="consumer-workspace"><section class="free-cash"><h2>Caixa livre</h2><div class="free-cash-actions"><button class="op-btn" onclick="switchView('caixa')">‹ &nbsp; Abrir caixa</button><button class="op-btn primary" onclick="switchView('caixa')"><span class="op-ico">＋</span> Iniciar atendimento</button></div><p class="sub" style="margin-top:25px">Abra o caixa para liberar mesas e comandas.</p></section></div>`;return;}
   const open=state.sales.filter(s=>s.status==='open'&&s.type==='comanda');
-  const cards=open.map(s=>{const info=comandaPersonData(s);const ageMin=kOrderAgeMin(s.openedAt);return `<button class="table-seat occupied comanda-person-card" data-search="${h(([info.person,info.quota,info.member&&info.member.name,s.orderNumber,s.local].filter(Boolean).join(' ')).toLowerCase())}" onclick="openComanda('${s.id}')"><div class="comanda-card-top"><div class="cap">Em atendimento</div><span class="comanda-time-badge ${comandaAgeClass(ageMin)}" title="Tempo em aberto">${fmtOpenDuration(ageMin)}</span></div><div class="comanda-card-name">${h(info.person)}</div>${info.quota?`<div class="comanda-card-quota">Cota ${h(info.quota)}</div>`:info.member&&info.person!==info.member.name?`<div class="comanda-card-quota">${h(info.member.name)}</div>`:''}${s.local?`<div class="comanda-card-local"><span class="icn">${ICN.mapPin}</span>${h(s.local)}</div>`:''}<div class="comanda-card-total">${fmt(s.total)}</div></button>`;}).join('');
-  el.innerHTML=`<div class="table-workspace"><div class="table-toolbar"><div class="op-search"><input type="search" id="comandaSearch" placeholder="Pesquisar pessoa ou cota..."></div><div style="flex:1"></div><div class="pdv-menu-wrap"><button class="op-btn ${comandaOptionsOpen?'active':''}" onclick="toggleComandaOptions()">••• &nbsp; Opções ▾</button>${comandaOptionsOpen?`<div class="pdv-menu" style="top:48px"><button onclick="openMergeOrdersModal()">⇄ &nbsp; Juntar pedidos</button><button onclick="refreshComandas()">↻ &nbsp; Atualizar</button></div>`:''}</div><button class="op-btn primary" onclick="openNewComandaModal()">＋ Iniciar Pedido Balcão (F6)</button></div><h3 class="table-heading">Mesas e Comandas Abertas (${open.length})</h3><div class="table-grid comanda-open-grid" id="comandaTiles">${cards}<button class="table-seat comanda-add-card" onclick="openNewComandaModal()" title="Abrir nova mesa ou comanda"><span>＋</span><b>Abrir comanda</b></button></div></div>`;
-  document.getElementById('comandaSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#comandaTiles .comanda-person-card[data-search]').forEach(card=>card.style.display=card.dataset.search.includes(q)?'':'none');};
+  // Lista de comandas abertas (pedido do dono, 09/10): cartões compactos que enchem a largura,
+  // nome e total na mesma linha, cota e local abaixo, cor do tempo por idade (verde < 1 h,
+  // amarelo < 2 h, vermelho a partir de 2 h), ordem escolhida e resumo do que está em aberto.
+  const order = comandaListOrder();
+  const sorted = open.slice().sort((a,b)=> order==='nome'
+    ? comandaPersonData(a).person.localeCompare(comandaPersonData(b).person,'pt-BR')
+    : new Date(a.openedAt||0)-new Date(b.openedAt||0));
+  const totalAberto = open.reduce((t,s)=>t+(Number(s.total)||0),0);
+  const cards=sorted.map(s=>{const info=comandaPersonData(s);const ageMin=kOrderAgeMin(s.openedAt);const age=comandaAgeClass(ageMin);
+    const meta=[info.quota?'Cota '+info.quota:(info.member&&info.person!==info.member.name?info.member.name:''), s.local||''].filter(Boolean);
+    return `<button class="comanda-card ${age}" data-search="${h(([info.person,info.quota,info.member&&info.member.name,s.orderNumber,s.local].filter(Boolean).join(' ')).toLowerCase())}" onclick="openComanda('${s.id}')">
+      <span class="cc-name">${h(info.person)}</span><span class="cc-total mono">${fmt(s.total)}</span>
+      <span class="cc-meta">${meta.length?meta.map(h).join(' · '):'Sem cota ou local'}</span>
+      <span class="cc-time" title="Tempo em aberto"><i class="cc-dot"></i>${fmtOpenDuration(ageMin)}</span>
+    </button>`;}).join('');
+  el.innerHTML=`<div class="table-workspace comanda-workspace"><div class="table-toolbar"><div class="op-search"><input type="search" id="comandaSearch" placeholder="Pesquisar pessoa, cota ou local..."></div><div class="seg-toggle" role="group" aria-label="Ordenar comandas"><button class="${order==='antigas'?'active':''}" onclick="setComandaListOrder('antigas')">Mais antigas</button><button class="${order==='nome'?'active':''}" onclick="setComandaListOrder('nome')">Nome</button></div><div style="flex:1"></div><div class="pdv-menu-wrap"><button class="op-btn ${comandaOptionsOpen?'active':''}" onclick="toggleComandaOptions()">••• &nbsp; Opções ▾</button>${comandaOptionsOpen?`<div class="pdv-menu" style="top:48px"><button onclick="openMergeOrdersModal()">⇄ &nbsp; Juntar pedidos</button><button onclick="refreshComandas()">↻ &nbsp; Atualizar</button></div>`:''}</div><button class="op-btn primary" onclick="openNewComandaModal()">＋ Iniciar Pedido Balcão (F6)</button></div><div class="comanda-list-head"><h3 class="table-heading">Comandas abertas <span>${open.length}</span></h3><span class="comanda-list-sum">Em aberto: <b class="mono">${fmt(totalAberto)}</b></span></div><div class="comanda-grid" id="comandaTiles"><button class="comanda-card comanda-card-add" onclick="openNewComandaModal()" title="Abrir nova mesa ou comanda"><span class="cc-plus">＋</span><span>Abrir comanda</span></button>${cards}</div></div>`;
+  document.getElementById('comandaSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#comandaTiles .comanda-card[data-search]').forEach(card=>card.style.display=card.dataset.search.includes(q)?'':'none');};
 };
 function comandaAccountChoices(){return state.members.filter(m=>!m.archived&&m.active!==false).map(m=>({key:m.id,memberId:m.id,dependentId:null,name:m.name,owner:m.name,quota:m.code||'',canOrder:true}));}
 function openNewComandaModal(){
