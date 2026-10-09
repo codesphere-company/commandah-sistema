@@ -3629,7 +3629,9 @@ function openUserModal(id){
     // O blob app_data do tenant é legível por QUALQUER operador autenticado (a RLS isola por
     // tenant, não por papel). Então, assim que o servidor passa a validar o PIN, ele não pode
     // sobreviver aqui em texto puro — senão um caixa lê o PIN do admin e loga como admin.
-    if(data.migratedAuth) delete data.pin;
+    // SEG-08: na nuvem o PIN nunca fica em texto no cadastro (legível por todo operador). Se a conta
+    // segura não foi criada agora, o login fica barrado até o admin salvar de novo com o PIN.
+    if(data.migratedAuth || isCloudMode()) delete data.pin;
     if(u){ Object.assign(u,data); if(u.migratedAuth) delete u.pin; } else { state.users.push({id, ...data}); }
     save('users'); closeModal(); renderAll(); toast('Usuário salvo.');
   };
@@ -3647,9 +3649,9 @@ async function syncStaffAuth(id, existing, data){
     const action = isMigrated ? 'reset_pin' : 'create_operator';
     try{
       const { data: fnData, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action, staff_id:id, name:data.name, role:data.role, pin:data.pin } });
-      if(error || !fnData || fnData.error) toast('Aviso: não foi possível configurar o acesso seguro agora ('+((fnData&&fnData.error)||'erro')+'). Salvo só localmente — tente salvar de novo depois.');
+      if(error || !fnData || fnData.error) toast('Não foi possível criar o acesso deste colaborador agora ('+((fnData&&fnData.error)||'sem conexão')+'). O cadastro foi salvo sem o PIN: abra de novo e salve com o PIN para liberar o login.','erro');
       else data.migratedAuth = true;
-    }catch(e){ toast('Aviso: não foi possível configurar o acesso seguro agora. Salvo só localmente — tente salvar de novo depois.'); }
+    }catch(e){ toast('Não foi possível criar o acesso deste colaborador agora. O cadastro foi salvo sem o PIN: abra de novo e salve com o PIN para liberar o login.','erro'); }
   } else {
     data.migratedAuth = true;
   }
