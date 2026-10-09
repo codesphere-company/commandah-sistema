@@ -1582,6 +1582,7 @@ async function loadAll(){
     }catch(e){ readFailed[key] = true; state[key] = (key in scalarDefaults ? scalarDefaults[key] : []); }
   }
   stripIntegrationTokens(state.settings);
+  setCashMovementsBase(state.cashMovements);
   try{ state.members = await MembersStore.load(); }catch(e){ state.members = []; }
   try{ state.orders = await OrdersStore.load(); }catch(e){ state.orders = []; }
 
@@ -1665,10 +1666,68 @@ async function save(key){
   if(!STORE[key]){ toast('Erro interno: conjunto de dados desconhecido.'); return false; }
   const payload = JSON.stringify(state[key]);
   const previous = saveQueues[key] || Promise.resolve(true);
-  const operation = previous.catch(()=>false).then(()=>storageApi.set(STORE[key], payload));
+  const operation = previous.catch(()=>false).then(()=> key==='cashMovements' && isCloudMode() ? pushCashMovements() : storageApi.set(STORE[key], payload));
   saveQueues[key] = operation;
   try{ await operation; clearSaveFailBanner(key); return true; }
   catch(e){ saveFailBanner(key); return false; }
+}
+
+/* ============ CAIXA EM MAIS DE UM APARELHO (BD-03) ============
+   Decisão do dono: mais de um aparelho opera o caixa. Antes cada aparelho regravava
+   a lista inteira de lançamentos (cantina2:cashMovements) e um apagava o do outro.
+   Agora o aparelho manda só o que ELE mudou desde a última leitura (novos/editados e
+   apagados) para cash_movements_apply, que aplica sobre a lista atual do servidor com
+   trava e devolve a lista completa. cashMovementsBase = a lista como o servidor a tinha
+   na última leitura/gravação, por id. Abrir e fechar o caixa usam cash_session_open/close
+   (migration 20261010010000). */
+let cashMovementsBase = new Map();
+function cashMovementsMap(list){ return new Map((list||[]).filter(m=>m&&m.id).map(m=>[m.id, JSON.stringify(m)])); }
+function setCashMovementsBase(list){ cashMovementsBase = cashMovementsMap(list); }
+function cashMovementsDiff(baseMap, list){
+  const upserts = [], ids = new Set();
+  (list||[]).forEach(m=>{ if(!m || !m.id) return; ids.add(m.id); if(baseMap.get(m.id)!==JSON.stringify(m)) upserts.push(m); });
+  return { upserts, deletes:[...baseMap.keys()].filter(id=>!ids.has(id)) };
+}
+// Mesma regra do servidor: editado fica no lugar, apagado sai, novo entra no topo.
+function applyCashMovementsDiffLocal(list, d){
+  const up = new Map(d.upserts.map(m=>[m.id,m])), del = new Set(d.deletes);
+  const kept = (list||[]).filter(m=>!(m && del.has(m.id))).map(m=>m && up.has(m.id) ? up.get(m.id) : m);
+  const keptIds = new Set(kept.map(m=>m && m.id));
+  return d.upserts.filter(m=>!keptIds.has(m.id)).concat(kept);
+}
+async function pushCashMovements(){
+  const snapshot = JSON.parse(JSON.stringify(state.cashMovements||[]));
+  const d = cashMovementsDiff(cashMovementsBase, snapshot);
+  if(!d.upserts.length && !d.deletes.length) return;
+  const { data, error } = await supabaseClient.rpc('cash_movements_apply', { p_upserts:d.upserts, p_delete_ids:d.deletes });
+  if(error) throw error;
+  const server = Array.isArray(data) ? data : [];
+  setCashMovementsBase(server);
+  // O que mudou neste aparelho enquanto a gravação ia e voltava continua pendente.
+  const later = cashMovementsDiff(cashMovementsMap(snapshot), state.cashMovements||[]);
+  state.cashMovements = applyCashMovementsDiffLocal(server, later);
+}
+function parseAppDataValue(r, fallback){ if(!r) return fallback; const v = JSON.parse(r.value); return v===null ? null : v; }
+// Traz o caixa (sessão, lançamentos e, se a sessão mudou, o histórico) feito em outro aparelho.
+async function refreshCashState(){
+  if(!isCloudMode() || !currentUser) return false;
+  try{
+    await (saveQueues.cashMovements||Promise.resolve()).catch(()=>{});
+    const [rs, rm] = await Promise.all([storageApi.get(STORE.cashSession), storageApi.get(STORE.cashMovements)]);
+    const session = parseAppDataValue(rs, null);
+    let changed = false;
+    if(JSON.stringify(session) !== JSON.stringify(state.cashSession)){
+      const before = state.cashSession && state.cashSession.id;
+      state.cashSession = session; changed = true;
+      if((session && session.id) !== before){ const rh = await storageApi.get(STORE.cashHistory); state.cashHistory = parseAppDataValue(rh, []) || []; }
+    }
+    const pending = cashMovementsDiff(cashMovementsBase, state.cashMovements||[]);
+    if(!pending.upserts.length && !pending.deletes.length){
+      const movements = parseAppDataValue(rm, []) || [];
+      if(JSON.stringify(movements) !== JSON.stringify(state.cashMovements)){ state.cashMovements = movements; setCashMovementsBase(movements); changed = true; }
+    }
+    return changed;
+  }catch(e){ return false; }
 }
 
 /* ============ TRAVA CONTRA DUPLO CLIQUE ============
@@ -6606,10 +6665,22 @@ function renderCaixa(){
   const s = state.cashSession;
   if(!s || s.status==='closed'){
     el.innerHTML = `<div class="consumer-workspace"><section class="cash-window"><header class="cash-title">Caixa</header><div class="cash-layout"><aside class="cash-side"><div class="cash-state">Caixa Fechado</div><div class="field"><label>Saldo inicial (dinheiro)</label><input type="number" id="openAmount" step="0.01" value="0.00"></div><div class="field"><label>Observação</label><textarea id="openNote" rows="5"></textarea></div><button class="op-btn primary" id="btnOpenCash" style="width:100%"><span class="op-ico">▷</span> Abrir Caixa</button></aside><div class="cash-main"><div class="cash-id">ID do Caixa: <b>[Fechado]</b></div><h2 style="text-transform:none">Caixa de ${h(currentUser.name.toLowerCase())}</h2><div class="cash-empty">Não há entradas ou saídas.<br>(Caixa fechado).<br>Clique em “Abrir Caixa” para iniciar as vendas.</div></div></div></section>${renderCashHistoryPanel()}</div>`;
-    document.getElementById('btnOpenCash').onclick = ()=>{
+    document.getElementById('btnOpenCash').onclick = async (ev)=>{
       const v = parseFloat(document.getElementById('openAmount').value)||0;
-      state.cashSession = { id:uid(), displayId:(state.cashHistory.length||0)+1, openedAt:new Date().toISOString(), openingAmount:v, openingNote:document.getElementById('openNote').value.trim(), status:'open', operatorName: currentUser.name };
-      save('cashSession'); toast('Caixa aberto.'); logAction('Caixa aberto'); renderAll();
+      const session = { id:uid(), displayId:(state.cashHistory.length||0)+1, openedAt:new Date().toISOString(), openingAmount:v, openingNote:document.getElementById('openNote').value.trim(), status:'open', operatorName: currentUser.name };
+      if(isCloudMode()){
+        // BD-03: o servidor só abre se não houver caixa aberto (outro aparelho pode ter aberto).
+        const btn = ev && ev.currentTarget; if(btn) btn.disabled = true;
+        const { data, error } = await supabaseClient.rpc('cash_session_open', { p_session: session });
+        if(error || !data){ if(btn) btn.disabled = false; toast('Não foi possível abrir o caixa: '+((error&&error.message)||'erro no servidor')+'. Tente de novo.', 'error'); return; }
+        state.cashSession = data.session;
+        if(!data.ok){
+          const o = data.session||{};
+          toast('O caixa já estava aberto'+(o.operatorName?' por '+o.operatorName:'')+(o.openedAt?' desde '+new Date(o.openedAt).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'')+'. Este aparelho passou a usar o mesmo caixa.');
+          await refreshCashState(); renderAll(); return;
+        }
+      } else { state.cashSession = session; save('cashSession'); }
+      toast('Caixa aberto.'); logAction('Caixa aberto'); renderAll();
     };
     return;
   }
@@ -6643,7 +6714,7 @@ function cashClosingSnapshot(){const s=state.cashSession;if(!s)return null;const
 // aparecia antes da contagem e o operador tendia a "achar" o valor esperado. Agora: 1) conta
 // a gaveta e informa o total da maquininha sem ver o esperado; 2) "Conferir" mostra esperado x
 // contado por forma; 3) só então finaliza. O valor do cartão informado fica no histórico.
-function openCloseCashModal(){const snap=cashClosingSnapshot();if(!snap)return;openModal('Fechamento do Caixa',`<div class="cash-close-body"><h2>Conte o caixa antes de ver o esperado</h2><p class="sub">Informe o que você contou. O sistema só mostra o valor esperado depois.</p><div class="cash-count-grid"><div class="field"><label>Dinheiro contado na gaveta *</label><input id="cashCountedAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></div><div class="field"><label>Total da maquininha (cartão)</label><input id="cashCountedCard" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Opcional"></div></div><div id="cashCheckResult" hidden></div><div class="cash-close-actions" id="cashCloseStep1"><button onclick="closeModal()">‹ &nbsp; Voltar</button><button class="primary" onclick="checkCashCount()">Conferir contagem</button></div><div class="cash-close-actions" id="cashCloseStep2" hidden><button onclick="editCashCount()">‹ &nbsp; Corrigir contagem</button><button onclick="finalizeCashSession(true)">▣ &nbsp; Finalizar e imprimir</button><button class="primary" onclick="finalizeCashSession(false)">✓ &nbsp; Finalizar</button></div></div>`);document.querySelector('#modalRoot .modal').classList.add('cash-close-modal');setTimeout(()=>document.getElementById('cashCountedAmount')?.focus(),50);}
+async function openCloseCashModal(){if(isCloudMode()){await refreshCashState();if(!state.cashSession){renderAll();toast('Este caixa já foi fechado em outro aparelho.','error');return;}}const snap=cashClosingSnapshot();if(!snap)return;openModal('Fechamento do Caixa',`<div class="cash-close-body"><h2>Conte o caixa antes de ver o esperado</h2><p class="sub">Informe o que você contou. O sistema só mostra o valor esperado depois.</p><div class="cash-count-grid"><div class="field"><label>Dinheiro contado na gaveta *</label><input id="cashCountedAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></div><div class="field"><label>Total da maquininha (cartão)</label><input id="cashCountedCard" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Opcional"></div></div><div id="cashCheckResult" hidden></div><div class="cash-close-actions" id="cashCloseStep1"><button onclick="closeModal()">‹ &nbsp; Voltar</button><button class="primary" onclick="checkCashCount()">Conferir contagem</button></div><div class="cash-close-actions" id="cashCloseStep2" hidden><button onclick="editCashCount()">‹ &nbsp; Corrigir contagem</button><button onclick="finalizeCashSession(true)">▣ &nbsp; Finalizar e imprimir</button><button class="primary" onclick="finalizeCashSession(false)">✓ &nbsp; Finalizar</button></div></div>`);document.querySelector('#modalRoot .modal').classList.add('cash-close-modal');setTimeout(()=>document.getElementById('cashCountedAmount')?.focus(),50);}
 function checkCashCount(){
   const snap=cashClosingSnapshot(); if(!snap) return;
   const cash=parseFloat(document.getElementById('cashCountedAmount').value), cardRaw=document.getElementById('cashCountedCard').value;
@@ -6662,7 +6733,10 @@ function editCashCount(){
   document.getElementById('cashCloseStep1').hidden=false; document.getElementById('cashCloseStep2').hidden=true;
   document.getElementById('cashCountedAmount').focus();
 }
-function finalizeCashSession(printAfter){const snap=cashClosingSnapshot();if(!snap)return;const step2=document.getElementById('cashCloseStep2');if(step2&&step2.hidden){checkCashCount();return;}const countedInput=document.getElementById('cashCountedAmount'),countedAmount=parseFloat(countedInput&&countedInput.value),cardInput=document.getElementById('cashCountedCard'),countedCard=cardInput&&cardInput.value!==''?parseFloat(cardInput.value):null;if(!Number.isFinite(countedAmount)||countedAmount<0){toast('Informe o valor contado na gaveta.');countedInput&&countedInput.focus();return;}const diff=countedAmount-snap.money;const closed={...snap.s,status:'closed',closedAt:new Date().toISOString(),totals:snap.totals,suprimentos:snap.suprimentos,sangrias:snap.sangrias,countedAmount,expectedAmount:snap.money,diff,countedCard,expectedCard:snap.totals.cartao,blindCount:true,closedBy:currentUser.name};state.cashHistory.unshift(closed);state.cashSession=null;save('cashHistory');save('cashSession');document.getElementById('modalRoot').innerHTML='';logAction('Caixa fechado — contado '+fmt(countedAmount)+(Math.abs(diff)>=0.01?' (diferença '+fmt(diff)+')':''));renderAll();toast(Math.abs(diff)>=0.01?'Caixa fechado com diferença de '+fmt(diff)+'.':'Caixa fechado.');if(printAfter)setTimeout(()=>window.print(),100);}
+async function finalizeCashSession(printAfter){const snap=cashClosingSnapshot();if(!snap)return;const step2=document.getElementById('cashCloseStep2');if(step2&&step2.hidden){checkCashCount();return;}const countedInput=document.getElementById('cashCountedAmount'),countedAmount=parseFloat(countedInput&&countedInput.value),cardInput=document.getElementById('cashCountedCard'),countedCard=cardInput&&cardInput.value!==''?parseFloat(cardInput.value):null;if(!Number.isFinite(countedAmount)||countedAmount<0){toast('Informe o valor contado na gaveta.');countedInput&&countedInput.focus();return;}const diff=countedAmount-snap.money;const closed={...snap.s,status:'closed',closedAt:new Date().toISOString(),totals:snap.totals,suprimentos:snap.suprimentos,sangrias:snap.sangrias,countedAmount,expectedAmount:snap.money,diff,countedCard,expectedCard:snap.totals.cartao,blindCount:true,closedBy:currentUser.name};if(isCloudMode()){/* BD-03: fecha só se o caixa aberto no servidor ainda for este; o histórico dos outros não é regravado */await save('cashMovements');const {data,error}=await supabaseClient.rpc('cash_session_close',{p_session_id:closed.id,p_closed:closed});if(error||!data){toast('Não foi possível fechar o caixa: '+((error&&error.message)||'erro no servidor')+'. Tente de novo.','error');return;}if(!data.ok){document.getElementById('modalRoot').innerHTML='';await refreshCashState();renderAll();toast('Este caixa já foi fechado em outro aparelho. Confira em Relatórios › Histórico do Caixa.','error');return;}state.cashHistory.unshift(closed);state.cashSession=null;}else{state.cashHistory.unshift(closed);state.cashSession=null;save('cashHistory');save('cashSession');}document.getElementById('modalRoot').innerHTML='';logAction('Caixa fechado — contado '+fmt(countedAmount)+(Math.abs(diff)>=0.01?' (diferença '+fmt(diff)+')':''));renderAll();toast(Math.abs(diff)>=0.01?'Caixa fechado com diferença de '+fmt(diff)+'.':'Caixa fechado.');if(printAfter)setTimeout(()=>window.print(),100);}
+// Dois toques em Finalizar: o segundo esperaria a resposta do primeiro e diria "já fechado em outro aparelho".
+const _finalizeCashSessionOnce=finalizeCashSession;let _closingCash=false;
+finalizeCashSession=async function(printAfter){if(_closingCash)return;_closingCash=true;try{return await _finalizeCashSessionOnce(printAfter);}finally{_closingCash=false;}};
 // OP-17 (decisão do dono: só admin): sangria/suprimento já lançados só são editados ou
 // excluídos por administrador ou dono; os automáticos (fiado, troco, estorno) não se
 // apagam à mão — estorna-se pela origem, para o caixa e o fiado continuarem batendo.
@@ -6682,7 +6756,7 @@ function openCashMovementModal(initialType,movementId){
     const type=document.querySelector('input[name="cmType"]:checked').value,amount=parseFloat(document.getElementById('cmAmount').value),description=document.getElementById('cmReason').value.trim(),method=document.getElementById('cmMethod').value,atValue=document.getElementById('cmAt').value,note=document.getElementById('cmNote').value.trim();
     if(!amount || amount<=0 || !description || !atValue){ toast('Informe data, descrição e valor válido.'); return; }
     const at=new Date(atValue);if(Number.isNaN(at.getTime())){toast('Informe uma data e hora válidas.');return;}
-    const data={cashSessionId:state.cashSession.id,type,amount,reason:description,description,method,note,operatorId:currentUser.id,operatorName:currentUser.name,at:at.toISOString()};if(item)Object.assign(item,data,{editedAt:new Date().toISOString(),editedBy:currentUser.name});else state.cashMovements.unshift({id:uid(),...data});
+    const data={cashSessionId:state.cashSession.id,type,amount,reason:description,description,method,note,operatorId:currentUser.id,operatorName:currentUser.name,at:at.toISOString()};if(item){const cur=state.cashMovements.find(x=>x.id===item.id);if(!cur){toast('Este lançamento foi apagado em outro aparelho.','error');closeModal();renderAll();return;}Object.assign(cur,data,{editedAt:new Date().toISOString(),editedBy:currentUser.name});}else state.cashMovements.unshift({id:uid(),...data});
     const label=type==='suprimento'?'Entrada':'Saída';save('cashMovements');closeModal();selectedCashMovementId=null;logAction((item?'Edição de ':'')+label.toLowerCase()+' de caixa — '+fmt(amount));renderAll();toast(item?'Lançamento atualizado.':label+' registrada.');
   };
 }
@@ -8132,6 +8206,8 @@ function startApp(){
     if(cozView && cozView.classList.contains('active')) renderCozinha();
     const comandasView = document.getElementById('view-comandas');
     if(comandasView && comandasView.classList.contains('active')) renderComandas();
+    // BD-03: caixa aberto/fechado/lançado em outro aparelho aparece aqui também.
+    refreshCashState().then(changed=>{ if(changed && !document.querySelector('#modalRoot .modal')) renderAll(); else if(changed) renderScoreboard(); });
   }, 30000);
   // Vigia a fila de impressão: agente fechado = ficha que nunca sai no papel.
   setTimeout(()=>{ checkPrintAgentStatus().then(checkStuckPrintQueue); }, 20000);
