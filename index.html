@@ -373,14 +373,20 @@ tr:hover td{background:var(--c-surface-3);}
    vendas que sobraram do antigo modo Local). Nao bloqueiam nada. */
 #localModeRoot{position:fixed;top:0;left:0;right:0;z-index:401;display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 12px 0;pointer-events:none;}
 #localModeRoot:empty{display:none;}
+/* OP-19: aviso fixo no topo empurra a tela para baixo em vez de cobrir abas e a busca do garçom */
+#app.show,#garcomApp.show{padding-top:var(--top-banner-offset,0px);box-sizing:border-box;}
 .local-mode{pointer-events:auto;width:100%;max-width:560px;display:flex;align-items:center;gap:12px;background:var(--c-warning-solid);color:var(--c-text-inverse);border-radius:10px;padding:12px 14px;box-shadow:0 6px 20px rgba(0,0,0,.32);text-align:left;}
 .local-mode-ico{flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;line-height:1;}
 .local-mode-txt{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px;}
 .local-mode-title{font-size:13.5px;font-weight:700;line-height:1.25;}
 .local-mode-sub{font-size:12px;font-weight:500;opacity:.94;line-height:1.3;}
 .local-mode-btn{flex:0 0 auto;background:var(--c-surface);color:var(--c-warning);border:0;border-radius:8px;padding:9px 14px;font-size:12.5px;font-weight:700;min-height:38px;}
-.print-stuck{background:var(--c-danger);}
-.print-stuck .local-mode-btn{color:var(--c-danger);}
+/* vermelho fixo nos dois temas: o --c-danger do tema escuro é claro e apagava o texto branco */
+.print-stuck{background:#B42318;color:#fff;}
+.print-stuck .local-mode-btn{color:#B42318;}
+.print-fail-actions{display:flex;flex-direction:column;gap:6px}
+.print-fail .print-fail-done{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.7)}
+@media (max-width:560px){.print-fail-actions{width:100%;flex-direction:row}.print-fail-actions .local-mode-btn{flex:1}}
 @media (max-width:560px){.local-mode{flex-wrap:wrap}.local-mode-btn{width:100%}}
 
 .stat{background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);border-radius:var(--r-lg);box-shadow:var(--sh-1);padding:16px;}
@@ -1053,6 +1059,34 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .aging-grid tr{cursor:pointer}
 .aging-grid tr.aging-late td:last-child{color:var(--c-danger);font-weight:700}
 .aging-grid tr.aging-warn td:last-child{color:var(--c-warning);font-weight:700}
+.help-nav-group{font-size:12px;font-weight:700;color:var(--c-text-3);text-transform:uppercase;letter-spacing:.04em;padding:14px 16px 4px}
+.help-sheet{max-width:760px}
+.help-sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.help-sheet-head h2{margin:0}
+.help-sheet h3{font-size:16px;margin:18px 0 6px;color:var(--c-primary)}
+.help-sheet ol,.help-sheet ul{margin:0;padding-left:22px;display:grid;gap:5px;line-height:1.45}
+.help-sheet .help-warn{border-left:4px solid var(--c-danger);background:var(--c-surface-2);border-radius:var(--r-md);padding:10px 14px;margin-top:16px}
+.help-sheet .help-warn b{color:var(--c-danger)}
+.help-sheet table{width:100%;border-collapse:collapse}
+.help-sheet td{border-bottom:1px solid var(--c-border);padding:8px 6px;vertical-align:top;line-height:1.4}
+.help-sheet td:first-child{white-space:nowrap;font-weight:700;width:110px}
+.modal.count-modal{width:min(960px,calc(100vw - 32px))!important;max-width:none!important}
+.count-body{display:grid;gap:12px}
+.count-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.count-top .op-search{flex:1;min-width:200px}
+.count-grid{max-height:min(42vh,400px);overflow:auto}
+.count-grid input{width:110px;height:34px;text-align:right;font-variant-numeric:tabular-nums}
+.count-grid td.count-falta{color:var(--c-danger);font-weight:700}
+.count-grid td.count-sobra{color:var(--c-success);font-weight:700}
+.count-sum{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.count-sum div{background:var(--c-surface-2);border-radius:var(--r-md);padding:10px 12px;display:grid;gap:2px}
+.count-sum span{font-size:12px;color:var(--c-text-2)}
+.count-sum b{font-size:18px}
+.count-sum .count-loss b{color:var(--c-danger)}
+.count-sum .count-gain b{color:var(--c-success)}
+.count-history summary{cursor:pointer;font-weight:700;color:var(--c-text-2);padding:4px 0}
+.count-history .finance-grid{max-height:200px;overflow:auto;margin-top:6px}
+@media (max-width:700px){.count-sum{grid-template-columns:repeat(2,1fr)}}
 .statement-filter{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
 .statement-filter .field{margin:0}
 .statement-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
@@ -1846,7 +1880,7 @@ async function checkStuckPrintQueue(){
       .order('created_at', {ascending:true}).limit(50);
     if(error) return;
     if(!data || !data.length){ hidePrintQueueBanner(); return; }
-    if(now < printQueueSnoozedUntil) return;
+    if(now < printQueueSnoozedUntil || printAgentOffline) return; // agente fora do ar já tem o aviso dele
     const mins = Math.max(PRINT_QUEUE_STUCK_MIN, Math.round((now - new Date(data[0].created_at).getTime())/60000));
     showPrintQueueBanner(data.length, mins, data[0].printer_name||'impressora');
   }catch(e){ /* checagem de aviso: nunca deve atrapalhar a venda */ }
@@ -1880,6 +1914,40 @@ function showPrintQueueBanner(qtd, mins, printer){
   applyTopBannerOffset();
 }
 
+/* OP-19 (decisão do dono): agente de impressão fora do ar = aviso vermelho fixo.
+   O agente carimba print_agent_tokens.last_seen_at sempre que busca a fila
+   (migration 20261010000000); aqui só lemos o carimbo, comparando com o relógio
+   do servidor. Sem agente configurado ou sem impressora cadastrada, não avisa.
+   O aviso não tem botão: some sozinho quando o agente volta. */
+const PRINT_AGENT_OFFLINE_MIN = 3;
+let printAgentOffline = false;
+async function checkPrintAgentStatus(){
+  if(!supabaseClient || !getTenantId() || !currentUser) return;
+  try{
+    const { data, error } = await supabaseClient.rpc('print_agent_status');
+    if(error || !data || !data.configured || !(state.impressoras||[]).length){ setPrintAgentOffline(false); return; }
+    const seen = data.last_seen_at ? new Date(data.last_seen_at).getTime() : 0;
+    const now = data.now ? new Date(data.now).getTime() : Date.now();
+    setPrintAgentOffline(!seen || now - seen > PRINT_AGENT_OFFLINE_MIN*60*1000, seen);
+  }catch(e){ /* aviso: nunca deve atrapalhar a venda */ }
+}
+function setPrintAgentOffline(off, seen){
+  printAgentOffline = off;
+  const root = document.getElementById('localModeRoot'); if(!root) return;
+  let el = root.querySelector('.agent-offline');
+  if(!off){ if(el){ el.remove(); applyTopBannerOffset(); } return; }
+  hidePrintQueueBanner();
+  if(!el){
+    el = document.createElement('div');
+    el.className = 'local-mode print-stuck agent-offline';
+    el.setAttribute('role','alert');
+    el.innerHTML = '<div class="local-mode-ico" aria-hidden="true">&#128424;</div><div class="local-mode-txt"><span class="local-mode-title">Agente de impressão desconectado</span><span class="local-mode-sub"></span></div>';
+    root.appendChild(el);
+  }
+  el.querySelector('.local-mode-sub').textContent = (seen ? 'Visto pela última vez às '+new Date(seen).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'. ' : '')
+    + 'As fichas não estão saindo na impressora. Abra o agente no computador da impressão; até lá, leve os pedidos até a estação.';
+  applyTopBannerOffset();
+}
 function hidePrintQueueBanner(){
   const el = document.querySelector('#localModeRoot .print-stuck');
   if(el){ el.remove(); applyTopBannerOffset(); }
@@ -1923,6 +1991,10 @@ async function checkNewAppVersion(){
   }catch(e){}
 }
 setTimeout(()=>{ renderAppVersion(); checkNewAppVersion(); }, 3000);
+// PROD-17: guarda só o aplicativo (sw.js) para abrir mesmo recarregando sem internet.
+if(typeof navigator!=='undefined' && 'serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
 setInterval(checkNewAppVersion, 5*60000);
 function updateConnectionLabel(){
   const el = document.getElementById('sbStorageMode'); if(!el) return;
@@ -2870,11 +2942,11 @@ function renderInsumos(){
     <td>${i.stock<=i.minStock?'<span class="tag tag-red">Estoque baixo</span>':'<span class="tag tag-green">Normal</span>'}</td><td>${i.active===false?'Pausado':'Ativo'}</td><td>${h(i.pdvCode||'—')}</td></tr>`).join('')
     : `<tr><td colspan="9" class="empty">Nenhum insumo cadastrado.</td></tr>`;
   const totalCost=state.insumos.reduce((sum,i)=>sum+Number(i.stock||0)*Number(i.costPerUnit||0),0);
-  el.innerHTML = `<div class="workspace-gray"><section class="op-window input-window"><header class="op-titlebar"><span>Insumos</span><span class="op-controls"><span onclick="closeOperationalWindow()" style="cursor:pointer" title="Fechar">×</span></span></header><div class="op-toolbar"><div class="op-search"><span>⌕</span><input id="insumoSearch" placeholder="Pesquisar aqui..."></div><div class="op-toolbar-spacer"></div><div class="pdv-menu-wrap"><button class="op-btn" onclick="toggleInsumoOptions()">••• &nbsp; Opções ▾</button>${insumoOptionsOpen?`<div class="pdv-menu" style="top:48px;right:0;left:auto;min-width:245px"><button onclick="window.print()">▣ &nbsp; Imprimir</button><b>Exportar Insumos</b><button onclick="exportInsumosCsv()">⇩ &nbsp; Para arquivo CSV</button><b>Importar Insumos</b><button onclick="importInsumosCsv()">⇧ &nbsp; De arquivo CSV</button><button onclick="openStockMovementHistory()">▤ &nbsp; Histórico de Estoque</button></div>`:''}</div><button class="op-btn" onclick="stockSelectedInsumo()" ${selectedInsumoId?'':'disabled'}>▣ &nbsp; Estoque</button><button class="op-btn" onclick="editSelectedInsumo()" ${selectedInsumoId?'':'disabled'}>✎ &nbsp; Editar</button><button class="op-btn primary" onclick="openInsumoModal()"><span class="op-ico">＋</span> Novo</button></div><div class="op-tabs"><button class="active">Insumos (${state.insumos.length})</button></div><div class="op-grid"><table><thead><tr><th>Cód. Sistema</th><th>Nome</th><th>Medida</th><th>Estoque</th><th>Estoque Mín.</th><th>Custo Unitário</th><th>Sit. Estoque</th><th>Status</th><th>Cód. PDV</th></tr></thead><tbody id="insumoRows">${rows}</tbody></table></div><footer class="op-footer"><span>Registros: ${state.insumos.length}</span><span>Custo do Estoque=${fmt(totalCost)}</span></footer></section></div>`;
+  el.innerHTML = `<div class="workspace-gray"><section class="op-window input-window"><header class="op-titlebar"><span>Insumos</span><span class="op-controls"><span onclick="closeOperationalWindow()" style="cursor:pointer" title="Fechar">×</span></span></header><div class="op-toolbar"><div class="op-search"><span>⌕</span><input id="insumoSearch" placeholder="Pesquisar aqui..."></div><div class="op-toolbar-spacer"></div><div class="pdv-menu-wrap"><button class="op-btn" onclick="toggleInsumoOptions()">••• &nbsp; Opções ▾</button>${insumoOptionsOpen?`<div class="pdv-menu" style="top:48px;right:0;left:auto;min-width:245px"><button onclick="window.print()">▣ &nbsp; Imprimir</button><b>Exportar Insumos</b><button onclick="exportInsumosCsv()">⇩ &nbsp; Para arquivo CSV</button><b>Importar Insumos</b><button onclick="importInsumosCsv()">⇧ &nbsp; De arquivo CSV</button><button onclick="openStockMovementHistory()">▤ &nbsp; Histórico de Estoque</button></div>`:''}</div><button class="op-btn" onclick="openStockCountModal()" title="Contar o estoque e lançar as diferenças">☑ &nbsp; Contagem</button><button class="op-btn" onclick="stockSelectedInsumo()" ${selectedInsumoId?'':'disabled'}>▣ &nbsp; Estoque</button><button class="op-btn" onclick="editSelectedInsumo()" ${selectedInsumoId?'':'disabled'}>✎ &nbsp; Editar</button><button class="op-btn primary" onclick="openInsumoModal()"><span class="op-ico">＋</span> Novo</button></div><div class="op-tabs"><button class="active">Insumos (${state.insumos.length})</button></div><div class="op-grid"><table><thead><tr><th>Cód. Sistema</th><th>Nome</th><th>Medida</th><th>Estoque</th><th>Estoque Mín.</th><th>Custo Unitário</th><th>Sit. Estoque</th><th>Status</th><th>Cód. PDV</th></tr></thead><tbody id="insumoRows">${rows}</tbody></table></div><footer class="op-footer"><span>Registros: ${state.insumos.length}</span><span>Custo do Estoque=${fmt(totalCost)}</span></footer></section></div>`;
   document.getElementById('insumoSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#insumoRows tr[data-search]').forEach(r=>r.style.display=r.dataset.search.includes(q)?'':'none');};
 }
 const renderInsumosBase=renderInsumos;
-renderInsumos=function(){renderInsumosBase();if(!insumoOptionsOpen)return;const menu=document.querySelector('#view-insumos .pdv-menu');if(!menu)return;menu.style.minWidth='270px';menu.innerHTML=`<button onclick="insumoOptionsOpen=false;window.print()">▣ &nbsp; Imprimir</button><button onclick="insumoOptionsOpen=false;renderAll();toast('Lista atualizada.')">↻ &nbsp; Atualizar Lista</button><button onclick="duplicateSelectedInsumo()" ${selectedInsumoId?'':'disabled'}>▣ &nbsp; Duplicar Selecionado</button><button onclick="openStockMovementHistory()">▤ &nbsp; Histórico de Estoque</button><b>Alterar Situação</b><button onclick="setInsumosStatus(true)">✓ Ativar ${selectedInsumoId?'selecionado':'todos'}</button><button onclick="setInsumosStatus(false)">‖ Pausar ${selectedInsumoId?'selecionado':'todos'}</button><b>Exportar Insumos</b><button onclick="exportInsumosCsv()">⇩ &nbsp; Para arquivo CSV</button><button onclick="exportInsumosPackage()">⇩ &nbsp; Pacote completo</button><button onclick="exportInsumosTemplate()">□ &nbsp; Modelo para preenchimento</button><b>Importar Insumos</b><button onclick="importInsumosFile('csv')">⇧ &nbsp; De arquivo CSV</button><button onclick="importInsumosFile('json')">⇧ &nbsp; De pacote completo</button>`;};
+renderInsumos=function(){renderInsumosBase();if(!insumoOptionsOpen)return;const menu=document.querySelector('#view-insumos .pdv-menu');if(!menu)return;menu.style.minWidth='270px';menu.innerHTML=`<button onclick="insumoOptionsOpen=false;window.print()">▣ &nbsp; Imprimir</button><button onclick="insumoOptionsOpen=false;renderAll();toast('Lista atualizada.')">↻ &nbsp; Atualizar Lista</button><button onclick="duplicateSelectedInsumo()" ${selectedInsumoId?'':'disabled'}>▣ &nbsp; Duplicar Selecionado</button><button onclick="openStockMovementHistory()">▤ &nbsp; Histórico de Estoque</button><button onclick="insumoOptionsOpen=false;openStockCountModal()">☑ &nbsp; Contagem de Estoque</button><b>Alterar Situação</b><button onclick="setInsumosStatus(true)">✓ Ativar ${selectedInsumoId?'selecionado':'todos'}</button><button onclick="setInsumosStatus(false)">‖ Pausar ${selectedInsumoId?'selecionado':'todos'}</button><b>Exportar Insumos</b><button onclick="exportInsumosCsv()">⇩ &nbsp; Para arquivo CSV</button><button onclick="exportInsumosPackage()">⇩ &nbsp; Pacote completo</button><button onclick="exportInsumosTemplate()">□ &nbsp; Modelo para preenchimento</button><b>Importar Insumos</b><button onclick="importInsumosFile('csv')">⇧ &nbsp; De arquivo CSV</button><button onclick="importInsumosFile('json')">⇧ &nbsp; De pacote completo</button>`;};
 function toggleInsumoOptions(){insumoOptionsOpen=!insumoOptionsOpen;renderInsumos();}
 function downloadCsvFile(name,rows){const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n'),a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
 function downloadJsonFile(name,data){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
@@ -2886,10 +2958,116 @@ function setInsumosStatus(active){insumoOptionsOpen=false;const ids=selectedInsu
 function importInsumosFile(format='csv'){insumoOptionsOpen=false;const input=document.createElement('input');input.type='file';input.accept=format==='json'?'.json,application/json':'.csv,text/csv';input.onchange=async()=>{const file=input.files&&input.files[0];if(!file)return;try{let incoming;if(format==='json'){const data=JSON.parse(await file.text());incoming=Array.isArray(data)?data:data&&data.format==='cantina-insumos'?data.insumos:null;if(!Array.isArray(incoming))throw new Error('Pacote de insumos inválido.');}else{const lines=(await file.text()).replace(/^\ufeff/,'').split(/\r?\n/).filter(Boolean);incoming=lines.slice(1).map(line=>{const c=line.split(';').map(x=>x.replace(/^"|"$/g,'').replace(/""/g,'"'));return{code:(c[0]||'').trim(),name:(c[1]||'').trim(),unit:(c[2]||'un').trim(),stock:Number(String(c[3]||0).replace(',','.'))||0,minStock:Number(String(c[4]||0).replace(',','.'))||0,costPerUnit:Number(String(c[5]||0).replace(',','.'))||0,pdvCode:(c[6]||'').trim(),nfeCode:(c[7]||'').trim(),active:String(c[8]||'ativo').toLowerCase()!=='pausado'};}).filter(x=>x.name);}if(!incoming.length)throw new Error('Nenhum insumo válido foi encontrado.');if(!confirm(`Importar ${incoming.length} insumo(s) de ${file.name}? Registros com o mesmo código serão atualizados.`))return;let added=0,updated=0;incoming.forEach(raw=>{const code=String(raw.code||'').trim(),existing=state.insumos.find(x=>(raw.id&&x.id===raw.id)||(code&&x.code===code)||(raw.nfeCode&&x.nfeCode===raw.nfeCode));const target=existing||{id:raw.id||uid()};Object.assign(target,{code,name:String(raw.name||'').trim(),unit:UNIT_OPTIONS.includes(raw.unit)?raw.unit:'un',stock:Math.max(0,Number(raw.stock)||0),minStock:Math.max(0,Number(raw.minStock)||0),costPerUnit:Math.max(0,Number(raw.costPerUnit)||0),pdvCode:String(raw.pdvCode||''),nfeCode:String(raw.nfeCode||''),active:raw.active!==false});if(existing)updated++;else{state.insumos.push(target);added++;}});save('insumos');renderAll();toast(`${added} insumo(s) incluído(s) e ${updated} atualizado(s).`);logAction('Insumos importados de '+file.name);}catch(error){toast(error.message||'Não foi possível importar o arquivo.');}};input.click();}
 function importInsumosCsv(){importInsumosFile('csv');}
 function stockMovementList(){const q=(document.getElementById('stockHistorySearch')?.value||'').toLowerCase(),type=document.getElementById('stockHistoryType')?.value||'',from=document.getElementById('stockHistoryFrom')?.value,to=document.getElementById('stockHistoryTo')?.value;return(state.stockMovements||[]).filter(m=>{const at=localDay(m.at||m.createdAt),text=[m.name,m.insumoName,m.operation,m.note,m.reference,m.user].join(' ').toLowerCase();return(!q||text.includes(q))&&(!type||String(m.type||m.kind)===type)&&(!from||at>=from)&&(!to||at<=to);}).sort((a,b)=>String(b.at||b.createdAt||'').localeCompare(String(a.at||a.createdAt||'')));}
-function renderStockMovementRows(){const list=stockMovementList(),body=document.getElementById('stockHistoryRows'),footer=document.getElementById('stockHistoryFooter');if(!body)return;body.innerHTML=list.map(m=>{const qty=Number(m.qty??m.quantity)||0,type=String(m.type||m.kind||'movimento').toLowerCase(),signal=type==='saida'?'-':'+';return`<tr ondblclick="openStockMovementDetail('${m.id}')"><td>${reportDateTime(m.at||m.createdAt)}</td><td><span class="tag ${type==='saida'?'tag-red':'tag-green'}">${h(type==='saida'?'Saída':'Entrada')}</span></td><td>${h(m.insumoName||m.name||'—')}</td><td class="mono">${signal}${qty.toLocaleString('pt-BR')} ${h(m.unit||'')}</td><td>${h(m.operation||m.note||m.source||'—')}</td><td class="mono">${Number(m.before||0).toLocaleString('pt-BR')}</td><td class="mono">${Number(m.after||0).toLocaleString('pt-BR')}</td><td>${h(m.user||'—')}</td></tr>`;}).join('')||'<tr><td colspan="8" class="empty">Nenhuma movimentação encontrada.</td></tr>';if(footer){const entries=list.filter(m=>String(m.type||m.kind).toLowerCase()!=='saida').reduce((s,m)=>s+(Number(m.qty??m.quantity)||0),0),outputs=list.filter(m=>String(m.type||m.kind).toLowerCase()==='saida').reduce((s,m)=>s+(Number(m.qty??m.quantity)||0),0);footer.innerHTML=`<span>Registros: ${list.length}</span><span>Entradas=${entries.toLocaleString('pt-BR')} &nbsp; Saídas=${outputs.toLocaleString('pt-BR')}</span>`;}}
-function openStockMovementHistory(){const today=todayStr(),start=new Date();start.setDate(1);openModal('Histórico de Estoque',`<div class="op-toolbar"><div class="op-search"><span>⌕</span><input id="stockHistorySearch" placeholder="Pesquisar insumo, origem ou operador..." oninput="renderStockMovementRows()"></div><select id="stockHistoryType" onchange="renderStockMovementRows()"><option value="">Todos os movimentos</option><option value="entrada">Entradas</option><option value="saida">Saídas</option></select><input id="stockHistoryFrom" type="date" value="${localDay(start)}" onchange="renderStockMovementRows()"><input id="stockHistoryTo" type="date" value="${today}" onchange="renderStockMovementRows()"><span class="op-toolbar-spacer"></span><button class="op-btn" onclick="exportStockMovementHistory()">▧ Exportar</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button></div><div class="finance-grid" style="height:430px"><table><thead><tr><th>Data/Hora</th><th>Tipo</th><th>Insumo</th><th>Quantidade</th><th>Origem</th><th>Saldo Anterior</th><th>Saldo Atual</th><th>Operador</th></tr></thead><tbody id="stockHistoryRows"></tbody></table></div><footer id="stockHistoryFooter" class="op-footer"></footer><p class="sub" style="padding:0 12px">Clique duas vezes em um movimento para ver todos os detalhes.</p>`,true);document.querySelector('#modalRoot .modal').classList.add('nfe-stock-modal');renderStockMovementRows();}
+function renderStockMovementRows(){const list=stockMovementList(),body=document.getElementById('stockHistoryRows'),footer=document.getElementById('stockHistoryFooter');if(!body)return;body.innerHTML=list.map(m=>{const qty=Number(m.qty??m.quantity)||0,type=String(m.type||m.kind||'movimento').toLowerCase(),signal=type==='saida'?'-':'+';if(type==='contagem')return`<tr><td>${reportDateTime(m.at)}</td><td><span class="tag">Contagem</span></td><td>${h(m.name||'Contagem de estoque')}</td><td class="mono">${qty} ${qty===1?'item':'itens'}</td><td>${h(stockCountSummaryText(m))}</td><td class="mono">—</td><td class="mono">—</td><td>${h(m.user||'—')}</td></tr>`;return`<tr ondblclick="openStockMovementDetail('${m.id}')"><td>${reportDateTime(m.at||m.createdAt)}</td><td><span class="tag ${type==='saida'?'tag-red':'tag-green'}">${h(type==='saida'?'Saída':'Entrada')}</span></td><td>${h(m.insumoName||m.name||'—')}</td><td class="mono">${signal}${qty.toLocaleString('pt-BR')} ${h(m.unit||'')}</td><td>${h(m.operation||m.note||m.source||'—')}</td><td class="mono">${Number(m.before||0).toLocaleString('pt-BR')}</td><td class="mono">${Number(m.after||0).toLocaleString('pt-BR')}</td><td>${h(m.user||'—')}</td></tr>`;}).join('')||'<tr><td colspan="8" class="empty">Nenhuma movimentação encontrada.</td></tr>';if(footer){const entries=list.filter(m=>!['saida','contagem'].includes(String(m.type||m.kind).toLowerCase())).reduce((s,m)=>s+(Number(m.qty??m.quantity)||0),0),outputs=list.filter(m=>String(m.type||m.kind).toLowerCase()==='saida').reduce((s,m)=>s+(Number(m.qty??m.quantity)||0),0);footer.innerHTML=`<span>Registros: ${list.length}</span><span>Entradas=${entries.toLocaleString('pt-BR')} &nbsp; Saídas=${outputs.toLocaleString('pt-BR')}</span>`;}}
+function openStockMovementHistory(){const today=todayStr(),start=new Date();start.setDate(1);openModal('Histórico de Estoque',`<div class="op-toolbar"><div class="op-search"><span>⌕</span><input id="stockHistorySearch" placeholder="Pesquisar insumo, origem ou operador..." oninput="renderStockMovementRows()"></div><select id="stockHistoryType" onchange="renderStockMovementRows()"><option value="">Todos os movimentos</option><option value="entrada">Entradas</option><option value="saida">Saídas</option><option value="contagem">Contagens</option></select><input id="stockHistoryFrom" type="date" value="${localDay(start)}" onchange="renderStockMovementRows()"><input id="stockHistoryTo" type="date" value="${today}" onchange="renderStockMovementRows()"><span class="op-toolbar-spacer"></span><button class="op-btn" onclick="exportStockMovementHistory()">▧ Exportar</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button></div><div class="finance-grid" style="height:430px"><table><thead><tr><th>Data/Hora</th><th>Tipo</th><th>Insumo</th><th>Quantidade</th><th>Origem</th><th>Saldo Anterior</th><th>Saldo Atual</th><th>Operador</th></tr></thead><tbody id="stockHistoryRows"></tbody></table></div><footer id="stockHistoryFooter" class="op-footer"></footer><p class="sub" style="padding:0 12px">Clique duas vezes em um movimento para ver todos os detalhes.</p>`,true);document.querySelector('#modalRoot .modal').classList.add('nfe-stock-modal');renderStockMovementRows();}
 function exportStockMovementHistory(){const rows=stockMovementList();downloadCsvFile('historico-estoque.csv',[['Data/Hora','Tipo','Insumo','Quantidade','Unidade','Origem','Saldo Anterior','Saldo Atual','Operador','Referência'],...rows.map(m=>[reportDateTime(m.at||m.createdAt),m.type||m.kind,m.insumoName||m.name,m.qty??m.quantity,m.unit,m.operation||m.note||m.source,m.before,m.after,m.user,m.reference])]);}
 function openStockMovementDetail(id){const m=(state.stockMovements||[]).find(x=>x.id===id);if(!m)return;const ins=state.insumos.find(x=>x.id===(m.insumoId||''));openModal('Detalhes da Movimentação',`<div class="consumer-form-frame"><div class="row"><div class="field"><label>Data e hora</label><input readonly value="${h(reportDateTime(m.at||m.createdAt))}"></div><div class="field"><label>Operador</label><input readonly value="${h(m.user||'—')}"></div></div><div class="row"><div class="field"><label>Insumo</label><input readonly value="${h(m.insumoName||m.name||ins&&ins.name||'—')}"></div><div class="field"><label>Tipo</label><input readonly value="${h(String(m.type||m.kind||'Movimento').toUpperCase())}"></div></div><div class="grid3"><div class="field"><label>Saldo anterior</label><input readonly value="${h(m.before??'—')}"></div><div class="field"><label>Quantidade</label><input readonly value="${h(m.qty??m.quantity??'—')} ${h(m.unit||ins&&ins.unit||'')}"></div><div class="field"><label>Saldo resultante</label><input readonly value="${h(m.after??'—')}"></div></div><div class="field"><label>Origem / Operação</label><input readonly value="${h(m.operation||m.note||m.source||'—')}"></div><div class="field"><label>Referência</label><input readonly value="${h(m.reference||'—')}"></div></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal();openStockMovementHistory()">〈 Voltar</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal');}
+/* PROD-15 (decisão do dono: contagem semanal com % de perda). O operador digita o que
+   contou; o que ficar em branco não entra. A diferença é lançada pelo servidor
+   (consume_insumos na falta, restore_insumos na sobra), sobre o estoque lido de novo na
+   hora de gravar: venda feita durante a contagem não é apagada (regravar o cadastro
+   inteiro de insumos apagaria). Cada contagem deixa uma linha de resumo no histórico
+   de estoque (type 'contagem') com o valor no sistema, a falta, a sobra e a % de perda. */
+let stockCountDraft = {};
+function stockCountSummaryText(m){
+  const pct = Number(m.countBase)>0 ? (Number(m.countLoss)||0)/Number(m.countBase)*100 : 0;
+  return 'Falta '+fmt(m.countLoss)+' · Sobra '+fmt(m.countSurplus)+' · Perda '+pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%'+(m.note?' · '+m.note:'');
+}
+function stockCountQty(v){ const n = parseFloat(String(v??'').replace(',','.')); return Number.isFinite(n) ? Math.round(n*1000)/1000 : null; }
+function stockCountInsumos(){ return state.insumos.filter(i=>i.active!==false).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR')); }
+function stockCountTotals(list){
+  let base=0, loss=0, surplus=0, counted=0;
+  list.forEach(i=>{
+    const c = stockCountQty(stockCountDraft[i.id]); if(c===null) return;
+    const stock = Number(i.stock)||0, cost = Number(i.costPerUnit)||0, diff = Math.round((c-stock)*1000)/1000;
+    counted++; base += stock*cost;
+    if(diff<0) loss += -diff*cost; else surplus += diff*cost;
+  });
+  return { base, loss, surplus, counted, pct: base>0 ? loss/base*100 : 0 };
+}
+function renderStockCountTotals(){
+  const t = stockCountTotals(stockCountInsumos()), el = document.getElementById('stockCountSum'); if(!el) return;
+  el.innerHTML = `<div><span>Itens contados</span><b class="mono">${t.counted}</b></div><div><span>Valor no sistema</span><b class="mono">${fmt(t.base)}</b></div><div class="count-loss"><span>Falta (perda)</span><b class="mono">${fmt(t.loss)}</b></div><div class="count-gain"><span>Sobra</span><b class="mono">${fmt(t.surplus)}</b></div><div><span>% de perda</span><b class="mono">${t.pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</b></div>`;
+}
+function stockCountInput(id, value){
+  stockCountDraft[id] = value;
+  const i = state.insumos.find(x=>x.id===id), cell = document.getElementById('scDiff-'+id); if(!i || !cell) return;
+  const c = stockCountQty(value);
+  if(c===null){ cell.textContent='—'; cell.className='mono'; }
+  else { const d = Math.round((c-(Number(i.stock)||0))*1000)/1000; cell.textContent = (d>0?'+':'')+d.toLocaleString('pt-BR')+' '+(i.unit||''); cell.className = 'mono '+(d<0?'count-falta':d>0?'count-sobra':''); }
+  renderStockCountTotals();
+}
+function filterStockCountRows(q){ q = String(q||'').toLowerCase(); document.querySelectorAll('#stockCountRows tr[data-search]').forEach(r=>r.style.display=r.dataset.search.includes(q)?'':'none'); }
+async function openStockCountModal(){
+  if(isCloudMode()){
+    try{ await (saveQueues.insumos||Promise.resolve()); const r = await storageApi.get(STORE.insumos); if(r) state.insumos = JSON.parse(r.value); }catch(e){}
+  }
+  stockCountDraft = {};
+  const list = stockCountInsumos();
+  const counts = (state.stockMovements||[]).filter(m=>m.type==='contagem').sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,12);
+  const rows = list.length ? list.map(i=>`<tr data-search="${h(((i.code||'')+' '+i.name).toLowerCase())}"><td>${h(i.name)}${i.code?` <span class="sub">· ${h(i.code)}</span>`:''}</td><td>${h(i.unit)}</td><td class="mono">${(Number(i.stock)||0).toLocaleString('pt-BR')}</td><td><input type="text" inputmode="decimal" placeholder="—" oninput="stockCountInput('${i.id}',this.value)" aria-label="Quantidade contada de ${h(i.name)}"></td><td id="scDiff-${i.id}" class="mono">—</td><td class="mono">${fmt(i.costPerUnit)}</td></tr>`).join('')
+    : '<tr><td colspan="6" class="empty">Nenhum insumo ativo cadastrado.</td></tr>';
+  const hist = counts.length ? counts.map(m=>`<tr><td>${reportDateTime(m.at)}</td><td>${h(m.user||'—')}</td><td class="mono">${Number(m.qty)||0}</td><td class="mono">${fmt(m.countLoss)}</td><td class="mono">${fmt(m.countSurplus)}</td><td class="mono">${(Number(m.countBase)>0?(Number(m.countLoss)||0)/Number(m.countBase)*100:0).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td></tr>`).join('')
+    : '<tr><td colspan="6" class="empty">Nenhuma contagem registrada ainda.</td></tr>';
+  openModal('Contagem de Estoque', `<div class="count-body">
+    <p class="sub" style="margin:0">Conte o que tem na prateleira e digite a quantidade. O que ficar em branco não entra na contagem. A diferença vira saída (falta) ou entrada (sobra) no estoque.</p>
+    <div class="count-top"><div class="op-search"><span>⌕</span><input id="stockCountSearch" placeholder="Pesquisar insumo..." oninput="filterStockCountRows(this.value)"></div><div class="field" style="margin:0;flex:1;min-width:200px"><input id="stockCountNote" placeholder="Observação (opcional): ex. contagem de segunda"></div></div>
+    <div class="finance-grid count-grid"><table><thead><tr><th>Insumo</th><th>Un.</th><th>No sistema</th><th>Contado</th><th>Diferença</th><th>Custo un.</th></tr></thead><tbody id="stockCountRows">${rows}</tbody></table></div>
+    <div class="count-sum" id="stockCountSum"></div>
+    <details class="count-history"><summary>Contagens anteriores (${counts.length})</summary><div class="finance-grid"><table><thead><tr><th>Data</th><th>Operador</th><th>Itens</th><th>Falta</th><th>Sobra</th><th>% de perda</th></tr></thead><tbody>${hist}</tbody></table></div></details>
+    <div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button><button class="consumer-save" id="stockCountSaveBtn" onclick="saveStockCount()">✓ &nbsp; Lançar contagem</button></div>
+  </div>`, true);
+  document.querySelector('#modalRoot .modal').classList.add('count-modal');
+  renderStockCountTotals();
+}
+async function saveStockCount(){
+  const ids = Object.keys(stockCountDraft).filter(id=>stockCountQty(stockCountDraft[id])!==null);
+  if(!ids.length){ toast('Digite a quantidade contada de pelo menos um insumo.'); return; }
+  if(ids.some(id=>stockCountQty(stockCountDraft[id])<0)){ toast('A quantidade contada não pode ser negativa.'); return; }
+  const btn = document.getElementById('stockCountSaveBtn'); if(btn) btn.disabled = true;
+  const note = (document.getElementById('stockCountNote')?.value||'').trim().slice(0,200);
+  // Lê o estoque de novo: a diferença é calculada sobre o número mais atual.
+  if(isCloudMode()){
+    try{ await (saveQueues.insumos||Promise.resolve()); const r = await storageApi.get(STORE.insumos); if(r) state.insumos = JSON.parse(r.value); }catch(e){}
+  }
+  const countId = uid(), at = new Date().toISOString(), user = currentUser ? currentUser.name : '—';
+  const consume = {}, restore = {};
+  let base = 0, counted = 0;
+  ids.forEach(id=>{
+    const i = state.insumos.find(x=>x.id===id); if(!i) return;
+    const c = stockCountQty(stockCountDraft[id]), stock = Number(i.stock)||0, diff = Math.round((c-stock)*1000)/1000;
+    counted++; base += stock*(Number(i.costPerUnit)||0);
+    if(diff<0) consume[id] = -diff; else if(diff>0) restore[id] = diff;
+  });
+  const moves = [];
+  const pushMove = (m, type)=>{ const ins = state.insumos.find(x=>x.id===m.insumoId); moves.push({ ins, m:{id:uid(),insumoId:m.insumoId,name:ins?ins.name:'',unit:ins?ins.unit:'',type,operation:'Contagem de estoque',note,countId,before:m.before,qty:m.qty,after:m.after,user,at} }); };
+  if(isCloudMode()){
+    if(Object.keys(consume).length){
+      const { data, error } = await supabaseClient.rpc('consume_insumos', { p_consumptions: consume });
+      if(error){ if(btn) btn.disabled = false; toast('Não foi possível lançar a contagem: '+(error.message||'erro no servidor')+'. Confira e tente de novo.', 'error'); return; }
+      (data||[]).forEach(m=>pushMove(m,'saida'));
+    }
+    if(Object.keys(restore).length){
+      const { data, error } = await supabaseClient.rpc('restore_insumos', { p_consumptions: restore });
+      if(error) toast('As faltas foram lançadas, mas as sobras não: '+(error.message||'erro no servidor')+'. Lance as sobras pela opção Estoque.', 'error');
+      else (data||[]).forEach(m=>pushMove(m,'entrada'));
+    }
+    moves.forEach(x=>{ if(x.ins) x.ins.stock = x.m.after; });
+  } else {
+    Object.entries(consume).forEach(([id,qty])=>{ const i = state.insumos.find(x=>x.id===id); const before = Number(i.stock)||0; i.stock = Math.round((before-qty)*1000)/1000; pushMove({insumoId:id,before,qty,after:i.stock},'saida'); });
+    Object.entries(restore).forEach(([id,qty])=>{ const i = state.insumos.find(x=>x.id===id); const before = Number(i.stock)||0; i.stock = Math.round((before+qty)*1000)/1000; pushMove({insumoId:id,before,qty,after:i.stock},'entrada'); });
+    save('insumos');
+  }
+  const costOf = id => Number((state.insumos.find(x=>x.id===id)||{}).costPerUnit)||0;
+  const loss = moves.filter(x=>x.m.type==='saida').reduce((t,x)=>t+x.m.qty*costOf(x.m.insumoId),0);
+  const surplus = moves.filter(x=>x.m.type==='entrada').reduce((t,x)=>t+x.m.qty*costOf(x.m.insumoId),0);
+  const summary = {id:uid(),type:'contagem',countId,name:'Contagem de estoque',operation:'Contagem de estoque',note,qty:counted,unit:'itens',countBase:Math.round(base*100)/100,countLoss:Math.round(loss*100)/100,countSurplus:Math.round(surplus*100)/100,user,at};
+  state.stockMovements.unshift(summary, ...moves.map(x=>x.m));
+  save('stockMovements');
+  logAction('Contagem de estoque: '+counted+' itens, '+stockCountSummaryText(summary));
+  closeModal(); renderAll();
+  toast('Contagem lançada: '+stockCountSummaryText(summary)+'.');
+}
 function openInsumoModal(id){
   const i = id ? state.insumos.find(x=>x.id===id) : null;
   openModal(i?'Editar Insumo':'Novo Insumo', `<div class="record-body"><div class="record-tabs"><button class="active">Principal</button></div><div class="consumer-form-frame">
@@ -5232,10 +5410,66 @@ async function printSingleTicket(who, cota, local, estacao, printer, items, orde
       if(res.ok){ toast('Impresso automaticamente: '+printer); return; }
     }catch(e){ /* agente indisponível — cai no modo com caixa de diálogo abaixo */ }
   }
-  const win = window.open('', '_blank', 'width=380,height=600');
-  if(!win){ toast('Permita pop-ups no navegador para imprimir o pedido.'); return; }
+  // OP-19: nada de janela automática (no celular do garçom ela é bloqueada e a ficha
+  // sumia). O pedido fica num aviso vermelho fixo até alguém imprimir aqui ou resolver.
+  notePrintFailure({ who, cota, local, estacao, printer, items, orderNumber, at:new Date().toISOString() });
+}
+/* OP-19 (decisão do dono): ficha que não foi para a impressora vira um aviso vermelho e
+   fixo, em vez da janela de impressão do navegador. "Imprimir aqui" abre todas as fichas
+   pendentes numa janela só (é um toque do operador, o navegador não bloqueia). Estação
+   que também tem tela (Monitor de Cozinha) e não tem impressora só avisa: o pedido está
+   na tela. */
+let failedPrintTickets = [];
+function notePrintFailure(t){
+  if(!t.printer && saidaTemTela(t.estacao)){ toast('Sem impressora para '+(estacaoLabel(t.estacao)||t.estacao)+': o pedido está só no Monitor de Cozinha.'); return; }
+  failedPrintTickets.push(t);
+  renderPrintFailBanner();
+}
+function renderPrintFailBanner(){
+  const root = document.getElementById('localModeRoot'); if(!root) return;
+  let el = root.querySelector('.print-fail');
+  if(!failedPrintTickets.length){ if(el){ el.remove(); applyTopBannerOffset(); } return; }
+  if(!el){
+    el = document.createElement('div');
+    el.className = 'local-mode print-stuck print-fail';
+    el.setAttribute('role','alert');
+    el.innerHTML = '<div class="local-mode-ico" aria-hidden="true">&#128424;</div><div class="local-mode-txt"><span class="local-mode-title"></span><span class="local-mode-sub"></span></div>'
+      + '<div class="print-fail-actions"><button type="button" class="local-mode-btn" data-a="print">Imprimir aqui</button><button type="button" class="local-mode-btn print-fail-done" data-a="done">Já resolvi</button></div>';
+    el.querySelector('[data-a="print"]').addEventListener('click', printFailedTicketsHere);
+    el.querySelector('[data-a="done"]').addEventListener('click', ()=>{ logAction('Aviso de ficha não impressa dispensado ('+failedPrintTickets.length+' ficha(s))'); failedPrintTickets = []; renderPrintFailBanner(); });
+    root.appendChild(el);
+  }
+  const last = failedPrintTickets[failedPrintTickets.length-1], est = estacaoLabel(last.estacao)||last.estacao;
+  const n = failedPrintTickets.length;
+  el.querySelector('.local-mode-title').textContent = last.printer
+    ? (n===1 ? 'Ficha de '+est+' não foi para a impressora' : n+' fichas não foram para a impressora')
+    : (n===1 ? 'Estação '+est+' sem impressora: item não impresso' : n+' fichas sem impressora: itens não impressos');
+  const resumo = failedPrintTickets.slice(-3).map(t=>(t.orderNumber?'#'+t.orderNumber+' ':'')+(t.who||'')+' ('+(estacaoLabel(t.estacao)||t.estacao)+')').join(' · ');
+  el.querySelector('.local-mode-sub').textContent = resumo + '. Toque em "Imprimir aqui" para sair na impressora deste aparelho, ou leve o pedido até a estação.'
+    + (last.printer ? ' Confira se o agente de impressão está aberto no computador.' : ' Cadastre a impressora em Configurações › Impressoras.');
+  applyTopBannerOffset();
+}
+function ticketPopupHtml(t){
+  const { who, cota, local, estacao, printer, items, orderNumber } = t;
   const total = items.reduce((a,i)=>a+i.price*i.qty,0);
-  win.document.write(`<html><head><title>Pedido — ${h(estacaoLabel(estacao)||estacao)}</title><style>
+  return `<section class="ticket">
+    <div class="estacao">${h((estacaoLabel(estacao)||estacao).toUpperCase())}</div>
+    <h1>Pedido ${orderNumber?'#'+orderNumber:''}</h1>
+    <div class="muted">${new Date(t.at||Date.now()).toLocaleString('pt-BR')}</div>
+    <div><b>Solicitante:</b> ${h(who)}</div>
+    ${cota?`<div><b>Cota:</b> ${h(cota)}</div>`:''}
+    ${local?`<div class="local">ENTREGAR EM: ${h(local)}</div>`:''}
+    <table>${items.map(i=>`<tr><td>${i.qty}x ${h(i.name)}${i.copos!=null?' — <b>'+i.copos+' copo'+(i.copos===1?'':'s')+'</b>':''}</td><td style="text-align:right">${fmt(i.price*i.qty)}</td></tr>`).join('')}</table>
+    <div class="total">Total: ${fmt(total)}</div>
+    ${printer?`<div class="printer">Imprimir na: <b>${h(printer)}</b> (não recebeu a ficha; impressa neste aparelho)</div>`:`<div class="warn">Nenhuma impressora configurada para ${h(estacaoLabel(estacao)||estacao)} nesta origem — encaminhar manualmente.</div>`}
+  </section>`;
+}
+function printFailedTicketsHere(){
+  const list = failedPrintTickets.slice();
+  if(!list.length) return;
+  const win = window.open('', '_blank', 'width=380,height=600');
+  if(!win){ toast('O navegador bloqueou a janela de impressão. Libere as janelas deste site e toque de novo.', 'error'); return; }
+  win.document.write(`<html><head><title>Fichas não impressas</title><style>
     body{font-family:Arial,sans-serif;padding:16px;font-size:13px;color:#111}
     h1{font-size:16px;margin:0 0 4px}
     .muted{color:#666;font-size:11px;margin-bottom:12px}
@@ -5246,19 +5480,14 @@ async function printSingleTicket(who, cota, local, estacao, printer, items, orde
     .estacao{background:none;color:#000;border:2px solid #000;padding:6px 10px;font-weight:bold;font-size:16px;margin:8px 0 4px}
     .printer{color:#666;font-size:11px;margin-top:8px}
     .warn{color:#c1443c;font-size:11px;margin-top:8px;font-weight:bold}
-  </style></head><body>
-    <div class="estacao">${h((estacaoLabel(estacao)||estacao).toUpperCase())}</div>
-    <h1>Pedido ${orderNumber?'#'+orderNumber:''}</h1>
-    <div class="muted">${new Date().toLocaleString('pt-BR')}</div>
-    <div><b>Solicitante:</b> ${h(who)}</div>
-    ${cota?`<div><b>Cota:</b> ${h(cota)}</div>`:''}
-    ${local?`<div class="local">ENTREGAR EM: ${h(local)}</div>`:''}
-    <table>${items.map(i=>`<tr><td>${i.qty}x ${h(i.name)}${i.copos!=null?' — <b>'+i.copos+' copo'+(i.copos===1?'':'s')+'</b>':''}</td><td style="text-align:right">${fmt(i.price*i.qty)}</td></tr>`).join('')}</table>
-    <div class="total">Total: ${fmt(total)}</div>
-    ${printer?`<div class="printer">Imprimir na: <b>${h(printer)}</b> (agente local não conectado — instale o agente pra imprimir automático)</div>`:`<div class="warn">Nenhuma impressora configurada para ${h(estacaoLabel(estacao)||estacao)} nesta origem — encaminhar manualmente.</div>`}
-  </body></html>`);
+    .ticket{page-break-after:always;break-after:page}
+    .ticket:last-child{page-break-after:auto;break-after:auto}
+  </style></head><body>${list.map(ticketPopupHtml).join('')}</body></html>`);
   win.document.close(); win.focus();
   setTimeout(()=>{ win.print(); }, 300);
+  failedPrintTickets = failedPrintTickets.filter(t=>!list.includes(t));
+  logAction(list.length+' ficha(s) não impressa(s) enviada(s) para impressão neste aparelho');
+  renderPrintFailBanner();
 }
 
 function toggleComandaLock(saleId,locked){const s=state.sales.find(x=>x.id===saleId);if(!s)return;s.locked=locked;save('sales');logAction((locked?'Pedido bloqueado':'Pedido desbloqueado')+': '+saleId);openComanda(saleId,true);}
@@ -6575,7 +6804,7 @@ function setDreYear(value){dreYear=Number(value)||new Date().getFullYear();rende
 function dreMonthData(sales,year,month){const monthSales=sales.filter(s=>{const d=new Date(s.closedAt||s.openedAt);return d.getFullYear()===year&&d.getMonth()===month}),revenue=monthSales.reduce((a,s)=>a+Number(s.total||0),0);let costs=0;monthSales.forEach(s=>(s.items||[]).forEach(i=>{const p=state.products.find(x=>x.id===i.productId);costs+=(p?productCost(p):0)*Number(i.qty||0)}));const payable=(state.contas||[]).filter(c=>c.tipo==='pagar'&&c.pago&&new Date(c.dataPagamento||c.vencimento).getFullYear()===year&&new Date(c.dataPagamento||c.vencimento).getMonth()===month),expenses=payable.reduce((a,c)=>a+Number(c.valorPago||c.valor||0),0);return{monthSales,payable,revenue,costs,expenses,result:revenue-costs-expenses};}
 function renderDreReport(sales){const year=dreYear,months=Array.from({length:12},(_,m)=>dreMonthData(sales,year,m)),lines=[['Receita Bruta','revenue'],['(-) Custo dos Produtos','costs'],['(-) Despesas Pagas','expenses'],['Resultado Líquido','result']],headers=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'],years=[...new Set([new Date().getFullYear(),...sales.map(s=>new Date(s.closedAt||s.openedAt).getFullYear()),...(state.contas||[]).map(c=>new Date(c.dataPagamento||c.vencimento).getFullYear()).filter(Number.isFinite)])].sort((a,b)=>b-a);document.getElementById('view-relatorios').innerHTML=`<section class="full-report-page" style="padding:18px 13px"><div style="display:flex;align-items:end;gap:12px"><div class="field" style="width:180px"><label>Ano:</label><select onchange="setDreYear(this.value)">${years.map(y=>`<option ${y===year?'selected':''}>${y}</option>`).join('')}</select></div><button class="op-btn" onclick="window.print()">▣ Imprimir</button><button class="op-btn" onclick="exportCurrentReport()">▧ Exportar Excel</button></div><div class="finance-grid" style="height:calc(100vh - 290px)"><table><thead><tr><th>Conta</th>${headers.map(x=>`<th>${x}</th>`).join('')}<th>Total</th></tr></thead><tbody>${lines.map(([label,key])=>`<tr><td><b>${label}</b></td>${months.map((x,m)=>`<td ondblclick="openDreMonthDetail(${year},${m})">${fmt(x[key])}</td>`).join('')}<td><b>${fmt(months.reduce((s,x)=>s+x[key],0))}</b></td></tr>`).join('')}</tbody></table></div><p class="sub">Clique duas vezes em um valor mensal para consultar vendas e despesas do período.</p></section>`;}
 function openDreMonthDetail(year,month){const sales=state.sales.filter(saleCountsAsRevenue),data=dreMonthData(sales,year,month),title=new Date(year,month,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});openModal('DRE — '+title,`<div class="grid3" style="padding:12px"><div class="stat"><div class="lbl">Receita</div><div class="val" style="font-size:18px">${fmt(data.revenue)}</div></div><div class="stat"><div class="lbl">Custos + despesas</div><div class="val" style="font-size:18px">${fmt(data.costs+data.expenses)}</div></div><div class="stat"><div class="lbl">Resultado</div><div class="val" style="font-size:18px">${fmt(data.result)}</div></div></div><div class="finance-grid" style="height:370px"><table><thead><tr><th>Tipo</th><th>Data</th><th>Descrição</th><th>Valor</th></tr></thead><tbody>${data.monthSales.map(s=>`<tr><td>Receita</td><td>${reportDateTime(s.closedAt)}</td><td>Pedido #${h(s.orderNumber||s.id)}</td><td>${fmt(s.total)}</td></tr>`).join('')}${data.payable.map(c=>`<tr><td>Despesa</td><td>${h(c.dataPagamento||c.vencimento)}</td><td>${h(c.descricao||'Conta paga')}</td><td>− ${fmt(c.valorPago||c.valor)}</td></tr>`).join('')||(!data.monthSales.length?'<tr><td colspan="4" class="empty">Sem movimentos no período.</td></tr>':'')}</tbody></table></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button onclick="window.print()">▣ Imprimir</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
-function renderStockMovementsReport(){const rows=(state.stockMovements||[]).map(m=>`<tr data-special-date="${reportDate(m.at)}"><td>${h(m.type)}</td><td>${h(m.name)}</td><td>${h(m.unit)}</td><td>${h(m.operation)}</td><td>${m.before}</td><td>${m.qty}</td><td>${m.type==='entrada'?'E':'S'}</td><td>${m.after}</td><td>${h(m.user)}</td><td>${reportDateTime(m.at)}</td></tr>`).join('')||'<tr><td colspan="10" class="empty" style="height:390px">Não há registros para mostrar</td></tr>';document.getElementById('view-relatorios').innerHTML=`<section class="full-report-page"><div class="full-report-layout" style="padding-top:61px"><aside class="full-report-filter"><h4>Pesquisar Movimentações</h4>${reportPeriodFilterHtml('stockMove','Filtrar Período')}<div class="field"><label>Operação:</label><select><option></option><option>Entrada</option><option>Saída</option></select></div><div class="field"><label>Tipo:</label><select><option></option><option>Produto</option><option>Insumo</option></select></div><div class="field"><label>Categoria:</label><select><option></option>${[...new Set(state.products.map(p=>p.category).filter(Boolean))].map(x=>`<option>${h(x)}</option>`).join('')}</select></div><button class="report-search-button" onclick="filterSpecialReport('stockMove')">⌕ &nbsp; Pesquisar</button></aside><main class="finance-grid"><table><thead><tr><th>Tipo</th><th>Produto</th><th>Un. Méd.</th><th>Operação</th><th>Est. Anterior</th><th>Qtd.</th><th>E/S</th><th>Est. Final</th><th>Usuário</th><th>Data</th></tr></thead><tbody>${rows}</tbody></table></main></div></section>`;}
+function renderStockMovementsReport(){const rows=(state.stockMovements||[]).filter(m=>m.type!=='contagem').map(m=>`<tr data-special-date="${reportDate(m.at)}"><td>${h(m.type)}</td><td>${h(m.name)}</td><td>${h(m.unit)}</td><td>${h(m.operation)}</td><td>${m.before}</td><td>${m.qty}</td><td>${m.type==='entrada'?'E':'S'}</td><td>${m.after}</td><td>${h(m.user)}</td><td>${reportDateTime(m.at)}</td></tr>`).join('')||'<tr><td colspan="10" class="empty" style="height:390px">Não há registros para mostrar</td></tr>';document.getElementById('view-relatorios').innerHTML=`<section class="full-report-page"><div class="full-report-layout" style="padding-top:61px"><aside class="full-report-filter"><h4>Pesquisar Movimentações</h4>${reportPeriodFilterHtml('stockMove','Filtrar Período')}<div class="field"><label>Operação:</label><select><option></option><option>Entrada</option><option>Saída</option></select></div><div class="field"><label>Tipo:</label><select><option></option><option>Produto</option><option>Insumo</option></select></div><div class="field"><label>Categoria:</label><select><option></option>${[...new Set(state.products.map(p=>p.category).filter(Boolean))].map(x=>`<option>${h(x)}</option>`).join('')}</select></div><button class="report-search-button" onclick="filterSpecialReport('stockMove')">⌕ &nbsp; Pesquisar</button></aside><main class="finance-grid"><table><thead><tr><th>Tipo</th><th>Produto</th><th>Un. Méd.</th><th>Operação</th><th>Est. Anterior</th><th>Qtd.</th><th>E/S</th><th>Est. Final</th><th>Usuário</th><th>Data</th></tr></thead><tbody>${rows}</tbody></table></main></div></section>`;}
 function renderStockPositionReport(){const rows=(state.insumos||[]).map(i=>`<tr><td>${h(i.id)}</td><td>${h(i.name)}</td><td>Insumo</td><td>—</td><td>${h(i.unit)}</td><td>${Number(i.stock)||0}</td><td>${fmt(i.costPerUnit)}</td><td>${fmt((Number(i.stock)||0)*(Number(i.costPerUnit)||0))}</td></tr>`).join('')||'<tr><td colspan="8" class="empty" style="height:390px">Não há registros para mostrar</td></tr>';document.getElementById('view-relatorios').innerHTML=`<section class="full-report-page"><div class="full-report-layout" style="padding-top:61px"><aside class="full-report-filter"><h4>Opções de Pesquisa</h4><div class="field"><label>Posição do estoque no dia:</label><input type="date" value="${todayStr()}"></div><div class="field"><label>Tipo:</label><select><option></option><option>Produto</option><option>Insumo</option></select></div><div class="field"><label>Categoria:</label><select><option></option>${[...new Set(state.products.map(p=>p.category).filter(Boolean))].map(x=>`<option>${h(x)}</option>`).join('')}</select></div><label><input type="checkbox"> Ignorar Excluídos</label><button class="report-search-button" onclick="renderRelatorios()">⌕ &nbsp; Pesquisar</button></aside><main class="finance-grid"><table><thead><tr><th>Código</th><th>Produto</th><th>Tipo</th><th>Categoria</th><th>Un. Med.</th><th>Qtde. na Data</th><th>Custo Atual</th><th>Custo Total</th></tr></thead><tbody>${rows}</tbody></table></main></div></section>`;}
 function renderRelatorios(){
   const report=activeRibbonAction||'Meu Negócio';const sales=state.sales.filter(saleCountsAsRevenue);
@@ -7345,9 +7574,110 @@ function openScoreboardSettings(){const c=state.settings.scoreboard||{};openModa
 function saveScoreboardSettings(){if(!requirePerm('config-sistema'))return;state.settings.scoreboard={title:document.getElementById('scoreTitle').value.trim(),minutes:Math.max(1,parseInt(document.getElementById('scoreMinutes').value,10)||10),refresh:Math.max(2,parseInt(document.getElementById('scoreRefresh').value,10)||10),sound:document.getElementById('scoreSound').checked,showPreparing:document.getElementById('scoreShowPreparing').checked};save('settings');closeModal();renderAll();toast('Painel configurado.');}
 
 /* ============ AJUDA E DIAGNÓSTICO ============ */
+/* PROD-16 (auditoria 2026-10-07): manual curto da equipe. Uma folha de uma página por
+   função (caixa, garçom, cozinha), o roteiro de "caiu a internet ou a impressora" e o
+   treino de 30 minutos antes da troca de sistema. Cada folha imprime sozinha. */
+const HELP_SHEETS = {
+  caixa: { title:'Folha do Caixa', html:`
+    <h3>Começo do turno</h3><ol>
+      <li>Entre com o seu PIN. Não use o PIN de outra pessoa.</li>
+      <li><b>Principal › Abrir/Fechar › Abrir Caixa</b>: digite o troco que está na gaveta.</li>
+      <li>Confira no rodapé: <b>Conexão: Conectado</b> e <b>Caixa: Aberto</b>.</li></ol>
+    <h3>Comandas</h3><ol>
+      <li><b>Principal › Mesas/Comandas</b>. Para abrir: <b>+ Abrir comanda</b> e busque o sócio pelo nome ou pela cota.</li>
+      <li>Toque na comanda para abrir. <b>Novo Pedido</b> lança os itens: ao confirmar, eles vão para a cozinha e a ficha imprime.</li>
+      <li>Item errado: <b>Cancelar</b> na linha do item. Ficha que não saiu: <b>Reimprimir</b>.</li>
+      <li><b>Bloquear Pedido</b> impede novos pedidos na comanda (ex.: o cliente pediu a conta).</li></ol>
+    <h3>Receber</h3><ol>
+      <li>Alguém vai embora antes e paga a parte dele: <b>Receber parcial</b>. O valor sai do total da comanda.</li>
+      <li>Fechar a conta: <b>Pagamento</b>, toque na forma (atalhos: A dinheiro, P Pix, C crédito, B débito, F fiado), confira o valor e <b>Adicionar</b>. Dá para misturar formas.</li>
+      <li>Fiado só para sócio. Se aparecer <b>Consumo bloqueado</b>, o sócio tem pendência: receba o pagamento ou chame o gerente.</li>
+      <li>Pagamento de fiado: <b>Financeiro › Conta Corrente (Fiado)</b>, escolha o sócio e <b>Registrar Pagamento</b>.</li></ol>
+    <h3>Dinheiro na gaveta</h3><ol>
+      <li>Retirada ou reforço de troco: <b>Abrir/Fechar › + Novo Lançamento</b> (Saída ou Entrada do caixa), sempre com o motivo.</li></ol>
+    <h3>Fim do turno</h3><ol>
+      <li>Conte a gaveta <b>antes</b> de fechar.</li>
+      <li><b>Abrir/Fechar › Fechar Caixa</b>: digite o dinheiro contado e o total da maquininha e toque <b>Conferir contagem</b>. Só então o sistema mostra o esperado e a diferença.</li>
+      <li>Deu diferença? Avise o gerente antes de <b>Finalizar</b>. Use <b>Corrigir contagem</b> só se contou errado, nunca para "fazer bater".</li></ol>
+    <div class="help-warn"><b>Nunca:</b> feche o navegador com a faixa vermelha <b>"Não foi possível salvar"</b> na tela (toque em <b>Tentar de novo</b>) · deixe o caixa logado ao sair (use <b>Bloquear ou trocar usuário</b>) · conte o seu PIN a ninguém.</div>` },
+  garcom: { title:'Folha do Garçom', html:`
+    <h3>Antes de começar</h3><ol>
+      <li>Abra o Commandah no celular (deixe o atalho na tela inicial) e entre com o seu PIN.</li>
+      <li>Use o Wi-Fi do clube se o sinal do celular estiver fraco.</li></ol>
+    <h3>Lançar um pedido</h3><ol>
+      <li>Na tela <b>Comandas</b>, digite o nome ou a cota do sócio, ou toque numa comanda em andamento.</li>
+      <li>Escolha <b>Quem está pedindo</b> (titular ou dependente).</li>
+      <li>Toque na categoria e nos produtos. Para procurar, use <b>Todos os produtos</b>.</li>
+      <li>Na revisão, confira as quantidades, o local e a observação (ex.: "sem cebola").</li>
+      <li>Toque <b>✓ Enviar pedido</b>. O pedido vai direto para a cozinha ou o bar e a ficha imprime. Não precisa avisar o caixa.</li></ol>
+    <h3>Situações comuns</h3><ul>
+      <li>Comanda com <b>🔒</b>: o caixa travou a comanda (ex.: já pediu a conta). Fale com o caixa.</li>
+      <li>Sócio com <b>consumo bloqueado</b>: não insista. Peça para ele passar no caixa.</li>
+      <li>Pedido errado: peça ao caixa para cancelar o item. O garçom não cancela.</li>
+      <li>Desistiu antes de enviar: <b>Descartar pedido</b>.</li></ul>
+    <div class="help-warn"><b>Sem sinal:</b> se aparecer erro ao enviar, o pedido <b>não</b> foi para a cozinha. Espere o sinal voltar e confira a comanda antes de mandar de novo, para não sair dobrado.</div>` },
+  cozinha: { title:'Folha da Cozinha', html:`
+    <h3>A tela</h3><ol>
+      <li>Entre com o PIN da cozinha. A tela entra sozinha no <b>Modo TV</b> (letra grande).</li>
+      <li>Se houver mais de uma área (cozinha, churrasqueira, bar), escolha <b>qual estação é esta tela</b>.</li>
+      <li><b>Em preparo</b> mostra os pedidos, do mais antigo para o mais novo. O selo <b>há X min</b> é o tempo de espera.</li></ol>
+    <h3>Marcar pronto</h3><ol>
+      <li>Pedido inteiro pronto: toque <b>Pronto</b> no cartão.</li>
+      <li>Pedido com vários itens: marque só os itens que ficaram prontos e toque <b>Pronto</b>. O pedido sai da tela quando todos estiverem prontos.</li>
+      <li>A aba <b>Prontos</b> mostra os últimos pedidos marcados como prontos, para conferir.</li></ol>
+    <h3>Atenção</h3><ul>
+      <li>Item <b>riscado com "Cancelado"</b>: o cliente desistiu. Não prepare.</li>
+      <li>Leia a <b>Obs.</b> embaixo do item (ex.: "sem cebola", "bem passado").</li>
+      <li>A ficha não imprimiu? O pedido continua na tela. Avise o caixa para <b>Reimprimir</b>.</li>
+      <li>A tela travou ou sumiu: recarregue a página. Se pedir o PIN, entre de novo.</li></ul>` },
+  falhas: { title:'Caiu a internet ou a impressora', html:`
+    <h3>Caiu a internet</h3><ol>
+      <li>O rodapé mostra a <b>Conexão</b>. Sem internet o sistema <b>não grava</b>: não feche contas nesse momento.</li>
+      <li>Anote em papel: comanda, itens, valor e forma de pagamento. Lance tudo quando a internet voltar.</li>
+      <li>Apareceu a faixa vermelha <b>"Não foi possível salvar"</b>? Não feche a página. Quando a internet voltar, toque em <b>Tentar de novo</b>.</li>
+      <li>Recarregou sem internet e apareceu <b>"O sistema não conseguiu carregar"</b>? Não precisa fazer nada: ele tenta de novo sozinho e entra quando a internet voltar.</li>
+      <li>Celular do garçom sem sinal: use o Wi-Fi do clube ou leve o pedido ao caixa, que lança em <b>Novo Pedido</b>.</li></ol>
+    <h3>Parou a impressora</h3><ol>
+      <li>Confira papel, tampa fechada e se está ligada. O computador da impressão precisa estar ligado e com internet.</li>
+      <li>Enquanto isso, a cozinha vê os pedidos no <b>Monitor de Cozinha</b>.</li>
+      <li>Depois de arrumar: na comanda, <b>Reimprimir</b> nos itens que não saíram.</li></ol>
+    <h3>Nada resolveu</h3><ol>
+      <li>Chame o gerente. Ele vê os erros em <b>Configurações › Erros do Sistema</b>.</li>
+      <li>Apareceu <b>"Há uma versão nova"</b>? Toque em <b>Recarregar agora</b> quando não estiver no meio de um pagamento.</li></ol>` },
+  treino: { title:'Treino da equipe (30 minutos)', html:`
+    <p class="sub">Faça antes de um turno, com o caixa ainda fechado. Use uma comanda chamada <b>TESTE</b> e cancele no final. Na abertura do caixa de treino, escreva "treino" na observação.</p>
+    <table><tbody>
+      <tr><td>0–5 min</td><td>Cada pessoa entra com o próprio PIN e troca a senha em <b>Alterar Minha Senha</b>. Entregue a folha de cada função.</td></tr>
+      <tr><td>5–15 min</td><td><b>Caixa:</b> abre o caixa, abre a comanda TESTE, lança um Novo Pedido, cancela um item e reimprime uma ficha.<br><b>Garçons:</b> lançam pedidos pelo celular na comanda TESTE.<br><b>Cozinha:</b> marca um item pronto, depois o pedido inteiro.</td></tr>
+      <tr><td>15–20 min</td><td><b>Caixa:</b> Receber parcial e depois Pagamento com duas formas (ex.: Pix + dinheiro).</td></tr>
+      <tr><td>20–25 min</td><td><b>Simule falhas:</b> desligue o Wi-Fi de um celular e tente enviar um pedido; desligue a impressora e veja o pedido no Monitor de Cozinha. Siga a folha "Caiu a internet ou a impressora".</td></tr>
+      <tr><td>25–30 min</td><td><b>Fechamento:</b> conte a gaveta, faça o fechamento às cegas e veja a diferença. Cancele a comanda TESTE. Tire as dúvidas.</td></tr>
+    </tbody></table>` }
+};
+let helpSection = 'central';
+function setHelpSection(key){ helpSection = key; renderAjuda(); }
+function printHelpSheet(key){
+  const sheet = HELP_SHEETS[key]; if(!sheet) return;
+  const w = window.open('', '_blank');
+  if(!w){ toast('O navegador bloqueou a janela de impressão. Libere as janelas deste site e tente de novo.'); return; }
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${h(sheet.title)} — Commandah</title><style>
+    @page{size:A4;margin:14mm}body{font-family:Inter,Arial,sans-serif;color:#111;font-size:12.5px;line-height:1.4;margin:0}
+    h1{font-size:20px;margin:0 0 2px}h3{font-size:14px;margin:12px 0 4px;color:#0b5e45}.top{display:flex;justify-content:space-between;border-bottom:2px solid #0b5e45;padding-bottom:6px;margin-bottom:6px}
+    ol,ul{margin:0;padding-left:20px}li{margin:2px 0}.help-warn{border:1.5px solid #b42318;border-radius:6px;padding:8px 10px;margin-top:12px}.help-warn b{color:#b42318}
+    table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #ccc;padding:6px 4px;vertical-align:top}td:first-child{white-space:nowrap;font-weight:700;width:80px}.sub{color:#444}
+  </style></head><body><div class="top"><h1>${h(sheet.title)}</h1><span>Commandah${state.settings.clubName?' · '+h(state.settings.clubName):''}</span></div>${sheet.html}</body></html>`);
+  w.document.close();
+  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 300);
+}
 function renderAjuda(){
   const el = document.getElementById('view-ajuda');
-  el.innerHTML = `<div class="workspace-gray"><section class="op-window" style="max-width:1180px;margin-left:auto"><header class="op-titlebar">Ajuda</header><div style="display:grid;grid-template-columns:270px 1fr;min-height:540px"><nav class="settings-nav" style="border-right:1px solid var(--c-border-strong)"><button class="active">Central de Ajuda</button><button onclick="toast('O atendimento remoto exige uma ferramenta autorizada pelo estabelecimento.')">Atendimento Remoto</button><button onclick="switchView('diagnostico')">Diagnóstico</button><button onclick="switchView('backup')">Backup dos Dados</button></nav><main style="padding:25px"><h2>Como podemos ajudar?</h2><div class="op-search" style="max-width:520px"><input id="helpSearch" placeholder="Pesquisar na ajuda..."></div><div id="helpTopics" style="display:flex;flex-direction:column;gap:14px;margin-top:22px"><div class="panel"><b>Caixa e pedidos</b><p class="sub">Abra o caixa em Principal › Abrir/Fechar. Mesas, comandas, balcão e pedidos usam a numeração configurada.</p></div><div class="panel"><b>Clientes e fiado</b><p class="sub">Um cliente com saldo devedor não pode realizar novo fiado até registrar a quitação.</p></div><div class="panel"><b>Produtos e estoque</b><p class="sub">A baixa dos insumos ocorre quando os itens são enviados à cozinha conforme a ficha técnica.</p></div><div class="panel"><b>Acesso e segurança</b><p class="sub">Um administrador pode alterar perfis em Colaboradores. Cada usuário troca o próprio PIN em Alterar Minha Senha.</p></div><div class="panel"><b>Proteção dos dados</b><p class="sub">Exporte backups regulares em Configurações › Backup e guarde os arquivos em local seguro.</p></div></div></main></div><footer class="op-footer"><span>Ajuda local do sistema</span><span>Suporte externo não configurado</span></footer></section></div>`;
+  const navBtn = (key,label) => `<button class="${helpSection===key?'active':''}" onclick="setHelpSection('${key}')">${label}</button>`;
+  const sheet = HELP_SHEETS[helpSection];
+  if(sheet){
+    el.innerHTML = `<div class="workspace-gray"><section class="op-window" style="max-width:1180px;margin-left:auto"><header class="op-titlebar">Ajuda</header><div style="display:grid;grid-template-columns:270px 1fr;min-height:540px"><nav class="settings-nav" style="border-right:1px solid var(--c-border-strong)">${navBtn('central','Central de Ajuda')}<div class="help-nav-group">Manual da equipe</div>${navBtn('caixa','Folha do Caixa')}${navBtn('garcom','Folha do Garçom')}${navBtn('cozinha','Folha da Cozinha')}${navBtn('falhas','Caiu a internet ou a impressora')}${navBtn('treino','Treino da equipe (30 min)')}</nav><main style="padding:25px;overflow:auto"><article class="help-sheet"><div class="help-sheet-head"><h2>${h(sheet.title)}</h2><button class="op-btn" onclick="printHelpSheet('${helpSection}')">▣ &nbsp; Imprimir esta folha</button></div>${sheet.html}</article></main></div><footer class="op-footer"><span>Manual da equipe</span><span>Imprima e deixe perto do posto de trabalho</span></footer></section></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="workspace-gray"><section class="op-window" style="max-width:1180px;margin-left:auto"><header class="op-titlebar">Ajuda</header><div style="display:grid;grid-template-columns:270px 1fr;min-height:540px"><nav class="settings-nav" style="border-right:1px solid var(--c-border-strong)">${navBtn('central','Central de Ajuda')}<div class="help-nav-group">Manual da equipe</div>${navBtn('caixa','Folha do Caixa')}${navBtn('garcom','Folha do Garçom')}${navBtn('cozinha','Folha da Cozinha')}${navBtn('falhas','Caiu a internet ou a impressora')}${navBtn('treino','Treino da equipe (30 min)')}<div class="help-nav-group">Suporte</div><button onclick="toast('O atendimento remoto exige uma ferramenta autorizada pelo estabelecimento.')">Atendimento Remoto</button><button onclick="switchView('diagnostico')">Diagnóstico</button><button onclick="switchView('backup')">Backup dos Dados</button></nav><main style="padding:25px"><h2>Como podemos ajudar?</h2><div class="op-search" style="max-width:520px"><input id="helpSearch" placeholder="Pesquisar na ajuda..."></div><div id="helpTopics" style="display:flex;flex-direction:column;gap:14px;margin-top:22px"><div class="panel"><b>Caixa e pedidos</b><p class="sub">Abra o caixa em Principal › Abrir/Fechar. Mesas, comandas, balcão e pedidos usam a numeração configurada.</p></div><div class="panel"><b>Clientes e fiado</b><p class="sub">Um cliente com saldo devedor não pode realizar novo fiado até registrar a quitação.</p></div><div class="panel"><b>Produtos e estoque</b><p class="sub">A baixa dos insumos ocorre quando os itens são enviados à cozinha conforme a ficha técnica. Uma vez por semana, faça a contagem em Insumos › Contagem: o sistema lança a falta e a sobra e mostra a % de perda.</p></div><div class="panel"><b>Acesso e segurança</b><p class="sub">Um administrador pode alterar perfis em Colaboradores. Cada usuário troca o próprio PIN em Alterar Minha Senha.</p></div><div class="panel"><b>Proteção dos dados</b><p class="sub">Exporte backups regulares em Configurações › Backup e guarde os arquivos em local seguro.</p></div></div></main></div><footer class="op-footer"><span>Ajuda local do sistema</span><span>Suporte externo não configurado</span></footer></section></div>`;
   document.getElementById('helpSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#helpTopics .panel').forEach(p=>p.style.display=p.textContent.toLowerCase().includes(q)?'':'none');};
 }
 function openRemoteSupport(){const c=state.settings.remoteSupport||{},sessions=state.settings.remoteSupportSessions||[];openModal('Atendimento Remoto',`<div class="consumer-form-frame"><div class="app-status"><b>Acesso de suporte</b><span class="tag ${c.enabled?'tag-green':'tag-gray'}">${c.enabled?'Autorizado':'Bloqueado'}</span></div><p>O sistema não instala nem inicia ferramentas remotas. Registre abaixo a autorização concedida a uma ferramenta aprovada pelo estabelecimento.</p><div class="field"><label>Ferramenta autorizada</label><input id="remoteTool" value="${h(c.tool||'')}"></div><div class="field"><label>Código temporário / protocolo</label><input id="remoteCode"></div><label><input id="remoteConsent" type="checkbox"> Confirmo a autorização para esta sessão</label></div><div class="finance-grid" style="height:190px;margin:0 13px"><table><thead><tr><th>Data</th><th>Ferramenta</th><th>Protocolo</th><th>Operador</th><th>Status</th></tr></thead><tbody>${sessions.map(s=>`<tr><td>${reportDateTime(s.at)}</td><td>${h(s.tool)}</td><td>${h(s.code)}</td><td>${h(s.user)}</td><td>${h(s.status)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Nenhuma sessão registrada.</td></tr>'}</tbody></table></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="consumer-delete" onclick="revokeRemoteSupport()">Revogar</button><button class="consumer-save" onclick="authorizeRemoteSupport()">✓ Autorizar sessão</button></div>`);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
@@ -7804,8 +8134,8 @@ function startApp(){
     if(comandasView && comandasView.classList.contains('active')) renderComandas();
   }, 30000);
   // Vigia a fila de impressão: agente fechado = ficha que nunca sai no papel.
-  setTimeout(checkStuckPrintQueue, 20000);
-  setInterval(checkStuckPrintQueue, 60000);
+  setTimeout(()=>{ checkPrintAgentStatus().then(checkStuckPrintQueue); }, 20000);
+  setInterval(()=>{ checkPrintAgentStatus().then(checkStuckPrintQueue); }, 60000);
   setTimeout(()=>{
     const overlay = document.getElementById('loginOverlay');
     const appShown = document.getElementById('app') && document.getElementById('app').classList.contains('show');
