@@ -1,5 +1,7 @@
 .claude/*
 !.claude/settings.json
+# OPS-06: as travas locais (hooks) são versionadas
+!.claude/scripts/
 supabase/.temp/
 .local-backups/
 
