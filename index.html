@@ -1194,6 +1194,10 @@ const ICN = {
   grid:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.3"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.3"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.3"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.3"/></svg>',
   brandmark:(ring='var(--c-mark)',dot='var(--c-mark-ink)',size=16)=>`<svg width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><path d="M48.55 44.93A21 21 0 1 1 48.55 19.07" fill="none" stroke="${ring}" stroke-width="10" stroke-linecap="round"/><circle cx="32" cy="32" r="7.5" fill="${dot}"/></svg>`,
 };
+// PROD-02 (decisão do dono, auditoria 07/10): módulos que só gravam configuração e não fazem
+// nada ficam fora do menu, para ninguém achar que nota fiscal, Pix ou SMS estão funcionando.
+// O código continua; para voltar um módulo, tire o nome daqui.
+const HIDDEN_MODULES = new Set(['Connect','Emissão Fiscal','TEF','SMS','Disparador Inteligente','Fidelidade','Bot WhatsApp','Pix Online','Bina','Mapas','Balança','Minha Assinatura','Meu Delivery','Delivery']);
 const RIBBON_TABS = [
   { id:'principal', label:'Principal', groups:[
       { label:'Caixa', items:[ {label:'Abrir/Fechar', icon:ICN.lock, view:'caixa'} ] },
@@ -1468,6 +1472,9 @@ let storageApi = null;
    banco, pra um save('settings') qualquer não gravar de volta. */
 function stripIntegrationTokens(settings){
   if(!settings || typeof settings!=='object') return;
+  // PROD-02/SEG-07: Connect, Emissão Fiscal e TEF não têm integração; o que foi digitado nesses
+  // formulários (inclusive campos de senha) ficava em settings, legível por todo operador.
+  delete settings.appModules;
   ['whatsappBot','sms'].forEach(k=>{ if(settings[k] && typeof settings[k]==='object') delete settings[k].token; });
   ['digitalChannels','cloudBackup'].forEach(k=>{
     const group = settings[k];
@@ -2429,7 +2436,8 @@ function renderRibbonToolbar(){
   const tab = visibleTabs.find(t=>t.id===activeRibbonTab);
   if(!tab){ el.innerHTML=''; return; }
   el.classList.toggle('reports-mode',tab.id==='relatorios');
-  el.innerHTML = tab.groups.map(g=>`
+  const groups = tab.groups.map(g=>({...g, items:g.items.filter(it=>!HIDDEN_MODULES.has(it.label))})).filter(g=>g.items.length);
+  el.innerHTML = groups.map(g=>`
     <div class="rb-group">
       <div class="rb-icons">${g.items.map(it=>{
         const hasAction = !!it.action;
