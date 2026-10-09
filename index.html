@@ -1053,6 +1053,17 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .aging-grid tr{cursor:pointer}
 .aging-grid tr.aging-late td:last-child{color:var(--c-danger);font-weight:700}
 .aging-grid tr.aging-warn td:last-child{color:var(--c-warning);font-weight:700}
+.help-nav-group{font-size:12px;font-weight:700;color:var(--c-text-3);text-transform:uppercase;letter-spacing:.04em;padding:14px 16px 4px}
+.help-sheet{max-width:760px}
+.help-sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.help-sheet-head h2{margin:0}
+.help-sheet h3{font-size:16px;margin:18px 0 6px;color:var(--c-primary)}
+.help-sheet ol,.help-sheet ul{margin:0;padding-left:22px;display:grid;gap:5px;line-height:1.45}
+.help-sheet .help-warn{border-left:4px solid var(--c-danger);background:var(--c-surface-2);border-radius:var(--r-md);padding:10px 14px;margin-top:16px}
+.help-sheet .help-warn b{color:var(--c-danger)}
+.help-sheet table{width:100%;border-collapse:collapse}
+.help-sheet td{border-bottom:1px solid var(--c-border);padding:8px 6px;vertical-align:top;line-height:1.4}
+.help-sheet td:first-child{white-space:nowrap;font-weight:700;width:110px}
 .modal.count-modal{width:min(960px,calc(100vw - 32px))!important;max-width:none!important}
 .count-body{display:grid;gap:12px}
 .count-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -7472,9 +7483,110 @@ function openScoreboardSettings(){const c=state.settings.scoreboard||{};openModa
 function saveScoreboardSettings(){if(!requirePerm('config-sistema'))return;state.settings.scoreboard={title:document.getElementById('scoreTitle').value.trim(),minutes:Math.max(1,parseInt(document.getElementById('scoreMinutes').value,10)||10),refresh:Math.max(2,parseInt(document.getElementById('scoreRefresh').value,10)||10),sound:document.getElementById('scoreSound').checked,showPreparing:document.getElementById('scoreShowPreparing').checked};save('settings');closeModal();renderAll();toast('Painel configurado.');}
 
 /* ============ AJUDA E DIAGNÓSTICO ============ */
+/* PROD-16 (auditoria 2026-10-07): manual curto da equipe. Uma folha de uma página por
+   função (caixa, garçom, cozinha), o roteiro de "caiu a internet ou a impressora" e o
+   treino de 30 minutos antes da troca de sistema. Cada folha imprime sozinha. */
+const HELP_SHEETS = {
+  caixa: { title:'Folha do Caixa', html:`
+    <h3>Começo do turno</h3><ol>
+      <li>Entre com o seu PIN. Não use o PIN de outra pessoa.</li>
+      <li><b>Principal › Abrir/Fechar › Abrir Caixa</b>: digite o troco que está na gaveta.</li>
+      <li>Confira no rodapé: <b>Conexão: Conectado</b> e <b>Caixa: Aberto</b>.</li></ol>
+    <h3>Comandas</h3><ol>
+      <li><b>Principal › Mesas/Comandas</b>. Para abrir: <b>+ Abrir comanda</b> e busque o sócio pelo nome ou pela cota.</li>
+      <li>Toque na comanda para abrir. <b>Novo Pedido</b> lança os itens: ao confirmar, eles vão para a cozinha e a ficha imprime.</li>
+      <li>Item errado: <b>Cancelar</b> na linha do item. Ficha que não saiu: <b>Reimprimir</b>.</li>
+      <li><b>Bloquear Pedido</b> impede novos pedidos na comanda (ex.: o cliente pediu a conta).</li></ol>
+    <h3>Receber</h3><ol>
+      <li>Alguém vai embora antes e paga a parte dele: <b>Receber parcial</b>. O valor sai do total da comanda.</li>
+      <li>Fechar a conta: <b>Pagamento</b>, toque na forma (atalhos: A dinheiro, P Pix, C crédito, B débito, F fiado), confira o valor e <b>Adicionar</b>. Dá para misturar formas.</li>
+      <li>Fiado só para sócio. Se aparecer <b>Consumo bloqueado</b>, o sócio tem pendência: receba o pagamento ou chame o gerente.</li>
+      <li>Pagamento de fiado: <b>Financeiro › Conta Corrente (Fiado)</b>, escolha o sócio e <b>Registrar Pagamento</b>.</li></ol>
+    <h3>Dinheiro na gaveta</h3><ol>
+      <li>Retirada ou reforço de troco: <b>Abrir/Fechar › + Novo Lançamento</b> (Saída ou Entrada do caixa), sempre com o motivo.</li></ol>
+    <h3>Fim do turno</h3><ol>
+      <li>Conte a gaveta <b>antes</b> de fechar.</li>
+      <li><b>Abrir/Fechar › Fechar Caixa</b>: digite o dinheiro contado e o total da maquininha e toque <b>Conferir contagem</b>. Só então o sistema mostra o esperado e a diferença.</li>
+      <li>Deu diferença? Avise o gerente antes de <b>Finalizar</b>. Use <b>Corrigir contagem</b> só se contou errado, nunca para "fazer bater".</li></ol>
+    <div class="help-warn"><b>Nunca:</b> feche o navegador com a faixa vermelha <b>"Não foi possível salvar"</b> na tela (toque em <b>Tentar de novo</b>) · deixe o caixa logado ao sair (use <b>Bloquear ou trocar usuário</b>) · conte o seu PIN a ninguém.</div>` },
+  garcom: { title:'Folha do Garçom', html:`
+    <h3>Antes de começar</h3><ol>
+      <li>Abra o Commandah no celular (deixe o atalho na tela inicial) e entre com o seu PIN.</li>
+      <li>Use o Wi-Fi do clube se o sinal do celular estiver fraco.</li></ol>
+    <h3>Lançar um pedido</h3><ol>
+      <li>Na tela <b>Comandas</b>, digite o nome ou a cota do sócio, ou toque numa comanda em andamento.</li>
+      <li>Escolha <b>Quem está pedindo</b> (titular ou dependente).</li>
+      <li>Toque na categoria e nos produtos. Para procurar, use <b>Todos os produtos</b>.</li>
+      <li>Na revisão, confira as quantidades, o local e a observação (ex.: "sem cebola").</li>
+      <li>Toque <b>✓ Enviar pedido</b>. O pedido vai direto para a cozinha ou o bar e a ficha imprime. Não precisa avisar o caixa.</li></ol>
+    <h3>Situações comuns</h3><ul>
+      <li>Comanda com <b>🔒</b>: o caixa travou a comanda (ex.: já pediu a conta). Fale com o caixa.</li>
+      <li>Sócio com <b>consumo bloqueado</b>: não insista. Peça para ele passar no caixa.</li>
+      <li>Pedido errado: peça ao caixa para cancelar o item. O garçom não cancela.</li>
+      <li>Desistiu antes de enviar: <b>Descartar pedido</b>.</li></ul>
+    <div class="help-warn"><b>Sem sinal:</b> se aparecer erro ao enviar, o pedido <b>não</b> foi para a cozinha. Espere o sinal voltar e confira a comanda antes de mandar de novo, para não sair dobrado.</div>` },
+  cozinha: { title:'Folha da Cozinha', html:`
+    <h3>A tela</h3><ol>
+      <li>Entre com o PIN da cozinha. A tela entra sozinha no <b>Modo TV</b> (letra grande).</li>
+      <li>Se houver mais de uma área (cozinha, churrasqueira, bar), escolha <b>qual estação é esta tela</b>.</li>
+      <li><b>Em preparo</b> mostra os pedidos, do mais antigo para o mais novo. O selo <b>há X min</b> é o tempo de espera.</li></ol>
+    <h3>Marcar pronto</h3><ol>
+      <li>Pedido inteiro pronto: toque <b>Pronto</b> no cartão.</li>
+      <li>Pedido com vários itens: marque só os itens que ficaram prontos e toque <b>Pronto</b>. O pedido sai da tela quando todos estiverem prontos.</li>
+      <li>A aba <b>Prontos</b> mostra os últimos pedidos marcados como prontos, para conferir.</li></ol>
+    <h3>Atenção</h3><ul>
+      <li>Item <b>riscado com "Cancelado"</b>: o cliente desistiu. Não prepare.</li>
+      <li>Leia a <b>Obs.</b> embaixo do item (ex.: "sem cebola", "bem passado").</li>
+      <li>A ficha não imprimiu? O pedido continua na tela. Avise o caixa para <b>Reimprimir</b>.</li>
+      <li>A tela travou ou sumiu: recarregue a página. Se pedir o PIN, entre de novo.</li></ul>` },
+  falhas: { title:'Caiu a internet ou a impressora', html:`
+    <h3>Caiu a internet</h3><ol>
+      <li>O rodapé mostra a <b>Conexão</b>. Sem internet o sistema <b>não grava</b>: não feche contas nesse momento.</li>
+      <li>Anote em papel: comanda, itens, valor e forma de pagamento. Lance tudo quando a internet voltar.</li>
+      <li>Apareceu a faixa vermelha <b>"Não foi possível salvar"</b>? Não feche a página. Quando a internet voltar, toque em <b>Tentar de novo</b>.</li>
+      <li>Recarregou sem internet e apareceu <b>"O sistema não conseguiu carregar"</b>? Não precisa fazer nada: ele tenta de novo sozinho e entra quando a internet voltar.</li>
+      <li>Celular do garçom sem sinal: use o Wi-Fi do clube ou leve o pedido ao caixa, que lança em <b>Novo Pedido</b>.</li></ol>
+    <h3>Parou a impressora</h3><ol>
+      <li>Confira papel, tampa fechada e se está ligada. O computador da impressão precisa estar ligado e com internet.</li>
+      <li>Enquanto isso, a cozinha vê os pedidos no <b>Monitor de Cozinha</b>.</li>
+      <li>Depois de arrumar: na comanda, <b>Reimprimir</b> nos itens que não saíram.</li></ol>
+    <h3>Nada resolveu</h3><ol>
+      <li>Chame o gerente. Ele vê os erros em <b>Configurações › Erros do Sistema</b>.</li>
+      <li>Apareceu <b>"Há uma versão nova"</b>? Toque em <b>Recarregar agora</b> quando não estiver no meio de um pagamento.</li></ol>` },
+  treino: { title:'Treino da equipe (30 minutos)', html:`
+    <p class="sub">Faça antes de um turno, com o caixa ainda fechado. Use uma comanda chamada <b>TESTE</b> e cancele no final. Na abertura do caixa de treino, escreva "treino" na observação.</p>
+    <table><tbody>
+      <tr><td>0–5 min</td><td>Cada pessoa entra com o próprio PIN e troca a senha em <b>Alterar Minha Senha</b>. Entregue a folha de cada função.</td></tr>
+      <tr><td>5–15 min</td><td><b>Caixa:</b> abre o caixa, abre a comanda TESTE, lança um Novo Pedido, cancela um item e reimprime uma ficha.<br><b>Garçons:</b> lançam pedidos pelo celular na comanda TESTE.<br><b>Cozinha:</b> marca um item pronto, depois o pedido inteiro.</td></tr>
+      <tr><td>15–20 min</td><td><b>Caixa:</b> Receber parcial e depois Pagamento com duas formas (ex.: Pix + dinheiro).</td></tr>
+      <tr><td>20–25 min</td><td><b>Simule falhas:</b> desligue o Wi-Fi de um celular e tente enviar um pedido; desligue a impressora e veja o pedido no Monitor de Cozinha. Siga a folha "Caiu a internet ou a impressora".</td></tr>
+      <tr><td>25–30 min</td><td><b>Fechamento:</b> conte a gaveta, faça o fechamento às cegas e veja a diferença. Cancele a comanda TESTE. Tire as dúvidas.</td></tr>
+    </tbody></table>` }
+};
+let helpSection = 'central';
+function setHelpSection(key){ helpSection = key; renderAjuda(); }
+function printHelpSheet(key){
+  const sheet = HELP_SHEETS[key]; if(!sheet) return;
+  const w = window.open('', '_blank');
+  if(!w){ toast('O navegador bloqueou a janela de impressão. Libere as janelas deste site e tente de novo.'); return; }
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${h(sheet.title)} — Commandah</title><style>
+    @page{size:A4;margin:14mm}body{font-family:Inter,Arial,sans-serif;color:#111;font-size:12.5px;line-height:1.4;margin:0}
+    h1{font-size:20px;margin:0 0 2px}h3{font-size:14px;margin:12px 0 4px;color:#0b5e45}.top{display:flex;justify-content:space-between;border-bottom:2px solid #0b5e45;padding-bottom:6px;margin-bottom:6px}
+    ol,ul{margin:0;padding-left:20px}li{margin:2px 0}.help-warn{border:1.5px solid #b42318;border-radius:6px;padding:8px 10px;margin-top:12px}.help-warn b{color:#b42318}
+    table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #ccc;padding:6px 4px;vertical-align:top}td:first-child{white-space:nowrap;font-weight:700;width:80px}.sub{color:#444}
+  </style></head><body><div class="top"><h1>${h(sheet.title)}</h1><span>Commandah${state.settings.clubName?' · '+h(state.settings.clubName):''}</span></div>${sheet.html}</body></html>`);
+  w.document.close();
+  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 300);
+}
 function renderAjuda(){
   const el = document.getElementById('view-ajuda');
-  el.innerHTML = `<div class="workspace-gray"><section class="op-window" style="max-width:1180px;margin-left:auto"><header class="op-titlebar">Ajuda</header><div style="display:grid;grid-template-columns:270px 1fr;min-height:540px"><nav class="settings-nav" style="border-right:1px solid var(--c-border-strong)"><button class="active">Central de Ajuda</button><button onclick="toast('O atendimento remoto exige uma ferramenta autorizada pelo estabelecimento.')">Atendimento Remoto</button><button onclick="switchView('diagnostico')">Diagnóstico</button><button onclick="switchView('backup')">Backup dos Dados</button></nav><main style="padding:25px"><h2>Como podemos ajudar?</h2><div class="op-search" style="max-width:520px"><input id="helpSearch" placeholder="Pesquisar na ajuda..."></div><div id="helpTopics" style="display:flex;flex-direction:column;gap:14px;margin-top:22px"><div class="panel"><b>Caixa e pedidos</b><p class="sub">Abra o caixa em Principal › Abrir/Fechar. Mesas, comandas, balcão e pedidos usam a numeração configurada.</p></div><div class="panel"><b>Clientes e fiado</b><p class="sub">Um cliente com saldo devedor não pode realizar novo fiado até registrar a quitação.</p></div><div class="panel"><b>Produtos e estoque</b><p class="sub">A baixa dos insumos ocorre quando os itens são enviados à cozinha conforme a ficha técnica.</p></div><div class="panel"><b>Acesso e segurança</b><p class="sub">Um administrador pode alterar perfis em Colaboradores. Cada usuário troca o próprio PIN em Alterar Minha Senha.</p></div><div class="panel"><b>Proteção dos dados</b><p class="sub">Exporte backups regulares em Configurações › Backup e guarde os arquivos em local seguro.</p></div></div></main></div><footer class="op-footer"><span>Ajuda local do sistema</span><span>Suporte externo não configurado</span></footer></section></div>`;
+  const navBtn = (key,label) => `<button class="${helpSection===key?'active':''}" onclick="setHelpSection('${key}')">${label}</button>`;
+  const sheet = HELP_SHEETS[helpSection];
+  if(sheet){
+    el.innerHTML = `<div class="workspace-gray"><section class="op-window" style="max-width:1180px;margin-left:auto"><header class="op-titlebar">Ajuda</header><div style="display:grid;grid-template-columns:270px 1fr;min-height:540px"><nav class="settings-nav" style="border-right:1px solid var(--c-border-strong)">${navBtn('central','Central de Ajuda')}<div class="help-nav-group">Manual da equipe</div>${navBtn('caixa','Folha do Caixa')}${navBtn('garcom','Folha do Garçom')}${navBtn('cozinha','Folha da Cozinha')}${navBtn('falhas','Caiu a internet ou a impressora')}${navBtn('treino','Treino da equipe (30 min)')}</nav><main style="padding:25px;overflow:auto"><article class="help-sheet"><div class="help-sheet-head"><h2>${h(sheet.title)}</h2><button class="op-btn" onclick="printHelpSheet('${helpSection}')">▣ &nbsp; Imprimir esta folha</button></div>${sheet.html}</article></main></div><footer class="op-footer"><span>Manual da equipe</span><span>Imprima e deixe perto do posto de trabalho</span></footer></section></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="workspace-gray"><section class="op-window" style="max-width:1180px;margin-left:auto"><header class="op-titlebar">Ajuda</header><div style="display:grid;grid-template-columns:270px 1fr;min-height:540px"><nav class="settings-nav" style="border-right:1px solid var(--c-border-strong)">${navBtn('central','Central de Ajuda')}<div class="help-nav-group">Manual da equipe</div>${navBtn('caixa','Folha do Caixa')}${navBtn('garcom','Folha do Garçom')}${navBtn('cozinha','Folha da Cozinha')}${navBtn('falhas','Caiu a internet ou a impressora')}${navBtn('treino','Treino da equipe (30 min)')}<div class="help-nav-group">Suporte</div><button onclick="toast('O atendimento remoto exige uma ferramenta autorizada pelo estabelecimento.')">Atendimento Remoto</button><button onclick="switchView('diagnostico')">Diagnóstico</button><button onclick="switchView('backup')">Backup dos Dados</button></nav><main style="padding:25px"><h2>Como podemos ajudar?</h2><div class="op-search" style="max-width:520px"><input id="helpSearch" placeholder="Pesquisar na ajuda..."></div><div id="helpTopics" style="display:flex;flex-direction:column;gap:14px;margin-top:22px"><div class="panel"><b>Caixa e pedidos</b><p class="sub">Abra o caixa em Principal › Abrir/Fechar. Mesas, comandas, balcão e pedidos usam a numeração configurada.</p></div><div class="panel"><b>Clientes e fiado</b><p class="sub">Um cliente com saldo devedor não pode realizar novo fiado até registrar a quitação.</p></div><div class="panel"><b>Produtos e estoque</b><p class="sub">A baixa dos insumos ocorre quando os itens são enviados à cozinha conforme a ficha técnica. Uma vez por semana, faça a contagem em Insumos › Contagem: o sistema lança a falta e a sobra e mostra a % de perda.</p></div><div class="panel"><b>Acesso e segurança</b><p class="sub">Um administrador pode alterar perfis em Colaboradores. Cada usuário troca o próprio PIN em Alterar Minha Senha.</p></div><div class="panel"><b>Proteção dos dados</b><p class="sub">Exporte backups regulares em Configurações › Backup e guarde os arquivos em local seguro.</p></div></div></main></div><footer class="op-footer"><span>Ajuda local do sistema</span><span>Suporte externo não configurado</span></footer></section></div>`;
   document.getElementById('helpSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#helpTopics .panel').forEach(p=>p.style.display=p.textContent.toLowerCase().includes(q)?'':'none');};
 }
 function openRemoteSupport(){const c=state.settings.remoteSupport||{},sessions=state.settings.remoteSupportSessions||[];openModal('Atendimento Remoto',`<div class="consumer-form-frame"><div class="app-status"><b>Acesso de suporte</b><span class="tag ${c.enabled?'tag-green':'tag-gray'}">${c.enabled?'Autorizado':'Bloqueado'}</span></div><p>O sistema não instala nem inicia ferramentas remotas. Registre abaixo a autorização concedida a uma ferramenta aprovada pelo estabelecimento.</p><div class="field"><label>Ferramenta autorizada</label><input id="remoteTool" value="${h(c.tool||'')}"></div><div class="field"><label>Código temporário / protocolo</label><input id="remoteCode"></div><label><input id="remoteConsent" type="checkbox"> Confirmo a autorização para esta sessão</label></div><div class="finance-grid" style="height:190px;margin:0 13px"><table><thead><tr><th>Data</th><th>Ferramenta</th><th>Protocolo</th><th>Operador</th><th>Status</th></tr></thead><tbody>${sessions.map(s=>`<tr><td>${reportDateTime(s.at)}</td><td>${h(s.tool)}</td><td>${h(s.code)}</td><td>${h(s.user)}</td><td>${h(s.status)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Nenhuma sessão registrada.</td></tr>'}</tbody></table></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="consumer-delete" onclick="revokeRemoteSupport()">Revogar</button><button class="consumer-save" onclick="authorizeRemoteSupport()">✓ Autorizar sessão</button></div>`);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
