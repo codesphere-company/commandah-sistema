@@ -912,6 +912,37 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .report-search-button:hover{background:var(--c-primary-hover)!important}
 /* UX-10: ícone de traço na tela de pagamento */
 .pay-method-icon svg{width:22px;height:22px;display:block}
+/* Comanda (auditoria 08/10): janela mais larga em telas grandes, cabeçalho sem espremer o nome,
+   histórico em 5 colunas e menu "Mais opções" flutuante */
+.cash-order-modal{max-width:min(1240px,calc(100vw - 48px))!important}
+.cash-order-head{grid-template-columns:minmax(0,1fr) auto!important}
+.cmd-row td{padding:9px 10px;vertical-align:top;height:auto}
+.cmd-row small{display:block;margin-top:2px;font-size:12px;color:var(--c-text-3);line-height:1.35}
+.cmd-row small.cmd-note{color:var(--c-warning);font-weight:600}
+.cmd-row small.cmd-cancel{color:var(--c-danger)}
+.cmd-row b{font-weight:600}
+.cmd-when{white-space:nowrap;width:1%}
+.cmd-total{text-align:right;white-space:nowrap;width:1%}
+.cmd-entrega{width:170px}
+.comanda-levou{margin-top:4px;width:100%;height:34px;font-size:13px;padding:0 6px}
+.cmd-status{width:1%;white-space:nowrap}
+.cmd-actions{display:flex;gap:6px;margin-top:6px}
+.cmd-act{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;min-height:34px;font-size:13px}
+.cmd-act svg{width:16px;height:16px;flex:none}
+.cmd-act-danger{color:var(--c-danger)!important}
+.cmd-row.is-canceled{opacity:.6}
+.cmd-group{cursor:pointer;background:var(--c-surface-2)}
+.cmd-caret{display:inline-block;transition:transform .15s}
+.cmd-caret.open{transform:rotate(90deg)}
+@media (prefers-reduced-motion:reduce){.cmd-caret{transition:none}}
+.pdv-options-panel.floating{border-radius:var(--r-lg);background:var(--c-surface);box-shadow:var(--sh-2)}
+.pdv-options-panel.floating .pdv-options-inner{border:0;padding:6px}
+.pdv-options-panel.floating .pdv-options-inner button{text-align:left;padding:11px 10px;border-radius:var(--r-md);display:flex;align-items:flex-start;gap:8px;flex-wrap:nowrap}
+.pdv-options-panel.floating .pdv-options-inner button.danger{flex-wrap:wrap}
+/* o × flutuava à direita e estreitava o corpo inteiro da comanda (faixa vazia na lateral) */
+.cash-order-modal{position:relative}
+.cash-order-modal>.modal-close{position:absolute!important;top:6px;right:10px;margin:0!important;float:none}
+.pdv-options-panel.floating .pdv-options-inner .danger small{flex-basis:100%;margin:0 0 0 24px}
 .kcanceled-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:var(--r-pill);background:var(--c-danger);color:var(--c-text-inverse);font-size:.8em;font-weight:700}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
@@ -2599,6 +2630,7 @@ function closeModal(){
     });
     return;
   }
+  removeFloatingComandaOptions();
   root.innerHTML='';
 }
 if(typeof document.addEventListener==='function')document.addEventListener('click',event=>{
@@ -4517,6 +4549,7 @@ async function mergeOpenOrders(){
 }
 function openComanda(id, keepRequester){
   const s = state.sales.find(x=>x.id===id); if(!s) return;
+  removeFloatingComandaOptions();
   currentSaleDraft = { id:s.id, items:JSON.parse(JSON.stringify(s.items)), memberId:s.memberId, customerName:s.customerName, type:'comanda' };
   if(!keepRequester){ comandaQuickCart = []; comandaAuditExpanded = new Set(); }
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
@@ -4539,7 +4572,7 @@ function openComanda(id, keepRequester){
           ${member&&hasPerm('associados')?`<button onclick="editMember('${member.id}')"><span class="icn">${ICN.idcard}</span> Editar Cadastro</button>`:''}
           <button onclick="openNovoPedidoModal('${s.id}')" ${locked?'disabled':''}><span class="icn">${ICN.plus}</span> Novo Pedido</button>
           <div class="pdv-menu-wrap" style="position:relative">
-            <button onclick="toggleComandaOrderOptions()"><span class="icn">${ICN.menu}</span> Mais Opções</button>
+            <button id="comandaMoreBtn" onclick="toggleComandaOrderOptions()" aria-haspopup="true"><span class="icn">${ICN.menu}</span> Mais Opções</button>
             <div id="comandaOrderOptions" class="pdv-options-panel" style="left:0;right:auto;bottom:100%;top:auto;margin-bottom:6px;width:290px">
               <div class="pdv-options-inner">
                 <button onclick="openComandaTransferOptions('${s.id}')"><span class="icn">${ICN.swap}</span> Trocar para...</button>
@@ -4565,7 +4598,7 @@ function openComanda(id, keepRequester){
           <div id="comandaQuickSearchResults" class="np-product-grid" style="display:none;margin-top:8px"></div>
           <div id="comandaQuickCartWrap" style="display:none;margin-top:10px"></div>
         </div>
-        <div class="comanda-history-panel" style="margin:0;border:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="comanda-history-head"><b>Histórico da Comanda</b><span>Produto · valores · solicitante · operador · local · horário</span></div><div class="finance-grid" style="flex:1;min-height:0"><table><thead><tr><th>Horário</th><th>Produto</th><th>Qtd.</th><th>Valor Unit.</th><th>Solicitante</th><th>Adicionado por</th><th>Local</th><th>Levou</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="comandaAuditRows"></tbody></table></div></div>
+        <div class="comanda-history-panel" style="margin:0;border:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="comanda-history-head"><b>Histórico da Comanda</b><span>Toque num pedido para ver os itens</span></div><div class="finance-grid" style="flex:1;min-height:0"><table><thead><tr><th>Lançado</th><th>Produto</th><th class="cmd-total">Total</th><th>Entrega</th><th>Situação</th></tr></thead><tbody id="comandaAuditRows"></tbody></table></div></div>
         <div id="draftTotalWrap">${renderTotalWithService(0)}</div>
       </main>
     </div>
@@ -4954,21 +4987,35 @@ function toggleComandaLock(saleId,locked){const s=state.sales.find(x=>x.id===sal
 function openComandaLinkClient(saleId){const s=state.sales.find(x=>x.id===saleId);if(!s)return;const current=s.memberId?state.members.find(x=>x.id===s.memberId):null;const options=state.members.map(m=>`<option value="${m.id}" ${current&&current.id===m.id?'selected':''}>${m.code?h(m.code)+' — ':''}${h(m.name)}</option>`).join('');openModal(current?'Trocar Cliente':'Vincular Cliente',`<div class="field"><label>Associado</label><select id="linkMemberSelect"><option value="">— Selecione —</option>${options}</select></div><button class="btn btn-primary btn-block" id="linkMemberSaveBtn">${current?'Trocar':'Vincular'}</button>`);document.getElementById('linkMemberSaveBtn').onclick=()=>{const mid=document.getElementById('linkMemberSelect').value;if(!mid){toast('Selecione um associado.');return;}s.memberId=mid;save('sales');closeModal();openComanda(saleId,true);};}
 function selectComandaRequester(saleId,value){const sale=state.sales.find(x=>x.id===saleId),member=sale&&sale.memberId?state.members.find(x=>x.id===sale.memberId):null,status=document.getElementById('comandaRequesterStatus'),setBtns=(ready)=>{const btn=document.getElementById('comandaProdutosBtn'),inp=document.getElementById('comandaProductSearch');if(btn){btn.disabled=!ready||!!(sale&&sale.locked);btn.title=ready?'':'Selecione quem está solicitando antes';}if(inp)inp.disabled=!ready||!!(sale&&sale.locked);};if(!value){window.currentComandaRequester=null;if(status){status.className='requester-status';status.textContent='Selecione a pessoa antes de lançar produtos.';}setBtns(false);return;}let requester;if(value==='guest')requester={key:'guest',id:null,name:sale.customerName||'Cliente avulso',type:'avulso',canOrder:true};else if(value.startsWith('holder:'))requester={key:value,id:member&&member.id||null,name:member&&member.name||'Titular',type:'titular',canOrder:true};else{const id=value.split(':')[1],dependent=member&&(member.dependents||[]).find(d=>d.id===id);requester={key:value,id:dependent&&dependent.id||null,name:dependent&&dependent.name||'Dependente',type:'dependente',canOrder:!!dependent&&dependent.canOrder!==false};}if(!requester.canOrder){window.currentComandaRequester=null;if(status){status.className='requester-status blocked';status.textContent='Bloqueado: esta pessoa não pode consumir nesta cota.';}toast('Este dependente está bloqueado para consumir nesta cota.');setBtns(false);return;}window.currentComandaRequester=requester;if(status){status.className='requester-status allowed';status.textContent='Autorizado: '+requester.name;}setBtns(true);}
 function comandaItemBatchKey(item,idx){ return item.batchId || ('legacy-'+idx); }
+// Hora curta: só "21:46" quando é de hoje; "21/09 21:46" quando é de outro dia.
+function comandaShortTime(iso){
+  if(!iso) return '—';
+  const d = new Date(iso); if(isNaN(d)) return '—';
+  const t = d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  return localDay(d)===todayStr() ? t : d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+t;
+}
+function comandaLevouSelect(item,idx){
+  return `<select class="comanda-levou" aria-label="Quem levou" onchange="setComandaItemDeliveredBy(${idx},this.value)"><option value="">Quem levou?</option>${state.quemLevou.map(p=>`<option value="${h(p.nome)}" ${item.deliveredBy===p.nome?'selected':''}>${h(p.nome)}</option>`).join('')}${item.deliveredBy&&!state.quemLevou.some(p=>p.nome===item.deliveredBy)?`<option value="${h(item.deliveredBy)}" selected>${h(item.deliveredBy)} (não cadastrado)</option>`:''}</select>`;
+}
+/* Histórico da comanda em 5 colunas (antes eram 10 num espaço de ~650px: "Qtd." e
+   "Valor Unit." quebravam letra por letra e Situação/Ações ficavam fora da tela).
+   Lançado = hora + quem lançou; Produto = nome + "2× R$ 6,00 · para Fulano";
+   Entrega = local + quem levou; Situação = etiqueta + ações lado a lado. */
 function renderComandaAuditItemRow(item,idx,locked){
-  return `<tr${item.canceled?' style="opacity:.55"':''}>
-    <td>${item.addedAt?reportDateTime(item.addedAt):'—'}</td>
-    <td>${item.canceled?'<s>'+h(item.name)+'</s>':h(item.name)}${item.notes?`<br><small style="color:var(--c-text-3)">${h(item.notes)}</small>`:''}${item.canceled&&item.canceledReason?`<br><small style="color:var(--c-danger)">Motivo: ${h(item.canceledReason)}</small>`:''}</td>
-    <td>${item.sent
-        ? `<span class="mono">${Number(item.qty)||0}</span>`
-        : `<div class="qty-ctrl"><button onclick="changeDraftQty(${idx},-1)">−</button><span class="mono">${Number(item.qty)||0}</span><button onclick="changeDraftQty(${idx},1)">+</button></div>`}
-    </td>
-    <td class="mono">${fmt(Number(item.price)||0)}</td>
-    <td>${h(item.requesterName||currentSaleDraft.customerName||'Não registrado')}</td>
-    <td>${h(item.addedBy||'Registro anterior')}</td>
-    <td>${h(item.local||'—')}</td>
-    <td><select style="min-width:130px" onchange="setComandaItemDeliveredBy(${idx},this.value)"><option value="">— Quem levou? —</option>${state.quemLevou.map(p=>`<option value="${h(p.nome)}" ${item.deliveredBy===p.nome?'selected':''}>${h(p.nome)}</option>`).join('')}${item.deliveredBy&&!state.quemLevou.some(p=>p.nome===item.deliveredBy)?`<option value="${h(item.deliveredBy)}" selected>${h(item.deliveredBy)} (não cadastrado)</option>`:''}</select></td>
-    <td>${item.canceled?'<span class="tag tag-red">Cancelado</span>':item.sent?'<span class="tag tag-blue">Enviado</span>':'<span class="tag tag-amber">Novo</span>'}</td>
-    <td>${item.canceled?'—':item.sent?`<button class="btn btn-sm" onclick="reprintComandaItem(${idx})">🖶 &nbsp; Reimprimir</button> <button class="btn btn-sm" onclick="openReorderComandaItem(${idx})">🔁 &nbsp; Pedir novamente</button> ${hasPerm('cancelar-comanda')?`<button class="btn btn-sm" ${locked?'disabled':''} onclick="openCancelComandaItem(${idx})">✕ &nbsp; Cancelar</button>`:''}`:'—'}</td>
+  const qty = Number(item.qty)||0, price = Number(item.price)||0;
+  const requester = item.requesterName||currentSaleDraft.customerName||'Não registrado';
+  const status = item.canceled?'<span class="tag tag-red">Cancelado</span>':item.sent?'<span class="tag tag-blue">Enviado</span>':'<span class="tag tag-amber">Novo</span>';
+  const actions = item.canceled||!item.sent ? '' :
+    `<button class="btn btn-sm cmd-act" title="Reimprimir a ficha deste item" onclick="reprintComandaItem(${idx})">${ICN.printer}<span>Reimprimir</span></button>`+
+    `<button class="btn btn-sm cmd-act" title="Pedir este item de novo" onclick="openReorderComandaItem(${idx})">${ICN.history}<span>Repetir</span></button>`+
+    (hasPerm('cancelar-comanda')?`<button class="btn btn-sm cmd-act cmd-act-danger" title="Cancelar este item" ${locked?'disabled':''} onclick="openCancelComandaItem(${idx})">${ICN.trash}<span>Cancelar</span></button>`:'');
+  const qtyCtrl = item.sent ? '' : `<div class="qty-ctrl"><button onclick="changeDraftQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${qty}</span><button onclick="changeDraftQty(${idx},1)" aria-label="Aumentar">+</button></div>`;
+  return `<tr class="cmd-row${item.canceled?' is-canceled':''}">
+    <td class="cmd-when"><b>${comandaShortTime(item.addedAt)}</b><small>${h(item.addedBy||'Registro anterior')}</small></td>
+    <td class="cmd-prod"><b>${item.canceled?'<s>'+h(item.name)+'</s>':h(item.name)}</b><small>${qty}× ${fmt(price)} · para ${h(requester)}</small>${item.notes?`<small class="cmd-note">Obs.: ${h(item.notes)}</small>`:''}${item.canceled&&item.canceledReason?`<small class="cmd-cancel">Motivo: ${h(item.canceledReason)}</small>`:''}${qtyCtrl}</td>
+    <td class="mono cmd-total">${fmt(qty*price)}</td>
+    <td class="cmd-entrega"><small>${h(item.local||'Sem local')}</small>${item.sent&&!item.canceled?comandaLevouSelect(item,idx):''}</td>
+    <td class="cmd-status">${status}${actions?`<div class="cmd-actions">${actions}</div>`:''}</td>
   </tr>`;
 }
 function renderComandaAuditGroupRow(rows,locked,groupNum){
@@ -4978,7 +5025,7 @@ function renderComandaAuditGroupRow(rows,locked,groupNum){
   const activeQty = activeRows.reduce((a,r)=>a+(Number(r.item.qty)||0),0);
   const activeValue = activeRows.reduce((a,r)=>a+(Number(r.item.price)||0)*(Number(r.item.qty)||0),0);
   const requesterNames = [...new Set(rows.map(r=>r.item.requesterName||currentSaleDraft.customerName||'Não registrado'))];
-  const requesterLabel = requesterNames.length===1 ? h(requesterNames[0]) : 'Vários';
+  const requesterLabel = requesterNames.length===1 ? h(requesterNames[0]) : 'várias pessoas';
   const allCanceled = rows.every(r=>r.item.canceled);
   const allSent = rows.every(r=>r.item.sent);
   const noneSent = rows.every(r=>!r.item.sent);
@@ -4987,16 +5034,12 @@ function renderComandaAuditGroupRow(rows,locked,groupNum){
     : noneSent ? '<span class="tag tag-amber">Novo</span>'
     : '<span class="tag tag-amber">Parcial</span>';
   const hasSentActive = rows.some(r=>r.item.sent && !r.item.canceled);
-  const headerRow = `<tr class="comanda-audit-group-row" style="background:var(--c-surface-2);cursor:pointer" onclick="toggleComandaAuditGroup('${key}')">
-    <td colspan="2"><span style="display:inline-block;transition:transform .15s;${expanded?'transform:rotate(90deg)':''}">▸</span> <b>Pedido ${groupNum}</b> <small style="color:var(--c-text-3)">(${rows.length} ${rows.length===1?'item':'itens'} · ${reportDateTime(rows[0].item.addedAt)})</small></td>
-    <td class="mono">${activeQty}</td>
-    <td class="mono">${fmt(activeValue)}</td>
-    <td>${requesterLabel}</td>
-    <td>${h(rows[0].item.addedBy||'Registro anterior')}</td>
-    <td>${h(rows[0].item.local||'—')}</td>
-    <td>—</td>
-    <td>${situacaoTag}</td>
-    <td>${hasSentActive?`<button class="btn btn-sm" onclick="event.stopPropagation();openReorderComandaBatch('${key}')">🔁 &nbsp; Pedir novamente (tudo)</button>`:'—'}</td>
+  const headerRow = `<tr class="comanda-audit-group-row cmd-row cmd-group" onclick="toggleComandaAuditGroup('${key}')" title="${expanded?'Esconder':'Ver'} os itens deste pedido">
+    <td class="cmd-when"><b>${comandaShortTime(rows[0].item.addedAt)}</b><small>${h(rows[0].item.addedBy||'Registro anterior')}</small></td>
+    <td class="cmd-prod"><b><span class="cmd-caret${expanded?' open':''}">▸</span> Pedido ${groupNum} · ${rows.length} ${rows.length===1?'item':'itens'}</b><small>${activeQty} un. · para ${requesterLabel} · toque para ${expanded?'esconder':'ver'} os itens</small></td>
+    <td class="mono cmd-total">${fmt(activeValue)}</td>
+    <td class="cmd-entrega"><small>${h(rows[0].item.local||'Sem local')}</small></td>
+    <td class="cmd-status">${situacaoTag}${hasSentActive?`<div class="cmd-actions"><button class="btn btn-sm cmd-act" title="Pedir todos os itens deste pedido de novo" onclick="event.stopPropagation();openReorderComandaBatch('${key}')">${ICN.history}<span>Repetir tudo</span></button></div>`:''}</td>
   </tr>`;
   const itemRows = expanded ? rows.map(r=>renderComandaAuditItemRow(r.item,r.idx,locked)).join('') : '';
   return headerRow + itemRows;
@@ -5011,7 +5054,7 @@ function renderComandaAuditHistory(){
   const items=currentSaleDraft.items||[];
   const sale=currentSaleDraft.id?state.sales.find(x=>x.id===currentSaleDraft.id):null;
   const locked=!!(sale&&sale.locked);
-  if(!items.length){ body.innerHTML = '<tr><td colspan="10" class="empty">Nenhum item lançado nesta comanda.</td></tr>'; return; }
+  if(!items.length){ body.innerHTML = '<tr><td colspan="5" class="empty">Nenhum item lançado nesta comanda.</td></tr>'; return; }
   const groups = new Map();
   items.forEach((item,idx)=>{
     const key = comandaItemBatchKey(item,idx);
@@ -5401,7 +5444,28 @@ function addComandaLocatorProduct(productId){
   }
 }
 
-function toggleComandaOrderOptions(force){const el=document.getElementById('comandaOrderOptions');if(el)el.classList.toggle('visible',force===undefined?!el.classList.contains('visible'):!!force);}
+/* "Mais opções" da comanda: o painel abria dentro da coluna da esquerda, que rola e corta
+   o que passa da borda (texto cortado em cima e à direita). Agora ele sai da coluna e flutua
+   acima de tudo, encostado no botão; fecha ao tocar fora ou ao escolher uma opção. */
+function toggleComandaOrderOptions(force){
+  const el=document.getElementById('comandaOrderOptions'); if(!el) return;
+  const open = force===undefined ? !el.classList.contains('visible') : !!force;
+  if(open){
+    if(!el.classList.contains('floating')){ el.classList.add('floating'); document.body.appendChild(el); }
+    const btn=document.getElementById('comandaMoreBtn');
+    const r = btn ? btn.getBoundingClientRect() : {left:16, top:window.innerHeight-60};
+    const width = Math.min(360, window.innerWidth-16);
+    el.style.cssText = `position:fixed;left:${Math.min(Math.max(8,r.left), window.innerWidth-width-8)}px;bottom:${Math.max(8, window.innerHeight-r.top+6)}px;top:auto;right:auto;width:${width}px;max-height:${Math.max(180, r.top-16)}px;overflow:auto;margin:0;z-index:350`;
+  }
+  el.classList.toggle('visible', open);
+}
+function removeFloatingComandaOptions(){ document.querySelectorAll('body > .pdv-options-panel.floating').forEach(e=>e.remove()); }
+if(typeof document.addEventListener==='function') document.addEventListener('click', e=>{
+  const panel = document.querySelector('body > .pdv-options-panel.floating.visible'); if(!panel) return;
+  if(e.target.closest && e.target.closest('#comandaMoreBtn')) return;
+  if(panel.contains(e.target)){ if(e.target.closest('button')) setTimeout(()=>panel.classList.remove('visible'),0); return; }
+  panel.classList.remove('visible');
+});
 function openComandaTransferOptions(saleId){
   toggleComandaOrderOptions(false);
   const s=state.sales.find(x=>x.id===saleId); const member=s&&s.memberId?state.members.find(m=>m.id===s.memberId):null;
