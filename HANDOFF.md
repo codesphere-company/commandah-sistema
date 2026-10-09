@@ -33,6 +33,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 - **Adiados pelo dono:** BD-06, PROD-06, PROD-08.
 - **Limite conhecido:** dois aparelhos gravando a MESMA venda no mesmo instante — vale a última gravação (próximo passo possível: conferir `version` no `sales_apply`).
 - **Regras novas de código:** valor dentro de `onclick` sempre com `${jsArg(x)}` (SEG-02); endereço externo novo = acrescentar na CSP (SEG-12, quando publicado); tabela nova = `revoke all ... from public, anon, authenticated` antes do grant mínimo; migration aplicada não se edita (a trava OPS-06 bloqueia).
+- **graphify nesta máquina:** o `graphify.exe` é bloqueado pelo Windows ("Permission denied"), então `graphify update .` e os hooks que chamam `graphify` falham calados (o mapa ficou parado em 09/10 08:33). Use `python -m graphify update .` (funciona; regenerado em 09/10 à noite).
 - **Fluxo de trabalho:** branch a partir da `main` → captura/teste → PR → prévia do Netlify → merge só com "pode publicar" do dono → aplicar migration (antes do merge quando o site novo depende dela) → conferir o HTML no ar → atualizar este arquivo e o artefato (coleção `andamento`). PRs só de documentação são mesclados direto.
 
 ### Publicações seguintes de 09/10 (depois do PR #38)
