@@ -24,6 +24,12 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
+### PR #69 (10/10, noite) — telas cortadas + filtros no Histórico de Itens Vendidos (no ar, merge `74801f6`)
+- **Relatórios:** `#view-relatorios` tem `overflow:hidden` e `.full-report-page`/`.report-workspace` usavam `margin:-24px` → cortava 24 px à esquerda e no topo. Agora `margin:0` dentro da área; `.report-window` sem a faixa de 13vw; `markReportNowrap` (valor/data/% sem quebra) roda em todo `renderRelatorios` (o corpo antigo virou `renderRelatoriosInner`).
+- **Janelas com `padding:0!important`** (14 classes): `.modal-title` com espaçamento; `.app-config-modal` com `max-height` e rolagem. Detalhe do pedido reescrito (`.order-detail-items`, `.order-detail-actions`).
+- **Comanda:** `#comandaQuickSearchResults` com 3 linhas inteiras e folga para o selo; `.cash-order-main` rola; histórico com `min-height:220px!important` (o inline `min-height:0` vencia).
+- **Histórico de Itens Vendidos:** `soldItemsFilters` (período aplicado já na abertura, data de abertura/inclusão, produto, sócio/cota/"Avulsos", categoria, lançado por, cancelados) + resumo. Teste visual: `mkharness3.js` (dados parecidos com os do clube + detector de transbordo) no scratchpad da sessão.
+
 ### Resumo rápido (10/10, tarde) — pedidos do dono publicados
 - **No ar** (PRs #65, #66, #67; merge final `3cdc4ba`; Edge Function `staff-auth` publicada e testada com id inexistente; migration `20261011010000` aplicada e registrada pelo dono via `!`):
   - **#65 Bloqueio v2.** Bug "fechar no fiado não bloqueava": sócios e extrato eram lidos só no início e **sem paginação** (limite de 1000 linhas do Supabase; clube tem > 1000 sócios). Agora `fetchAllRows` pagina; `MembersStore.refreshOne` relê o sócio antes de abrir comanda; `MembersStore.refreshDebts` a cada 30 s. Sócio bloqueado ao abrir: aviso **Cancelar / Pagar** (`ensureMemberCanOpen`, `blockIfMemberInDebt(member,onContinue)`, `payDebtAndContinue`, `runAfterFiadoPaid`): pagando tudo abre a comanda e o pedido. Liberar exige **PIN de administrador** (`askStaffPin` + `staff-auth` ação `release_debt`, grava com service_role e registra no audit_log), mesmo com caixa logado. `staff-auth` ganhou `checkStaffPin` (mesmo controle de tentativas) e `verify`. Crédito do sócio no pagamento só com "Usar crédito do sócio" marcado. Abertura do caixa vem com o `countedAmount` do último fechamento.
