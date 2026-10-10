@@ -164,6 +164,30 @@ jobs:
             auth-*.dump.gpg
           retention-days: 90
 
+      - name: Segunda copia no Google Drive (BD-11)
+        # Copia fora do GitHub, no Drive do clube (pasta Commandah-backup), so os
+        # .gpg. Acesso "drive.file": o rclone so enxerga os arquivos que ele mesmo
+        # criou, nao o resto do Drive. Guarda 120 dias. Sem o secret GDRIVE_TOKEN
+        # o passo so avisa e segue; com ele, falha de upload deixa o run vermelho.
+        # Gerar o token (uma vez, no PC do dono, com o rclone instalado):
+        #   rclone authorize "drive" "eyJzY29wZSI6ImRyaXZlLmZpbGUifQ=="
+        # (o texto depois de "drive" e {"scope":"drive.file"} em base64). Cole o
+        # JSON que ele imprime no secret GDRIVE_TOKEN.
+        run: |
+          set -euo pipefail
+          if [ -z "${RCLONE_CONFIG_GDRIVE_TOKEN:-}" ]; then
+            echo "::warning::Secret GDRIVE_TOKEN nao configurado: a segunda copia no Google Drive (BD-11) nao foi feita."
+            exit 0
+          fi
+          sudo apt-get install -y rclone
+          rclone copy . gdrive:Commandah-backup --include "*.dump.gpg" --max-depth 1
+          rclone delete gdrive:Commandah-backup --min-age 120d
+          rclone lsf gdrive:Commandah-backup | wc -l | xargs echo "arquivos na pasta:"
+        env:
+          RCLONE_CONFIG_GDRIVE_TYPE: drive
+          RCLONE_CONFIG_GDRIVE_SCOPE: drive.file
+          RCLONE_CONFIG_GDRIVE_TOKEN: ${{ secrets.GDRIVE_TOKEN }}
+
       - name: Restaurar num Postgres temporario
         # Recria o minimo do Supabase que o dump referencia mas nao carrega:
         # papeis, extensoes no schema extensions e auth.uid()/role()/jwt(),
