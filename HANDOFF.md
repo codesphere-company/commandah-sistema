@@ -24,6 +24,9 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
+### Boot mais rápido (10/10, noite) — PR #86 no ar (merge `fcf7633`)
+- Sintoma: depois do login por e-mail, "Não foi possível carregar" (vigia de 6 s em `startApp`) — o `loadAll` lia ~30 chaves do `app_data` uma depois da outra e depois sócios/pedidos/vendas. Agora tudo em paralelo (`blobsP`, `membersP`, `ordersP`, `salesP`); o vigia mostra "Carregando os dados…" aos 6 s e só dá erro aos 30 s. Rede simulada a 0,3 s por leitura: tela de colaboradores em 0,4 s.
+
 ### Exportar para o contador (10/10, noite) — PR #84 no ar (merge `c636a1a`), PROD-06 feito
 - Relatórios › Financeiro › Exportar para o Contador (`openAccountantExport`, `accountantSheets`, `generateAccountantExport`): período escolhido pelo dono, .xlsx com Resumo, Vendas por dia, Vendas, Produtos, Fiado, Fechamentos de caixa, Entradas e saídas. SheetJS `xlsx@0.18.5` carregada sob demanda do jsDelivr com SRI (`XLSX_SRI`).
 - **Situação da auditoria de 07/10:** só sobram itens do dono — SEG-04 (ligar "Confirm email" e captcha Turnstile no painel; o site já manda `captchaToken` no login e no cadastro), BD-11 (criar o secret `GDRIVE_TOKEN` com `rclone authorize "drive" "eyJzY29wZSI6ImRyaXZlLmZpbGUifQ=="`), OPS-14 (opcional: `setx SUPABASE_ACCESS_TOKEN`).
