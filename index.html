@@ -2724,15 +2724,48 @@ function orderFromRow(row){
     kitchenNote: row.kitchen_note||'', source: row.source||null, createdAt: row.created_at
   };
 }
+// BD-06 (decisão do dono, 10/10): a cozinha e a tela de pedidos carregam os pedidos abertos e os
+// das últimas 48 h; depois, a cada 6 s, só o que mudou (updated_at, carimbado pelo banco desde a
+// migration 20261011040000). Antes: a tabela inteira a cada 6 s, sem paginar.
+const ORDERS_WINDOW_MS = 48*3600*1000;
+let ordersCursor = null;
+function noteOrdersCursor(rows){ (rows||[]).forEach(r=>{ if(r.updated_at && (!ordersCursor || r.updated_at > ordersCursor)) ordersCursor = r.updated_at; }); }
+function orderInWindow(o){ return !['entregue','cancelado'].includes(o.status) || (Date.now() - new Date(o.createdAt).getTime()) < ORDERS_WINDOW_MS; }
+function sortOrders(list){ return list.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)); }
+// Junta no state.orders o que mudou no servidor. Devolve true se algo mudou na tela.
+function mergeOrderChanges(rows){
+  let changed = false;
+  (rows||[]).forEach(r=>{
+    const o = orderFromRow(r), idx = state.orders.findIndex(x=>x.id===o.id);
+    if(idx>-1){ if(JSON.stringify(state.orders[idx])!==JSON.stringify(o)){ state.orders[idx] = o; changed = true; } }
+    else if(orderInWindow(o)){ state.orders.push(o); changed = true; }
+  });
+  const before = state.orders.length;
+  state.orders = state.orders.filter(orderInWindow);
+  if(changed || state.orders.length!==before){ sortOrders(state.orders); return true; }
+  return false;
+}
 const OrdersStore = {
   async load(){
     if(isCloudMode()){
-      const { data, error } = await supabaseClient.from('orders').select('*').eq('tenant_id', storageApi.tenantId);
-      if(error) throw error;
-      return (data||[]).map(orderFromRow);
+      const since = new Date(Date.now() - ORDERS_WINDOW_MS).toISOString(), t = storageApi.tenantId;
+      const [open, recent] = await Promise.all([
+        fetchAllRows(()=>supabaseClient.from('orders').select('*').eq('tenant_id', t).not('status','in','("entregue","cancelado")').order('id')),
+        fetchAllRows(()=>supabaseClient.from('orders').select('*').eq('tenant_id', t).gte('created_at', since).order('id'))
+      ]);
+      const byId = new Map();
+      [...open, ...recent].forEach(r=>byId.set(r.id, r));
+      ordersCursor = null; noteOrdersCursor([...byId.values()]);
+      return sortOrders([...byId.values()].map(orderFromRow));
     }
     const r = await storageApi.get(STORE.orders);
     return r ? JSON.parse(r.value) : [];
+  },
+  async changes(){
+    const since = ordersCursor ? new Date(new Date(ordersCursor).getTime() - 15000).toISOString() : new Date(Date.now() - ORDERS_WINDOW_MS).toISOString();
+    const rows = await fetchAllRows(()=>supabaseClient.from('orders').select('*').eq('tenant_id', storageApi.tenantId).gt('updated_at', since).order('updated_at').order('id'));
+    noteOrdersCursor(rows);
+    return rows;
   },
   async create(order){
     if(isCloudMode()){
@@ -8978,15 +9011,15 @@ function startApp(){
   loadAll().then(checkLocalModeLeftovers);
   setInterval(async ()=>{
     if(!currentUser) return;
-    let freshOrders, rSales, salesRows;
+    let freshOrders, orderRows, rSales, salesRows;
     try{
-      freshOrders = await OrdersStore.load();
-      if(isCloudMode()) salesRows = await SalesStore.changes(); // EST-01: só o que mudou
-      else rSales = await storageApi.get(STORE.sales);
+      if(isCloudMode()){ orderRows = await OrdersStore.changes(); salesRows = await SalesStore.changes(); } // BD-06 / EST-01: só o que mudou
+      else freshOrders = await OrdersStore.load();
+      if(!isCloudMode()) rSales = await storageApi.get(STORE.sales);
     }catch(e){ noteSyncResult(false); return; }
     noteSyncResult(true);
     try{
-      const changedOrders = JSON.stringify(freshOrders) !== JSON.stringify(state.orders);
+      const changedOrders = orderRows ? mergeOrderChanges(orderRows) : JSON.stringify(freshOrders) !== JSON.stringify(state.orders);
       let changedSales;
       if(salesRows) changedSales = mergeSalesChanges(salesRows);
       else {
@@ -8994,7 +9027,7 @@ function startApp(){
         changedSales = JSON.stringify(freshSales) !== JSON.stringify(state.sales);
         if(changedSales) state.sales = freshSales;
       }
-      if(changedOrders) state.orders = freshOrders;
+      if(changedOrders && freshOrders) state.orders = freshOrders;
       if(changedOrders || changedSales){
         const cozView = document.getElementById('view-cozinha');
         if(cozView && cozView.classList.contains('active')) renderCozinha();
