@@ -1093,6 +1093,11 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .sold-summary{display:flex;flex-wrap:wrap;gap:8px 18px;padding:8px 12px;border-bottom:1px solid var(--c-border);font-size:13px;color:var(--c-text-2)}
 .sold-summary b{color:var(--c-text)}
 #view-relatorios tr.canceled td{text-decoration:line-through;color:var(--c-text-3)}
+/* Levar a bebida junto com a comida */
+.levar-junto{display:flex;align-items:center;gap:8px;margin:10px 0 4px;padding:9px 10px;border:1px dashed var(--c-border-strong);border-radius:8px;font-size:14px;font-weight:600;color:var(--c-text);cursor:pointer}
+.levar-junto input{width:18px;height:18px;margin:0}
+.kjunto{margin-top:4px;padding:3px 8px;border-radius:6px;background:var(--c-warning);color:#1a1a1a;font-weight:800;font-size:.85em;text-transform:uppercase;display:inline-block}
+.cmd-junto{display:block;color:var(--c-warning);font-weight:700}
 /* Movimentações por usuário */
 .user-activity-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
 .user-activity-filters .field{margin:0;min-width:150px}
@@ -4501,7 +4506,7 @@ async function sendItemsToKitchen(saleId, items, who, source, local){
   if(!await consumeInsumosForItems(items)){ toast('Estoque insuficiente para enviar todos os itens. Revise as quantidades.'); return false; }
   const monitorItems=items.filter(i=>{const product=state.products.find(p=>p.id===i.productId);const estacao=product&&product.estacao?product.estacao:'cozinha';return saidaTemTela(estacao);});
   if(!monitorItems.length) return true;
-  const order = { id:uid(), saleId, who, local: local||'', items: monitorItems.map(i=>({productId:i.productId,batchId:i.batchId||null,name:i.name,qty:i.qty,price:i.price,notes:i.notes||'',customization:i.customization?JSON.parse(JSON.stringify(i.customization)):null})),
+  const order = { id:uid(), saleId, who, local: local||'', items: monitorItems.map(i=>({productId:i.productId,batchId:i.batchId||null,name:i.name,qty:i.qty,price:i.price,notes:i.notes||'',copos:i.copos,levarJunto:!!i.levarJunto,levarJuntoCom:i.levarJuntoCom||'',customization:i.customization?JSON.parse(JSON.stringify(i.customization)):null})),
     status:'pendente', statusHistory:[], createdAt:new Date().toISOString(), source };
   try{
     await OrdersStore.create(order);
@@ -4522,11 +4527,33 @@ function comandaAgeClass(mins){ return mins>=120?'ctime-red':mins>=60?'ctime-yel
 // estação Bar (água e refrigerante cadastrados como "Não exige preparo" ficavam sem). Bebida é
 // reconhecida pela estação, categoria ou nome; no cadastro do produto dá para forçar Sim/Não.
 const DRINK_RE=/(bebida|cervej|chop+e?\b|refri|suco|[áa]gua|h2oh|drink|\bdoses?\b|vinho|espumante|whisk|vodka|\bgin\b|cacha[çc]a|caipirinha|caipiroska|caipivodka|energ[ée]tico|destilad|long ?neck|\bcoca\b|guaran[áa]|\bsoda\b|t[ôo]nica|isot[ôo]nico|gatorade|heineken|stella|amstel|brahma|skol|budweiser|corona|spaten|eisenbahn|\bbaden|sprite|fanta|pepsi|schweppes|monster|red ?bull|ginger)/i;
-function productAsksCopos(p){
+function productIsDrink(p){
   if(!p) return false;
   if(p.askCopos==='sim') return true;
-  if(p.askCopos==='nao') return false;
   return p.estacao==='bar' || DRINK_RE.test(p.category||'') || DRINK_RE.test(p.name||'');
+}
+function productAsksCopos(p){ return !!p && p.askCopos!=='nao' && productIsDrink(p); }
+// "Levar a bebida junto com a comida" (pedido do dono, 10/10). Caixinha no Novo Pedido, no
+// Adicionar produto direto e no app do garçom, só quando o lote tem bebida e comida; vem
+// desmarcada. Marcada: a bebida leva "SEGURAR — levar junto com a comida" e a comida leva
+// "LEVAR JUNTO: 1x Coca…", na ficha impressa, no Monitor e no histórico da comanda.
+const levarJunto={np:false,quick:false,gc:false};
+function cartHasDrinkAndFood(cart){
+  const prods=(cart||[]).map(i=>state.products.find(p=>p.id===i.productId)).filter(Boolean);
+  return prods.some(productIsDrink) && prods.some(p=>!productIsDrink(p));
+}
+function levarJuntoBox(cart, key){
+  if(!cartHasDrinkAndFood(cart)){ levarJunto[key]=false; return ''; }
+  return `<label class="levar-junto"><input type="checkbox" ${levarJunto[key]?'checked':''} onchange="levarJunto.${key}=this.checked"> Levar a bebida junto com a comida</label>`;
+}
+function applyLevarJunto(items, on){
+  if(!on) return;
+  const isDrink=i=>productIsDrink(state.products.find(p=>p.id===i.productId));
+  const drinks=items.filter(isDrink), foods=items.filter(i=>!isDrink(i));
+  if(!drinks.length || !foods.length) return;
+  const txt=drinks.map(d=>d.qty+'x '+d.name).join(', ');
+  drinks.forEach(d=>{ d.levarJunto=true; });
+  foods.forEach(f=>{ f.levarJuntoCom=txt; });
 }
 function itemStation(i){ const p=state.products.find(x=>x.id===i.productId); return p&&p.estacao?p.estacao:'cozinha'; }
 function kitchenItemExtras(i){
@@ -4614,7 +4641,7 @@ function renderKitchenActiveFeed(){
           const extras=kitchenItemExtras(item);
           if(item.canceled) return `<li data-idx="${idx}" class="kitem-canceled"><s>${item.qty}x ${h(item.name)}</s> <span class="kcanceled-tag">Cancelado</span></li>`;
           const label=`${item.qty}x ${h(item.name)}`;
-          return `<li data-idx="${idx}">${showCheck?`<label class="kcheck" onclick="event.stopPropagation()"><input type="checkbox" class="kitem-check" data-idx="${idx}"> ${label}</label>`:label}${extras.length?`<ul class="kextras">${extras.map(e=>`<li>+ ${h(e)}</li>`).join('')}</ul>`:''}${kitchenItemNote(item)?`<div class="kobs">Obs.: ${h(kitchenItemNote(item))}</div>`:''}</li>`;
+          return `<li data-idx="${idx}">${showCheck?`<label class="kcheck" onclick="event.stopPropagation()"><input type="checkbox" class="kitem-check" data-idx="${idx}"> ${label}</label>`:label}${extras.length?`<ul class="kextras">${extras.map(e=>`<li>+ ${h(e)}</li>`).join('')}</ul>`:''}${kitchenItemNote(item)?`<div class="kobs">Obs.: ${h(kitchenItemNote(item))}</div>`:''}${item.copos!=null&&item.copos!==''?`<div class="kobs">${item.copos} copo${Number(item.copos)===1?'':'s'}</div>`:''}${item.levarJunto?'<div class="kjunto">Segurar — levar junto com a comida</div>':''}${item.levarJuntoCom?`<div class="kjunto">Levar junto: ${h(item.levarJuntoCom)}</div>`:''}</li>`;
         }).join('')}</ul>
       </div>
       <button class="kbtn-ready" onclick="event.stopPropagation();finalizeKitchenItems(${jsArg(o.id)})" title="Marcar pronto">${ICN.ticket}<span>Pronto</span></button>
@@ -4640,7 +4667,7 @@ function renderKitchenReadyFeed(){
         <ul>${items.map(item=>{
           const extras=kitchenItemExtras(item);
           if(item.canceled) return `<li class="kitem-canceled"><s>${item.qty}x ${h(item.name)}</s> <span class="kcanceled-tag">Cancelado</span></li>`;
-          return `<li>${item.qty}x ${h(item.name)}${extras.length?`<ul class="kextras">${extras.map(e=>`<li>+ ${h(e)}</li>`).join('')}</ul>`:''}${kitchenItemNote(item)?`<div class="kobs">Obs.: ${h(kitchenItemNote(item))}</div>`:''}</li>`;
+          return `<li>${item.qty}x ${h(item.name)}${extras.length?`<ul class="kextras">${extras.map(e=>`<li>+ ${h(e)}</li>`).join('')}</ul>`:''}${kitchenItemNote(item)?`<div class="kobs">Obs.: ${h(kitchenItemNote(item))}</div>`:''}${item.copos!=null&&item.copos!==''?`<div class="kobs">${item.copos} copo${Number(item.copos)===1?'':'s'}</div>`:''}${item.levarJunto?'<div class="kjunto">Segurar — levar junto com a comida</div>':''}${item.levarJuntoCom?`<div class="kjunto">Levar junto: ${h(item.levarJuntoCom)}</div>`:''}</li>`;
         }).join('')}</ul>
         <div class="kdone-badge">✓ Pronto às ${timeFmt(kitchenReadyAt(o))}</div>
       </div>
@@ -5428,7 +5455,7 @@ function openComanda(id, keepRequester){
   const s = state.sales.find(x=>x.id===id); if(!s) return;
   removeFloatingComandaOptions();
   currentSaleDraft = { id:s.id, items:JSON.parse(JSON.stringify(s.items)), memberId:s.memberId, customerName:s.customerName, type:'comanda' };
-  if(!keepRequester){ comandaQuickCart = []; comandaAuditExpanded = new Set(); }
+  if(!keepRequester){ comandaQuickCart = []; levarJunto.quick=false; comandaAuditExpanded = new Set(); }
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const person=member&&member.name||s.customerName||'Avulso',who=member?(person+(member.code?' — Cota '+member.code:'')):person;
   const quotaNum = member&&member.code ? h(member.code) : '—';
@@ -5517,7 +5544,7 @@ let npCart = [];
 let npSaleId = null;
 function openNovoPedidoModal(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
-  npCart = [];
+  npCart = []; levarJunto.np=false;
   npSaleId = saleId;
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const requesterOptions = member
@@ -5640,7 +5667,7 @@ function renderNpCart(){
       <div class="np-line-top"><span class="np-line-name">${h(i.name)}</span><span class="mono np-line-sub">${fmt(i.price*i.qty)}</span></div>
       <div class="np-line-ctrl"><span class="sub mono">${fmt(i.price)} cada</span><div class="qty-ctrl"><button onclick="npCartChangeQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${i.qty}</span><button onclick="npCartChangeQty(${idx},1)" aria-label="Aumentar">+</button></div></div>
       ${i.copos!=null?`<div class="np-line-ctrl"><span class="sub">Copos</span><div class="qty-ctrl"><button onclick="npCartChangeCopos(${idx},-1)" aria-label="Menos copos">−</button><span class="mono">${i.copos||0}</span><button onclick="npCartChangeCopos(${idx},1)" aria-label="Mais copos">+</button></div></div>`:''}
-    </div>`).join('') : '<p class="np-empty">Toque nos produtos à esquerda para adicionar.</p>';
+    </div>`).join('') + levarJuntoBox(npCart,'np') : '<p class="np-empty">Toque nos produtos à esquerda para adicionar.</p>';
   const totEl = document.getElementById('npCartTotal'); if(totEl) totEl.textContent = fmt(npCart.reduce((a,i)=>a+i.price*i.qty,0));
   const countEl = document.getElementById('npItemCount'); if(countEl){ const n=npCart.reduce((a,i)=>a+i.qty,0); countEl.textContent = n?n+(n===1?' item':' itens'):''; }
 }
@@ -5660,6 +5687,7 @@ async function confirmNovoPedidoModal(saleId){
   const origem = currentUser.origem||'caixa';
   const who = requester.name;
   const items = npCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:local||s.local||'', requesterId:requester.id, requesterName:who, requesterType:requester.type}));
+  applyLevarJunto(items, levarJunto.np);
   if(!await sendItemsToKitchen(saleId, items, who, 'comanda', local)) return;
   items.forEach(i=>i.sent=true);
   await commitSaleChange(s.id, cur=>{ cur.items=[...(cur.items||[]), ...items]; cur.total=saleTotal(cur.items); });
@@ -5789,6 +5817,11 @@ function buildTicketText(who, cota, local, estacao, items, orderNumber, columns,
     out += (escPos ? '\x1D\x21'+nameSizeByte+nameLine+'\x1D\x21'+NUL_PLACEHOLDER : nameLine) + '\n';
     if(showPrices) out += fmt(i.price*i.qty)+'\n';
   });
+  const segurar = items.some(i=>i.levarJunto), juntoCom = [...new Set(items.map(i=>i.levarJuntoCom).filter(Boolean))].join(', ');
+  const wrapWords = t => { const lines=[]; let cur=''; String(t).split(/\s+/).forEach(w=>{ if((cur+' '+w).trim().length>W){ if(cur) lines.push(cur); cur=w.slice(0,W); } else cur=(cur+' '+w).trim(); }); if(cur) lines.push(cur); return lines.join('\n'); };
+  const big = t => escPos ? '\x1D\x21\x11'+t+'\x1D\x21'+NUL_PLACEHOLDER : t;
+  if(segurar) out += line('*')+'\n'+big('*** SEGURAR ***')+'\n'+big('LEVAR JUNTO')+'\n'+big('COM A COMIDA')+'\n'+line('*')+'\n';
+  if(juntoCom) out += line('*')+'\n'+big('LEVAR JUNTO:')+'\n'+wrapWords(juntoCom)+'\n(bebida no bar)\n'+line('*')+'\n';
   out += line('-')+'\n';
   if(showPrices) out += 'TOTAL: '+fmt(total)+'\n';
   out += line('=')+'\n\n\n';
@@ -5950,7 +5983,7 @@ function renderComandaAuditItemRow(item,idx,locked){
   const qtyCtrl = item.sent ? '' : `<div class="qty-ctrl"><button onclick="changeDraftQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${qty}</span><button onclick="changeDraftQty(${idx},1)" aria-label="Aumentar">+</button></div>`;
   return `<tr class="cmd-row${item.canceled?' is-canceled':''}">
     <td class="cmd-when"><b>${comandaShortTime(item.addedAt)}</b><small>${h(item.addedBy||'Registro anterior')}</small></td>
-    <td class="cmd-prod"><b>${item.canceled?'<s>'+h(item.name)+'</s>':h(item.name)}</b><small>${qty}× ${fmt(price)} · para ${h(requester)}</small>${item.notes?`<small class="cmd-note">Obs.: ${h(item.notes)}</small>`:''}${item.canceled&&item.canceledReason?`<small class="cmd-cancel">Motivo: ${h(item.canceledReason)}</small>`:''}${qtyCtrl}</td>
+    <td class="cmd-prod"><b>${item.canceled?'<s>'+h(item.name)+'</s>':h(item.name)}</b><small>${qty}× ${fmt(price)} · para ${h(requester)}</small>${item.notes?`<small class="cmd-note">Obs.: ${h(item.notes)}</small>`:''}${item.levarJunto?'<small class="cmd-junto">Segurar: levar junto com a comida</small>':''}${item.levarJuntoCom?`<small class="cmd-junto">Levar junto: ${h(item.levarJuntoCom)}</small>`:''}${item.canceled&&item.canceledReason?`<small class="cmd-cancel">Motivo: ${h(item.canceledReason)}</small>`:''}${qtyCtrl}</td>
     <td class="mono cmd-total">${fmt(qty*price)}</td>
     <td class="cmd-entrega"><small>${h(item.local||'Sem local')}</small>${item.sent&&!item.canceled?comandaLevouSelect(item,idx):''}</td>
     <td class="cmd-status">${status}${actions?`<div class="cmd-actions">${actions}</div>`:''}</td>
@@ -6297,6 +6330,7 @@ function renderComandaQuickCart(){
         <span class="mono" style="min-width:70px;text-align:right">${fmt(i.price*i.qty)}</span></div>
         ${i.copos!=null?`<div class="qty-ctrl" style="width:100%;justify-content:flex-end"><span class="sub" style="margin-right:6px">Quantidade de copos:</span><button onclick="quickCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="quickCartChangeCopos(${idx},1)">+</button></div>`:''}
       </div>`).join('')}
+    ${levarJuntoBox(comandaQuickCart,'quick')}
     <div class="np-total"><span>Total</span><span class="mono">${fmt(total)}</span></div>
     <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="openComandaQuickAddConfirm()">Adicionar e enviar pra cozinha (${qty} ${qty===1?'item':'itens'})</button>
   </div>`;
@@ -6348,6 +6382,7 @@ async function confirmComandaQuickAdd(){
   const who = requester.name;
   const origem = currentUser.origem||'caixa';
   const items = comandaQuickCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:requester.id, requesterName:who, requesterType:requester.type}));
+  applyLevarJunto(items, levarJunto.quick);
   if(!await sendItemsToKitchen(saleId, items, who, 'comanda', s.local)) return;
   items.forEach(i=>i.sent=true);
   await commitSaleChange(s.id, cur=>{ cur.items=[...(cur.items||[]), ...items]; cur.total=saleTotal(cur.items); });
@@ -6360,7 +6395,7 @@ async function confirmComandaQuickAdd(){
   logAction('Produto(s) adicionado(s) via busca na comanda: '+items.map(i=>i.qty+'x '+i.name).join(', ')+' para '+who+' — pedido #'+(s.orderNumber||saleId));
   printNovoPedidoTickets(who, member?member.code:'', s.local, printJobs, s.orderNumber);
   toast('Adicionado e enviado para a cozinha.');
-  comandaQuickCart = [];
+  comandaQuickCart = []; levarJunto.quick=false;
   closeModal(); openComanda(saleId, true); renderComandas();
 }
 function openReorderComandaBatch(batchKey){
@@ -6369,7 +6404,7 @@ function openReorderComandaBatch(batchKey){
   if(s.locked){ toast('Este pedido está bloqueado.'); return; }
   const batchItems = (currentSaleDraft.items||[]).filter((it,idx)=>!it.canceled && comandaItemBatchKey(it,idx)===batchKey);
   if(!batchItems.length){ toast('Nenhum item ativo neste pedido para repetir.'); return; }
-  comandaQuickCart = [];
+  comandaQuickCart = []; levarJunto.quick=false;
   let skipped = 0;
   batchItems.forEach(item=>{
     const product = state.products.find(p=>p.id===item.productId);
@@ -6654,7 +6689,7 @@ let gcCart = [];
 let gcRequester = null;
 
 function gcRenderHome(){
-  gcFlow = { saleId:null, step:'home', category:null }; gcCart=[]; gcRequester=null;
+  gcFlow = { saleId:null, step:'home', category:null }; gcCart=[]; levarJunto.gc=false; gcRequester=null;
   const screen = document.getElementById('gcScreen'); if(!screen) return;
   const open = state.sales.filter(s=>s.status==='open');
   const isBar = (state.settings.operationMode||'clube')==='bar';
@@ -6723,7 +6758,7 @@ async function gcLogout(){ logAction('Logout realizado'); currentUser=null; try{
 
 function gcOpenFlow(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
-  gcFlow = { saleId, step:'categories', category:null }; gcCart=[]; gcRequester=null;
+  gcFlow = { saleId, step:'categories', category:null }; gcCart=[]; levarJunto.gc=false; gcRequester=null;
   gcRenderCategories();
 }
 function gcBarHtml(title, sub){
@@ -6847,7 +6882,7 @@ function gcRenderReview(){
 }
 async function gcDiscardOrder(){
   if(!await askConfirm({title:'Descartar este pedido?',message:'Os itens ainda não foram enviados para a cozinha.',confirmLabel:'Descartar pedido'})) return;
-  gcCart=[]; gcRenderProducts();
+  gcCart=[]; levarJunto.gc=false; gcRenderProducts();
 }
 function gcRenderReviewList(){
   const el = document.getElementById('gcReviewList'); if(!el) return;
@@ -6855,7 +6890,7 @@ function gcRenderReviewList(){
     <div class="gc-review-item"><span>${h(i.name)}</span>
     <div class="gc-qty"><button onclick="gcCartQty(${idx},-1)">−</button><span class="mono">${i.qty}</span><button onclick="gcCartQty(${idx},1)">+</button>
     <span class="mono" style="min-width:60px;text-align:right">${fmt(i.price*i.qty)}</span></div>
-    ${i.copos!=null?`<div class="gc-qty gc-copos-row"><span class="gc-copos-label">Quantidade de copos:</span><button onclick="gcCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="gcCartChangeCopos(${idx},1)">+</button></div>`:''}</div>`).join('') : '<p class="gc-empty">Nenhum item.</p>';
+    ${i.copos!=null?`<div class="gc-qty gc-copos-row"><span class="gc-copos-label">Quantidade de copos:</span><button onclick="gcCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="gcCartChangeCopos(${idx},1)">+</button></div>`:''}</div>`).join('') + levarJuntoBox(gcCart,'gc') : '<p class="gc-empty">Nenhum item.</p>';
   const totEl = document.getElementById('gcReviewTotal'); if(totEl) totEl.textContent = fmt(gcCart.reduce((a,i)=>a+i.price*i.qty,0));
 }
 function gcCartQty(idx,delta){
@@ -6878,6 +6913,7 @@ async function gcConfirmOrder(){
   const origem = currentUser.origem||'app';
   const who = gcRequester.name;
   const items = gcCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:local||s.local||'', requesterId:gcRequester.id, requesterName:who, requesterType:gcRequester.type}));
+  applyLevarJunto(items, levarJunto.gc);
   if(!await sendItemsToKitchen(s.id, items, who, 'comanda', local)) return;
   items.forEach(i=>i.sent=true);
   await commitSaleChange(s.id, cur=>{ cur.notes=s.notes; cur.items=[...(cur.items||[]), ...items]; cur.total=saleTotal(cur.items); });
