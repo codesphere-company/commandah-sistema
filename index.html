@@ -5182,8 +5182,9 @@ function openPaymentModal(mode, comandaId){
     }
     document.removeEventListener('keydown', payKeyHandler);
     // OP-15: a venda guarda como o total foi formado (antes só o total final, sem saber de cupom ou desconto).
-    if(await finalizeSale(mode, comandaId, memberId, payments, finalTotal, creditApplied, creditFromChange, { subtotal: Math.round(subtotal*100)/100, discount: Math.round(discount*100)/100, couponCode: appliedCouponCode||null, creditApplied: Math.round((creditApplied||0)*100)/100, serviceCharge: serviceAmount, partialPaid })){
-      recordChangeOutInCash(cashChangeOut);
+    const closedSaleId = await finalizeSale(mode, comandaId, memberId, payments, finalTotal, creditApplied, creditFromChange, { subtotal: Math.round(subtotal*100)/100, discount: Math.round(discount*100)/100, couponCode: appliedCouponCode||null, creditApplied: Math.round((creditApplied||0)*100)/100, serviceCharge: serviceAmount, partialPaid });
+    if(closedSaleId){
+      recordChangeOutInCash(cashChangeOut, closedSaleId);
       if(mode==='balcao') document.getElementById('modalRoot').dataset.confirmPdv='false';
       closeModal();
     }
@@ -5336,7 +5337,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   }
   newDraft(mode); toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
   if(fiadoMemberForPrompt) promptWhatsAppCollection(fiadoMemberForPrompt);
-  return true;
+  return sale.id;
 }
 
 /* ============ DELIVERY ============ */
@@ -6174,13 +6175,35 @@ async function reopenClosedComanda(saleId, reason, sameSession){
       const entries=m?(m.debtHistory||[]).filter(e=>!e.reversed&&(e.saleId===saleId||String(e.reason||'').endsWith(tag))):[];
       for(const e of entries){ await MembersStore.reverseDebtEntry(m.id, e.id, currentUser.name); done.push((e.type==='debt'?'fiado ':'crédito ')+fmt(e.value)+' estornado'); }
     }
+    const num='#'+(before.orderNumber||saleId);
     if(!sameSession && state.cashSession){
+      // Troco de excedente em Pix/cartão devolvido em dinheiro (OP-02): a venda guarda o líquido em
+      // amount e o troco em change. Desfazer = devolver o que entrou naquela forma (received) e o
+      // dinheiro do troco volta para a gaveta.
+      const mv=(type,amount,method,description,origin)=>state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type, amount:Math.round(Number(amount)*100)/100, reason:description, description, method, note:reason, origin, saleId, operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
       (before.payments||[]).filter(p=>!p.partial&&methodBucket(p.method)!=='fiado'&&(Number(p.amount)||0)>0.009).forEach(p=>{
-        const description='Estorno — reabertura do pedido #'+(before.orderNumber||saleId)+' ('+paymentMethodLabel(p.method)+')';
-        state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'sangria', amount:Math.round(Number(p.amount)*100)/100, reason:description, description, method:p.method, note:reason, origin:'reabertura', saleId, operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
-        done.push(paymentMethodLabel(p.method)+' '+fmt(p.amount)+' saiu do caixa');
+        const change=p.method!=='dinheiro'?Number(p.change)||0:0, out=(Number(p.amount)||0)+change;
+        mv('sangria', out, p.method, 'Estorno — reabertura do pedido '+num+' ('+paymentMethodLabel(p.method)+')', 'reabertura');
+        done.push(paymentMethodLabel(p.method)+' '+fmt(out)+' saiu do caixa');
+        if(change>0.009){ mv('suprimento', change, 'dinheiro', 'Troco devolvido — reabertura do pedido '+num, 'reabertura'); done.push('troco de '+fmt(change)+' volta para a gaveta'); }
       });
       await save('cashMovements');
+    } else if(sameSession){
+      // Fechada no caixa de agora: os pagamentos já deixam de contar; o troco lançado para ela sai também.
+      const trocos=state.cashMovements.filter(m=>m.origin==='troco'&&m.saleId===saleId&&m.cashSessionId===(state.cashSession&&state.cashSession.id));
+      if(trocos.length){ state.cashMovements=state.cashMovements.filter(m=>!trocos.includes(m)); await save('cashMovements'); done.push('troco de '+fmt(trocos.reduce((a,m)=>a+(Number(m.amount)||0),0))+' desfeito'); }
+    }
+    // Pontos de fidelidade dados por esta venda: estorna, para não somar de novo ao fechar outra vez.
+    if(before.memberId){
+      const m=state.members.find(x=>x.id===before.memberId), hist=m&&Array.isArray(m.pointsHistory)?m.pointsHistory:[];
+      const given=hist.filter(e=>e.type==='credit'&&e.saleId===saleId&&!e.reversed);
+      const pts=given.reduce((a,e)=>a+(Number(e.points)||0),0);
+      if(m && pts>0){
+        given.forEach(e=>{ e.reversed=true; });
+        hist.unshift({id:uid(), type:'redeem', points:pts, reason:'Estorno — reabertura do pedido '+num, saleId, at:new Date().toISOString(), user:currentUser.name});
+        await MembersStore.setPoints(m.id, Math.max(0,(Number(m.points)||0)-pts), hist);
+        done.push(pts+' ponto'+(pts===1?'':'s')+' estornado'+(pts===1?'':'s'));
+      }
     }
   }catch(e){
     console.error('Reabertura: falha ao desfazer pagamentos', saleId, e);
@@ -6980,13 +7003,13 @@ function reverseFiadoPaymentInCash(member, entry){
 }
 // Devolução em dinheiro de excedente pago em Pix/cartão (decisão do dono no OP-02:
 // permitir e lançar como saída do caixa, para o dinheiro esperado bater com a gaveta).
-function recordChangeOutInCash(list){
+function recordChangeOutInCash(list, saleId){
   const total = Math.round((list||[]).reduce((a,x)=>a+(Number(x.amount)||0),0)*100)/100;
   if(total<=0.009) return;
   if(!state.cashSession){ toast('Troco de '+fmt(total)+' em dinheiro sem caixa aberto: não entrou em nenhum fechamento.'); return; }
   const methods = [...new Set(list.map(x=>paymentMethodLabel(x.method)))].join(', ');
   const description = 'Troco em dinheiro de excedente pago em '+methods;
-  state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'sangria', amount:total, reason:description, description, method:'dinheiro', note:'', origin:'troco', operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
+  state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'sangria', amount:total, reason:description, description, method:'dinheiro', note:'', origin:'troco', saleId:saleId||null, operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
   save('cashMovements');
   toast('Troco de '+fmt(total)+' lançado como saída de dinheiro do caixa.');
 }
