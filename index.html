@@ -1666,8 +1666,8 @@ const saveQueues = {};
 const SUPABASE_URL = 'https://ezfoymdesmarpunmixbs.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_m56iV0j3aIHlj_jth44jyw_CIw7CmyG';
 const TENANT_KEY = 'commandah:tenant_id';
-const TURNSTILE_SITE_KEY = '0x4AAAAAAEvfROl-Igsdqe7h';
-let tsCaptchaToken = null;
+const TURNSTILE_SITE_KEY = '0x4AAAAAAFTbsXihCdq8uC0z'; // widget "Commandah" (10/10), hostname codesphere-company.github.io
+let tsCaptchaToken = null, tsCaptchaFailed = false;
 let tsTurnstileWidgetId = null;
 function getTenantId(){ try{ return localStorage.getItem(TENANT_KEY)||''; }catch(e){ return ''; } }
 function setTenantId(id){ try{ localStorage.setItem(TENANT_KEY, id); }catch(e){} }
@@ -9143,6 +9143,7 @@ function renderTurnstileWidget(){
     if(!box) return;
     if(!window.turnstile){
       if(++tries <= 66){ setTimeout(mount, 300); return; }
+      tsCaptchaFailed = true;
       box.innerHTML = '<p class="sub" style="color:var(--c-danger)">A verificação "não sou robô" não carregou. Recarregue a página; se continuar, desligue o bloqueador de anúncios para este site.</p>';
       return;
     }
@@ -9150,9 +9151,9 @@ function renderTurnstileWidget(){
     tsCaptchaToken = null;
     tsTurnstileWidgetId = window.turnstile.render('#tsTurnstile', {
       sitekey: TURNSTILE_SITE_KEY,
-      callback: (token)=>{ tsCaptchaToken = token; },
+      callback: (token)=>{ tsCaptchaToken = token; tsCaptchaFailed = false; },
       'expired-callback': ()=>{ tsCaptchaToken = null; },
-      'error-callback': ()=>{ tsCaptchaToken = null; }
+      'error-callback': ()=>{ tsCaptchaToken = null; tsCaptchaFailed = true; }
     });
   };
   mount();
@@ -9177,11 +9178,11 @@ async function tenantSignIn(){
   const email = (document.getElementById('tsEmail').value||'').trim();
   const password = document.getElementById('tsPassword').value||'';
   if(!email || !password){ showTenantError('Preencha e-mail e senha.'); return; }
-  if(!tsCaptchaToken){ showTenantError('Confirme que você não é um robô.'); return; }
+  if(!tsCaptchaToken && !tsCaptchaFailed){ showTenantError('Aguarde a verificação "não sou robô" (alguns segundos) e tente de novo.'); return; }
   const btn=document.getElementById('tsSignInBtn'); btn.disabled=true; btn.textContent='Entrando...';
   try{
-    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password, options:{ captchaToken: tsCaptchaToken } });
-    if(error){ showTenantError('E-mail ou senha incorretos.'); return; }
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password, options: tsCaptchaToken ? { captchaToken: tsCaptchaToken } : {} });
+    if(error){ showTenantError(/captcha/i.test(error.message||'') ? 'A verificação "não sou robô" falhou. Recarregue a página e tente de novo.' : 'E-mail ou senha incorretos.'); resetTurnstile(); return; }
     const resolved = await resolveTenantSession(data.user.id);
     if(resolved && resolved.networkError){ showTenantError('Não foi possível falar com o servidor. Confira a internet e tente de novo.'); return; }
     if(!resolved){ showTenantError('Essa conta ainda não tem um estabelecimento vinculado.'); return; }
@@ -9197,11 +9198,11 @@ async function tenantSignUp(){
   const name = (document.getElementById('tsBusinessName').value||'').trim();
   if(!email || !password || !name){ showTenantError('Preencha nome do estabelecimento, e-mail e senha.'); return; }
   if(password.length<6){ showTenantError('A senha precisa ter pelo menos 6 caracteres.'); return; }
-  if(!tsCaptchaToken){ showTenantError('Confirme que você não é um robô.'); return; }
+  if(!tsCaptchaToken && !tsCaptchaFailed){ showTenantError('Aguarde a verificação "não sou robô" (alguns segundos) e tente de novo.'); return; }
   const btn=document.getElementById('tsSignUpBtn'); btn.disabled=true; btn.textContent='Criando...';
   try{
-    const { data, error } = await supabaseClient.auth.signUp({ email, password, options:{ captchaToken: tsCaptchaToken } });
-    if(error){ showTenantError(error.message); return; }
+    const { data, error } = await supabaseClient.auth.signUp({ email, password, options: tsCaptchaToken ? { captchaToken: tsCaptchaToken } : {} });
+    if(error){ showTenantError(/captcha/i.test(error.message||'') ? 'A verificação "não sou robô" falhou. Recarregue a página e tente de novo.' : error.message); resetTurnstile(); return; }
     if(!data.user){ showTenantError('Conta criada — verifique seu e-mail pra confirmar antes de continuar.'); return; }
     const tenantId = slugifyTenant(name) + '-' + Math.random().toString(36).slice(2,6);
     const { error: insertErr } = await supabaseClient.from('tenant_owners').insert({ user_id: data.user.id, tenant_id: tenantId, business_name: name });
