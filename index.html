@@ -1775,20 +1775,25 @@ async function loadAll(){
   /* readFailed[key] = a leitura ESTOUROU (rede/erro do servidor). Diferente de
      "voltou vazio". Chave que falhou ao ler nunca pode ser semeada por cima. */
   const readFailed = {};
-  for(const key of Object.keys(STORE)){
-    if(key==='members'||key==='orders') continue;
-    if(key==='sales' && isCloudMode()) continue; // EST-01: tabela sales (SalesStore)
+  // Tudo em paralelo (10/10): antes eram ~30 leituras uma depois da outra e, com sócios, vendas e
+  // pedidos atrás, o login passava de 6 s e o vigia de boot mostrava "Não foi possível carregar".
+  const keys = Object.keys(STORE).filter(key=>!(key==='members'||key==='orders'||(key==='sales' && isCloudMode()))); // EST-01: sales vem da tabela
+  const blobsP = Promise.all(keys.map(async key=>{
     try{
       const r = await storageApi.get(STORE[key]);
       state[key] = r ? JSON.parse(r.value) : (key in scalarDefaults ? scalarDefaults[key] : []);
     }catch(e){ readFailed[key] = true; state[key] = (key in scalarDefaults ? scalarDefaults[key] : []); }
-  }
+  }));
+  const membersP = MembersStore.load().catch(()=>[]);
+  const ordersP = OrdersStore.load().catch(()=>[]);
+  const salesP = isCloudMode() ? SalesStore.load().catch(()=>{ setSalesBase([]); return []; }) : null;
+  await blobsP;
   stripIntegrationTokens(state.settings);
   setCashMovementsBase(state.cashMovements);
   setInsumosBase(state.insumos);
-  try{ state.members = await MembersStore.load(); }catch(e){ state.members = []; }
-  try{ state.orders = await OrdersStore.load(); }catch(e){ state.orders = []; }
-  if(isCloudMode()){ try{ state.sales = await SalesStore.load(); }catch(e){ state.sales = []; setSalesBase([]); } }
+  state.members = await membersP;
+  state.orders = await ordersP;
+  if(salesP) state.sales = await salesP;
 
   /* ---- SEMEADURA DE PADRÕES: quando é seguro gravar ----------------------
      storageApi.get() usa .maybeSingle(): linha filtrada pela RLS volta como
@@ -9244,7 +9249,12 @@ function startApp(){
     const appShown = document.getElementById('app') && document.getElementById('app').classList.contains('show');
     const garcomShown = document.getElementById('garcomApp') && document.getElementById('garcomApp').classList.contains('show');
     if(overlay && (!overlay.innerHTML.trim() || overlay.querySelector('.boot-loading')) && !appShown && !garcomShown){
-      overlay.innerHTML = '<div class="login-box"><h1>Não foi possível carregar</h1><p class="sub">A tela não terminou de carregar. Isso costuma acontecer quando o computador bloqueia algum recurso externo (rede corporativa/firewall) ou por falta de conexão à internet. Tente: 1) recarregar a página, 2) checar sua conexão, 3) se estiver numa rede de trabalho, tentar em outra rede.</p><button class="btn btn-primary btn-block" onclick="location.reload()">Recarregar</button></div>';
+      // Ainda carregando não é erro: avisa e só mostra o erro se passar de 30 s.
+      overlay.innerHTML = '<div class="login-box boot-loading"><h1>Carregando os dados…</h1><p class="sub">Primeira abertura neste aparelho pode levar alguns segundos.</p></div>';
+      setTimeout(()=>{
+        const stillLoading = overlay.querySelector('.boot-loading') && !(document.getElementById('app')||{classList:{contains:()=>false}}).classList.contains('show');
+        if(stillLoading) overlay.innerHTML = '<div class="login-box"><h1>Não foi possível carregar</h1><p class="sub">A tela não terminou de carregar. Isso costuma acontecer quando o computador bloqueia algum recurso externo (rede corporativa/firewall) ou por falta de conexão à internet. Tente: 1) recarregar a página, 2) checar sua conexão, 3) se estiver numa rede de trabalho, tentar em outra rede.</p><button class="btn btn-primary btn-block" onclick="location.reload()">Recarregar</button></div>';
+      }, 24000);
     }
   }, 6000);
 }
