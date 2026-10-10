@@ -1098,6 +1098,17 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .levar-junto input{width:18px;height:18px;margin:0}
 .kjunto{margin-top:4px;padding:3px 8px;border-radius:6px;background:var(--c-warning);color:#1a1a1a;font-weight:800;font-size:.85em;text-transform:uppercase;display:inline-block}
 .cmd-junto{display:block;color:var(--c-warning);font-weight:700}
+/* Privacidade (LGPD) */
+.privacy-modal{max-width:760px!important}
+.modal-overlay:has(.privacy-modal){z-index:250} /* abre por cima da tela de entrada */
+.privacy-notice{max-height:min(62vh,560px);overflow-y:auto;padding-right:6px;font-size:14px;line-height:1.5}
+.privacy-notice h4{margin:14px 0 4px}
+.privacy-notice ul{margin:4px 0 4px 18px;padding:0}
+.login-privacy{margin:14px 0 0;text-align:center}
+.lgpd-optin{margin-top:10px}
+.lgpd-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--c-border)}
+.lgpd-list{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow:auto}
+.lgpd-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 10px;border:1px solid var(--c-border);border-radius:8px}
 /* Movimentações por usuário */
 .user-activity-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
 .user-activity-filters .field{margin:0;min-width:150px}
@@ -1408,7 +1419,7 @@ const RIBBON_TABS = [
   { id:'config', label:'Configurações', groups:[
       { label:'Configurações', items:[
           {label:'Configurações do Sistema', icon:ICN.gear, perm:'config-sistema', action:'openSystemSettings'}, {label:'Numeração de Pedidos', icon:ICN.hash, perm:'config-sistema', action:'openNumberingSettings'}, {label:'Impressora', icon:ICN.sliders, perm:'config-sistema', action:'openPrinterSettings'},
-          {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios'}, {label:'Alterar Minha Senha', icon:ICN.key, perm:'senha-propria', action:'openChangePinModal'}, {label:'Backup', icon:ICN.save, view:'backup'}
+          {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios'}, {label:'Alterar Minha Senha', icon:ICN.key, perm:'senha-propria', action:'openChangePinModal'}, {label:'Backup', icon:ICN.save, view:'backup'}, {label:'Privacidade (LGPD)', icon:ICN.key, perm:'config-sistema', action:'openPrivacySettings'}
       ]},
       { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Quem Levou', icon:ICN.handoff, view:'quemlevou'}, {label:'Estações', icon:ICN.station, view:'estacoes'}, {label:'Origens de Pedido', icon:ICN.route, view:'origens'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },
       { label:'Logs e Fila de Eventos', items:[ {label:'Logs', icon:ICN.scroll, perm:'logs', action:'openLogsView', actionArg:'Logs'}, {label:'Fila de Eventos', icon:ICN.inbox, perm:'logs', action:'openLogsView', actionArg:'Fila de Eventos'}, {label:'Erros do Sistema', icon:ICN.alert, perm:'logs', action:'openLogsView', actionArg:'Erros do Sistema'} ] },
@@ -2450,6 +2461,7 @@ function memberFromRow(row, dependents, debtHistory){
     archivedAt: row.archived_at||undefined, archivedBy: row.archived_by||undefined,
     latitude: row.latitude==null?undefined:row.latitude, longitude: row.longitude==null?undefined:row.longitude,
     geoStatus: row.geo_status||undefined, debtRelease: row.debt_release||null,
+    marketingOptIn: !!row.marketing_opt_in, anonymizedAt: row.anonymized_at||null,
     dependents: dependents||[], debtHistory: debtHistory||[]
   };
 }
@@ -2469,6 +2481,7 @@ function memberFieldsToRow(data){
     address_number: data.addressNumber||null, address_complement: data.addressComplement||null,
     district: data.district||null, city: data.city||null, uf: data.uf||null,
     reference: data.reference||null, ibge: data.ibge||null, tags: data.tags||[], notes: data.notes||null,
+    ...('marketingOptIn' in data ? { marketing_opt_in: !!data.marketingOptIn } : {}),
     updated_at: new Date().toISOString()
   };
 }
@@ -2853,6 +2866,7 @@ function renderLogin(){
     <div class="user-pick">${state.users.filter(u=>u.active!==false).map(u=>`
       <button onclick="startPin(${jsArg(u.id)})"><div class="un">${h(u.name)}</div><div class="ur">${h(roleLabel(u.role))}</div></button>
     `).join('')}</div>
+    <p class="login-privacy"><button type="button" class="link-btn" onclick="openPrivacyNotice()">Aviso de privacidade</button></p>
   </div>`;
   overlay.classList.remove('hide');
   document.getElementById('app').classList.remove('show');
@@ -4210,12 +4224,12 @@ function renderAssociados(){
 }
 function openMemberModal(id){
   const m = id ? state.members.find(x=>x.id===id) : null;
-  openModal(m?'Editar Cliente':'Novo Cliente', `<div class="record-body"><div class="record-tabs"><button data-tab="principal" class="active" onclick="setProductModalTab('principal')">Dados Principais</button><button data-tab="secundarios" onclick="setProductModalTab('secundarios')">Dados Secundários</button></div><section class="record-pane active" data-pane="principal"><div class="field"><label>Nome</label><input id="mName" value="${h(m?m.name:'')}"></div><div class="grid3"><div class="field"><label>Telefone Principal</label><input id="mPhone" value="${h(m?m.phone||'':'')}"></div><div class="field"><label>E-mail</label><input id="mEmail" type="email" value="${h(m?m.email||'':'')}"></div><div class="field"><label>Sexo</label><select id="mGender"><option value="">—</option><option ${m&&m.gender==='Feminino'?'selected':''}>Feminino</option><option ${m&&m.gender==='Masculino'?'selected':''}>Masculino</option><option ${m&&m.gender==='Outro'?'selected':''}>Outro</option></select></div></div><div class="grid3"><div class="field"><label>CPF ou CNPJ</label><input id="mDocument" value="${h(m?m.document||'':'')}"></div><div class="field"><label>RG ou IE</label><input id="mRegistry" value="${h(m?m.registry||'':'')}"></div><div class="field"><label>Data de Nascimento</label><input id="mBirth" type="date" value="${h(m?m.birthDate||'':'')}"></div></div><h3 style="font-size:13px;border-bottom:1px solid var(--c-border-strong);padding-bottom:8px">Endereço Principal</h3><div class="grid4"><div class="field"><label>CEP</label><input id="mZip" value="${h(m?m.zip||'':'')}"></div><div class="field" style="grid-column:span 2"><label>Endereço</label><input id="mAddress" value="${h(m?m.address||'':'')}"></div><div class="field"><label>Número</label><input id="mNumber" value="${h(m?m.addressNumber||'':'')}"></div></div><div class="grid4"><div class="field"><label>Complemento</label><input id="mComplement" value="${h(m?m.addressComplement||'':'')}"></div><div class="field"><label>Bairro</label><input id="mDistrict" value="${h(m?m.district||'':'')}"></div><div class="field"><label>Cidade</label><input id="mCity" value="${h(m?m.city||'São Paulo':'São Paulo')}"></div><div class="field"><label>UF</label><input id="mUf" maxlength="2" value="${h(m?m.uf||'SP':'SP')}"></div></div><div class="row"><div class="field"><label>Ponto de Referência</label><input id="mReference" value="${h(m?m.reference||'':'')}"></div><div class="field"><label>Código IBGE</label><input id="mIbge" value="${h(m?m.ibge||'':'')}"></div></div></section><section class="record-pane" data-pane="secundarios"><div class="grid3"><div class="field"><label>Cota / Código</label><input id="mCode" value="${h(m?m.code||'':'')}"></div><div class="field"><label>Tags</label><input id="mTags" value="${h(m?(m.tags||[]).join(', '):'')}" placeholder="VIP, delivery, clube"></div><div class="field"><label>Pontos de fidelidade</label><input value="${Number(m&&m.points)||0}" disabled></div></div><div class="field"><label>Observações</label><textarea id="mNotes" rows="5">${h(m?m.notes||'':'')}</textarea></div><p class="sub">${(Number(m&&m.debt)||0)<-0.009?`✓ Crédito disponível: <b>${fmt(-(Number(m&&m.debt)||0))}</b>. É abatido automaticamente no total da próxima compra vinculada a este sócio.`:`Saldo devedor atual: <b>${fmt(m?m.debt:0)}</b>. Consumo é bloqueado quando o saldo passa do limite de crédito.`} Lançamentos ficam em Financeiro → Fiado.</p></section><div class="record-actions"><button class="op-btn" onclick="closeModal()">Voltar</button><button class="op-btn primary" id="mSaveBtn">Salvar e Voltar</button></div></div>`,true);
+  openModal(m?'Editar Cliente':'Novo Cliente', `<div class="record-body"><div class="record-tabs"><button data-tab="principal" class="active" onclick="setProductModalTab('principal')">Dados Principais</button><button data-tab="secundarios" onclick="setProductModalTab('secundarios')">Dados Secundários</button></div><section class="record-pane active" data-pane="principal"><div class="field"><label>Nome</label><input id="mName" value="${h(m?m.name:'')}"></div><div class="grid3"><div class="field"><label>Telefone Principal</label><input id="mPhone" value="${h(m?m.phone||'':'')}"></div><div class="field"><label>E-mail</label><input id="mEmail" type="email" value="${h(m?m.email||'':'')}"></div><div class="field"><label>Sexo</label><select id="mGender"><option value="">—</option><option ${m&&m.gender==='Feminino'?'selected':''}>Feminino</option><option ${m&&m.gender==='Masculino'?'selected':''}>Masculino</option><option ${m&&m.gender==='Outro'?'selected':''}>Outro</option></select></div></div><div class="grid3"><div class="field"><label>CPF ou CNPJ</label><input id="mDocument" value="${h(m?m.document||'':'')}"></div><div class="field"><label>RG ou IE</label><input id="mRegistry" value="${h(m?m.registry||'':'')}"></div><div class="field"><label>Data de Nascimento</label><input id="mBirth" type="date" value="${h(m?m.birthDate||'':'')}"></div></div><h3 style="font-size:13px;border-bottom:1px solid var(--c-border-strong);padding-bottom:8px">Endereço Principal</h3><div class="grid4"><div class="field"><label>CEP</label><input id="mZip" value="${h(m?m.zip||'':'')}"></div><div class="field" style="grid-column:span 2"><label>Endereço</label><input id="mAddress" value="${h(m?m.address||'':'')}"></div><div class="field"><label>Número</label><input id="mNumber" value="${h(m?m.addressNumber||'':'')}"></div></div><div class="grid4"><div class="field"><label>Complemento</label><input id="mComplement" value="${h(m?m.addressComplement||'':'')}"></div><div class="field"><label>Bairro</label><input id="mDistrict" value="${h(m?m.district||'':'')}"></div><div class="field"><label>Cidade</label><input id="mCity" value="${h(m?m.city||'São Paulo':'São Paulo')}"></div><div class="field"><label>UF</label><input id="mUf" maxlength="2" value="${h(m?m.uf||'SP':'SP')}"></div></div><div class="row"><div class="field"><label>Ponto de Referência</label><input id="mReference" value="${h(m?m.reference||'':'')}"></div><div class="field"><label>Código IBGE</label><input id="mIbge" value="${h(m?m.ibge||'':'')}"></div></div></section><section class="record-pane" data-pane="secundarios"><div class="grid3"><div class="field"><label>Cota / Código</label><input id="mCode" value="${h(m?m.code||'':'')}"></div><div class="field"><label>Tags</label><input id="mTags" value="${h(m?(m.tags||[]).join(', '):'')}" placeholder="VIP, delivery, clube"></div><div class="field"><label>Pontos de fidelidade</label><input value="${Number(m&&m.points)||0}" disabled></div></div><div class="field"><label>Observações</label><textarea id="mNotes" rows="5">${h(m?m.notes||'':'')}</textarea></div><label class="item-line lgpd-optin"><span>Aceita receber campanhas e promoções <small class="sub">(LGPD: consentimento; a cobrança de fiado não depende disto)</small></span><input id="mMarketing" type="checkbox" ${m&&m.marketingOptIn?'checked':''}></label>${m?`<div class="lgpd-actions"><span class="sub">Privacidade (LGPD):</span><button type="button" class="op-btn" onclick="exportMemberData(${jsArg(m.id)})">⇩ &nbsp; Exportar dados</button>${isAdminUser()?`<button type="button" class="op-btn" onclick="anonymizeMember(${jsArg(m.id)})">Anonimizar</button>`:''}<button type="button" class="link-btn" onclick="openPrivacyNotice()">Aviso de privacidade</button></div>`:''}<p class="sub">${(Number(m&&m.debt)||0)<-0.009?`✓ Crédito disponível: <b>${fmt(-(Number(m&&m.debt)||0))}</b>. É abatido automaticamente no total da próxima compra vinculada a este sócio.`:`Saldo devedor atual: <b>${fmt(m?m.debt:0)}</b>. Com fiado em aberto o sócio fica bloqueado até pagar (o administrador pode liberar com a senha).`} Lançamentos ficam em Financeiro → Fiado.</p></section><div class="record-actions"><button class="op-btn" onclick="closeModal()">Voltar</button><button class="op-btn primary" id="mSaveBtn">Salvar e Voltar</button></div></div>`,true);
   document.querySelector('#modalRoot .modal').classList.add('record-modal');
   document.getElementById('mSaveBtn').onclick = async ()=>{
     const name = document.getElementById('mName').value.trim();
     if(!name){ toast('Informe o nome do associado.'); return; }
-    const data = { name, code:document.getElementById('mCode').value.trim(), phone:document.getElementById('mPhone').value.trim(),email:document.getElementById('mEmail').value.trim(),gender:document.getElementById('mGender').value,document:document.getElementById('mDocument').value.trim(),registry:document.getElementById('mRegistry').value.trim(),birthDate:document.getElementById('mBirth').value,zip:document.getElementById('mZip').value.trim(),address:document.getElementById('mAddress').value.trim(),addressNumber:document.getElementById('mNumber').value.trim(),addressComplement:document.getElementById('mComplement').value.trim(),district:document.getElementById('mDistrict').value.trim(),city:document.getElementById('mCity').value.trim(),uf:document.getElementById('mUf').value.trim().toUpperCase(),reference:document.getElementById('mReference').value.trim(),ibge:document.getElementById('mIbge').value.trim(),tags:document.getElementById('mTags').value.split(',').map(x=>x.trim()).filter(Boolean),notes:document.getElementById('mNotes').value.trim() };
+    const data = { name, code:document.getElementById('mCode').value.trim(), phone:document.getElementById('mPhone').value.trim(),email:document.getElementById('mEmail').value.trim(),gender:document.getElementById('mGender').value,document:document.getElementById('mDocument').value.trim(),registry:document.getElementById('mRegistry').value.trim(),birthDate:document.getElementById('mBirth').value,zip:document.getElementById('mZip').value.trim(),address:document.getElementById('mAddress').value.trim(),addressNumber:document.getElementById('mNumber').value.trim(),addressComplement:document.getElementById('mComplement').value.trim(),district:document.getElementById('mDistrict').value.trim(),city:document.getElementById('mCity').value.trim(),uf:document.getElementById('mUf').value.trim().toUpperCase(),reference:document.getElementById('mReference').value.trim(),ibge:document.getElementById('mIbge').value.trim(),tags:document.getElementById('mTags').value.split(',').map(x=>x.trim()).filter(Boolean),notes:document.getElementById('mNotes').value.trim(),marketingOptIn:!!document.getElementById('mMarketing')?.checked };
     const saved = m ? await MembersStore.update(m.id, data) : await MembersStore.create(data);
     closeModal(); renderAll(); toast('Associado salvo.');
     return saved;
@@ -4229,6 +4243,104 @@ function addMemberDependentRow(){syncMemberDependentsDraft();window.memberDepend
 function removeMemberDependent(index){syncMemberDependentsDraft();window.memberDependentsDraft.splice(index,1);renderMemberDependents();}
 function editMember(id){ openMemberModal(id); }
 async function deleteMember(id){const member=state.members.find(m=>m.id===id);if(!member)return;if(Number(member.debt)>0){toast('Quite o saldo devedor antes de arquivar este cliente.');return;}if(!confirm('Arquivar este cliente? O histórico de pedidos será preservado.'))return;await MembersStore.archive(id,currentUser.name);selectedMemberId=null;renderAll();toast('Cliente arquivado.');}
+
+/* ============ PRIVACIDADE (LGPD) — PROD-08, decisão do dono em 10/10 ============
+   Aviso de privacidade em modelo padrão (a revisar pelo contador/jurídico), encarregado e prazo
+   de guarda configuráveis (padrão 2 anos depois que o sócio sai), consentimento separado para
+   campanhas, exportação dos dados do sócio e anonimização. */
+function isAdminUser(){ return !!(currentUser && (currentUser.role==='admin' || sessionIsOwner)); }
+function privacySettings(){ const p=(state.settings&&state.settings.privacy)||{}; return { nome:p.nome||'', email:p.email||'', anos:Number(p.anos)>0?Number(p.anos):2, atualizado:p.atualizado||'2026-10-10' }; }
+function privacyNoticeHtml(){
+  const ps=privacySettings(), clube=h((state.settings&&state.settings.clubName)||'o estabelecimento');
+  const enc=ps.nome||ps.email ? `${h(ps.nome||'Encarregado')}${ps.email?` — <a href="mailto:${h(ps.email)}">${h(ps.email)}</a>`:''}` : '<i>a definir (Configurações › Privacidade)</i>';
+  return `<div class="privacy-notice">
+  <p class="sub">Atualizado em ${new Date(ps.atualizado+'T12:00:00').toLocaleDateString('pt-BR')}. Texto em modelo padrão, em revisão pelo contador/jurídico.</p>
+  <h4>1. Quem cuida dos seus dados</h4><p>${clube} (“o clube”), usando o sistema Commandah. Encarregado pelo tratamento de dados pessoais: ${enc}.</p>
+  <h4>2. Quais dados usamos</h4><ul><li><b>Sócios e dependentes:</b> nome, cota, documento, data de nascimento, telefone, e-mail, endereço e observações do cadastro.</li><li><b>Consumo:</b> pedidos, itens, valores, formas de pagamento, fiado e créditos, pontos de fidelidade.</li><li><b>Clientes avulsos:</b> o nome ou a mesa informados no pedido.</li><li><b>Colaboradores:</b> nome, usuário, perfil de acesso e o registro das ações feitas no sistema.</li></ul>
+  <h4>3. Para que</h4><ul><li>Identificar o sócio e os dependentes na comanda e registrar o consumo e os pagamentos.</li><li>Controlar fiado, crédito e cobrança (inclusive por WhatsApp).</li><li>Imprimir fichas de preparo e comprovantes.</li><li>Segurança e auditoria (quem fez o quê no sistema).</li><li>Cumprir obrigações legais e fiscais.</li><li>Enviar campanhas e promoções, <b>só para quem autorizar</b>.</li></ul>
+  <h4>4. Base legal (LGPD, art. 7º)</h4><ul><li><b>Execução do contrato</b> com o sócio: consumo, fiado e cobrança.</li><li><b>Obrigação legal ou regulatória:</b> registros financeiros e fiscais.</li><li><b>Legítimo interesse:</b> segurança, prevenção de fraude e auditoria.</li><li><b>Consentimento:</b> campanhas e promoções — pode ser retirado a qualquer momento.</li></ul>
+  <h4>5. Com quem compartilhamos</h4><p>Não vendemos dados. Usamos fornecedores para operar o sistema: Supabase (banco de dados na nuvem), GitHub (hospedagem do sistema e cópias de segurança cifradas), Google Drive (cópia de segurança cifrada, quando ativada) e Cloudflare (proteção contra robôs no cadastro). Os dados podem ficar em servidores fora do Brasil, com as garantias contratuais desses fornecedores. Autoridades recebem dados quando a lei exigir.</p>
+  <h4>6. Por quanto tempo</h4><p>Enquanto você for sócio. Depois que deixar de ser, por <b>${ps.anos} ano${ps.anos===1?'':'s'}</b>; em seguida o cadastro é anonimizado: nome, documento e contatos são apagados e o histórico de valores continua, sem identificar a pessoa. Registros financeiros podem ser guardados pelo prazo que a lei exigir, e o registro de ações do sistema é mantido para segurança.</p>
+  <h4>7. Segurança</h4><p>Acesso por usuário e senha individual, com bloqueio após tentativas erradas; permissões por perfil; registro das ações; cópias de segurança cifradas.</p>
+  <h4>8. Seus direitos (LGPD, art. 18)</h4><p>Confirmar se tratamos seus dados e ter acesso a eles; corrigir dados; pedir anonimização ou eliminação do que não for necessário ou obrigatório; receber seus dados (portabilidade); saber com quem compartilhamos; retirar o consentimento de campanhas; reclamar à ANPD. Para pedir, fale com o encarregado ou na secretaria/caixa do clube. Respondemos em até 15 dias.</p>
+  <h4>9. Mudanças neste aviso</h4><p>Quando este aviso mudar, a data de atualização no topo também muda.</p>
+  </div>`;
+}
+function openPrivacyNotice(){ openModal('Aviso de privacidade', privacyNoticeHtml()+'<div class="row" style="margin-top:12px"><button class="btn" onclick="closeModal()">Fechar</button><button class="btn" onclick="printPrivacyNotice()">Imprimir</button></div>'); document.querySelector('#modalRoot .modal').classList.add('privacy-modal'); }
+function printPrivacyNotice(){ const w=window.open('','_blank'); if(!w){ toast('Libere as janelas do navegador para imprimir.'); return; } w.document.write('<!doctype html><meta charset="utf-8"><title>Aviso de privacidade</title><style>body{font:14px/1.5 system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px}h4{margin:18px 0 4px}</style><h2>Aviso de privacidade</h2>'+privacyNoticeHtml()); w.document.close(); w.focus(); w.print(); }
+function membersPastRetention(){
+  const anos=privacySettings().anos, limite=Date.now()-anos*365.25*864e5;
+  return state.members.filter(m=>m.archived && !m.anonymizedAt && m.archivedAt && new Date(m.archivedAt).getTime()<limite);
+}
+function openPrivacySettings(){
+  if(!requirePerm('config-sistema')) return;
+  const ps=privacySettings(), vencidos=membersPastRetention();
+  openModal('Privacidade (LGPD)', `
+    <div class="row"><div class="field"><label>Encarregado (nome)</label><input id="lgpdNome" value="${h(ps.nome)}" placeholder="Quem responde por dados pessoais"></div><div class="field"><label>E-mail do encarregado</label><input id="lgpdEmail" type="email" value="${h(ps.email)}"></div></div>
+    <div class="field"><label>Guardar os dados de quem deixou de ser sócio por (anos)</label><input id="lgpdAnos" type="number" min="1" max="20" value="${ps.anos}"><p class="sub">Depois desse prazo o cadastro pode ser anonimizado (abaixo). O histórico de valores continua.</p></div>
+    <div class="row"><button class="btn" onclick="openPrivacyNotice()">Ver aviso de privacidade</button><button class="btn btn-primary" onclick="savePrivacySettings()">Salvar</button></div>
+    <h4 style="margin:18px 0 6px">Sócios arquivados há mais de ${ps.anos} ano${ps.anos===1?'':'s'} (${vencidos.length})</h4>
+    ${vencidos.length?`<div class="lgpd-list">${vencidos.map(m=>`<div class="lgpd-row"><span>${h(m.name)}${m.code?' · Cota '+h(m.code):''} <span class="sub">arquivado em ${new Date(m.archivedAt).toLocaleDateString('pt-BR')}</span></span>${isAdminUser()?`<button class="op-btn" onclick="anonymizeMember(${jsArg(m.id)})">Anonimizar</button>`:''}</div>`).join('')}</div>`:'<p class="sub">Nenhum. Quando algum passar do prazo, ele aparece aqui.</p>'}`);
+}
+function savePrivacySettings(){
+  const anos=Math.max(1,Math.min(20,parseInt(document.getElementById('lgpdAnos').value,10)||2));
+  state.settings.privacy={ nome:document.getElementById('lgpdNome').value.trim(), email:document.getElementById('lgpdEmail').value.trim(), anos, atualizado:todayStr() };
+  save('settings'); logAction('Privacidade (LGPD): encarregado/prazo atualizados'); toast('Privacidade salva.'); openPrivacySettings();
+}
+// Acesso/portabilidade: tudo o que o sistema guarda do sócio, num arquivo JSON.
+async function exportMemberData(memberId){
+  let m=state.members.find(x=>x.id===memberId); if(!m) return;
+  try{ m=await MembersStore.refreshOne(memberId)||m; }catch(e){}
+  const sales=state.sales.filter(s=>s.memberId===memberId).map(s=>({ pedido:s.orderNumber||s.id, aberto_em:s.openedAt||null, fechado_em:s.closedAt||null, situacao:s.canceled?'cancelado':s.status, total:s.total, itens:(s.items||[]).map(i=>({ produto:i.name, quantidade:i.qty, valor_unitario:i.price, pedido_por:i.requesterName||null, cancelado:!!i.canceled })), pagamentos:(s.payments||[]).map(p=>({ forma:paymentMethodLabel(p.method), valor:p.amount })) }));
+  const data={ gerado_em:new Date().toISOString(), estabelecimento:(state.settings&&state.settings.clubName)||'', base_legal:'LGPD art. 18 (acesso e portabilidade)',
+    socio:{ nome:m.name, cota:m.code, documento:m.document, registro:m.registry, nascimento:m.birthDate, sexo:m.gender, telefone:m.phone, email:m.email, endereco:{ cep:m.zip, rua:m.address, numero:m.addressNumber, complemento:m.addressComplement, bairro:m.district, cidade:m.city, uf:m.uf, referencia:m.reference }, tags:m.tags, observacoes:m.notes, aceita_campanhas:!!m.marketingOptIn, arquivado:!!m.archived, saldo_fiado:Number(m.debt)||0, pontos:Number(m.points)||0 },
+    dependentes:(m.dependents||[]).map(d=>({ nome:d.name, parentesco:d.relationship, documento:d.document })),
+    extrato_fiado:(m.debtHistory||[]).map(e=>({ data:e.at, tipo:e.type==='debt'?'débito':e.type==='payment'?'pagamento':e.type, valor:e.value, motivo:e.reason, estornado:!!e.reversed })),
+    pontos:(m.pointsHistory||[]).map(e=>({ data:e.at, tipo:e.type, pontos:e.points, motivo:e.reason })),
+    consumo:sales };
+  const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'})), a=document.createElement('a');
+  a.href=url; a.download='dados-'+String(m.name||'socio').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-')+'-'+todayStr()+'.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+  logAction('LGPD: dados do sócio exportados (cota '+(m.code||'—')+')');
+}
+// Eliminação: apaga nome, documento, contatos e dependentes (também nas comandas e pedidos) e
+// mantém os valores. Só administrador, com a própria senha; sócio sem saldo e sem comanda aberta.
+function anonymizeMember(memberId){
+  const m=state.members.find(x=>x.id===memberId); if(!m) return;
+  if(!isAdminUser()){ toast('Só o administrador anonimiza cadastro.'); return; }
+  if(m.anonymizedAt){ toast('Este cadastro já foi anonimizado.'); return; }
+  if(Math.abs(Number(m.debt)||0)>0.009){ toast('Zere o saldo (fiado ou crédito) antes de anonimizar.'); return; }
+  if(state.sales.some(s=>s.memberId===memberId && s.status==='open' && !s.canceled)){ toast('Feche a comanda aberta deste sócio antes de anonimizar.'); return; }
+  askStaffPin({ title:'Anonimizar '+m.name, message:'Apaga nome, documento, telefone, e-mail, endereço, observações e dependentes deste sócio, inclusive nas comandas e pedidos antigos. Os valores (vendas, fiado, pontos) continuam, sem identificar a pessoa. Não dá para desfazer.', whoLabel:'Quem está alterando', staff:[currentUser], lockWho:true, confirmLabel:'Anonimizar',
+    onSubmit: async (staffId, pin)=>{
+      if(isCloudMode()){ const r=await staffAuthCall({ action:'verify', staff_id:currentUser.id, pin }); if(r.error) return r.error; }
+      else if(String(currentUser.pin||'')!==String(pin)) return 'PIN incorreto.';
+      return await doAnonymizeMember(memberId);
+    } });
+}
+async function doAnonymizeMember(memberId){
+  const m=state.members.find(x=>x.id===memberId); if(!m) return 'Sócio não encontrado.';
+  const tag=memberId.slice(-4).toUpperCase(), newName='Sócio anonimizado '+tag, oldNames=new Set([m.name, ...(m.dependents||[]).map(d=>d.name)].filter(Boolean)), at=new Date().toISOString();
+  const blank={ name:newName, code:'', phone:'', email:'', gender:'', document:'', registry:'', birthDate:'', zip:'', address:'', addressNumber:'', addressComplement:'', district:'', city:'', uf:'', reference:'', ibge:'', tags:[], notes:'', marketingOptIn:false };
+  try{
+    if(isCloudMode()){
+      const { error } = await supabaseClient.from('members').update({ ...memberFieldsToRow(blank), latitude:null, longitude:null, geo_status:null, archived:true, archived_at:m.archivedAt||at, anonymized_at:at }).eq('id', memberId);
+      if(error) throw error;
+    }
+    Object.assign(m, blank, { latitude:undefined, longitude:undefined, geoStatus:undefined, archived:true, archivedAt:m.archivedAt||at, anonymizedAt:at });
+    await MembersStore.saveDependents(memberId, []);
+    if(!isCloudMode()) await save('members');
+    const saleIds=[];
+    state.sales.forEach(s=>{ if(s.memberId!==memberId) return; saleIds.push(s.id); s.customerName=newName; (s.items||[]).forEach(i=>{ if(i.requesterName && (oldNames.has(i.requesterName) || i.requesterId===memberId)) i.requesterName=newName; }); });
+    if(saleIds.length) await save('sales');
+    if(isCloudMode() && saleIds.length){ for(let k=0;k<saleIds.length;k+=200){ await supabaseClient.from('orders').update({ who:newName }).in('sale_id', saleIds.slice(k,k+200)); } }
+    state.orders.forEach(o=>{ if(saleIds.includes(o.saleId)) o.who=newName; });
+  }catch(e){
+    console.error('Falha ao anonimizar', e);
+    return 'Não foi possível anonimizar agora: '+(e.message||'erro')+'. Tente de novo.';
+  }
+  logAction('LGPD: cadastro anonimizado ('+newName+')');
+  closeModal(); renderAll(); toast('Cadastro anonimizado.');
+}
 
 /* ============ USUÁRIOS ============ */
 function renderUsuarios(){
