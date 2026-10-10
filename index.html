@@ -1056,6 +1056,14 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .field .transfer-item{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;margin:0;padding:7px 10px;border:1px solid var(--c-border);border-radius:8px;background:var(--c-surface);color:var(--c-text);font-size:14px;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer}
 .field .transfer-item input{width:18px;height:18px;margin:0;padding:0}
 .field .transfer-item .sub{font-size:12px;margin:0}
+/* Movimentações por usuário */
+.user-activity-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.user-activity-filters .field{margin:0;min-width:150px}
+.user-activity-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.user-activity-chip{border:1px solid var(--c-border);border-radius:999px;background:var(--c-surface);color:var(--c-text);padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+.user-activity-chip:hover{border-color:var(--c-primary)}
+.ua-sens{color:var(--c-danger)}
+tr.ua-row-sens td{background:color-mix(in srgb,var(--c-danger) 8%,transparent)}
 /* OP-14: comandas abertas no fechamento */
 .cash-open-summary{margin:12px 0 4px;padding:10px 12px;border:1px solid var(--c-border);border-radius:10px;background:var(--c-surface-2);text-align:left}
 .cash-open-summary .sub{margin:2px 0 8px}
@@ -1345,6 +1353,7 @@ const RIBBON_TABS = [
   { id:'relatorios', label:'Relatórios', groups:[
       { label:'Vendas', items:[ {label:'Mais Vendidos', icon:ICN.trophy, perm:'relatorios', action:'openReportView', actionArg:'Mais Vendidos'}, {label:'Histórico de Pedidos', icon:ICN.history, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Pedidos'}, {label:'Histórico de Itens Vendidos', icon:ICN.listCheck, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Itens Vendidos'}, {label:'Ranking de Atendimentos', icon:ICN.medal, perm:'relatorios', action:'openReportView', actionArg:'Ranking de Atendimentos'} ] },
       { label:'Caixa', items:[ {label:'Histórico do Caixa', icon:ICN.cashbox, perm:'relatorios', action:'openReportView', actionArg:'Histórico do Caixa'} ] },
+      { label:'Auditoria', items:[ {label:'Movimentações por Usuário', icon:ICN.history, perm:'logs', action:'openReportView', actionArg:'Movimentações por Usuário'} ] },
       { label:'Financeiro', items:[ {label:'Resumo do Dia', icon:ICN.calendar, perm:'relatorios', action:'openReportView', actionArg:'Resumo do Dia'}, {label:'Meu Negócio', icon:ICN.chart, perm:'relatorios', action:'openReportView', actionArg:'Meu Negócio'}, {label:'Meu Delivery', icon:ICN.clock, perm:'relatorios', action:'openReportView', actionArg:'Meu Delivery'}, {label:'Recebimentos (Pedidos e Fiado)', icon:ICN.cash, perm:'relatorios', action:'openReportView', actionArg:'Recebimentos (Pedidos e Fiado)'}, {label:'Resumo Financeiro', icon:ICN.pie, perm:'relatorios', action:'openReportView', actionArg:'Resumo Financeiro'}, {label:'DRE Simplificado', icon:ICN.receipt, perm:'relatorios', action:'openReportView', actionArg:'DRE Simplificado'} ] },
       { label:'Estoque', items:[ {label:'Entradas e Saídas', icon:ICN.swap, perm:'relatorios', action:'openReportView', actionArg:'Entradas e Saídas'}, {label:'Posição por Data', icon:ICN.layers, perm:'relatorios', action:'openReportView', actionArg:'Posição por Data'} ] }
   ]},
@@ -1477,6 +1486,7 @@ function askStaffPin(opts){
   const def = staff.find(u=>u.id===(opts.defaultId))||staff[0];
   openModal(opts.title, `
     ${opts.message?`<p class="sub">${opts.message}</p>`:''}
+    ${opts.extraHtml||''}
     <div class="field"><label>${h(opts.whoLabel||'Quem autoriza')}</label><select id="staffPinWho" ${opts.lockWho?'disabled':''}>${staff.map(u=>`<option value="${h(u.id)}" ${u.id===def.id?'selected':''}>${h(u.name)}</option>`).join('')}</select></div>
     <div class="field"><label>Senha (PIN)</label><input id="staffPinValue" type="password" inputmode="numeric" autocomplete="off" maxlength="64"></div>
     <p id="staffPinError" class="sub" style="color:var(--c-danger);min-height:1.2em;margin:4px 0 0"></p>
@@ -1497,7 +1507,7 @@ function askStaffPin(opts){
   };
   ok.onclick = submit;
   input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submit(); } });
-  setTimeout(()=>input.focus(), 50);
+  setTimeout(()=>{ const first=opts.focusId&&document.getElementById(opts.focusId); (first||input).focus(); }, 50);
 }
 async function staffAuthCall(body){
   const { data, error } = await supabaseClient.functions.invoke('staff-auth', { body });
@@ -2359,7 +2369,7 @@ function memberDependentFromRow(row){
 }
 function debtEntryFromRow(row){
   return { id: row.id, type: row.type, value: Number(row.value)||0, reason: row.reason||'', info: row.info||'',
-    method: row.method||'', at: row.at, user: row.created_by||'', reversed: !!row.reversed,
+    method: row.method||'', at: row.at, user: row.created_by||'', reversed: !!row.reversed, saleId: row.sale_id||null,
     reversedAt: row.reversed_at||undefined, reversedBy: row.reversed_by||undefined };
 }
 function memberFieldsToRow(data){
@@ -2532,7 +2542,7 @@ const MembersStore = {
     }
     const id = extra.id||uid();
     member.debtHistory = Array.isArray(member.debtHistory)?member.debtHistory:[];
-    member.debtHistory.unshift({ id, type, value:Number(value), reason:extra.reason||'', info:extra.info||'', method:extra.method||'', at, user:createdBy, reversed:false });
+    member.debtHistory.unshift({ id, type, value:Number(value), reason:extra.reason||'', info:extra.info||'', method:extra.method||'', at, user:createdBy, reversed:false, saleId:extra.saleId||null });
     await save('members');
     recalcMemberDebtLocal(member);
     return id;
@@ -6006,6 +6016,89 @@ async function confirmReorderComandaItem(){
   reorderItemIdx = null;
   closeModal(); openComanda(saleId, true); renderComandas();
 }
+// Reabrir comanda fechada (decisão do dono, 10/10): só administrador, com a própria senha e
+// motivo. O banco (sale_reopen) volta a venda para aberta e libera o recibo do close_sale; aqui
+// os pagamentos são desfeitos: o fiado e o crédito daquela venda são estornados e, se ela foi
+// paga num caixa anterior, o valor sai do caixa de agora (fechada no caixa de agora, os
+// pagamentos já deixam de contar quando ela reabre). Depois edita, transfere ou cancela como
+// qualquer comanda aberta.
+function canReopenSale(s){ return !!s && s.type==='comanda' && s.status==='closed' && !s.canceled; }
+function openReopenComanda(saleId){
+  const s=state.sales.find(x=>x.id===saleId); if(!s) return;
+  if(!(currentUser && (currentUser.role==='admin' || sessionIsOwner))){ toast('Só o administrador reabre comanda fechada.'); return; }
+  if(!canReopenSale(s)){ toast('Só comanda fechada (e não cancelada) pode ser reaberta.'); return; }
+  const paid=(s.payments||[]).filter(p=>!p.partial&&methodBucket(p.method)!=='fiado'&&(Number(p.amount)||0)>0.009);
+  const fiado=(s.payments||[]).filter(p=>methodBucket(p.method)==='fiado');
+  const sameSession=!!(state.cashSession&&s.closedAt&&new Date(s.closedAt)>=new Date(state.cashSession.openedAt));
+  if(paid.length && !state.cashSession){ toast('Abra o caixa para reabrir: o valor pago volta a sair do caixa.'); return; }
+  const other=s.memberId&&state.sales.find(x=>x.status==='open'&&!x.canceled&&x.memberId===s.memberId&&x.id!==s.id);
+  if(other){ toast('Este sócio já tem outra comanda aberta (#'+(other.orderNumber||'—')+'). Feche ou transfira antes de reabrir esta.'); return; }
+  const lines=[];
+  if(paid.length) lines.push(sameSession?'Os pagamentos ('+paid.map(p=>paymentMethodLabel(p.method)+' '+fmt(p.amount)).join(', ')+') deixam de contar neste caixa.':'Sai do caixa de agora: '+paid.map(p=>paymentMethodLabel(p.method)+' '+fmt(p.amount)).join(', ')+'.');
+  if(fiado.length || Number(s.creditApplied)>0.009) lines.push('O fiado/crédito desta venda no extrato do sócio é estornado.');
+  lines.push('Depois é só editar, transferir ou cancelar e fechar de novo.');
+  askStaffPin({
+    title:'Reabrir pedido #'+(s.orderNumber||'—')+' · '+(s.customerName||'Avulso'),
+    message:'Fechado em '+reportDateTime(s.closedAt)+', total '+fmt(s.total)+'. '+lines.join(' '),
+    extraHtml:`<div class="field"><label>Motivo *</label><input id="reopenReason" maxlength="200" placeholder="Ex.: item lançado errado, cobrança errada..."></div>`,
+    focusId:'reopenReason', whoLabel:'Quem está alterando', staff:[currentUser], lockWho:true, confirmLabel:'Reabrir comanda',
+    onCancel:()=>{ closeModal(); openOrderHistoryDetail(saleId); },
+    onSubmit: async (staffId, pin)=>{
+      const reason=(document.getElementById('reopenReason').value||'').trim();
+      if(reason.length<3) return 'Informe o motivo.';
+      if(isCloudMode()){
+        const r=await staffAuthCall({action:'verify', staff_id:currentUser.id, pin});
+        if(r.error) return r.error;
+        if(r.data.staff_id!==currentUser.id) return 'Senha de outro colaborador.';
+      } else if(String(currentUser.pin||'')!==String(pin)) return 'PIN incorreto.';
+      return await reopenClosedComanda(saleId, reason, sameSession);
+    }
+  });
+}
+async function reopenClosedComanda(saleId, reason, sameSession){
+  const s=state.sales.find(x=>x.id===saleId); if(!canReopenSale(s)) return 'Esta comanda não está mais fechada.';
+  const before=JSON.parse(JSON.stringify(s)), total=saleTotal(s.items);
+  if(isCloudMode()){
+    const {data, error}=await supabaseClient.rpc('sale_reopen',{ p_sale_id:saleId, p_total:total, p_meta:{ by:currentUser.name, reason } });
+    if(error||!data) return 'Não foi possível reabrir: '+((error&&error.message)||'erro no servidor');
+    const idx=state.sales.findIndex(x=>x.id===saleId); if(idx>-1) state.sales[idx]=data; else state.sales.push(data);
+    markSaleServer(data);
+    logEntryLocal('Comanda reaberta — pedido #'+(before.orderNumber||saleId)+' — motivo: '+reason);
+  } else {
+    const entry={at:new Date().toISOString(), by:currentUser.name, reason, closedAt:before.closedAt, payments:before.payments||[], total:before.total};
+    ['closedAt','creditApplied','couponCode','discount','serviceCharge','partialPaid'].forEach(k=>delete s[k]);
+    Object.assign(s,{status:'open', payments:[], total, reopenHistory:[...(s.reopenHistory||[]), entry]});
+    await save('sales');
+    logAction('Comanda reaberta — pedido #'+(before.orderNumber||saleId)+' — motivo: '+reason);
+  }
+  // Desfaz o dinheiro. A venda já está reaberta no servidor: falha daqui em diante só avisa.
+  const done=[];
+  try{
+    if(before.memberId){
+      let m=state.members.find(x=>x.id===before.memberId);
+      try{ m=await MembersStore.refreshOne(before.memberId)||m; }catch(e){}
+      const tag='#'+saleId;
+      const entries=m?(m.debtHistory||[]).filter(e=>!e.reversed&&(e.saleId===saleId||String(e.reason||'').endsWith(tag))):[];
+      for(const e of entries){ await MembersStore.reverseDebtEntry(m.id, e.id, currentUser.name); done.push((e.type==='debt'?'fiado ':'crédito ')+fmt(e.value)+' estornado'); }
+    }
+    if(!sameSession && state.cashSession){
+      (before.payments||[]).filter(p=>!p.partial&&methodBucket(p.method)!=='fiado'&&(Number(p.amount)||0)>0.009).forEach(p=>{
+        const description='Estorno — reabertura do pedido #'+(before.orderNumber||saleId)+' ('+paymentMethodLabel(p.method)+')';
+        state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'sangria', amount:Math.round(Number(p.amount)*100)/100, reason:description, description, method:p.method, note:reason, origin:'reabertura', saleId, operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
+        done.push(paymentMethodLabel(p.method)+' '+fmt(p.amount)+' saiu do caixa');
+      });
+      await save('cashMovements');
+    }
+  }catch(e){
+    console.error('Reabertura: falha ao desfazer pagamentos', saleId, e);
+    logAction('ATENÇÃO: pedido #'+(before.orderNumber||saleId)+' reaberto, mas o estorno do fiado/caixa falhou — conferir extrato do sócio e caixa.');
+    setTimeout(()=>toast('Comanda reaberta, mas o estorno do fiado/caixa falhou. Confira o extrato do sócio e o caixa.','error'),300);
+  }
+  if(done.length) logAction('Reabertura do pedido #'+(before.orderNumber||saleId)+': '+done.join('; '));
+  closeModal(); renderAll();
+  toast('Comanda reaberta.'+(done.length?' '+done.join('; ')+'.':''));
+  openComanda(saleId, true);
+}
 let cancelItemIdx = null;
 function openCancelComandaItem(idx){
   if(!requirePerm('cancelar-comanda')) return;
@@ -7171,6 +7264,49 @@ function renderCashHistoryPanel(){
 // PROD-18 (decisão do dono, 10/10): em vez de e-mail, o resumo diário fica no próprio sistema.
 // Faturamento pelo dia em que a venda abriu (OP-14): vendas fechadas + comandas ainda abertas
 // daquele dia (a receber). Fiado e caixa pelo que aconteceu no dia.
+// Relatório de movimentações por usuário (pedido do dono, 10/10): tudo o que cada colaborador
+// fez no período, direto do audit_log (carimbado pelo servidor; só admin/dono lê).
+const userActivity={from:null,to:null,user:'',q:'',rows:null,loading:false,error:''};
+const SENSITIVE_ACTION=/reabert|cancel|estorn|liberad|exclu|apag|bloquead|PIN|permiss|diferen|sangria|saída/i;
+async function loadUserActivity(){
+  const f=userActivity, from=f.from||todayStr(), to=f.to||todayStr();
+  f.loading=true; f.error=''; renderUserActivityReport(true);
+  try{
+    if(isCloudMode()){
+      const start=new Date(from+'T00:00:00').toISOString(), end=new Date(new Date(to+'T00:00:00').getTime()+86400000).toISOString();
+      const rows=await fetchAllRows(()=>{ let q=supabaseClient.from('audit_log').select('id,at,actor_name,actor_role,action').gte('at',start).lt('at',end).order('at',{ascending:false}); if(f.user) q=q.eq('actor_name',f.user); return q; });
+      f.rows=rows.map(r=>({at:r.at,user:r.actor_name||'—',role:r.actor_role||'',text:r.action||''}));
+    } else {
+      f.rows=(state.logs||[]).filter(l=>{const d=localDay(l.at);return d>=from&&d<=to&&(!f.user||l.user===f.user);}).map(l=>({at:l.at,user:l.user||'—',role:'',text:l.text||l.action||''})).sort((a,b)=>new Date(b.at)-new Date(a.at));
+    }
+  }catch(e){ f.rows=[]; f.error='Não foi possível carregar: '+(e.message||'erro'); }
+  f.loading=false; renderUserActivityReport(true);
+}
+function renderUserActivityReport(fromLoad){
+  const el=document.getElementById('view-relatorios'); if(!el) return;
+  if(!hasPerm('logs')){ el.innerHTML='<p class="empty">Só o administrador vê as movimentações dos usuários.</p>'; return; }
+  const f=userActivity;
+  if(!fromLoad && f.rows===null){ loadUserActivity(); return; }
+  const q=f.q.trim().toLowerCase(), rows=(f.rows||[]).filter(r=>!q||(r.text+' '+r.user).toLowerCase().includes(q));
+  const byUser={}; rows.forEach(r=>{ const k=r.user; byUser[k]=byUser[k]||{n:0,s:0}; byUser[k].n++; if(SENSITIVE_ACTION.test(r.text)) byUser[k].s++; });
+  const names=[...new Set([...(state.users||[]).map(u=>u.name),...(f.rows||[]).map(r=>r.user)])].filter(Boolean).sort();
+  const roleLabel=r=>({owner:'Dono',admin:'Administrador',caixa:'Caixa',cozinha:'Cozinha',sistema:'Sistema'})[r]||r||'';
+  el.innerHTML=`<div class="daily-summary">
+  <div class="daily-summary-head"><div><h2>Movimentações por usuário</h2><p class="sub">Tudo o que cada colaborador fez no sistema. Em destaque: cancelamentos, estornos, reaberturas, liberações e exclusões.</p></div></div>
+  <div class="user-activity-filters">
+    <div class="field"><label>De</label><input type="date" value="${f.from||todayStr()}" max="${todayStr()}" onchange="userActivity.from=this.value;userActivity.rows=null"></div>
+    <div class="field"><label>Até</label><input type="date" value="${f.to||todayStr()}" max="${todayStr()}" onchange="userActivity.to=this.value;userActivity.rows=null"></div>
+    <div class="field"><label>Usuário</label><select onchange="userActivity.user=this.value;userActivity.rows=null"><option value="">Todos</option>${names.map(n=>`<option ${n===f.user?'selected':''}>${h(n)}</option>`).join('')}</select></div>
+    <div class="field"><label>Buscar</label><input value="${h(f.q)}" placeholder="Ex.: cancel, estorno, pedido #12" oninput="userActivity.q=this.value;clearTimeout(window.__uaT);window.__uaT=setTimeout(()=>renderUserActivityReport(true),250)"></div>
+    <button class="op-btn primary" onclick="loadUserActivity()">⌕ &nbsp; Pesquisar</button>
+    <button class="op-btn" onclick="exportUserActivityCsv()">▧ &nbsp; Exportar</button>
+  </div>
+  ${f.loading?'<p class="empty">Carregando…</p>':f.error?`<p class="empty">${h(f.error)}</p>`:`
+  <div class="user-activity-chips">${Object.keys(byUser).sort((a,b)=>byUser[b].n-byUser[a].n).map(u=>`<button type="button" class="user-activity-chip" onclick="userActivity.user=${jsArg(u)};loadUserActivity()"><b>${h(u)}</b> ${byUser[u].n} ação${byUser[u].n===1?'':'ões'}${byUser[u].s?` · <span class="ua-sens">${byUser[u].s} sensíve${byUser[u].s===1?'l':'is'}</span>`:''}</button>`).join('')||''}</div>
+  <div class="panel" style="margin-top:10px"><table><tr><th>Data e hora</th><th>Usuário</th><th>Perfil</th><th>Ação</th></tr>${rows.length?rows.slice(0,2000).map(r=>`<tr class="${SENSITIVE_ACTION.test(r.text)?'ua-row-sens':''}"><td class="mono">${reportDateTime(r.at)}</td><td>${h(r.user)}</td><td class="sub">${h(roleLabel(r.role))}</td><td>${h(r.text)}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Nenhuma movimentação no período.</td></tr>'}</table>${rows.length>2000?`<p class="sub">Mostrando 2000 de ${rows.length}. Exporte para ver tudo.</p>`:''}</div>`}
+  </div>`;
+}
+function exportUserActivityCsv(){ const q=userActivity.q.trim().toLowerCase(); downloadCsv('movimentacoes-usuarios.csv',[['Data e hora','Usuário','Perfil','Ação'],...(userActivity.rows||[]).filter(r=>!q||(r.text+' '+r.user).toLowerCase().includes(q)).map(r=>[reportDateTime(r.at),r.user,r.role,r.text])]); }
 let dailySummaryDay=null;
 function shiftDailySummary(delta){ const d=new Date((dailySummaryDay||todayStr())+'T12:00:00'); d.setDate(d.getDate()+delta); dailySummaryDay=localDay(d.toISOString()); renderDailySummaryReport(); }
 function renderDailySummaryReport(){
@@ -7297,7 +7433,7 @@ const orderHistoryColumnGroups=[
 function historyExtraValue(s,key){const m=state.members.find(x=>x.id===s.memberId),payments=s.payments||[],items=s.items||[];return {client:m?m.name:(s.customerName||'Avulso'),phone:m?.phone||s.customerPhone||'—',address:m?.address||s.address||'—',district:m?.district||'—',city:m?.city||'—',uf:m?.uf||'—',subtotal:fmt(items.reduce((a,i)=>a+Number(i.price||0)*Number(i.qty||0),0)),discount:fmt(s.discount||0),deliveryFee:fmt(s.deliveryFee||0),total:fmt(s.total||0),payment:payments.map(p=>methodLabel(p.method)).join(', ')||'—',change:fmt(s.change||0),paidValue:fmt(payments.reduce((a,p)=>a+Number(p.amount||0),0)),operator:s.operatorName||'—',origin:s.origin||typeLabel(s.type),deliveryType:s.deliveryType||typeLabel(s.type),notes:s.notes||'—',qrTable:s.tableNumber||'—',digitalMenu:s.type==='cardapio'?'Sim':'Não',utmMedium:s.utmMedium||'—',utmCampaign:s.utmCampaign||'—',utmSource:s.utmSource||'—',itemCount:items.reduce((a,i)=>a+Number(i.qty||0),0),closedAt:reportDateTime(s.closedAt),cashId:s.cashSessionId||'—'}[key]??'—';}
 function renderOrderHistoryReport(sales){const f=orderHistoryFilters,from=f.from||todayStr(),to=f.to||todayStr(),visible=sales.filter(s=>{const statusOk=f.status==='all'||(f.status==='open'&&s.status==='open')||(f.status==='closed'&&s.status==='closed')||(f.status==='paid'&&s.status==='closed'&&!(s.payments||[]).some(p=>p.method==='fiado'))||(f.status==='credit'&&(s.payments||[]).some(p=>p.method==='fiado'));const member=state.members.find(x=>x.id===s.memberId),client=(member&&member.name||s.customerName||'Avulso').toLowerCase(),operator=(s.operatorName||'').toLowerCase(),date=reportDate(f.dateType==='closed'?s.closedAt:s.openedAt);return statusOk&&(!from||date>=from)&&(!to||date<=to)&&(!f.client||client.includes(f.client.toLowerCase()))&&(!f.operator||operator.includes(f.operator.toLowerCase()))&&(!f.code||String(s.orderNumber||s.id).includes(f.code));}),labelMap=Object.fromEntries(orderHistoryColumnGroups.flatMap(g=>g[1])),extraHeaders=orderHistoryExtraColumns.map(k=>`<th>${h(labelMap[k])}</th>`).join(''),rows=visible.sort((a,b)=>new Date(b.openedAt)-new Date(a.openedAt)).map(s=>{const m=state.members.find(x=>x.id===s.memberId),extra=orderHistoryExtraColumns.map(k=>`<td>${h(String(historyExtraValue(s,k)))}</td>`).join('');return `<tr data-history-sale="${s.id}" ondblclick="openOrderHistoryDetail(${jsArg(s.id)})"><td>${h(String(s.orderNumber||s.id))}</td><td>${reportDateTime(s.openedAt)}</td><td>${s.status==='closed'?'Finalizado':'Aberto'}</td><td>${h(s.operatorName||'—')}</td><td>${h(m?m.name:(s.customerName||'Avulso'))}</td><td>${h(typeLabel(s.type))}</td><td>${reportDateTime(s.closedAt)}</td><td>${h(s.origin||typeLabel(s.type))}</td>${extra}</tr>`}).join('')||`<tr><td colspan="${8+orderHistoryExtraColumns.length}" class="empty" style="height:390px">Não há registros para mostrar</td></tr>`,statusText={all:'Todos os pedidos',open:'Abertos',closed:'Finalizados',paid:'Finalizados e pagos',credit:'Finalizados como fiado'}[f.status];document.getElementById('view-relatorios').innerHTML=`<div class="report-workspace"><section class="report-window order-history-window"><header class="op-titlebar">Histórico de Pedidos</header><div class="history-report-toolbar"><button class="history-filter-summary" onclick="openOrderHistoryFilters()">⌕ &nbsp; <u>${statusText} &gt; ${f.dateType==='opened'?'Data de Abertura':'Data de Fechamento'} [${from} 00:00 - ${to} 23:59]</u></button><button class="history-refresh" onclick="renderRelatorios()">↻ &nbsp; Atualizar</button><button class="op-btn" onclick="window.print()">▣ &nbsp; Imprimir</button><button class="op-btn" onclick="openOrderHistoryColumns()">▦ &nbsp; Mais Colunas</button><button class="op-btn" onclick="exportCurrentReport()">▧ &nbsp; Exportar Excel</button></div><div class="finance-grid history-report-grid"><table style="min-width:${Math.max(1200,960+orderHistoryExtraColumns.length*145)}px"><thead><tr><th>Código</th><th>Data Abertura</th><th>Status</th><th>Criado por</th><th>Cliente</th><th>Tipo</th><th>Data Fechamento</th><th>Origem</th>${extraHeaders}</tr></thead><tbody>${rows}</tbody></table></div></section></div>`;}
 function openOrderHistoryColumns(){const groups=orderHistoryColumnGroups.map((g,i)=>`<details class="columns-group" ${i===0?'open':''}><summary>${h(g[0])}</summary><div class="columns-fields">${g[1].map(([key,label])=>`<label><input class="history-column-choice" type="checkbox" value="${key}" ${orderHistoryExtraColumns.includes(key)?'checked':''}> ${h(label)}</label>`).join('')}</div></details>`).join(''),groupChoices=[['operator','Criado por'],['origin','Origem'],['utmMedium','UTM Medium'],['district','Bairro'],['deliveryType','Tipo Entrega'],['utmCampaign','UTM Campaign'],['type','Tipo'],['utmSource','UTM Source']];openModal('Exibir / Ocultar Colunas',`<div class="columns-panel"><div class="columns-tree">${groups}</div><div class="columns-grouping"><b>Agrupar Por</b><div class="columns-grouping-grid">${groupChoices.map(([key,label])=>`<label><input type="radio" name="historyGroup" value="${key}" ${orderHistoryGroupBy===key?'checked':''}>${h(label)}</label>`).join('')}</div></div></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="consumer-save" id="historyColumnsApply">✓ Aplicar</button></div>`);const modal=document.querySelector('#modalRoot .modal');modal.classList.add('columns-record-modal');document.getElementById('historyColumnsApply').onclick=()=>{orderHistoryExtraColumns=[...document.querySelectorAll('.history-column-choice:checked')].map(x=>x.value);orderHistoryGroupBy=document.querySelector('input[name="historyGroup"]:checked')?.value||'';closeModal();renderRelatorios();toast('Colunas atualizadas.');};}
-function openOrderHistoryDetail(id){const sale=state.sales.find(x=>x.id===id);if(!sale)return;const member=state.members.find(x=>x.id===sale.memberId),items=sale.items||[],payments=sale.payments||[];openModal('Pedido #'+(sale.orderNumber||sale.id),`<div class="consumer-form-frame"><div class="app-status"><b>${h(member&&member.name||sale.customerName||'Cliente avulso')}</b><span class="tag ${sale.status==='closed'?'tag-green':'tag-blue'}">${sale.status==='closed'?'Finalizado':'Aberto'}</span></div><div class="grid3"><p><b>Abertura</b><br>${reportDateTime(sale.openedAt)}</p><p><b>Fechamento</b><br>${reportDateTime(sale.closedAt)}</p><p><b>Operador</b><br>${h(sale.operatorName||'—')}</p></div><div class="finance-grid" style="height:250px"><table><thead><tr><th>Qtd.</th><th>Produto</th><th>Detalhes</th><th>Unitário</th><th>Total</th></tr></thead><tbody>${items.map(i=>`<tr><td>${Number(i.qty)||0}</td><td>${h(i.name)}</td><td>${h(i.notes||'—')}</td><td>${fmt(i.price)}</td><td>${fmt(Number(i.price||0)*Number(i.qty||0))}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Pedido sem itens.</td></tr>'}</tbody></table></div><div class="app-status"><b>Total</b><strong>${fmt(sale.total)}</strong></div><p><b>Pagamento:</b> ${h(payments.map(p=>methodLabel(p.method)+' '+fmt(p.amount)).join(' · ')||'—')}</p>${sale.notes?`<p><b>Observação:</b> ${h(sale.notes)}</p>`:''}</div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
+function openOrderHistoryDetail(id){const sale=state.sales.find(x=>x.id===id);if(!sale)return;const member=state.members.find(x=>x.id===sale.memberId),items=sale.items||[],payments=sale.payments||[];openModal('Pedido #'+(sale.orderNumber||sale.id),`<div class="consumer-form-frame"><div class="app-status"><b>${h(member&&member.name||sale.customerName||'Cliente avulso')}</b><span class="tag ${sale.status==='closed'?'tag-green':'tag-blue'}">${sale.status==='closed'?'Finalizado':'Aberto'}</span></div><div class="grid3"><p><b>Abertura</b><br>${reportDateTime(sale.openedAt)}</p><p><b>Fechamento</b><br>${reportDateTime(sale.closedAt)}</p><p><b>Operador</b><br>${h(sale.operatorName||'—')}</p></div><div class="finance-grid" style="height:250px"><table><thead><tr><th>Qtd.</th><th>Produto</th><th>Detalhes</th><th>Unitário</th><th>Total</th></tr></thead><tbody>${items.map(i=>`<tr><td>${Number(i.qty)||0}</td><td>${h(i.name)}</td><td>${h(i.notes||'—')}</td><td>${fmt(i.price)}</td><td>${fmt(Number(i.price||0)*Number(i.qty||0))}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Pedido sem itens.</td></tr>'}</tbody></table></div><div class="app-status"><b>Total</b><strong>${fmt(sale.total)}</strong></div><p><b>Pagamento:</b> ${h(payments.map(p=>methodLabel(p.method)+' '+fmt(p.amount)).join(' · ')||'—')}</p>${sale.notes?`<p><b>Observação:</b> ${h(sale.notes)}</p>`:''}</div>${(sale.reopenHistory||[]).length?`<p class="sub"><b>Reaberta:</b> ${sale.reopenHistory.map(r=>reportDateTime(r.at)+' por '+h(r.by||'—')+' — '+h(r.reason||'')).join(' · ')}</p>`:''}<div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button>${canReopenSale(sale)&&currentUser&&(currentUser.role==='admin'||sessionIsOwner)?`<button class="op-btn" onclick="openReopenComanda(${jsArg(sale.id)})">↺ Reabrir comanda</button>`:''}<button class="op-btn" onclick="window.print()">▣ Imprimir</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
 function reportPeriodFilterHtml(prefix,title='Período de abertura do pedido'){const from=new Date();from.setDate(1);return `<b>${title}</b><div class="report-period-links"><button onclick="setSpecialReportPeriod(${jsArg(prefix)},'today')">Hoje</button><button onclick="setSpecialReportPeriod(${jsArg(prefix)},'yesterday')">Ontem</button><button onclick="setSpecialReportPeriod(${jsArg(prefix)},'previous')">Mês Anterior</button><button onclick="setSpecialReportPeriod(${jsArg(prefix)},'current')">Mês Atual</button></div><div class="report-date-row"><label>De</label><div><input id="${prefix}From" type="date" value="${localDay(from)}"><input type="time" value="00:00"></div></div><div class="report-date-row"><label>Até</label><div><input id="${prefix}To" type="date" value="${todayStr()}"><input type="time" value="23:59"></div></div>`;}
 function setSpecialReportPeriod(prefix,kind){const now=new Date(),from=new Date(now),to=new Date(now);if(kind==='yesterday'){from.setDate(from.getDate()-1);to.setDate(to.getDate()-1)}else if(kind==='previous'){from.setMonth(from.getMonth()-1,1);to.setDate(0)}else if(kind==='current')from.setDate(1);const local=d=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);document.getElementById(prefix+'From').value=local(from);document.getElementById(prefix+'To').value=local(to);filterSpecialReport(prefix);}
 function filterSpecialReport(prefix){const from=document.getElementById(prefix+'From')?.value||'',to=document.getElementById(prefix+'To')?.value||'';document.querySelectorAll('[data-special-date]').forEach(r=>{const d=r.dataset.specialDate||'';r.style.display=(!from||d>=from)&&(!to||d<=to)?'':'none'});}
@@ -7324,6 +7460,7 @@ function renderRelatorios(){
   const report=activeRibbonAction||'Meu Negócio';const sales=state.sales.filter(saleCountsAsRevenue);
   if(report==='Meu Negócio'){renderRelatoriosDashboard();return;}
   if(report==='Resumo do Dia'){renderDailySummaryReport();return;}
+  if(report==='Movimentações por Usuário'){renderUserActivityReport();return;}
   if(report==='Mais Vendidos'){renderBestSellersReport(sales);return;}
   if(report==='Histórico de Pedidos'){renderOrderHistoryReport(sales);return;}
   if(report==='Histórico de Itens Vendidos'){renderSoldItemsReport(sales);return;}
