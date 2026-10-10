@@ -1407,7 +1407,7 @@ const RIBBON_TABS = [
       { label:'Vendas', items:[ {label:'Mais Vendidos', icon:ICN.trophy, perm:'relatorios', action:'openReportView', actionArg:'Mais Vendidos'}, {label:'Histórico de Pedidos', icon:ICN.history, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Pedidos'}, {label:'Histórico de Itens Vendidos', icon:ICN.listCheck, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Itens Vendidos'}, {label:'Ranking de Atendimentos', icon:ICN.medal, perm:'relatorios', action:'openReportView', actionArg:'Ranking de Atendimentos'} ] },
       { label:'Caixa', items:[ {label:'Histórico do Caixa', icon:ICN.cashbox, perm:'relatorios', action:'openReportView', actionArg:'Histórico do Caixa'} ] },
       { label:'Auditoria', items:[ {label:'Movimentações por Usuário', icon:ICN.history, perm:'logs', action:'openReportView', actionArg:'Movimentações por Usuário'} ] },
-      { label:'Financeiro', items:[ {label:'Resumo do Dia', icon:ICN.calendar, perm:'relatorios', action:'openReportView', actionArg:'Resumo do Dia'}, {label:'Meu Negócio', icon:ICN.chart, perm:'relatorios', action:'openReportView', actionArg:'Meu Negócio'}, {label:'Meu Delivery', icon:ICN.clock, perm:'relatorios', action:'openReportView', actionArg:'Meu Delivery'}, {label:'Recebimentos (Pedidos e Fiado)', icon:ICN.cash, perm:'relatorios', action:'openReportView', actionArg:'Recebimentos (Pedidos e Fiado)'}, {label:'Resumo Financeiro', icon:ICN.pie, perm:'relatorios', action:'openReportView', actionArg:'Resumo Financeiro'}, {label:'DRE Simplificado', icon:ICN.receipt, perm:'relatorios', action:'openReportView', actionArg:'DRE Simplificado'} ] },
+      { label:'Financeiro', items:[ {label:'Resumo do Dia', icon:ICN.calendar, perm:'relatorios', action:'openReportView', actionArg:'Resumo do Dia'}, {label:'Exportar para o Contador', icon:ICN.receipt, perm:'relatorios', action:'openAccountantExport'}, {label:'Meu Negócio', icon:ICN.chart, perm:'relatorios', action:'openReportView', actionArg:'Meu Negócio'}, {label:'Meu Delivery', icon:ICN.clock, perm:'relatorios', action:'openReportView', actionArg:'Meu Delivery'}, {label:'Recebimentos (Pedidos e Fiado)', icon:ICN.cash, perm:'relatorios', action:'openReportView', actionArg:'Recebimentos (Pedidos e Fiado)'}, {label:'Resumo Financeiro', icon:ICN.pie, perm:'relatorios', action:'openReportView', actionArg:'Resumo Financeiro'}, {label:'DRE Simplificado', icon:ICN.receipt, perm:'relatorios', action:'openReportView', actionArg:'DRE Simplificado'} ] },
       { label:'Estoque', items:[ {label:'Entradas e Saídas', icon:ICN.swap, perm:'relatorios', action:'openReportView', actionArg:'Entradas e Saídas'}, {label:'Posição por Data', icon:ICN.layers, perm:'relatorios', action:'openReportView', actionArg:'Posição por Data'} ] }
   ]},
   { id:'apps', label:'Apps', groups:[
@@ -7572,6 +7572,83 @@ function renderCashHistoryPanel(){
 }
 
 /* ============ RELATÓRIOS ============ */
+// PROD-06 (decisão do dono, 10/10: "eu escolho quando"): planilha para o contador do período
+// escolhido. Vendas e faturamento pelo dia em que a venda abriu (regra do OP-14); fiado e caixa
+// pela data do lançamento. Gera .xlsx com a SheetJS, baixada só nesta hora (versão fixa + SRI).
+const XLSX_SRC='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js', XLSX_SRI='sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw';
+function loadXlsx(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((resolve,reject)=>{ const sc=document.createElement('script'); sc.src=XLSX_SRC; sc.integrity=XLSX_SRI; sc.crossOrigin='anonymous'; sc.onload=()=>resolve(window.XLSX); sc.onerror=()=>reject(new Error('não foi possível carregar o gerador de planilhas (sem internet?)')); document.head.appendChild(sc); });
+}
+function monthRange(offset){ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+offset); const from=localDay(d.toISOString()); const e=new Date(d.getFullYear(), d.getMonth()+1, 0, 12); return { from, to: localDay(e.toISOString()) }; }
+function openAccountantExport(){
+  const r=monthRange(-1);
+  openModal('Exportar para o contador', `
+    <p class="sub">Escolha o período e gere a planilha (Excel). Abas: Resumo, Vendas por dia, Vendas, Produtos, Fiado, Fechamentos de caixa e Entradas e saídas.</p>
+    <div class="report-period-links"><button onclick="setAccountantRange(-1)">Mês anterior</button><button onclick="setAccountantRange(0)">Mês atual</button></div>
+    <div class="row"><div class="field"><label>De</label><input id="accFrom" type="date" value="${r.from}"></div><div class="field"><label>Até</label><input id="accTo" type="date" value="${r.to}"></div></div>
+    <p class="sub">Vendas e faturamento contam pelo dia em que a venda abriu (comanda aberta à noite e paga no dia seguinte conta no dia da abertura). Fiado, sangrias e suprimentos contam pela data do lançamento.</p>
+    <div class="row"><button class="btn" onclick="closeModal()">Voltar</button><button class="btn btn-primary" id="accGo" onclick="generateAccountantExport()">Gerar planilha</button></div>`);
+}
+function setAccountantRange(offset){ const r=monthRange(offset); document.getElementById('accFrom').value=r.from; document.getElementById('accTo').value=r.to; }
+function accountantSheets(from, to){
+  const inP=d=>d>=from&&d<=to, round=v=>Math.round((Number(v)||0)*100)/100, fmtD=v=>v?new Date(v).toLocaleString('pt-BR'):'';
+  const memberOf=id=>state.members.find(m=>m.id===id);
+  const sales=state.sales.filter(sl=>sl && sl.status==='closed' && !sl.canceled && sl.deliveryStatus!=='cancelado' && inP(saleRevenueDay(sl)));
+  const canceled=state.sales.filter(sl=>sl && sl.canceled && inP(localDay(sl.canceledAt||sl.closedAt||sl.openedAt)));
+  const buckets=['dinheiro','cartao','pix','fiado','outros'], bucketLabel={dinheiro:'Dinheiro',cartao:'Cartão',pix:'Pix',fiado:'Fiado (a prazo)',outros:'Outros'};
+  const byMethod=sl=>{ const b={dinheiro:0,cartao:0,pix:0,fiado:0,outros:0}; (sl.payments||[]).forEach(p=>{ b[methodBucket(p.method)]+=Number(p.amount)||0; }); return b; };
+  const tot={ fat:0, n:sales.length, desc:0, serv:0, m:{dinheiro:0,cartao:0,pix:0,fiado:0,outros:0} };
+  const days={};
+  sales.forEach(sl=>{ const d=saleRevenueDay(sl), b=byMethod(sl); tot.fat+=Number(sl.total)||0; tot.desc+=Number(sl.discount)||0; tot.serv+=Number(sl.serviceCharge)||0;
+    buckets.forEach(k=>tot.m[k]+=b[k]);
+    const x=days[d]=days[d]||{n:0,fat:0,desc:0,serv:0,m:{dinheiro:0,cartao:0,pix:0,fiado:0,outros:0}}; x.n++; x.fat+=Number(sl.total)||0; x.desc+=Number(sl.discount)||0; x.serv+=Number(sl.serviceCharge)||0; buckets.forEach(k=>x.m[k]+=b[k]); });
+  const debtRows=[]; let fiadoLanc=0, fiadoRec=0;
+  state.members.forEach(m=>(m.debtHistory||[]).forEach(e=>{ if(!inP(localDay(e.at))) return; const v=Number(e.value)||0;
+    if(!e.reversed){ if(e.type==='debt') fiadoLanc+=v; else if(e.type==='payment' && !/crédito de troco/i.test(e.reason||'')) fiadoRec+=v; }
+    debtRows.push([fmtD(e.at), m.name, m.code||'', e.type==='debt'?'Débito':e.type==='payment'?'Pagamento':'Crédito', round(v), e.method||'', e.reason||'', e.reversed?'Sim':'Não']); }));
+  const closings=(state.cashHistory||[]).filter(c=>c.closedAt && inP(localDay(c.closedAt)));
+  const moves=(state.cashMovements||[]).filter(mv=>mv.at && inP(localDay(mv.at)));
+  const supr=moves.filter(mv=>mv.type==='suprimento').reduce((a,mv)=>a+(Number(mv.amount)||0),0), sang=moves.filter(mv=>mv.type==='sangria').reduce((a,mv)=>a+(Number(mv.amount)||0),0);
+  const diffs=closings.reduce((a,c)=>a+(Number(c.diff)||0),0), dateBR=d=>new Date(d+'T12:00:00').toLocaleDateString('pt-BR');
+  const prod={};
+  sales.forEach(sl=>(sl.items||[]).filter(i=>!i.canceled).forEach(i=>{ const pr=state.products.find(x=>x.id===i.productId); const k=i.name; prod[k]=prod[k]||{cat:pr&&pr.category||'',q:0,v:0}; prod[k].q+=Number(i.qty)||0; prod[k].v+=(Number(i.qty)||0)*(Number(i.price)||0); }));
+  return [
+    ['Resumo', [
+      ['Estabelecimento', (state.settings&&state.settings.clubName)||''], ['Período', dateBR(from)+' a '+dateBR(to)], ['Gerado em', new Date().toLocaleString('pt-BR')], [],
+      ['Faturamento (vendas fechadas, pelo dia de abertura)', round(tot.fat)], ['Número de vendas', tot.n], ['Ticket médio', tot.n?round(tot.fat/tot.n):0], ['Descontos concedidos', round(tot.desc)], ['Taxa de serviço', round(tot.serv)], [],
+      ['Formas de pagamento das vendas do período'], ...buckets.map(k=>[bucketLabel[k], round(tot.m[k])]), [],
+      ['Fiado lançado no período', round(fiadoLanc)], ['Fiado recebido no período', round(fiadoRec)], [],
+      ['Vendas canceladas (quantidade)', canceled.length], ['Vendas canceladas (valor)', round(canceled.reduce((a,sl)=>a+(Number(sl.total)||0),0))], [],
+      ['Fechamentos de caixa', closings.length], ['Entradas (suprimentos)', round(supr)], ['Saídas (sangrias)', round(sang)], ['Soma das diferenças de caixa (contado − esperado)', round(diffs)]
+    ], [52,18]],
+    ['Vendas por dia', [['Data','Vendas','Faturamento','Dinheiro','Cartão','Pix','Fiado','Outros','Descontos','Serviço'],
+      ...Object.keys(days).sort().map(d=>{ const x=days[d]; return [dateBR(d), x.n, round(x.fat), ...buckets.map(k=>round(x.m[k])), round(x.desc), round(x.serv)]; }),
+      ['TOTAL', tot.n, round(tot.fat), ...buckets.map(k=>round(tot.m[k])), round(tot.desc), round(tot.serv)]], [12,8,14,12,12,12,12,12,12,12]],
+    ['Vendas', [['Pedido','Tipo','Aberta em','Fechada em','Sócio / Cliente','Cota','Subtotal','Desconto','Serviço','Total','Pagamento','Operador'],
+      ...sales.slice().sort((a,b)=>new Date(a.openedAt||a.closedAt)-new Date(b.openedAt||b.closedAt)).map(sl=>{ const m=sl.memberId?memberOf(sl.memberId):null; return [sl.orderNumber||sl.id, typeLabel(sl.type), fmtD(sl.openedAt), fmtD(sl.closedAt), m?m.name:(sl.customerName||'Avulso'), m&&m.code||'', round(sl.subtotal!=null?sl.subtotal:sl.total), round(sl.discount), round(sl.serviceCharge), round(sl.total), (sl.payments||[]).map(p=>paymentMethodLabel(p.method)+' '+round(p.amount).toFixed(2).replace('.',',')).join(' + '), sl.operatorName||'']; })],
+      [9,10,19,19,32,8,11,10,10,11,30,16]],
+    ['Produtos', [['Produto','Categoria','Quantidade','Valor total'], ...Object.keys(prod).sort((a,b)=>prod[b].v-prod[a].v).map(k=>[k, prod[k].cat, prod[k].q, round(prod[k].v)])], [36,16,12,14]],
+    ['Fiado', [['Data','Sócio','Cota','Tipo','Valor','Forma','Motivo','Estornado'], ...debtRows.sort((a,b)=>String(a[0]).localeCompare(String(b[0])))], [19,32,8,11,11,12,34,10]],
+    ['Fechamentos de caixa', [['Aberto em','Fechado em','Operador','Troco inicial','Esperado (dinheiro)','Contado (dinheiro)','Diferença','Cartão esperado','Cartão informado','Ficou a receber'],
+      ...closings.map(c=>[fmtD(c.openedAt), fmtD(c.closedAt), c.operatorName||c.closedBy||'', round(c.openingAmount), round(c.expectedAmount), round(c.countedAmount), round(c.diff), round(c.expectedCard), c.countedCard==null?'':round(c.countedCard), c.openComandasTotal==null?'':round(c.openComandasTotal)])], [19,19,16,12,16,16,11,14,14,14]],
+    ['Entradas e saídas', [['Data','Tipo','Valor','Forma','Descrição','Origem','Operador'],
+      ...moves.slice().sort((a,b)=>new Date(a.at)-new Date(b.at)).map(mv=>[fmtD(mv.at), mv.type==='suprimento'?'Entrada':'Saída', round(mv.amount), paymentMethodLabel(mv.method||'dinheiro'), mv.description||mv.reason||'', mv.origin||'manual', mv.operatorName||''])], [19,9,11,12,44,14,16]]
+  ];
+}
+async function generateAccountantExport(){
+  const from=document.getElementById('accFrom').value, to=document.getElementById('accTo').value;
+  if(!from||!to||from>to){ toast('Escolha um período válido.'); return; }
+  const btn=document.getElementById('accGo'); btn.disabled=true; btn.textContent='Gerando…';
+  try{
+    if(typeof fetchFreshSales==='function') await fetchFreshSales();
+    const XLSX=await loadXlsx(), wb=XLSX.utils.book_new();
+    accountantSheets(from,to).forEach(([name,rows,widths])=>{ const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=(widths||[]).map(w=>({wch:w})); XLSX.utils.book_append_sheet(wb, ws, name); });
+    XLSX.writeFile(wb, 'commandah-contador-'+from+'-a-'+to+'.xlsx');
+    logAction('Planilha do contador gerada: '+from+' a '+to);
+    closeModal(); toast('Planilha gerada.');
+  }catch(e){ console.error(e); toast('Não foi possível gerar: '+(e.message||e),'error'); btn.disabled=false; btn.textContent='Gerar planilha'; }
+}
 // PROD-18 (decisão do dono, 10/10): em vez de e-mail, o resumo diário fica no próprio sistema.
 // Faturamento pelo dia em que a venda abriu (OP-14): vendas fechadas + comandas ainda abertas
 // daquele dia (a receber). Fiado e caixa pelo que aconteceu no dia.
