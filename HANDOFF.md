@@ -24,6 +24,10 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
+### PR #71 (10/10, noite) — copos em toda bebida + aviso de crédito (no ar, merge `4502a25`)
+- `productAsksCopos(p)`: `p.askCopos` ('sim'/'nao'/'auto') no cadastro; automático = estação Bar ou `DRINK_RE` na categoria/nome (cerveja, refri, água, suco, chopp, drinks, doses, marcas; sem café/chá). Itens com `copos!=null` mostram o controle (Novo Pedido, produto direto, repetir, garçom).
+- Pagamento: `askUseMemberCredit` pergunta "Usar crédito / Não usar" ao abrir e ao trocar o sócio; a escolha fica no interruptor `payUseCredit`.
+
 ### PR #69 (10/10, noite) — telas cortadas + filtros no Histórico de Itens Vendidos (no ar, merge `74801f6`)
 - **Relatórios:** `#view-relatorios` tem `overflow:hidden` e `.full-report-page`/`.report-workspace` usavam `margin:-24px` → cortava 24 px à esquerda e no topo. Agora `margin:0` dentro da área; `.report-window` sem a faixa de 13vw; `markReportNowrap` (valor/data/% sem quebra) roda em todo `renderRelatorios` (o corpo antigo virou `renderRelatoriosInner`).
 - **Janelas com `padding:0!important`** (14 classes): `.modal-title` com espaçamento; `.app-config-modal` com `max-height` e rolagem. Detalhe do pedido reescrito (`.order-detail-items`, `.order-detail-actions`).
