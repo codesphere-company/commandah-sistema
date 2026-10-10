@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-10-09, noite** (auditoria de 07/10 praticamente concluída: Fases A, B, U, C e D publicadas — PRs #40 a #55; SEG-12 no PR #56 esperando "publicar"; o que falta depende do dono. Ver "Resumo rápido (09/10, noite)" no começo do Estado atual). Antes, **2026-10-09, tarde** (PRs #40 a #43 publicados: comandas e Novo Pedido redesenhados, Fase C lotes 1 a 3).
+Última atualização: **2026-10-10** (PR #56 SEG-12 publicado; OP-14, PROD-18, BD-11 e OPS-05 feitos em PRs esperando o dono — ver "Resumo rápido (10/10)"). Antes: **2026-10-09, noite** (auditoria de 07/10 praticamente concluída: Fases A, B, U, C e D publicadas — PRs #40 a #55; SEG-12 no PR #56 esperando "publicar"; o que falta depende do dono. Ver "Resumo rápido (09/10, noite)" no começo do Estado atual). Antes, **2026-10-09, tarde** (PRs #40 a #43 publicados: comandas e Novo Pedido redesenhados, Fase C lotes 1 a 3).
 
 > **Sobre os números de linha** (`index.html:NNNN`): nas seções datadas eles valem para o código **daquela data** e envelhecem a cada mudança — procure pelo nome da função, não pela linha. Só as Pendências abertas são mantidas com linha atual (conferida em 2026-10-02).
 
@@ -23,6 +23,17 @@ Commandah é o sistema de comanda/PDV do **Clube Olímpico** (Maringá — negó
 O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são aplicadas pelo CLI desta máquina** (logado na conta do Commandah): `npx supabase db query --linked -f supabase/migrations/<arquivo>.sql < /dev/null` (sem o `< /dev/null` o comando fica preso esperando entrada) e depois `npx supabase migration repair --status applied <versão> --linked`. Leituras de conferência do mesmo jeito, com um `.sql` de `select`. Teste de migration antes de produção: Postgres 18 local (`C:/Program Files/PostgreSQL/18/bin`, cluster temporário com stubs de `current_tenant_id`/`current_staff_role`). Deploy de Edge Function é feito pela Supabase CLI local (`supabase functions deploy <nome> --project-ref ezfoymdesmarpunmixbs --use-api`), sem precisar de Docker nem `supabase link`.
 
 ## Estado atual (o que já está pronto)
+
+### Resumo rápido (10/10) — leia isto primeiro
+- **Publicado:** PR #56 (SEG-12, CSP por `<meta>`), merge `6e7a4bf`; conferido o `<meta http-equiv="Content-Security-Policy">` no HTML no ar.
+- **Respostas do dono (10/10):** OP-14 = qualquer fiado bloqueia titular e dependentes até pagar, só admin libera; comanda avulsa impede fechar o caixa (avulso só à vista); comanda de sócio pode ficar aberta e conta no fechamento do dia em que abriu. PROD-18 = relatório dentro do sistema (sem e-mail). BD-11 = Google Drive do clube. OPS-05 = ligar.
+- **PRs abertos esperando "pode publicar":**
+  - **#59 (OPS-05):** syntax-check em todo PR (pré-requisito da proteção da main). Só workflow.
+  - **#60 (OP-14):** `memberBlockedByDebt` volta a bloquear (dívida > 0, salvo `members.debt_release` = {amount, at, by} com dívida ≤ amount); `releaseMemberDebtBlock` (só admin/dono; botão no aviso de bloqueio e no Novo Pedido); bloqueio também no cardápio digital (`acceptRequest`). Fechamento: `cashOpenComandas`, avulsa aberta impede fechar; `cashClosingSnapshot` ganha `earlierReceived` (pago hoje, aberto antes do último fechamento: `lastCashCloseBefore`/`saleOpenedBeforeClose`), `openToday`/`openTotal` (a receber) e `openEarlier`; o registro do fechamento guarda `openComandas`, `openComandasTotal`, `earlierReceived`. `saleRevenueDay` (dia de abertura) no "Vendido hoje" e no DRE. **Migration `20261011000000_bloqueio_fiado_liberacao.sql` ainda NÃO aplicada** (coluna `debt_release` + trigger que só deixa admin/dono gravar; postgres/service_role passa): aplicar antes do merge. Testada em Postgres 18 local (8 casos). **Ao publicar, todo sócio com fiado em aberto fica bloqueado.**
+  - **#61 (PROD-18, inclui o #60):** Relatórios › Financeiro › Resumo do Dia (`renderDailySummaryReport`, `dailySummaryDay`, `shiftDailySummary`). Mesclar depois do #60.
+  - **#62 (BD-11):** passo "Segunda copia no Google Drive" no backup (rclone do apt, escopo `drive.file`, pasta `Commandah-backup`, 120 dias). Sem o secret `GDRIVE_TOKEN` só avisa.
+- **Bloqueado pelo modo automático nesta sessão (precisa do dono):** merge de PR, ligar a proteção da main (API `branches/main/protection`: PR obrigatório, check `syntax-check`, enforce_admins, sem force-push) e leituras/aplicação de migration em produção pelo CLI.
+- **Guias passados ao dono:** OPS-12 (o código do agente não está neste PC; procurar no PC do clube, dentro do app instalado em `%LOCALAPPDATA%/Programs/<nome do agente>/resources/app.asar`), OPS-14 (token pessoal em supabase.com/dashboard/account/tokens), SEG-04 (painel do Supabase: Authentication › Attack Protection e Sign In / Providers › Email › Confirm email), BD-11 (gerar o token do rclone e criar o secret `GDRIVE_TOKEN`).
 
 ### Resumo rápido (09/10, noite) — leia isto primeiro
 - **No ar (main):** tudo da auditoria de 07/10 que não dependia do dono — Fases A, B e U (PR #38), Fase C (PRs #40 a #46, inclusive OP-19 e PROD-15/16/17), Fase D (BD-03 #47, BD-10 #49, EST-01 #53 + grants #54), SEG-02 (#51) e OPS-06 (#55). Detalhes em "Publicações seguintes de 09/10" logo abaixo.
