@@ -1039,6 +1039,15 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .cash-over{color:var(--c-warning);font-weight:700}
 .cash-close-actions button.primary{background:var(--c-primary);border-color:var(--c-primary);color:var(--c-text-inverse);font-weight:700}
 @media (max-width:600px){.cash-count-grid{grid-template-columns:1fr}}
+/* PROD-18: resumo do dia */
+.daily-summary-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.daily-summary-head h2{margin:0}
+.daily-summary-head .sub{margin:2px 0 0}
+.daily-summary-head .sub::first-letter{text-transform:uppercase}
+.daily-summary-nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.daily-summary-nav input[type=date]{height:38px}
+.daily-summary .stat .sub{font-size:12px;margin-top:2px}
+@media print{.daily-summary-nav{display:none}}
 /* OP-14: comandas abertas no fechamento */
 .cash-open-summary{margin:12px 0 4px;padding:10px 12px;border:1px solid var(--c-border);border-radius:10px;background:var(--c-surface-2);text-align:left}
 .cash-open-summary .sub{margin:2px 0 8px}
@@ -1328,7 +1337,7 @@ const RIBBON_TABS = [
   { id:'relatorios', label:'Relatórios', groups:[
       { label:'Vendas', items:[ {label:'Mais Vendidos', icon:ICN.trophy, perm:'relatorios', action:'openReportView', actionArg:'Mais Vendidos'}, {label:'Histórico de Pedidos', icon:ICN.history, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Pedidos'}, {label:'Histórico de Itens Vendidos', icon:ICN.listCheck, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Itens Vendidos'}, {label:'Ranking de Atendimentos', icon:ICN.medal, perm:'relatorios', action:'openReportView', actionArg:'Ranking de Atendimentos'} ] },
       { label:'Caixa', items:[ {label:'Histórico do Caixa', icon:ICN.cashbox, perm:'relatorios', action:'openReportView', actionArg:'Histórico do Caixa'} ] },
-      { label:'Financeiro', items:[ {label:'Meu Negócio', icon:ICN.chart, perm:'relatorios', action:'openReportView', actionArg:'Meu Negócio'}, {label:'Meu Delivery', icon:ICN.clock, perm:'relatorios', action:'openReportView', actionArg:'Meu Delivery'}, {label:'Recebimentos (Pedidos e Fiado)', icon:ICN.cash, perm:'relatorios', action:'openReportView', actionArg:'Recebimentos (Pedidos e Fiado)'}, {label:'Resumo Financeiro', icon:ICN.pie, perm:'relatorios', action:'openReportView', actionArg:'Resumo Financeiro'}, {label:'DRE Simplificado', icon:ICN.receipt, perm:'relatorios', action:'openReportView', actionArg:'DRE Simplificado'} ] },
+      { label:'Financeiro', items:[ {label:'Resumo do Dia', icon:ICN.calendar, perm:'relatorios', action:'openReportView', actionArg:'Resumo do Dia'}, {label:'Meu Negócio', icon:ICN.chart, perm:'relatorios', action:'openReportView', actionArg:'Meu Negócio'}, {label:'Meu Delivery', icon:ICN.clock, perm:'relatorios', action:'openReportView', actionArg:'Meu Delivery'}, {label:'Recebimentos (Pedidos e Fiado)', icon:ICN.cash, perm:'relatorios', action:'openReportView', actionArg:'Recebimentos (Pedidos e Fiado)'}, {label:'Resumo Financeiro', icon:ICN.pie, perm:'relatorios', action:'openReportView', actionArg:'Resumo Financeiro'}, {label:'DRE Simplificado', icon:ICN.receipt, perm:'relatorios', action:'openReportView', actionArg:'DRE Simplificado'} ] },
       { label:'Estoque', items:[ {label:'Entradas e Saídas', icon:ICN.swap, perm:'relatorios', action:'openReportView', actionArg:'Entradas e Saídas'}, {label:'Posição por Data', icon:ICN.layers, perm:'relatorios', action:'openReportView', actionArg:'Posição por Data'} ] }
   ]},
   { id:'apps', label:'Apps', groups:[
@@ -6941,6 +6950,50 @@ function renderCashHistoryPanel(){
 }
 
 /* ============ RELATÓRIOS ============ */
+// PROD-18 (decisão do dono, 10/10): em vez de e-mail, o resumo diário fica no próprio sistema.
+// Faturamento pelo dia em que a venda abriu (OP-14): vendas fechadas + comandas ainda abertas
+// daquele dia (a receber). Fiado e caixa pelo que aconteceu no dia.
+let dailySummaryDay=null;
+function shiftDailySummary(delta){ const d=new Date((dailySummaryDay||todayStr())+'T12:00:00'); d.setDate(d.getDate()+delta); dailySummaryDay=localDay(d.toISOString()); renderDailySummaryReport(); }
+function renderDailySummaryReport(){
+  const day=dailySummaryDay||todayStr(), el=document.getElementById('view-relatorios'); if(!el) return;
+  const closed=state.sales.filter(sl=>saleCountsAsRevenue(sl)&&saleRevenueDay(sl)===day);
+  const open=state.sales.filter(sl=>sl.status==='open'&&!sl.canceled&&sl.type==='comanda'&&saleRevenueDay(sl)===day);
+  const closedTotal=closed.reduce((a,sl)=>a+(Number(sl.total)||0),0), openTotal=open.reduce((a,sl)=>a+comandaDue(sl),0);
+  const byMethod={dinheiro:0,cartao:0,pix:0,fiado:0,outros:0};
+  closed.forEach(sl=>(sl.payments||[]).forEach(p=>{ byMethod[methodBucket(p.method)]+=Number(p.amount)||0; }));
+  const qty={}, rev={};
+  [...closed,...open].forEach(sl=>(sl.items||[]).filter(i=>!i.canceled).forEach(i=>{ qty[i.name]=(qty[i.name]||0)+(Number(i.qty)||0); rev[i.name]=(rev[i.name]||0)+(Number(i.qty)||0)*(Number(i.price)||0); }));
+  const top=Object.keys(qty).sort((a,b)=>rev[b]-rev[a]).slice(0,8);
+  const canceled=state.sales.filter(sl=>sl.canceled&&localDay(sl.canceledAt||sl.closedAt)===day);
+  const fiadoIn=[]; state.members.forEach(m=>(m.debtHistory||[]).forEach(e=>{ if(e.type==='payment'&&!e.reversed&&localDay(e.at)===day) fiadoIn.push({m,e}); }));
+  const fiadoInTotal=fiadoIn.reduce((a,x)=>a+(Number(x.e.value)||0),0);
+  const debtors=state.members.filter(m=>!m.archived&&(Number(m.debt)||0)>0.009), blocked=debtors.filter(memberBlockedByDebt);
+  const closings=(state.cashHistory||[]).filter(c=>localDay(c.closedAt)===day).sort((a,b)=>new Date(a.closedAt)-new Date(b.closedAt));
+  const count=closed.length+open.length, ticket=count?(closedTotal+openTotal)/count:0;
+  const label=new Date(day+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  const methodRows=[['Dinheiro','dinheiro'],['Cartão','cartao'],['Pix','pix'],['Fiado (a receber)','fiado'],['Outros','outros']].filter(([,k])=>byMethod[k]>0.009).map(([l,k])=>`<tr><td>${l}</td><td class="mono">${fmt(byMethod[k])}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">Nenhuma venda fechada.</td></tr>';
+  const cashNone=state.cashSession&&day===todayStr()?'Caixa ainda aberto.':'Nenhum caixa fechado neste dia.';
+  el.innerHTML=`<div class="daily-summary">
+  <div class="daily-summary-head"><div><h2>Resumo do dia</h2><p class="sub">${h(label)}</p></div><div class="daily-summary-nav"><button class="op-btn" onclick="shiftDailySummary(-1)">‹ &nbsp; Dia anterior</button><input type="date" value="${day}" max="${todayStr()}" onchange="dailySummaryDay=this.value||null;renderDailySummaryReport()"><button class="op-btn" onclick="shiftDailySummary(1)" ${day>=todayStr()?'disabled':''}>Próximo dia &nbsp; ›</button><button class="op-btn" onclick="window.print()">▣ &nbsp; Imprimir</button></div></div>
+  <div class="grid4">
+    <div class="stat"><div class="lbl">Faturamento do dia</div><div class="val">${fmt(closedTotal+openTotal)}</div></div>
+    <div class="stat"><div class="lbl">Comandas em aberto (a receber)</div><div class="val">${fmt(openTotal)}</div><div class="sub">${open.length} comanda${open.length===1?'':'s'}</div></div>
+    <div class="stat"><div class="lbl">Atendimentos · ticket médio</div><div class="val">${count} · ${fmt(ticket)}</div></div>
+    <div class="stat"><div class="lbl">Fiado em aberto (todos os sócios)</div><div class="val">${fmt(debtors.reduce((a,m)=>a+(Number(m.debt)||0),0))}</div><div class="sub">${blocked.length} sócio${blocked.length===1?'':'s'} bloqueado${blocked.length===1?'':'s'}</div></div>
+  </div>
+  <div class="grid2" style="margin-top:16px">
+    <div class="panel"><h2>Vendas fechadas por forma de pagamento</h2><table><tr><th>Forma</th><th>Total</th></tr>${methodRows}</table></div>
+    <div class="panel"><h2>Fiado no dia</h2><table><tr><td>Vendido no fiado</td><td class="mono">${fmt(byMethod.fiado)}</td></tr><tr><td>Recebido de fiado (${fiadoIn.length})</td><td class="mono">${fmt(fiadoInTotal)}</td></tr></table>${fiadoIn.length?`<p class="sub" style="margin-top:8px">${fiadoIn.map(x=>h(x.m.name)+' '+fmt(x.e.value)).join(' · ')}</p>`:''}</div>
+  </div>
+  <div class="panel" style="margin-top:16px"><h2>Fechamento do caixa</h2>${closings.length?`<table><tr><th>Caixa</th><th>Esperado (dinheiro)</th><th>Contado</th><th>Diferença</th><th>Ficou a receber</th></tr>${closings.map(c=>{const d=Number(c.diff)||0;return `<tr><td>${h(c.operatorName||c.closedBy||'—')} · ${timeFmt(c.openedAt)}–${timeFmt(c.closedAt)}</td><td class="mono">${fmt(c.expectedAmount)}</td><td class="mono">${fmt(c.countedAmount)}</td><td class="mono ${Math.abs(d)<0.01?'cash-ok':d<0?'cash-short':'cash-over'}">${Math.abs(d)<0.01?'Confere':(d<0?'Falta ':'Sobra ')+fmt(Math.abs(d))}</td><td class="mono">${c.openComandasTotal!=null?fmt(c.openComandasTotal):'—'}</td></tr>`;}).join('')}</table>`:`<p class="empty">${cashNone}</p>`}</div>
+  <div class="grid2" style="margin-top:16px">
+    <div class="panel"><h2>Comandas em aberto deste dia</h2>${open.length?`<table><tr><th>Comanda</th><th>Valor</th></tr>${open.map(sl=>`<tr><td>#${h(sl.orderNumber||'—')} · ${h(sl.customerName||'—')}</td><td class="mono">${fmt(comandaDue(sl))}</td></tr>`).join('')}</table>`:'<p class="empty">Nenhuma.</p>'}</div>
+    <div class="panel"><h2>Mais vendidos do dia</h2>${top.length?`<table><tr><th>Produto</th><th>Qtd</th><th>Total</th></tr>${top.map(n=>`<tr><td>${h(n)}</td><td>${qty[n]}</td><td class="mono">${fmt(rev[n])}</td></tr>`).join('')}</table>`:'<p class="empty">Nenhum item.</p>'}</div>
+  </div>
+  ${canceled.length?`<p class="sub" style="margin-top:12px">Cancelamentos no dia: ${canceled.length} (${fmt(canceled.reduce((a,sl)=>a+(Number(sl.total)||0),0))}). Detalhes em Histórico de Pedidos.</p>`:''}
+  </div>`;
+}
 function renderRelatoriosDashboard(){
   const el = document.getElementById('view-relatorios');
   const closedSales = state.sales.filter(saleCountsAsRevenue);
@@ -7052,6 +7105,7 @@ function renderStockPositionReport(){const rows=(state.insumos||[]).map(i=>`<tr>
 function renderRelatorios(){
   const report=activeRibbonAction||'Meu Negócio';const sales=state.sales.filter(saleCountsAsRevenue);
   if(report==='Meu Negócio'){renderRelatoriosDashboard();return;}
+  if(report==='Resumo do Dia'){renderDailySummaryReport();return;}
   if(report==='Mais Vendidos'){renderBestSellersReport(sales);return;}
   if(report==='Histórico de Pedidos'){renderOrderHistoryReport(sales);return;}
   if(report==='Histórico de Itens Vendidos'){renderSoldItemsReport(sales);return;}
