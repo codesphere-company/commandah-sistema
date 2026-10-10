@@ -24,6 +24,12 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
+### Fechamento da auditoria de 07/10 (10/10, noite)
+- **OPS-01 feito:** worktrees órfãs (OneDrive) removidas, 39 branches locais e 38 remotas já mescladas apagadas. Hoje só existe a `main` (os PRs mesclados usam `--delete-branch`).
+- **PR #75 (no ar):** reabertura desfaz o troco (`origin:'troco'` agora tem `saleId`; `finalizeSale` devolve o id) e estorna os pontos de fidelidade da venda.
+- **PR #76 (no ar, merge `897ebcb`; migration `20261011020000` aplicada e registrada pelo dono):** `sales_apply(p_upserts, p_delete_ids, p_bases)` recusa venda cuja versão no banco não é a lida pelo aparelho e devolve `conflicts`; `pushSales` junta com `mergeSaleThreeWay` (itens e parciais por chave) e regrava. **O limite "dois aparelhos na mesma venda, vale a última" deixou de existir.** Sem a função nova o site cai na gravação antiga (`salesApplyV2=false`).
+- **O que sobra da auditoria:** com o dono — SEG-04 (capturas do painel), BD-11 (secret `GDRIVE_TOKEN`), OPS-12 (pasta do agente), PROD-09 (contador), OPS-14 (opcional); adiados — PROD-06 (exportação mensal ao contador), PROD-08 (LGPD), BD-06 (pedidos da cozinha ainda baixam inteiros a cada 6 s). Fora da auditoria e urgente: **colar o token novo no agente de impressão** (nada imprime desde 29/08).
+
 ### PR #73 (10/10, noite) — levar a bebida junto com a comida (no ar, merge `62c1eda`)
 - Caixinha `levarJuntoBox(cart,key)` (desmarcada; só com bebida + comida, `productIsDrink`) no Novo Pedido, produto direto e garçom; estado em `levarJunto.{np,quick,gc}`, zerado quando o carrinho esvazia. `applyLevarJunto(items,on)` grava `levarJunto` (bebida) e `levarJuntoCom` (comida) nos itens; vão para o Monitor (junto com `copos`), para a ficha (`buildTicketText`: "*** SEGURAR ***" / "LEVAR JUNTO: …") e para o histórico da comanda.
 
@@ -61,7 +67,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 - **Ação do dono no clube:** (1) recarregar a página em todos os aparelhos (versão antiga não grava venda desde o EST-01); (2) **colar o token novo no agente de impressão** — nada imprime desde 29/08 (token regenerado às 19:41 daquele dia) e o aviso "Agente de impressão desconectado" fica na tela até isso; (3) testar com dois aparelhos ao mesmo tempo: abrir o caixa nos dois (BD-03) e lançar em comandas diferentes (EST-01); (4) testes do app real listados em "Publicação de 09/10".
 - **Esperando resposta do dono:** OP-14 (nota no artefato: comanda aberta no fechamento do caixa vira fiado e o sócio fica bloqueado até pagar; faltam: comanda avulsa — sugestão: impedir o fechamento —, dívida do dependente vai para o titular?, quem desbloqueia?), BD-11 (onde guardar a cópia externa do backup), PROD-18 (conta num provedor de e-mail, ex. Resend ou Brevo), OPS-12 (onde está o código do agente), OPS-14 (token do MCP do Supabase), SEG-04 (conferir captcha e confirmação de e-mail no painel do Supabase), OPS-05 (ligar a proteção da main no GitHub).
 - **Adiados pelo dono:** BD-06, PROD-06, PROD-08.
-- **Limite conhecido:** dois aparelhos gravando a MESMA venda no mesmo instante — vale a última gravação (próximo passo possível: conferir `version` no `sales_apply`).
+- **Limite conhecido (resolvido em 10/10, PR #76):** dois aparelhos gravando a MESMA venda — agora o banco recusa a versão velha e o site junta as mudanças.
 - **Regras novas de código:** valor dentro de `onclick` sempre com `${jsArg(x)}` (SEG-02); endereço externo novo = acrescentar na CSP (SEG-12, quando publicado); tabela nova = `revoke all ... from public, anon, authenticated` antes do grant mínimo; migration aplicada não se edita (a trava OPS-06 bloqueia).
 - **graphify nesta máquina:** o `graphify.exe` é bloqueado pelo Windows ("Permission denied"), então `graphify update .` e os hooks que chamam `graphify` falham calados (o mapa ficou parado em 09/10 08:33). Use `python -m graphify update .` (funciona; regenerado em 09/10 à noite).
 - **Fluxo de trabalho:** branch a partir da `main` → captura/teste → PR → prévia do Netlify → merge só com "pode publicar" do dono → aplicar migration (antes do merge quando o site novo depende dela) → conferir o HTML no ar → atualizar este arquivo e o artefato (coleção `andamento`). PRs só de documentação são mesclados direto.
