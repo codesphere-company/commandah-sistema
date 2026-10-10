@@ -9134,8 +9134,19 @@ function renderTenantSetup(){
   renderTurnstileWidget();
 }
 function renderTurnstileWidget(){
+  // O script da Cloudflare chega assíncrono: espera por ele (antes tentava uma vez só, 300 ms
+  // depois, e o quadrinho "não sou robô" às vezes nunca aparecia — com captcha ligado no
+  // Supabase, o login falharia).
+  let tries = 0;
   const mount = ()=>{
-    if(!window.turnstile || !document.getElementById('tsTurnstile')) return;
+    const box = document.getElementById('tsTurnstile');
+    if(!box) return;
+    if(!window.turnstile){
+      if(++tries <= 66){ setTimeout(mount, 300); return; }
+      box.innerHTML = '<p class="sub" style="color:var(--c-danger)">A verificação "não sou robô" não carregou. Recarregue a página; se continuar, desligue o bloqueador de anúncios para este site.</p>';
+      return;
+    }
+    if(box.childElementCount) return;
     tsCaptchaToken = null;
     tsTurnstileWidgetId = window.turnstile.render('#tsTurnstile', {
       sitekey: TURNSTILE_SITE_KEY,
@@ -9144,7 +9155,7 @@ function renderTurnstileWidget(){
       'error-callback': ()=>{ tsCaptchaToken = null; }
     });
   };
-  if(window.turnstile) mount(); else setTimeout(mount, 300);
+  mount();
 }
 function resetTurnstile(){
   tsCaptchaToken = null;
