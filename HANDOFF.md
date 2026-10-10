@@ -24,6 +24,9 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
+### PR #73 (10/10, noite) — levar a bebida junto com a comida (no ar, merge `62c1eda`)
+- Caixinha `levarJuntoBox(cart,key)` (desmarcada; só com bebida + comida, `productIsDrink`) no Novo Pedido, produto direto e garçom; estado em `levarJunto.{np,quick,gc}`, zerado quando o carrinho esvazia. `applyLevarJunto(items,on)` grava `levarJunto` (bebida) e `levarJuntoCom` (comida) nos itens; vão para o Monitor (junto com `copos`), para a ficha (`buildTicketText`: "*** SEGURAR ***" / "LEVAR JUNTO: …") e para o histórico da comanda.
+
 ### PR #71 (10/10, noite) — copos em toda bebida + aviso de crédito (no ar, merge `4502a25`)
 - `productAsksCopos(p)`: `p.askCopos` ('sim'/'nao'/'auto') no cadastro; automático = estação Bar ou `DRINK_RE` na categoria/nome (cerveja, refri, água, suco, chopp, drinks, doses, marcas; sem café/chá). Itens com `copos!=null` mostram o controle (Novo Pedido, produto direto, repetir, garçom).
 - Pagamento: `askUseMemberCredit` pergunta "Usar crédito / Não usar" ao abrir e ao trocar o sócio; a escolha fica no interruptor `payUseCredit`.
