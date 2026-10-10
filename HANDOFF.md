@@ -24,6 +24,11 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
+### LGPD e menos carga (10/10, noite) — PRs #81 e #82 no ar (merge `d60bc87`; migrations `20261011040000` e `20261011050000` aplicadas e registradas pelo dono)
+- **BD-06 (#81):** `OrdersStore.load` = pedidos não finalizados + criados nas últimas 48 h, paginado (`fetchAllRows`); o poll de 6 s usa `OrdersStore.changes` (updated_at > cursor − 15 s) e `mergeOrderChanges` (descarta finalizados com mais de 48 h). Trigger `trg_orders_touch_updated_at` carimba `updated_at = now()` no banco (antes era o relógio do aparelho); índices `(tenant_id, updated_at|created_at)`.
+- **PROD-08 LGPD (#82):** `privacyNoticeHtml`/`openPrivacyNotice` (modelo padrão a revisar pelo contador/jurídico; link na tela de entrada e no cadastro; modal acima do login), Configurações › Privacidade (`state.settings.privacy` = {nome, email, anos (2), atualizado}; lista `membersPastRetention`). Cadastro do sócio: `marketingOptIn` (coluna `marketing_opt_in`), `exportMemberData` (JSON), `anonymizeMember` (admin + própria senha via staff-auth verify; recusa saldo ≠ 0 e comanda aberta; limpa cadastro, dependentes, `customerName`/`requesterName` nas vendas e `who` nos pedidos; `anonymized_at`).
+- **Falta o dono:** preencher nome e e-mail do encarregado em Configurações › Privacidade (hoje "a definir"); pedir revisão do texto ao contador/jurídico. As campanhas (SMS/Smart) ainda não filtram por `marketing_opt_in` — hoje não enviam nada de verdade (módulos escondidos no PROD-02); filtrar quando forem ligadas.
+
 ### Agente de impressão 2.0 (10/10, noite) — PR #78 no ar, merge `92e950b` (OPS-12 resolvido)
 - Código em `agente-impressao/` (C#, .NET Framework 4.8; `build.cmd` usa o `csc` do Windows, gera `dist\CommandahImpressora.exe` de ~39 KB, `dist/` fora do git). README com instalação.
 - Fila: `print_agent_ping` (migration `20261011030000`, aplicada e registrada pelo dono; testada em produção com token falso → `{"ok": false}`), `fetch_pending` a cada 3 s, `claim_job`, `mark_status`. Rede: ESC/POS na 9100 (0x01→0x00). Windows: `PrintDocument` com Consolas ajustada à largura. Impressora ausente no PC: ficha fica pendente. Local `127.0.0.1:9123` (`/status`, `/print` com `ip`), CORS + Private Network Access.
