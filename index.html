@@ -3872,6 +3872,7 @@ function openProductModal(id){
           ${state.estacoes.map(e=>`<option value="${h(e.chave)}" ${(p&&p.estacao===e.chave)||(!p&&e.chave==='cozinha')?'selected':''}>${h(e.nome)}</option>`).join('')}
           <option value="nenhuma" ${p&&p.estacao==='nenhuma'?'selected':''}>Não exige preparo (ex: água, refrigerante lacrado)</option>
         </select><p class="sub">Define pra qual impressora o pedido vai (Cozinha usa impressora única; Bar e Churrasqueira têm impressora diferente por origem do pedido).</p></div>
+        <div class="field"><label>Perguntar quantidade de copos</label><select id="pAskCopos"><option value="auto" ${!p||!p.askCopos||p.askCopos==='auto'?'selected':''}>Automático (toda bebida)</option><option value="sim" ${p&&p.askCopos==='sim'?'selected':''}>Sim, sempre</option><option value="nao" ${p&&p.askCopos==='nao'?'selected':''}>Não</option></select><p class="sub">Automático reconhece bebida pela estação Bar, pela categoria ou pelo nome (cerveja, refrigerante, água, suco, drinks…).</p></div>
         <p style="font-size:12px;font-weight:700;margin:16px 0 6px">Disponibilizar este item para venda direta em</p><div class="channel-checks"><label><input type="checkbox" id="pChPdv" ${!p||!p.channels||p.channels.pdv!==false?'checked':''}> PDV Desktop</label><label><input type="checkbox" id="pChMobile" ${!p||!p.channels||p.channels.mobile!==false?'checked':''}> Comanda Mobile</label><label><input type="checkbox" id="pChQr" ${!p||!p.channels||p.channels.qr!==false?'checked':''}> Cardápio Digital (cliente)</label><label><input type="checkbox" id="pChOnline" ${!p||!p.channels||p.channels.online!==false?'checked':''}> Totem de Autoatendimento</label></div><p class="sub">"Cardápio Digital" e "Totem" são checkboxes independentes — desmarcar um não afeta o outro. Se o produto deve sumir dos dois, desmarque ambos.</p></div></div>
       </section>
       <section class="record-pane" data-pane="estoque"><div class="grid3"><div class="field"><label>Estoque mínimo (alerta)</label><input id="pMinStock" type="number" min="0" step="1" value="${p?Number(p.minStock)||0:0}"></div><div class="field"><label>Ordem de exibição</label><input id="pSortOrder" type="number" step="1" value="${p?Number(p.sortOrder)||0:state.products.length}"></div><div class="field"><label>Tipo do cadastro</label><select id="pKind"><option value="produto" ${productKind(p||{})==='produto'?'selected':''}>Produto</option><option value="tamanho" ${productKind(p||{})==='tamanho'?'selected':''}>Produto por tamanho</option><option value="combo" ${productKind(p||{})==='combo'?'selected':''}>Combo</option></select></div></div><p class="sub">O estoque disponível é calculado pela ficha técnica e baixado somente quando o item é enviado à cozinha.</p></section>
@@ -3900,7 +3901,7 @@ function openProductModal(id){
       measure:document.getElementById('pMeasure').value, minStock, sortOrder, active:document.getElementById('pActive').checked, recipe:tempRecipe.filter(r=>r.insumoId),
       manualCost:parseFloat(document.getElementById('pManualCost').value)||0, description:document.getElementById('pDescription').value.trim(),
       pdvCode:document.getElementById('pCustomCode').value.trim(), noServiceFee:document.getElementById('pNoService').checked,
-      estacao:document.getElementById('pEstacao').value, kitchenItem:document.getElementById('pEstacao').value==='cozinha', channels:{pdv:document.getElementById('pChPdv').checked,mobile:document.getElementById('pChMobile').checked,qr:document.getElementById('pChQr').checked,online:document.getElementById('pChOnline').checked},
+      estacao:document.getElementById('pEstacao').value, askCopos:document.getElementById('pAskCopos').value, kitchenItem:document.getElementById('pEstacao').value==='cozinha', channels:{pdv:document.getElementById('pChPdv').checked,mobile:document.getElementById('pChMobile').checked,qr:document.getElementById('pChQr').checked,online:document.getElementById('pChOnline').checked},
       questionIds:[...document.querySelectorAll('.pQuestion:checked')].map(x=>x.value), complementIds:[...document.querySelectorAll('.pComplement:checked')].map(x=>x.value),
       observationIds:[...document.querySelectorAll('.pObservation:checked')].map(x=>x.value) };
     data.sizeIds=[...document.querySelectorAll('.pSize:checked')].map(x=>x.value);
@@ -4517,6 +4518,16 @@ function kOrderAgeMin(createdAt){ return Math.max(0, Math.floor((Date.now()-new 
 function kOrderAgeClass(mins){ return mins>=20?'kage-red':mins>=15?'kage-yellow':'kage-green'; }
 function fmtOpenDuration(mins){ if(mins<60) return mins+' min'; if(mins<1440){ const hrs=Math.floor(mins/60), rest=mins%60; return hrs+'h'+(rest?String(rest).padStart(2,'0')+'min':''); } const days=Math.floor(mins/1440), hrs=Math.floor((mins%1440)/60); return days+'d'+(hrs?' '+hrs+'h':''); }
 function comandaAgeClass(mins){ return mins>=120?'ctime-red':mins>=60?'ctime-yellow':'ctime-green'; }
+// Quantidade de copos (pedido do dono, 10/10): vale para toda bebida, não só para produto da
+// estação Bar (água e refrigerante cadastrados como "Não exige preparo" ficavam sem). Bebida é
+// reconhecida pela estação, categoria ou nome; no cadastro do produto dá para forçar Sim/Não.
+const DRINK_RE=/(bebida|cervej|chop+e?\b|refri|suco|[áa]gua|h2oh|drink|\bdoses?\b|vinho|espumante|whisk|vodka|\bgin\b|cacha[çc]a|caipirinha|caipiroska|caipivodka|energ[ée]tico|destilad|long ?neck|\bcoca\b|guaran[áa]|\bsoda\b|t[ôo]nica|isot[ôo]nico|gatorade|heineken|stella|amstel|brahma|skol|budweiser|corona|spaten|eisenbahn|\bbaden|sprite|fanta|pepsi|schweppes|monster|red ?bull|ginger)/i;
+function productAsksCopos(p){
+  if(!p) return false;
+  if(p.askCopos==='sim') return true;
+  if(p.askCopos==='nao') return false;
+  return p.estacao==='bar' || DRINK_RE.test(p.category||'') || DRINK_RE.test(p.name||'');
+}
 function itemStation(i){ const p=state.products.find(x=>x.id===i.productId); return p&&p.estacao?p.estacao:'cozinha'; }
 function kitchenItemExtras(i){
   const c=i.customization; if(!c) return [];
@@ -5037,7 +5048,18 @@ function openPaymentModal(mode, comandaId){
     const blocked = opt && opt.dataset.blocked==='1';
     document.getElementById('fiadoWarning').style.display = (currentMethod().method==='fiado' && blocked) ? 'block':'none';
   }
-  selMember.onchange = ()=>{ checkFiado(); changeDecision='troco'; tempPayments=[]; document.getElementById('payUseCredit').checked=false; recomputeTotals(); };
+  // Sócio com crédito: pergunta se quer usar (pedido do dono, 10/10). A escolha fica no
+  // interruptor "Usar crédito do sócio" e pode ser trocada até confirmar o pagamento.
+  function askUseMemberCredit(){
+    const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
+    const available = memberAvailableCredit(member);
+    if(!(available>0.009)) return;
+    askConfirm({ title:'Sócio com crédito', message:member.name+' tem '+fmt(available)+' de crédito. Quer usar nesta conta?', confirmLabel:'Usar crédito', cancelLabel:'Não usar', danger:false }).then(use=>{
+      if(!document.getElementById('payUseCredit') || selMember.value!==member.id) return;
+      document.getElementById('payUseCredit').checked = !!use; tempPayments=[]; recomputeTotals();
+    });
+  }
+  selMember.onchange = ()=>{ checkFiado(); changeDecision='troco'; tempPayments=[]; document.getElementById('payUseCredit').checked=false; recomputeTotals(); askUseMemberCredit(); };
   document.getElementById('payUseCredit').onchange = ()=>{ tempPayments=[]; recomputeTotals(); };
   function renderPaymentParts(){
     const received = tempPayments.reduce((a,p)=>a+p.amount,0);
@@ -5077,6 +5099,7 @@ function openPaymentModal(mode, comandaId){
   document.getElementById('payPartAmount').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('addPaymentBtn').click(); } });
   selectPayMethod('A');
   recomputeTotals();
+  askUseMemberCredit();
   document.getElementById('applyCouponBtn').onclick = ()=>{
     const code = document.getElementById('payCoupon').value.trim().toUpperCase();
     const c = state.coupons.find(x=>x.code===code && isCouponUsable(x));
@@ -5570,7 +5593,7 @@ function npCartAdd(productId){
   const p = state.products.find(x=>x.id===productId); if(!p) return;
   if(productAvailable(p)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
   const existing = npCart.find(i=>i.productId===productId);
-  if(existing) existing.qty+=1; else npCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha', copos:p.estacao==='bar'?0:undefined});
+  if(existing) existing.qty+=1; else npCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha', copos:productAsksCopos(p)?0:undefined});
   renderNpCart();
   renderNpProductGrid(document.getElementById('npProductSearch')?.value||'');
   renderNpHistoryGrid();
@@ -5616,7 +5639,7 @@ function renderNpCart(){
     <div class="np-line">
       <div class="np-line-top"><span class="np-line-name">${h(i.name)}</span><span class="mono np-line-sub">${fmt(i.price*i.qty)}</span></div>
       <div class="np-line-ctrl"><span class="sub mono">${fmt(i.price)} cada</span><div class="qty-ctrl"><button onclick="npCartChangeQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${i.qty}</span><button onclick="npCartChangeQty(${idx},1)" aria-label="Aumentar">+</button></div></div>
-      ${i.estacao==='bar'?`<div class="np-line-ctrl"><span class="sub">Copos</span><div class="qty-ctrl"><button onclick="npCartChangeCopos(${idx},-1)" aria-label="Menos copos">−</button><span class="mono">${i.copos||0}</span><button onclick="npCartChangeCopos(${idx},1)" aria-label="Mais copos">+</button></div></div>`:''}
+      ${i.copos!=null?`<div class="np-line-ctrl"><span class="sub">Copos</span><div class="qty-ctrl"><button onclick="npCartChangeCopos(${idx},-1)" aria-label="Menos copos">−</button><span class="mono">${i.copos||0}</span><button onclick="npCartChangeCopos(${idx},1)" aria-label="Mais copos">+</button></div></div>`:''}
     </div>`).join('') : '<p class="np-empty">Toque nos produtos à esquerda para adicionar.</p>';
   const totEl = document.getElementById('npCartTotal'); if(totEl) totEl.textContent = fmt(npCart.reduce((a,i)=>a+i.price*i.qty,0));
   const countEl = document.getElementById('npItemCount'); if(countEl){ const n=npCart.reduce((a,i)=>a+i.qty,0); countEl.textContent = n?n+(n===1?' item':' itens'):''; }
@@ -5996,7 +6019,7 @@ function openReorderComandaItem(idx){
   const item = (currentSaleDraft&&currentSaleDraft.items||[])[idx]; if(!item) return;
   const product = state.products.find(p=>p.id===item.productId);
   if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
-  reorderQty = 1; reorderItemIdx = idx; reorderCopos = product.estacao==='bar' ? (item.copos!=null?item.copos:0) : 0;
+  reorderQty = 1; reorderItemIdx = idx; reorderCopos = productAsksCopos(product) ? (item.copos!=null?item.copos:0) : 0;
   openModal('Pedir novamente', `
     <p class="sub">${h(product.name)} · <span class="mono">${fmt(product.price)}</span></p>
     <div class="field" style="text-align:center">
@@ -6007,7 +6030,7 @@ function openReorderComandaItem(idx){
         <button onclick="reorderQtyChange(1)">+</button>
       </div>
     </div>
-    ${product.estacao==='bar'?`<div class="field" style="text-align:center">
+    ${productAsksCopos(product)?`<div class="field" style="text-align:center">
       <label class="np-label">Quantidade de copos</label>
       <div class="qty-ctrl" style="justify-content:center;margin-top:6px">
         <button onclick="reorderCoposChange(-1)">−</button>
@@ -6038,7 +6061,7 @@ async function confirmReorderComandaItem(){
   const product = state.products.find(p=>p.id===item.productId);
   if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
   const who = item.requesterName || s.customerName || 'Cliente';
-  const newItem = {lineId:uid(), productId:product.id, name:product.name, price:product.price, qty:reorderQty, estacao:product.estacao||'cozinha', copos:product.estacao==='bar'?reorderCopos:undefined, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
+  const newItem = {lineId:uid(), productId:product.id, name:product.name, price:product.price, qty:reorderQty, estacao:product.estacao||'cozinha', copos:productAsksCopos(product)?reorderCopos:undefined, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
   if(!await sendItemsToKitchen(saleId, [newItem], who, 'comanda', s.local)) return;
   newItem.sent = true;
   await commitSaleChange(s.id, cur=>{ cur.items=[...(cur.items||[]), newItem]; cur.total=saleTotal(cur.items); });
@@ -6244,7 +6267,7 @@ function quickCartAdd(productId){
   if(!p || p.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
   if(productAvailable(p)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
   const existing = comandaQuickCart.find(i=>i.productId===productId);
-  if(existing) existing.qty+=1; else comandaQuickCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha', copos:p.estacao==='bar'?0:undefined});
+  if(existing) existing.qty+=1; else comandaQuickCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha', copos:productAsksCopos(p)?0:undefined});
   renderComandaQuickSearch(document.getElementById('comandaQuickSearch')?.value||'');
   renderComandaQuickCart();
 }
@@ -6272,7 +6295,7 @@ function renderComandaQuickCart(){
         <div class="qty-ctrl"><button onclick="quickCartChangeQty(${idx},-1)">−</button><span class="mono">${i.qty}</span>
         <button onclick="quickCartChangeQty(${idx},1)">+</button>
         <span class="mono" style="min-width:70px;text-align:right">${fmt(i.price*i.qty)}</span></div>
-        ${i.estacao==='bar'?`<div class="qty-ctrl" style="width:100%;justify-content:flex-end"><span class="sub" style="margin-right:6px">Quantidade de copos:</span><button onclick="quickCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="quickCartChangeCopos(${idx},1)">+</button></div>`:''}
+        ${i.copos!=null?`<div class="qty-ctrl" style="width:100%;justify-content:flex-end"><span class="sub" style="margin-right:6px">Quantidade de copos:</span><button onclick="quickCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="quickCartChangeCopos(${idx},1)">+</button></div>`:''}
       </div>`).join('')}
     <div class="np-total"><span>Total</span><span class="mono">${fmt(total)}</span></div>
     <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="openComandaQuickAddConfirm()">Adicionar e enviar pra cozinha (${qty} ${qty===1?'item':'itens'})</button>
@@ -6353,7 +6376,7 @@ function openReorderComandaBatch(batchKey){
     if(!product || product.active===false){ skipped++; return; }
     const existing = comandaQuickCart.find(i=>i.productId===product.id);
     if(existing) existing.qty += item.qty;
-    else comandaQuickCart.push({productId:product.id, name:product.name, price:product.price, qty:item.qty, estacao:product.estacao||'cozinha', copos:product.estacao==='bar'?(item.copos||0):undefined});
+    else comandaQuickCart.push({productId:product.id, name:product.name, price:product.price, qty:item.qty, estacao:product.estacao||'cozinha', copos:productAsksCopos(product)?(item.copos||0):undefined});
   });
   if(!comandaQuickCart.length){ toast('Nenhum destes produtos está mais disponível no catálogo.'); return; }
   if(skipped) toast(skipped+' item(ns) deste pedido não está(ão) mais disponível(is) e foi(ram) ignorado(s).');
@@ -6789,7 +6812,7 @@ function gcAddToCart(productId){
   const p = state.products.find(x=>x.id===productId); if(!p) return;
   if(productAvailable(p)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
   const existing = gcCart.find(i=>i.productId===productId);
-  if(existing) existing.qty+=1; else gcCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha', copos:p.estacao==='bar'?0:undefined});
+  if(existing) existing.qty+=1; else gcCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha', copos:productAsksCopos(p)?0:undefined});
   const searchEl = document.getElementById('gcProdSearch2');
   gcRenderProducts(searchEl?searchEl.value:'');
 }
@@ -6832,7 +6855,7 @@ function gcRenderReviewList(){
     <div class="gc-review-item"><span>${h(i.name)}</span>
     <div class="gc-qty"><button onclick="gcCartQty(${idx},-1)">−</button><span class="mono">${i.qty}</span><button onclick="gcCartQty(${idx},1)">+</button>
     <span class="mono" style="min-width:60px;text-align:right">${fmt(i.price*i.qty)}</span></div>
-    ${i.estacao==='bar'?`<div class="gc-qty gc-copos-row"><span class="gc-copos-label">Quantidade de copos:</span><button onclick="gcCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="gcCartChangeCopos(${idx},1)">+</button></div>`:''}</div>`).join('') : '<p class="gc-empty">Nenhum item.</p>';
+    ${i.copos!=null?`<div class="gc-qty gc-copos-row"><span class="gc-copos-label">Quantidade de copos:</span><button onclick="gcCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="gcCartChangeCopos(${idx},1)">+</button></div>`:''}</div>`).join('') : '<p class="gc-empty">Nenhum item.</p>';
   const totEl = document.getElementById('gcReviewTotal'); if(totEl) totEl.textContent = fmt(gcCart.reduce((a,i)=>a+i.price*i.qty,0));
 }
 function gcCartQty(idx,delta){
