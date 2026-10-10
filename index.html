@@ -2000,13 +2000,60 @@ function mergeSalesChanges(rows){
   });
   return changed;
 }
+// Dois aparelhos na mesma venda (migration 20261011020000): cada venda vai com a versão que
+// este aparelho tinha lido (salesBase). Se no banco ela mudou nesse meio tempo, o banco não grava
+// e devolve a versão atual; aqui as duas mudanças são juntadas (mergeSaleThreeWay) e a venda é
+// gravada de novo. Sem a migration aplicada, cai na gravação antiga (vale a última).
+let salesApplyV2 = true;
+function mergeArrayThreeWay(base, local, server, keyFn){
+  const b = new Map((base||[]).map(i=>[keyFn(i), i])), l = new Map((local||[]).map(i=>[keyFn(i), i]));
+  const out = [];
+  (server||[]).forEach(i=>{
+    const k = keyFn(i);
+    if(b.has(k) && !l.has(k)) return; // tirado neste aparelho
+    out.push(l.has(k) && b.has(k) && JSON.stringify(l.get(k))!==JSON.stringify(b.get(k)) ? l.get(k) : i); // mudado aqui
+  });
+  const seen = new Set(out.map(keyFn));
+  (local||[]).forEach(i=>{ const k = keyFn(i); if(!b.has(k) && !seen.has(k)) out.push(i); }); // novo aqui
+  return out;
+}
+function mergeSaleThreeWay(base, local, server){
+  if(!server) return null; // apagada em outro aparelho
+  base = base || {};
+  const out = JSON.parse(JSON.stringify(server));
+  new Set([...Object.keys(base), ...Object.keys(local)]).forEach(k=>{
+    if(k==='items' || k==='partialPayments') return;
+    if(JSON.stringify(base[k])!==JSON.stringify(local[k])){ if(local[k]===undefined) delete out[k]; else out[k] = local[k]; }
+  });
+  out.items = mergeArrayThreeWay(base.items, local.items, server.items, comandaItemKey);
+  if(base.partialPayments || local.partialPayments || server.partialPayments) out.partialPayments = mergeArrayThreeWay(base.partialPayments, local.partialPayments, server.partialPayments, p=>p.id);
+  if(out.status==='open') out.total = saleTotal(out.items);
+  return out;
+}
 async function pushSales(){
-  const snapshot = JSON.parse(JSON.stringify(state.sales||[]));
-  const d = cashMovementsDiff(salesBase, snapshot);
-  if(!d.upserts.length && !d.deletes.length) return;
-  const { error } = await supabaseClient.rpc('sales_apply', { p_upserts:d.upserts, p_delete_ids:d.deletes });
-  if(error) throw error;
-  d.upserts.forEach(markSaleServer); d.deletes.forEach(id=>salesBase.delete(id));
+  for(let attempt = 0; attempt < 3; attempt++){
+    const snapshot = JSON.parse(JSON.stringify(state.sales||[]));
+    const d = cashMovementsDiff(salesBase, snapshot);
+    if(!d.upserts.length && !d.deletes.length) return;
+    const bases = {};
+    d.upserts.forEach(u=>{ const b = salesBase.get(u.id); if(b) bases[u.id] = JSON.parse(b); });
+    let res = salesApplyV2 ? await supabaseClient.rpc('sales_apply', { p_upserts:d.upserts, p_delete_ids:d.deletes, p_bases:bases }) : null;
+    if(res && res.error && (res.error.code==='PGRST202' || /sales_apply/.test(res.error.message||'') && /(could not find|does not exist|não existe)/i.test(res.error.message||''))){ salesApplyV2 = false; res = null; }
+    if(!res) res = await supabaseClient.rpc('sales_apply', { p_upserts:d.upserts, p_delete_ids:d.deletes });
+    if(res.error) throw res.error;
+    const conflicts = (res.data && res.data.conflicts) || [];
+    const conflictIds = new Set(conflicts.map(c=>c.id));
+    d.upserts.filter(u=>!conflictIds.has(u.id)).forEach(markSaleServer); d.deletes.forEach(id=>salesBase.delete(id));
+    if(!conflicts.length) return;
+    conflicts.forEach(c=>{
+      const idx = state.sales.findIndex(x=>x && x.id===c.id);
+      if(c.data) salesBase.set(c.id, JSON.stringify(c.data)); else salesBase.delete(c.id);
+      if(idx<0) return;
+      const merged = mergeSaleThreeWay(bases[c.id], state.sales[idx], c.data);
+      if(merged===null) state.sales.splice(idx, 1); else state.sales[idx] = merged;
+    });
+    if(!document.querySelector('#modalRoot .modal')) renderAll();
+  }
 }
 function parseAppDataValue(r, fallback){ if(!r) return fallback; const v = JSON.parse(r.value); return v===null ? null : v; }
 // Traz o caixa (sessão, lançamentos e, se a sessão mudou, o histórico) feito em outro aparelho.
