@@ -99,6 +99,63 @@ async function callerContext(req: Request) {
   return { tenantId: null, canManage: false };
 }
 
+// Confere o PIN de um colaborador com o mesmo controle de tentativas do login (reserva
+// da tentativa por compare-and-swap, bloqueio progressivo). Usado pelo login, pela
+// confirmação de senha (verify) e pela liberação de sócio bloqueado (release_debt).
+async function checkStaffPin(staffId: string, pin: string): Promise<{ staff: Record<string, unknown> } | { resp: Response }> {
+  const { data: staff, error } = await admin.from("tenant_staff").select("*").eq("id", staffId).maybeSingle();
+  if (error || !staff) return { resp: json({ error: "Colaborador não encontrado" }, 404) };
+  if (!staff.active) return { resp: json({ error: "Colaborador inativo" }, 403) };
+
+  if (staff.locked_until && new Date(staff.locked_until as string) > new Date()) {
+    const mins = Math.ceil((new Date(staff.locked_until as string).getTime() - Date.now()) / 60000);
+    return { resp: json({ error: `Muitas tentativas erradas. Tente novamente em ${mins} min.` }, 423) };
+  }
+
+  // Reserva a tentativa ANTES de conferir o PIN, com compare-and-swap em failed_attempts.
+  // Antes o contador era lido, o bcrypt rodava e só depois gravava attempts+1: N requisições
+  // em paralelo liam o mesmo valor e furavam o limite de 5 (brute force do PIN em rajada).
+  // Agora só uma requisição por valor do contador passa; as concorrentes são recusadas sem
+  // nem testar o PIN.
+  const prevAttempts = (staff.failed_attempts as number | null) ?? null;
+  const prevCount = prevAttempts || 0;
+  if (prevCount >= MAX_ATTEMPTS) {
+    // Contador ficou no teto sem bloqueio gravado (a gravação do bloqueio falhou): bloqueia agora.
+    const minutes = await lockStaff(staff, prevCount);
+    return { resp: json({ error: lockedMessage(minutes) }, 423) };
+  }
+  const attempts = prevCount + 1;
+  let reserve = admin.from("tenant_staff")
+    .update({ failed_attempts: attempts, updated_at: new Date().toISOString() })
+    .eq("id", staffId);
+  reserve = prevAttempts === null ? reserve.is("failed_attempts", null) : reserve.eq("failed_attempts", prevAttempts);
+  const { data: reserved, error: reserveErr } = await reserve.select("id");
+  if (reserveErr) return { resp: internalError("Falha ao verificar o PIN", reserveErr) };
+  if (!reserved || reserved.length === 0) {
+    return { resp: json({ error: "Outra tentativa de login em andamento. Tente de novo." }, 429) };
+  }
+
+  const ok = bcrypt.compareSync(pin, staff.pin_hash as string);
+  if (!ok) {
+    if (attempts >= MAX_ATTEMPTS) {
+      const minutes = await lockStaff(staff);
+      return { resp: json({ error: lockedMessage(minutes) }, 423) };
+    }
+    return { resp: json({ error: "PIN incorreto" }, 401) };
+  }
+  await admin.from("tenant_staff").update({ failed_attempts: 0, lock_count: 0, locked_until: null, updated_at: new Date().toISOString() }).eq("id", staffId);
+  return { staff };
+}
+
+async function staffName(staff: Record<string, unknown>) {
+  try {
+    const { data } = await admin.auth.admin.getUserById(staff.auth_user_id as string);
+    const meta = data?.user?.user_metadata as { staff_name?: string } | undefined;
+    if (meta?.staff_name) return meta.staff_name;
+  } catch { /* nome é só cosmético */ }
+  return String(staff.id);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   let body: Record<string, unknown>;
@@ -116,48 +173,9 @@ Deno.serve(async (req) => {
       if (!staffId || !pin) return json({ error: "staff_id e pin são obrigatórios" }, 400);
       if (!validStaffId(staffId) || !validPin(pin)) return json({ error: "PIN incorreto" }, 401);
 
-      const { data: staff, error } = await admin.from("tenant_staff").select("*").eq("id", staffId).maybeSingle();
-      if (error || !staff) return json({ error: "Colaborador não encontrado" }, 404);
-      if (!staff.active) return json({ error: "Colaborador inativo" }, 403);
-
-      if (staff.locked_until && new Date(staff.locked_until as string) > new Date()) {
-        const mins = Math.ceil((new Date(staff.locked_until as string).getTime() - Date.now()) / 60000);
-        return json({ error: `Muitas tentativas erradas. Tente novamente em ${mins} min.` }, 423);
-      }
-
-      // Reserva a tentativa ANTES de conferir o PIN, com compare-and-swap em failed_attempts.
-      // Antes o contador era lido, o bcrypt rodava e só depois gravava attempts+1: N requisições
-      // em paralelo liam o mesmo valor e furavam o limite de 5 (brute force do PIN em rajada).
-      // Agora só uma requisição por valor do contador passa; as concorrentes são recusadas sem
-      // nem testar o PIN.
-      const prevAttempts = (staff.failed_attempts as number | null) ?? null;
-      const prevCount = prevAttempts || 0;
-      if (prevCount >= MAX_ATTEMPTS) {
-        // Contador ficou no teto sem bloqueio gravado (a gravação do bloqueio falhou): bloqueia agora.
-        const minutes = await lockStaff(staff, prevCount);
-        return json({ error: lockedMessage(minutes) }, 423);
-      }
-      const attempts = prevCount + 1;
-      let reserve = admin.from("tenant_staff")
-        .update({ failed_attempts: attempts, updated_at: new Date().toISOString() })
-        .eq("id", staffId);
-      reserve = prevAttempts === null ? reserve.is("failed_attempts", null) : reserve.eq("failed_attempts", prevAttempts);
-      const { data: reserved, error: reserveErr } = await reserve.select("id");
-      if (reserveErr) return internalError("Falha ao verificar o PIN", reserveErr);
-      if (!reserved || reserved.length === 0) {
-        return json({ error: "Outra tentativa de login em andamento. Tente de novo." }, 429);
-      }
-
-      const ok = bcrypt.compareSync(pin, staff.pin_hash as string);
-      if (!ok) {
-        if (attempts >= MAX_ATTEMPTS) {
-          const minutes = await lockStaff(staff);
-          return json({ error: lockedMessage(minutes) }, 423);
-        }
-        return json({ error: "PIN incorreto" }, 401);
-      }
-
-      await admin.from("tenant_staff").update({ failed_attempts: 0, lock_count: 0, locked_until: null, updated_at: new Date().toISOString() }).eq("id", staffId);
+      const checked = await checkStaffPin(staffId, pin);
+      if ("resp" in checked) return checked.resp;
+      const staff = checked.staff;
 
       const { data: userRec, error: userErr } = await admin.auth.admin.getUserById(staff.auth_user_id as string);
       if (userErr || !userRec?.user?.email) {
@@ -181,6 +199,39 @@ Deno.serve(async (req) => {
       if (verifyErr || !sessionData?.session) return internalError("Falha ao autenticar", verifyErr);
 
       return json({ session: sessionData.session });
+    }
+
+    // Confirmação de senha antes de uma alteração sensível (ex.: reabrir comanda fechada).
+    // Não devolve sessão: só diz se o PIN confere e o perfil de quem digitou.
+    if (action === "verify" || action === "release_debt") {
+      const staffId = String(body.staff_id || "");
+      const pin = String(body.pin || "");
+      if (!staffId || !pin) return json({ error: "staff_id e pin são obrigatórios" }, 400);
+      if (!validStaffId(staffId) || !validPin(pin)) return json({ error: "PIN incorreto" }, 401);
+      const checked = await checkStaffPin(staffId, pin);
+      if ("resp" in checked) return checked.resp;
+      const staff = checked.staff;
+      const name = await staffName(staff);
+      if (action === "verify") return json({ ok: true, staff_id: staff.id, role: staff.role, name });
+
+      // OP-14: liberar sócio bloqueado por fiado exige a senha de um administrador, mesmo
+      // com o caixa logado no aparelho. A gravação vai com service_role (a trava do banco
+      // só deixa admin/dono gravar debt_release pela API).
+      if (staff.role !== "admin") return json({ error: "Só administrador libera sócio bloqueado." }, 403);
+      const memberId = String(body.member_id || "");
+      if (!validStaffId(memberId)) return json({ error: "Sócio inválido" }, 400);
+      const { data: member, error: mErr } = await admin.from("members").select("id, tenant_id, name, debt").eq("id", memberId).maybeSingle();
+      if (mErr) return internalError("Falha ao consultar o sócio", mErr);
+      if (!member || member.tenant_id !== staff.tenant_id) return json({ error: "Sócio não encontrado" }, 404);
+      const release = { amount: Math.round(Number(member.debt || 0) * 100) / 100, at: new Date().toISOString(), by: name };
+      const { error: uErr } = await admin.from("members").update({ debt_release: release }).eq("id", memberId);
+      if (uErr) return internalError("Falha ao liberar o sócio", uErr);
+      await admin.from("audit_log").insert({
+        tenant_id: staff.tenant_id, actor_name: name, entity: "member", entity_id: memberId,
+        action: `Sócio liberado com pendência de R$ ${release.amount.toFixed(2).replace(".", ",")}: ${member.name}`,
+        meta: { release },
+      });
+      return json({ ok: true, release });
     }
 
     // Ações abaixo exigem quem chama ser dono do tenant ou admin ativo.

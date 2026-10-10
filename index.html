@@ -1048,6 +1048,9 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .daily-summary-nav input[type=date]{height:38px}
 .daily-summary .stat .sub{font-size:12px;margin-top:2px}
 @media print{.daily-summary-nav{display:none}}
+/* OP-14: link discreto (liberar sócio com senha de administrador) */
+.link-btn{background:none;border:0;padding:4px 0;color:var(--c-text-2);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer}
+.link-btn:hover{color:var(--c-text)}
 /* OP-14: comandas abertas no fechamento */
 .cash-open-summary{margin:12px 0 4px;padding:10px 12px;border:1px solid var(--c-border);border-radius:10px;background:var(--c-surface-2);text-align:left}
 .cash-open-summary .sub{margin:2px 0 8px}
@@ -1421,35 +1424,117 @@ function memberBlockedByDebt(member){
   const rel=member.debtRelease;
   return !(rel && debt<=(Number(rel.amount)||0)+0.009);
 }
-async function releaseMemberDebtBlock(memberId, reopenSaleId){
-  const member=state.members.find(x=>x.id===memberId); if(!member) return;
-  if(!(currentUser && (currentUser.role==='admin' || sessionIsOwner))){ toast('Só o administrador libera sócio bloqueado por fiado.'); return; }
-  if(!await askConfirm({title:'Liberar '+member.name+'?',message:'A pendência de '+fmt(member.debt)+' continua em aberto. O sócio volta a consumir; se fizer um fiado novo, fica bloqueado de novo.',confirmLabel:'Liberar consumo',cancelLabel:'Voltar',danger:false})) return;
-  const release={amount:Math.round((Number(member.debt)||0)*100)/100,at:new Date().toISOString(),by:currentUser.name};
-  if(isCloudMode()){
-    const {error}=await supabaseClient.from('members').update({debt_release:release}).eq('id',member.id);
-    if(error){ toast('Não foi possível liberar: '+error.message,'error'); return; }
-    member.debtRelease=release;
-  } else { member.debtRelease=release; await save('members'); }
-  logAction('Sócio liberado com pendência de '+fmt(release.amount)+': '+member.name);
-  closeModal(); renderAll(); if(reopenSaleId) openNovoPedidoModal(reopenSaleId); toast(member.name+' liberado para consumir.');
+// OP-14 (pedido do dono, 10/10): ao abrir comanda para sócio bloqueado, aviso com Cancelar ou
+// Pagar; pagando a dívida toda, a comanda abre e segue para o pedido. Liberar sem pagar exige a
+// senha de um administrador (staff-auth release_debt), mesmo com o caixa logado.
+let blockedContinue = null, afterFiadoPaid = null;
+async function ensureMemberCanOpen(member, onContinue){
+  if(!member) return true;
+  try{ member = await MembersStore.refreshOne(member.id) || member; }catch(e){ /* sem rede: decide pelo que o aparelho tem */ }
+  if(!memberBlockedByDebt(member)) return true;
+  blockIfMemberInDebt(member, onContinue);
+  return false;
+}
+function blockIfMemberInDebt(member, onContinue){
+  if(!memberBlockedByDebt(member)) return false;
+  blockedContinue = onContinue ? { memberId: member.id, fn: onContinue } : null;
+  const canReceive = hasPerm('contas')||hasPerm('receber-fiado');
+  openModal('Sócio bloqueado', `
+    <p class="sub">${h(member.name)} tem <b style="color:var(--c-danger)">${fmt(member.debt)}</b> de fiado em aberto e não pode consumir até pagar.</p>
+    ${canReceive?'':'<p class="sub">Peça ao caixa para receber o pagamento.</p>'}
+    <div class="row" style="margin-top:14px">
+      <button class="btn" onclick="blockedContinue=null;closeModal()">Cancelar</button>
+      ${canReceive?`<button class="btn btn-primary" onclick="payDebtAndContinue(${jsArg(member.id)})">💰 &nbsp; Pagar ${fmt(member.debt)}</button>`:''}
+    </div>
+    <p style="margin:12px 0 0;text-align:right"><button type="button" class="link-btn" onclick="releaseMemberDebtBlock(${jsArg(member.id)})">Liberar com senha de administrador</button></p>
+  `);
+  return true;
+}
+function payDebtAndContinue(memberId){
+  const m = state.members.find(x=>x.id===memberId); if(!m) return;
+  afterFiadoPaid = { memberId, fn: blockedContinue && blockedContinue.memberId===memberId ? blockedContinue.fn : null, at: Date.now() };
+  window.selectedFiadoMemberId = memberId;
+  openFiadoEntry('payment');
+  const v = document.getElementById('fiadoValue'); if(v){ v.value = (Math.round((Number(m.debt)||0)*100)/100).toFixed(2); v.select(); }
+}
+async function runAfterFiadoPaid(m, type){
+  const c = afterFiadoPaid;
+  if(type!=='payment' || !c || c.memberId!==m.id || Date.now()-c.at>15*60000) return;
+  afterFiadoPaid = null;
+  try{ m = await MembersStore.refreshOne(m.id) || m; }catch(e){}
+  if(memberBlockedByDebt(m)){ toast('Pagamento registrado. Ainda falta '+fmt(m.debt)+' para liberar o sócio.'); return; }
+  if(c.fn){ blockedContinue = null; c.fn(); }
+}
+// Pede o PIN de um colaborador. onSubmit(staffId, pin) devolve uma mensagem de erro ou nada.
+function askStaffPin(opts){
+  const staff = (opts.staff||[]).filter(Boolean);
+  if(!staff.length){ toast(opts.emptyMessage||'Nenhum colaborador habilitado.'); return; }
+  const def = staff.find(u=>u.id===(opts.defaultId))||staff[0];
+  openModal(opts.title, `
+    ${opts.message?`<p class="sub">${opts.message}</p>`:''}
+    <div class="field"><label>${h(opts.whoLabel||'Quem autoriza')}</label><select id="staffPinWho" ${opts.lockWho?'disabled':''}>${staff.map(u=>`<option value="${h(u.id)}" ${u.id===def.id?'selected':''}>${h(u.name)}</option>`).join('')}</select></div>
+    <div class="field"><label>Senha (PIN)</label><input id="staffPinValue" type="password" inputmode="numeric" autocomplete="off" maxlength="64"></div>
+    <p id="staffPinError" class="sub" style="color:var(--c-danger);min-height:1.2em;margin:4px 0 0"></p>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="staffPinCancel">Voltar</button>
+      <button class="btn btn-primary" id="staffPinOk">${h(opts.confirmLabel||'Confirmar')}</button>
+    </div>`);
+  const input = document.getElementById('staffPinValue'), err = document.getElementById('staffPinError'), ok = document.getElementById('staffPinOk');
+  document.getElementById('staffPinCancel').onclick = ()=>{ if(opts.onCancel) opts.onCancel(); else closeModal(); };
+  const submit = async ()=>{
+    const pin = input.value; if(!pin){ input.focus(); return; }
+    ok.disabled = true; err.textContent = '';
+    let msg;
+    try{ msg = await opts.onSubmit(document.getElementById('staffPinWho').value, pin); }
+    catch(e){ msg = 'Não foi possível conferir a senha agora. Tente de novo.'; }
+    ok.disabled = false;
+    if(msg){ err.textContent = msg; input.value = ''; input.focus(); }
+  };
+  ok.onclick = submit;
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submit(); } });
+  setTimeout(()=>input.focus(), 50);
+}
+async function staffAuthCall(body){
+  const { data, error } = await supabaseClient.functions.invoke('staff-auth', { body });
+  if(error || !data || data.error){
+    let msg = data && data.error;
+    if(!msg && error && error.context && typeof error.context.json==='function'){ try{ const b = await error.context.json(); msg = b && b.error; }catch(e){} }
+    return { error: msg || 'Não foi possível conferir a senha agora.' };
+  }
+  return { data };
+}
+function releaseMemberDebtBlock(memberId, reopenSaleId){
+  const member = state.members.find(x=>x.id===memberId); if(!member) return;
+  const admins = (state.users||[]).filter(u=>u.role==='admin' && u.active!==false);
+  askStaffPin({
+    title: 'Liberar '+member.name,
+    message: 'A pendência de '+fmt(member.debt)+' continua em aberto. O sócio volta a consumir; um fiado novo bloqueia de novo.',
+    whoLabel: 'Administrador', staff: admins, defaultId: currentUser && currentUser.role==='admin' ? currentUser.id : null,
+    emptyMessage: 'Não há administrador cadastrado.', confirmLabel: 'Liberar consumo',
+    onCancel: ()=>{ if(blockedContinue && blockedContinue.memberId===memberId) blockIfMemberInDebt(member, blockedContinue.fn); else if(reopenSaleId) openNovoPedidoModal(reopenSaleId); else closeModal(); },
+    onSubmit: async (staffId, pin)=>{
+      const admin = admins.find(u=>u.id===staffId); if(!admin) return 'Escolha um administrador.';
+      if(isCloudMode()){
+        const r = await staffAuthCall({ action:'release_debt', staff_id: staffId, pin, member_id: member.id });
+        if(r.error) return r.error;
+        member.debtRelease = r.data.release;
+      } else {
+        if(String(admin.pin||'')!==String(pin)) return 'PIN incorreto.';
+        member.debtRelease = { amount: Math.round((Number(member.debt)||0)*100)/100, at: new Date().toISOString(), by: admin.name };
+        await save('members');
+        logAction('Sócio liberado com pendência de '+fmt(member.debtRelease.amount)+' por '+admin.name+': '+member.name);
+      }
+      toast(member.name+' liberado para consumir.');
+      const c = blockedContinue && blockedContinue.memberId===memberId ? blockedContinue.fn : null;
+      blockedContinue = null;
+      closeModal(); renderAll();
+      if(c) c(); else if(reopenSaleId) openNovoPedidoModal(reopenSaleId);
+    }
+  });
 }
 function memberAvailableCredit(member){ return member ? Math.max(0, -(Number(member.debt)||0)) : 0; }
 function memberDebtLabel(member){ const d=Number(member.debt)||0; if(d>0.009) return ' (deve '+fmt(d)+')'; if(d<-0.009) return ' (crédito '+fmt(-d)+')'; return ''; }
 function memberLimitSuffix(member){ return ''; } // limite de fiado não é usado no clube
-function blockIfMemberInDebt(member){
-  if(!memberBlockedByDebt(member)) return false;
-  openModal('Consumo bloqueado', `
-    <p class="sub">${h(member.name)} está com uma pendência de <b style="color:var(--red)">${fmt(member.debt)}</b>${memberLimitSuffix(member)} e não pode consumir até quitar o débito.</p>
-    <div class="row" style="margin-top:14px">
-      <button class="btn" onclick="closeModal()">Voltar</button>
-      ${currentUser&&(currentUser.role==='admin'||sessionIsOwner)?`<button class="btn" onclick="releaseMemberDebtBlock(${jsArg(member.id)})">🔓 &nbsp; Liberar (administrador)</button>`:''}
-      <button class="btn btn-primary" onclick="closeModal();openWhatsAppCollection(${jsArg(member.id)})">📱 &nbsp; Cobrar via WhatsApp</button>
-      ${hasPerm('contas')||hasPerm('receber-fiado')?`<button class="btn btn-primary" onclick="closeModal();window.selectedFiadoMemberId=${jsArg(member.id)};openFiadoEntry('payment')">💰 &nbsp; Registrar Pagamento</button>`:''}
-    </div>
-  `);
-  return true;
-}
 function todaysSalesForMember(memberId){
   const today = todayStr();
   return state.sales.filter(s=>s.memberId===memberId && localDay(s.closedAt||s.openedAt)===today);
@@ -2290,16 +2375,27 @@ function recalcMemberDebtLocal(member){
   },0);
   member.debt = debt;
 }
+async function fetchAllRows(makeQuery){
+  const out = [];
+  for(let from = 0; ; from += 1000){
+    const { data, error } = await makeQuery().range(from, from + 999);
+    if(error) throw error;
+    out.push(...(data||[]));
+    if(!data || data.length < 1000) return out;
+  }
+}
 const MembersStore = {
   async load(){
     if(isCloudMode()){
       const tenantId = storageApi.tenantId;
-      const [{data:rows,error:mErr},{data:deps,error:dErr},{data:entries,error:eErr}] = await Promise.all([
-        supabaseClient.from('members').select('*').eq('tenant_id', tenantId),
-        supabaseClient.from('member_dependents').select('*').eq('tenant_id', tenantId),
-        supabaseClient.from('member_debt_entries').select('*').eq('tenant_id', tenantId).order('at',{ascending:false})
+      // O Supabase devolve no máximo 1000 linhas por consulta: o clube tem mais de 1000 sócios e
+      // o extrato de fiado passa disso. Sem paginar, sócio e lançamento ficavam de fora (e o
+      // saldo recalculado no aparelho saía errado).
+      const [rows, deps, entries] = await Promise.all([
+        fetchAllRows(()=>supabaseClient.from('members').select('*').eq('tenant_id', tenantId).order('id')),
+        fetchAllRows(()=>supabaseClient.from('member_dependents').select('*').eq('tenant_id', tenantId).order('id')),
+        fetchAllRows(()=>supabaseClient.from('member_debt_entries').select('*').eq('tenant_id', tenantId).order('at',{ascending:false}).order('id'))
       ]);
-      if(mErr) throw mErr; if(dErr) throw dErr; if(eErr) throw eErr;
       const depsByMember = {}, entriesByMember = {};
       (deps||[]).forEach(d=>{ (depsByMember[d.member_id] = depsByMember[d.member_id]||[]).push(memberDependentFromRow(d)); });
       (entries||[]).forEach(e=>{ (entriesByMember[e.member_id] = entriesByMember[e.member_id]||[]).push(debtEntryFromRow(e)); });
@@ -2307,6 +2403,32 @@ const MembersStore = {
     }
     const r = await storageApi.get(STORE.members);
     return r ? JSON.parse(r.value) : [];
+  },
+  // Relê um sócio inteiro (cadastro, dependentes e extrato) do servidor. Usado antes de checar o
+  // bloqueio por fiado: o fiado pode ter sido lançado em outro aparelho.
+  async refreshOne(id){
+    if(!isCloudMode()) return state.members.find(x=>x.id===id)||null;
+    const [{data:row,error:e1},{data:deps,error:e2},entries] = await Promise.all([
+      supabaseClient.from('members').select('*').eq('id', id).maybeSingle(),
+      supabaseClient.from('member_dependents').select('*').eq('member_id', id),
+      fetchAllRows(()=>supabaseClient.from('member_debt_entries').select('*').eq('member_id', id).order('at',{ascending:false}).order('id'))
+    ]);
+    if(e1) throw e1; if(e2) throw e2;
+    if(!row) return null;
+    const fresh = memberFromRow(row, (deps||[]).map(memberDependentFromRow), (entries||[]).map(debtEntryFromRow));
+    const cur = state.members.find(x=>x.id===id);
+    if(cur){ Object.assign(cur, fresh); return cur; }
+    state.members.push(fresh); return fresh;
+  },
+  // A cada 30 s: acerta a dívida e a liberação dos sócios que mudaram em outro aparelho.
+  async refreshDebts(){
+    if(!isCloudMode()) return false;
+    const rows = await fetchAllRows(()=>supabaseClient.from('members').select('id,debt,debt_release').eq('tenant_id', storageApi.tenantId).or('debt.neq.0,debt_release.not.is.null').order('id'));
+    const seen = new Set(), changed = [];
+    rows.forEach(r=>{ seen.add(r.id); const m=state.members.find(x=>x.id===r.id); if(!m) return; if(Math.abs((Number(r.debt)||0)-(Number(m.debt)||0))>0.009 || JSON.stringify(r.debt_release||null)!==JSON.stringify(m.debtRelease||null)) changed.push(m.id); });
+    state.members.forEach(m=>{ if(!seen.has(m.id) && (Math.abs(Number(m.debt)||0)>0.009 || m.debtRelease)) changed.push(m.id); });
+    for(const id of changed.slice(0,20)){ try{ await this.refreshOne(id); }catch(e){} }
+    return changed.length>0;
   },
   async create(data){
     if(isCloudMode()){
@@ -4793,6 +4915,7 @@ function openPaymentModal(mode, comandaId){
     </div>
     <div class="field"><label>Associado (opcional — necessário para fiado)</label>
       <select id="paySelMember"><option value="">— Cliente avulso —</option>${memberOptions}</select></div>
+    <label class="comp-switch" id="payUseCreditBox" style="margin:0 0 8px" hidden><input type="checkbox" id="payUseCredit"><span></span> <b id="payUseCreditLabel" style="font-weight:400">Usar crédito do sócio</b></label>
     <label class="np-label" style="margin-top:12px;display:block">Forma de pagamento <span style="text-transform:none;font-weight:400">(atalho de teclado entre parênteses)</span></label>
     <div class="pay-method-grid" id="payMethodGrid">
       ${methods.map(m=>`<button class="pay-method-btn" data-key="${m.key}" data-method="${h(m.method)}" onclick="selectPayMethod(${jsArg(m.key)})"><span class="pay-method-icon">${m.icon}</span><span>${h(m.label)}</span><span class="pay-method-key">${m.key}</span></button>`).join('')}
@@ -4821,7 +4944,11 @@ function openPaymentModal(mode, comandaId){
   function recomputeTotals(){
     const afterCoupon = Math.max(0, subtotal-discount);
     const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
-    creditApplied = Math.min(memberAvailableCredit(member), Math.max(0, afterCoupon-partialPaid));
+    // Crédito do sócio só entra se o caixa marcar (decisão do dono, 10/10).
+    const available = memberAvailableCredit(member), creditBox = document.getElementById('payUseCreditBox');
+    creditBox.hidden = !(available>0.009);
+    if(available>0.009) document.getElementById('payUseCreditLabel').textContent = 'Usar crédito do sócio (disponível '+fmt(available)+')';
+    creditApplied = available>0.009 && document.getElementById('payUseCredit').checked ? Math.min(available, Math.max(0, afterCoupon-partialPaid)) : 0;
     const afterDiscount = Math.max(0, afterCoupon-creditApplied);
     const service = applyService ? serviceChargeAmount(afterDiscount) : 0;
     serviceAmount = Math.round(service*100)/100;
@@ -4858,7 +4985,8 @@ function openPaymentModal(mode, comandaId){
     const blocked = opt && opt.dataset.blocked==='1';
     document.getElementById('fiadoWarning').style.display = (currentMethod().method==='fiado' && blocked) ? 'block':'none';
   }
-  selMember.onchange = ()=>{ checkFiado(); changeDecision='troco'; tempPayments=[]; recomputeTotals(); };
+  selMember.onchange = ()=>{ checkFiado(); changeDecision='troco'; tempPayments=[]; document.getElementById('payUseCredit').checked=false; recomputeTotals(); };
+  document.getElementById('payUseCredit').onchange = ()=>{ tempPayments=[]; recomputeTotals(); };
   function renderPaymentParts(){
     const received = tempPayments.reduce((a,p)=>a+p.amount,0);
     const balance = finalTotal-received;
@@ -6274,10 +6402,13 @@ async function saveNewNamedComanda(){
   const choice=window.selectedComandaAccount;if(!choice&&!customerName){toast('Busque e selecione uma cota ou informe o cliente avulso.');return;}
   if(choice&&choice.memberId){
     const member = state.members.find(x=>x.id===choice.memberId);
-    if(blockIfMemberInDebt(member)) return;
     const existing=state.sales.find(x=>x.status==='open'&&x.memberId===choice.memberId);if(existing){closeModal();renderAll();toast('Essa cota já tem uma comanda aberta — abrindo ela.');openComanda(existing.id,true);return;}
+    if(!await ensureMemberCanOpen(member, ()=>createComandaForAccount(choice,''))) return;
   }
-  const s={id:uid(),type:'comanda',tableNumber:null,orderNumber:await nextOrderNumber(),memberId:choice&&choice.memberId||null,dependentId:null,dependentName:'',customerName:choice?choice.name:customerName,items:[],total:0,status:'open',payments:[],openedAt:new Date().toISOString()};state.sales.push(s);save('sales');closeModal();renderAll();openNovoPedidoModal(s.id);
+  await createComandaForAccount(choice, customerName);
+}
+async function createComandaForAccount(choice, customerName){
+  const s={id:uid(),type:'comanda',tableNumber:null,orderNumber:await nextOrderNumber(),memberId:choice&&choice.memberId||null,dependentId:null,dependentName:'',customerName:choice?choice.name:customerName,items:[],total:0,status:'open',payments:[],openedAt:new Date().toISOString(),operatorName:currentUser.name};state.sales.push(s);save('sales');closeModal();renderAll();openNovoPedidoModal(s.id);
 }
 
 /* ============ MODO GARÇOM (mobile) ============ */
@@ -6529,7 +6660,7 @@ async function gcSelectMember(memberId){
   const m = state.members.find(x=>x.id===memberId); if(!m) return;
   const existing = state.sales.find(s=>s.status==='open' && s.memberId===memberId);
   if(existing){ gcOpenFlow(existing.id); return; }
-  if(memberBlockedByDebt(m)){ blockIfMemberInDebt(m); return; }
+  if(!await ensureMemberCanOpen(m, ()=>gcSelectMember(memberId))) return;
   const s = { id:uid(), type:'comanda', tableNumber:null, orderNumber:await nextOrderNumber(), memberId:m.id, dependentId:null, dependentName:'', customerName:m.name, items:[], total:0, status:'open', payments:[], openedAt:new Date().toISOString(), operatorName:currentUser.name };
   state.sales.push(s); save('sales');
   gcOpenFlow(s.id);
@@ -6721,7 +6852,7 @@ async function acceptRequest(id){
   const r = state.requests.find(x=>x.id===id); if(!r) return;
   let sale = state.sales.find(s=>s.status==='open' && ((r.memberId && s.memberId===r.memberId) || (!r.memberId && s.customerName===r.customerName)));
   const createdSale = !sale;
-  if(!sale && r.memberId && blockIfMemberInDebt(state.members.find(m=>m.id===r.memberId))) return;
+  if(!sale && r.memberId && !await ensureMemberCanOpen(state.members.find(m=>m.id===r.memberId), ()=>acceptRequest(id))) return;
   if(!sale){
     sale = { id:uid(), type:'comanda', memberId:r.memberId, customerName:r.customerName, items:[], total:0, status:'open', payments:[], openedAt:new Date().toISOString() };
     state.sales.push(sale);
@@ -6834,7 +6965,10 @@ function renderCaixa(){
   const el = document.getElementById('view-caixa');
   const s = state.cashSession;
   if(!s || s.status==='closed'){
-    el.innerHTML = `<div class="consumer-workspace"><section class="cash-window"><header class="cash-title">Caixa</header><div class="cash-layout"><aside class="cash-side"><div class="cash-state">Caixa Fechado</div><div class="field"><label>Saldo inicial (dinheiro)</label><input type="number" id="openAmount" step="0.01" value="0.00"></div><div class="field"><label>Observação</label><textarea id="openNote" rows="5"></textarea></div><button class="op-btn primary" id="btnOpenCash" style="width:100%"><span class="op-ico">▷</span> Abrir Caixa</button></aside><div class="cash-main"><div class="cash-id">ID do Caixa: <b>[Fechado]</b></div><h2 style="text-transform:none">Caixa de ${h(currentUser.name.toLowerCase())}</h2><div class="cash-empty">Não há entradas ou saídas.<br>(Caixa fechado).<br>Clique em “Abrir Caixa” para iniciar as vendas.</div></div></div></section>${renderCashHistoryPanel()}</div>`;
+    // Pedido do dono (10/10): a abertura vem com o dinheiro contado no último fechamento.
+    const lastClosed = (state.cashHistory||[]).filter(c=>c.closedAt).sort((a,b)=>new Date(b.closedAt)-new Date(a.closedAt))[0];
+    const lastCounted = lastClosed && Number.isFinite(Number(lastClosed.countedAmount)) ? Number(lastClosed.countedAmount) : null;
+    el.innerHTML = `<div class="consumer-workspace"><section class="cash-window"><header class="cash-title">Caixa</header><div class="cash-layout"><aside class="cash-side"><div class="cash-state">Caixa Fechado</div><div class="field"><label>Saldo inicial (dinheiro)</label><input type="number" id="openAmount" step="0.01" value="${lastCounted!==null?lastCounted.toFixed(2):'0.00'}">${lastCounted!==null?`<small class="sub">Contado no fechamento de ${reportDateTime(lastClosed.closedAt)}. Confira a gaveta.</small>`:''}</div><div class="field"><label>Observação</label><textarea id="openNote" rows="5"></textarea></div><button class="op-btn primary" id="btnOpenCash" style="width:100%"><span class="op-ico">▷</span> Abrir Caixa</button></aside><div class="cash-main"><div class="cash-id">ID do Caixa: <b>[Fechado]</b></div><h2 style="text-transform:none">Caixa de ${h(currentUser.name.toLowerCase())}</h2><div class="cash-empty">Não há entradas ou saídas.<br>(Caixa fechado).<br>Clique em “Abrir Caixa” para iniciar as vendas.</div></div></div></section>${renderCashHistoryPanel()}</div>`;
     document.getElementById('btnOpenCash').onclick = async (ev)=>{
       const v = parseFloat(document.getElementById('openAmount').value)||0;
       const session = { id:uid(), displayId:(state.cashHistory.length||0)+1, openedAt:new Date().toISOString(), openingAmount:v, openingNote:document.getElementById('openNote').value.trim(), status:'open', operatorName: currentUser.name };
@@ -8285,7 +8419,7 @@ function openFiadoEntry(type){if(type==='debt'?!hasPerm('contas'):!(hasPerm('con
     if(type==='payment')recordFiadoPaymentInCash(m,value,method,savedId);
   }catch(e){console.error('Falha ao gravar lançamento de fiado',e);toast('Não foi possível gravar agora. Confira a internet e tente de novo.');return;}
   finally{saveBtn.disabled=false;}
-  logAction(`${type==='debt'?'Dívida':'Pagamento de fiado'}: ${m.name} — ${fmt(value)}`);closeModal();renderAll();toast('Conta corrente atualizada.');};}
+  logAction(`${type==='debt'?'Dívida':'Pagamento de fiado'}: ${m.name} — ${fmt(value)}`);closeModal();renderAll();toast('Conta corrente atualizada.');runAfterFiadoPaid(m,type);};}
 async function reverseFiadoEntry(memberId,entryId){if(!hasPerm('contas')){toast('Só o administrador estorna lançamento de fiado.');return;}const m=state.members.find(x=>x.id===memberId),entry=m&&Array.isArray(m.debtHistory)?m.debtHistory.find(x=>x.id===entryId):null;if(!entry||entry.reversed)return;if(!confirm('Estornar este lançamento?'))return;
   try{await MembersStore.reverseDebtEntry(memberId,entryId,currentUser.name);}
   catch(e){console.error('Falha ao estornar fiado',e);toast('Não foi possível estornar agora. Confira a internet e tente de novo.');return;}
@@ -8434,6 +8568,8 @@ function startApp(){
     if(cozView && cozView.classList.contains('active')) renderCozinha();
     const comandasView = document.getElementById('view-comandas');
     if(comandasView && comandasView.classList.contains('active')) renderComandas();
+    // OP-14: fiado lançado em outro aparelho bloqueia o sócio aqui também.
+    MembersStore.refreshDebts().then(changed=>{ if(changed && !document.querySelector('#modalRoot .modal')) renderAll(); }).catch(()=>{});
     // BD-03: caixa aberto/fechado/lançado em outro aparelho aparece aqui também.
     refreshCashState().then(changed=>{ if(changed && !document.querySelector('#modalRoot .modal')) renderAll(); else if(changed) renderScoreboard(); });
   }, 30000);
