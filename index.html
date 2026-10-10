@@ -1051,6 +1051,11 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 /* OP-14: link discreto (liberar sócio com senha de administrador) */
 .link-btn{background:none;border:0;padding:4px 0;color:var(--c-text-2);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer}
 .link-btn:hover{color:var(--c-text)}
+/* Transferir itens: lista com escolha item a item */
+.transfer-items{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto}
+.field .transfer-item{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;margin:0;padding:7px 10px;border:1px solid var(--c-border);border-radius:8px;background:var(--c-surface);color:var(--c-text);font-size:14px;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer}
+.field .transfer-item input{width:18px;height:18px;margin:0;padding:0}
+.field .transfer-item .sub{font-size:12px;margin:0}
 /* OP-14: comandas abertas no fechamento */
 .cash-open-summary{margin:12px 0 4px;padding:10px 12px;border:1px solid var(--c-border);border-radius:10px;background:var(--c-surface-2);text-align:left}
 .cash-open-summary .sub{margin:2px 0 8px}
@@ -6346,8 +6351,87 @@ function openComandaTransferOptions(saleId){
   modal.style.width='380px';
 }
 function viewComandaSummary(saleId){toggleComandaOrderOptions(false);const s=state.sales.find(x=>x.id===saleId);if(!s)return;const member=s.memberId?state.members.find(m=>m.id===s.memberId):null,who=member?member.name:(s.customerName||'Avulso'),items=(currentSaleDraft.items||[]).filter(i=>!i.canceled),total=saleTotal(items);openModal('Conta Resumida — '+who,`<div class="finance-grid" style="max-height:320px"><table><thead><tr><th>Produto</th><th>Qtd.</th><th>Valor Unit.</th><th>Total</th></tr></thead><tbody>${items.length?items.map(i=>`<tr><td>${h(i.name)}</td><td>${i.qty}</td><td class="mono">${fmt(i.price)}</td><td class="mono">${fmt(i.price*i.qty)}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Nenhum item lançado.</td></tr>'}</tbody></table></div><div style="display:flex;justify-content:space-between;margin:14px 4px;font-size:18px;font-weight:700"><span>Total</span><span class="mono">${fmt(total)}</span></div><div class="consumer-modal-actions"><button onclick="closeModal();openComanda(${jsArg(saleId)},true)">〈 Voltar</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button></div>`,true);}
-function openComandaItemTransfer(saleId){toggleComandaOrderOptions(false);const targets=state.sales.filter(x=>x.status==='open'&&x.id!==saleId);if(!targets.length){toast('Não há outro pedido aberto para transferir ou copiar itens.');return;}const opts=targets.map(t=>{const m=t.memberId?state.members.find(x=>x.id===t.memberId):null,who=m?m.name:(t.customerName||'Avulso');return `<option value="${t.id}">${h(who)}${t.orderNumber?' — Pedido #'+t.orderNumber:''}</option>`;}).join('');openModal('Transferir/Copiar Itens para Outro Pedido',`<p class="sub">Selecione o pedido de destino e o que deseja fazer com os itens ainda não enviados à cozinha.</p><div class="field"><label>Pedido de destino</label><select id="transferTargetSale">${opts}</select></div><div class="field"><label>Ação</label><select id="transferMode"><option value="move">Transferir (remove daqui)</option><option value="copy">Copiar (mantém aqui também)</option></select></div><div class="consumer-modal-actions"><button onclick="closeModal();openComanda(${jsArg(saleId)},true)">〈 Voltar</button><button class="consumer-save" onclick="confirmComandaItemTransfer(${jsArg(saleId)})">✓ Confirmar</button></div>`,true);}
-function confirmComandaItemTransfer(saleId){const targetId=document.getElementById('transferTargetSale').value,mode=document.getElementById('transferMode').value,target=state.sales.find(x=>x.id===targetId);if(!target){toast('Selecione um pedido de destino.');return;}const unsent=currentSaleDraft.items.filter(i=>!i.sent);if(!unsent.length){toast('Não há itens novos (ainda não enviados) para transferir ou copiar.');return;}target.items=[...(target.items||[]),...unsent.map(i=>({...i}))];target.total=saleTotal(target.items);if(mode==='move'){currentSaleDraft.items=currentSaleDraft.items.filter(i=>i.sent);const s=state.sales.find(x=>x.id===saleId);if(s){s.items=currentSaleDraft.items;s.total=draftTotal();}}save('sales');closeModal();renderAll();toast(mode==='move'?'Itens transferidos.':'Itens copiados.');logAction('Itens '+(mode==='move'?'transferidos':'copiados')+' entre pedidos');if(mode==='move')openComanda(saleId,true);}
+// Transferir/copiar itens (pedido do dono, 10/10): o destino pode ser uma comanda nova, aberta
+// ali mesmo (sócio ou avulso), e os itens são escolhidos um a um, inclusive os já enviados à
+// cozinha (lançado na comanda errada). Copiar continua só para itens ainda não enviados: copiar
+// um enviado cobraria duas vezes sem a cozinha saber.
+let transferAccount = null;
+function openComandaItemTransfer(saleId){
+  toggleComandaOrderOptions(false);
+  const items=(currentSaleDraft.items||[]).map((it,idx)=>({it,idx})).filter(x=>!x.it.canceled);
+  if(!items.length){ toast('Não há itens nesta comanda para transferir.'); return; }
+  transferAccount=null;
+  const targets=state.sales.filter(x=>x.status==='open'&&!x.canceled&&x.id!==saleId&&x.type==='comanda');
+  const opts=targets.map(t=>{const m=t.memberId?state.members.find(x=>x.id===t.memberId):null,who=m?m.name:(t.customerName||'Avulso');return `<option value="${h(t.id)}">${h(who)}${t.orderNumber?' — Pedido #'+t.orderNumber:''}</option>`;}).join('');
+  const clube=(state.settings.operationMode||'clube')!=='bar';
+  openModal('Transferir/Copiar Itens',`
+    <div class="field"><label>Itens</label><div class="transfer-items">${items.map(({it,idx})=>`<label class="transfer-item"><input type="checkbox" value="${idx}" ${it.sent?'':'checked'}><span>${Number(it.qty)||0}x ${h(it.name)}</span><span class="sub">${it.sent?'já na cozinha':'não enviado'}</span><span class="mono">${fmt((Number(it.qty)||0)*(Number(it.price)||0))}</span></label>`).join('')}</div></div>
+    <div class="field"><label>Pedido de destino</label><select id="transferTargetSale" onchange="toggleTransferNew()">${opts}<option value="__new">＋ Abrir nova comanda…</option></select></div>
+    <div id="transferNewBox" hidden>
+      ${clube?`<div class="field"><label>Sócio (nome ou cota)</label><input id="trAccountSearch" autocomplete="off" placeholder="Digite o nome do titular ou a cota..." oninput="transferAccount=null;filterTransferAccounts(this.value)"></div><div id="trAccountResults" class="comanda-account-results"></div><p class="sub" style="margin:4px 0 8px">Ou, para cliente avulso:</p>`:''}
+      <div class="field"><label>${clube?'Cliente avulso (nome ou mesa)':'Mesa ou nome do cliente'}</label><input id="trCustomer" placeholder="Ex.: Mesa 4 — João" oninput="if(this.value.trim()){transferAccount=null;const b=document.getElementById('trAccountSearch');if(b)b.value='';}"></div>
+    </div>
+    <div class="field"><label>Ação</label><select id="transferMode"><option value="move">Transferir (remove daqui)</option><option value="copy">Copiar (mantém aqui também)</option></select></div>
+    <div class="consumer-modal-actions"><button onclick="closeModal();openComanda(${jsArg(saleId)},true)">〈 Voltar</button><button class="consumer-save" onclick="confirmComandaItemTransfer(${jsArg(saleId)})">✓ Confirmar</button></div>`,true);
+  if(!targets.length){ document.getElementById('transferTargetSale').value='__new'; toggleTransferNew(); }
+}
+function toggleTransferNew(){ const box=document.getElementById('transferNewBox'); if(box) box.hidden=document.getElementById('transferTargetSale').value!=='__new'; }
+function filterTransferAccounts(value){
+  const q=String(value||'').trim().toLowerCase(), box=document.getElementById('trAccountResults'); if(!box) return;
+  if(!q){ box.innerHTML=''; return; }
+  const choices=comandaAccountChoices().filter(x=>[x.name,x.quota].join(' ').toLowerCase().includes(q)).slice(0,20);
+  box.innerHTML=choices.map(x=>`<button type="button" class="comanda-account-choice" onclick="selectTransferAccount(${jsArg(x.key)})"><b>${h(x.name)}</b><span>Titular${x.quota?' · Cota '+h(x.quota):''}</span></button>`).join('')||'<p class="empty">Nenhum titular ou cota encontrado.</p>';
+}
+function selectTransferAccount(key){
+  const c=comandaAccountChoices().find(x=>x.key===key); if(!c) return;
+  transferAccount=c;
+  document.getElementById('trAccountSearch').value=c.quota?c.name+' — Cota '+c.quota:c.name;
+  document.getElementById('trAccountResults').innerHTML='';
+  const cust=document.getElementById('trCustomer'); if(cust) cust.value='';
+}
+async function confirmComandaItemTransfer(saleId){
+  const src=state.sales.find(x=>x.id===saleId); if(!src) return;
+  const mode=document.getElementById('transferMode').value;
+  const picked=[...document.querySelectorAll('.transfer-item input:checked')].map(x=>currentSaleDraft.items[Number(x.value)]).filter(Boolean);
+  if(!picked.length){ toast('Marque os itens que vão para o outro pedido.'); return; }
+  if(mode==='copy' && picked.some(i=>i.sent)){ toast('Copiar só vale para itens ainda não enviados à cozinha. Para item já enviado, use Transferir.'); return; }
+  if(mode==='move'){
+    const rest=saleTotal(currentSaleDraft.items.filter(i=>!picked.includes(i)));
+    if(comandaPartialPaid(src)>rest+0.009){ toast('Esta comanda já recebeu '+fmt(comandaPartialPaid(src))+' em pagamento parcial; sem esses itens o total fica menor que isso. Estorne o parcial antes.'); return; }
+  }
+  let targetId=document.getElementById('transferTargetSale').value, target=null, created=false;
+  if(targetId==='__new'){
+    const customer=(document.getElementById('trCustomer')||{}).value?.trim()||'';
+    const choice=transferAccount;
+    if(!choice && !customer){ toast('Escolha o sócio ou informe o cliente avulso da nova comanda.'); return; }
+    if(choice && choice.memberId){
+      const existing=state.sales.find(x=>x.status==='open'&&!x.canceled&&x.memberId===choice.memberId&&x.id!==saleId);
+      if(existing){ target=existing; }
+      else if(!await ensureMemberCanOpen(state.members.find(m=>m.id===choice.memberId), ()=>openComanda(saleId,true))) return;
+    }
+    if(!target){
+      target={id:uid(),type:'comanda',tableNumber:null,orderNumber:await nextOrderNumber(),memberId:choice&&choice.memberId||null,dependentId:null,dependentName:'',customerName:choice?choice.name:customer,items:[],total:0,status:'open',payments:[],openedAt:new Date().toISOString(),operatorName:currentUser.name};
+      state.sales.push(target); created=true;
+    }
+    targetId=target.id;
+  } else {
+    target=state.sales.find(x=>x.id===targetId);
+  }
+  if(!target){ toast('Selecione um pedido de destino.'); return; }
+  const moved=picked.map(i=>mode==='copy'?{...i,lineId:uid()}:{...i});
+  const movedKeys=new Set(picked.map(comandaItemKey));
+  if(created){ target.items=moved; target.total=saleTotal(target.items); await save('sales'); }
+  else await commitSaleChange(targetId, cur=>{ cur.items=[...(cur.items||[]), ...moved]; cur.total=saleTotal(cur.items); });
+  if(mode==='move'){
+    currentSaleDraft.items=currentSaleDraft.items.filter(i=>!picked.includes(i));
+    await commitSaleChange(saleId, cur=>{ cur.items=(cur.items||[]).filter(i=>!movedKeys.has(comandaItemKey(i))); cur.total=saleTotal(cur.items); });
+  }
+  const dest=target.customerName||'Avulso';
+  logAction('Itens '+(mode==='move'?'transferidos':'copiados')+' do pedido #'+(src.orderNumber||saleId)+' para #'+(target.orderNumber||targetId)+(created?' (comanda nova)':'')+': '+picked.map(i=>i.qty+'x '+i.name).join(', '));
+  closeModal(); renderAll();
+  toast((mode==='move'?'Itens transferidos':'Itens copiados')+' para '+dest+(created?' (comanda nova aberta)':'')+'.');
+  openComanda(saleId,true);
+}
 function printComandaConsumption(saleId){toggleComandaOrderOptions(false);window.print();}
 function recalculateComandaOrder(saleId){toggleComandaOrderOptions(false);renderDraftItems();toast('Pedido recalculado.');}
 async function deleteComandaOrder(saleId){toggleComandaOrderOptions(false);const s=state.sales.find(x=>x.id===saleId);if(!s)return;if((s.items||[]).some(i=>i.sent)){toast('Este pedido já tem itens enviados à cozinha e não pode ser excluído. Use o fechamento normal.');return;}if(!await askConfirm({title:'Excluir este pedido?',message:'Essa ação não pode ser desfeita.',confirmLabel:'Excluir pedido'}))return;state.sales=state.sales.filter(x=>x.id!==saleId);save('sales');closeModal();renderAll();toast('Pedido excluído.');logAction('Pedido excluído: '+saleId);}
