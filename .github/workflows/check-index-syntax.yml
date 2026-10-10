@@ -7,9 +7,10 @@ name: Check index.html JS syntax
 # em todo PR que tocar index.html, como segundo gate antes do merge.
 
 on:
+  # Roda em TODO PR (nao so nos que mexem no index.html): desde o OPS-05 a main
+  # esta protegida e exige este check; com filtro de caminho, PR so de
+  # documentacao ficaria esperando um check que nunca roda.
   pull_request:
-    paths:
-      - 'index.html'
   # Push direto em main publica no Pages sem passar por PR: roda aqui tambem,
   # pra pelo menos ficar vermelho (e mandar e-mail) se algo quebrado subiu.
   push:
