@@ -27,7 +27,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 ### Agente de impressão 2.0 (10/10, noite) — PR #78 no ar, merge `92e950b` (OPS-12 resolvido)
 - Código em `agente-impressao/` (C#, .NET Framework 4.8; `build.cmd` usa o `csc` do Windows, gera `dist\CommandahImpressora.exe` de ~39 KB, `dist/` fora do git). README com instalação.
 - Fila: `print_agent_ping` (migration `20261011030000`, aplicada e registrada pelo dono; testada em produção com token falso → `{"ok": false}`), `fetch_pending` a cada 3 s, `claim_job`, `mark_status`. Rede: ESC/POS na 9100 (0x01→0x00). Windows: `PrintDocument` com Consolas ajustada à largura. Impressora ausente no PC: ficha fica pendente. Local `127.0.0.1:9123` (`/status`, `/print` com `ip`), CORS + Private Network Access.
-- Config em `%APPDATA%\Commandahgente-impressao.json` (token com DPAPI; `printToFileDir` só para teste). Primeira execução liga "iniciar com o Windows" (HKCU Run `CommandahImpressora`).
+- Config em `%APPDATA%/Commandah/agente-impressao.json` (token com DPAPI; `printToFileDir` só para teste). Primeira execução liga "iniciar com o Windows" (HKCU Run `CommandahImpressora`).
 - **Falta no clube:** copiar o exe (cópia na Área de Trabalho do PC do Fabricio), gerar token novo em Configurações › Impressoras (dono), colar no agente, imprimir teste, conferir "Nome exato no Windows"/IP de cada impressora. Ainda não testado em impressora real nem com produção.
 
 ### Fechamento da auditoria de 07/10 (10/10, noite)
