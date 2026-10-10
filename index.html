@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- SEG-12 (auditoria 2026-10-07): o navegador só carrega código e só conversa com os endereços
+     abaixo (Supabase, CDNs das bibliotecas, Google Fonts, captcha da Cloudflare e o agente de
+     impressão local). 'unsafe-inline' continua porque o sistema inteiro é script inline; o SEG-02
+     (jsArg) é o que protege os onclick. Endereço novo no código = acrescentar aqui. Bloqueio em
+     produção aparece em Configurações > Erros do Sistema (securitypolicyviolation). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://ezfoymdesmarpunmixbs.supabase.co wss://ezfoymdesmarpunmixbs.supabase.co http://localhost:9123 http://127.0.0.1:9123; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <title>Commandah — Sistema de Gestão</title>
 <link rel="icon" href="assets/marca/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="assets/marca/favicon-32.png" sizes="32x32" type="image/png">
@@ -2840,6 +2846,8 @@ function reportClientError(message, source, line, col, stack){
   }catch(e){}
 }
 if(typeof window!=='undefined' && window.addEventListener){
+  // SEG-12: o que a política de segurança bloquear também vira registro em Erros do Sistema.
+  document.addEventListener('securitypolicyviolation', e=>reportClientError('CSP bloqueou '+e.effectiveDirective+': '+(e.blockedURI||'inline'), e.sourceFile||'', e.lineNumber||0, e.columnNumber||0, ''));
   window.addEventListener('error', e=>reportClientError(e.message, e.filename, e.lineno, e.colno, e.error && e.error.stack));
   window.addEventListener('unhandledrejection', e=>{ const r = e.reason; reportClientError((r && r.message) || String(r), 'promessa não tratada', 0, 0, r && r.stack); });
 }
