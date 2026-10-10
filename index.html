@@ -5916,7 +5916,7 @@ async function printSingleTicket(who, cota, local, estacao, printer, items, orde
       const res = await fetch(base+'/print', {
         method:'POST', signal:ctrl.signal,
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ printer: targetName, text })
+        body: JSON.stringify({ printer: targetName, text, ip: imp&&imp.ip||'' }) // agente 2.0: impressora de rede pelo IP
       });
       clearTimeout(t);
       if(res.ok){ toast('Impresso automaticamente: '+printer); return; }
