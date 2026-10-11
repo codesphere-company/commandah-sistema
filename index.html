@@ -3628,6 +3628,13 @@ function productAvailability(p){return productAvailable(p);}
 let produtosTab = 'produto';
 let selectedProductId = null;
 let productOptionsOpen = false;
+// A tela é redesenhada a cada clique numa linha (botões Editar/Duplicar/Estoque); a busca
+// digitada fica guardada aqui para não sumir.
+let productSearchQuery = '';
+function applyProductSearch(){
+  const q = productSearchQuery.toLowerCase();
+  document.querySelectorAll('#productRows tr[data-search]').forEach(r=>r.style.display=r.dataset.search.includes(q)?'':'none');
+}
 function productKind(p){ return p.kind==='tamanho'||p.kind==='combo' ? p.kind : 'produto'; }
 function setProdutosTab(kind){ produtosTab=kind; selectedProductId=null; productOptionsOpen=false; renderProdutos(); }
 function selectProductRow(id){ selectedProductId=id; renderProdutos(); }
@@ -3668,7 +3675,7 @@ function renderProdutos(){
   el.innerHTML = `<div class="workspace-gray"><section class="op-window product-window">
     <header class="op-titlebar"><span>Produtos</span><span class="op-controls"><span onclick="closeOperationalWindow()" style="cursor:pointer" title="Fechar">×</span></span></header>
     <div class="op-toolbar">
-      <div class="op-search"><span>⌕</span><input id="productSearch" placeholder="Pesquisar aqui..."></div><div class="op-toolbar-spacer"></div>
+      <div class="op-search"><span>⌕</span><input id="productSearch" placeholder="Pesquisar aqui..." value="${h(productSearchQuery)}"></div><div class="op-toolbar-spacer"></div>
       <div style="position:relative"><button class="op-btn" onclick="toggleProductOptions()"><span class="op-ico">•••</span> Opções <span style="margin-left:8px">▾</span></button>${productOptionsOpen?`<div class="pdv-menu product-options-menu" style="top:48px;right:0;left:auto;min-width:270px"><button onclick="productOptionsOpen=false;window.print()">▣ &nbsp; Imprimir</button><button onclick="openProductOrderModal()">↕ &nbsp; Ajustar Ordem</button><div class="menu-title">Exportar Produtos</div><button onclick="exportProductsXlsx()">▧ &nbsp; Para arquivo Excel (.xlsx)</button><button onclick="exportProductsPackage()">▧ &nbsp; Para arquivo Commandah (.ccprod)</button><div class="menu-title">Importar Produtos</div><button onclick="openProductImportWizard()">▧ &nbsp; De arquivo Excel (.xlsx)</button><button onclick="pickProductsImport('json')">▧ &nbsp; De arquivo Commandah (.ccprod)</button></div>`:''}</div>
       <button class="op-btn" onclick="refreshProductList()">↻ &nbsp; Atualizar Lista</button>
       <button class="op-btn" onclick="duplicateSelectedProduct()" ${selectedProductId?'':'disabled'}>▣ &nbsp; Duplicar</button>
@@ -3684,7 +3691,8 @@ function renderProdutos(){
     <div class="op-grid"><table><thead><tr><th>Cód. Sistema</th><th>Categoria</th><th>Nome</th><th>Preço Custo</th><th>Preço Venda</th><th>Medida</th><th>Estoque</th><th>Estoque Mín</th><th>Sit. Estoque</th><th>Ficha Técnica</th><th>Status Venda</th><th>Cód. PDV</th></tr></thead><tbody id="productRows">${rows}</tbody></table></div>
     <footer class="op-footer"><span>Registros: ${list.length}</span><span>Média=${fmt(avgCost)}</span><span>Média=${fmt(avgPrice)}</span></footer>
   </section></div>`;
-  document.getElementById('productSearch').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#productRows tr[data-search]').forEach(r=>r.style.display=r.dataset.search.includes(q)?'':'none');};
+  document.getElementById('productSearch').oninput=e=>{productSearchQuery=e.target.value;applyProductSearch();};
+  applyProductSearch();
 }
 function exportProductsXlsx(){
   productOptionsOpen=false;
@@ -4000,7 +4008,11 @@ function openProductModal(id){
     if(!Number.isFinite(minStock) || minStock<0 || !Number.isFinite(sortOrder)){ toast('Estoque mínimo e ordem devem ser números válidos.'); return; }
     if(tempRecipe.some(r=>!r.insumoId || !Number.isFinite(Number(r.qty)) || Number(r.qty)<=0)){ toast('Toda quantidade da ficha técnica deve ser maior que zero.'); return; }
     const code=document.getElementById('pCode').value.trim();
-    if(code && state.products.some(x=>x.id!==(p&&p.id) && String(x.code||'').toLowerCase()===code.toLowerCase())){ toast('Já existe um produto com este código.'); return; }
+    // Só confere repetição quando o código é novo ou foi trocado: código repetido que já veio
+    // assim (ex.: importação) não pode impedir de editar o resto do cadastro.
+    const codeChanged = !p || String(p.code||'').toLowerCase()!==code.toLowerCase();
+    const sameCode = code && codeChanged && state.products.find(x=>x.id!==(p&&p.id) && String(x.code||'').toLowerCase()===code.toLowerCase());
+    if(sameCode){ toast('O código '+code+' já é do produto "'+sameCode.name+'". Use outro código ou deixe em branco.'); return; }
     const data = { code, image:window.productImageDraft||'', kind:document.getElementById('pKind').value, name, category:document.getElementById('pCat').value, price,
       measure:document.getElementById('pMeasure').value, minStock, sortOrder, active:document.getElementById('pActive').checked, recipe:tempRecipe.filter(r=>r.insumoId),
       manualCost:parseFloat(document.getElementById('pManualCost').value)||0, description:document.getElementById('pDescription').value.trim(),
