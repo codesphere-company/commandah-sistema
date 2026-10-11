@@ -58,7 +58,13 @@ namespace Commandah.Agente
                     if (method == "OPTIONS") { Send(stream, 204, ""); return; }
                     if (method == "GET" && path.StartsWith("/status"))
                     {
-                        Send(stream, 200, "{\"ok\":true,\"version\":\"" + Config.Version + "\",\"agent\":\"commandah\"}");
+                        // agent_id/agent_name: o Commandah aberto neste computador descobre qual
+                        // computador é (para "tudo que for lançado aqui sai na impressora do caixa").
+                        var st = new Dictionary<string, object>();
+                        st["ok"] = true; st["version"] = Config.Version; st["agent"] = "commandah";
+                        st["agent_id"] = agent.Cfg.AgentId ?? ""; st["agent_name"] = agent.Cfg.AgentName ?? "";
+                        st["connected"] = agent.State == AgentState.Conectado;
+                        Send(stream, 200, new JavaScriptSerializer().Serialize(st));
                         return;
                     }
                     if (method == "POST" && path.StartsWith("/print"))

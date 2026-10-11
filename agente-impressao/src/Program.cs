@@ -73,7 +73,7 @@ namespace Commandah.Agente
         void UpdateTray()
         {
             tray.Icon = AgentIcons.For(agent.State);
-            string t = agent.State == AgentState.Conectado ? "Commandah: imprimindo" : agent.State == AgentState.SemToken ? "Commandah: falta o token" : agent.State == AgentState.TokenInvalido ? "Commandah: token inválido" : "Commandah: sem conexão";
+            string t = agent.State == AgentState.Conectado ? "Commandah: imprimindo" : agent.State == AgentState.SemToken ? "Commandah: aguardando conexão (código)" : agent.State == AgentState.TokenInvalido ? "Commandah: computador desconectado" : "Commandah: sem conexão";
             tray.Text = t;
             if (agent.State != lastState && agent.State != AgentState.Conectado && lastState == AgentState.Conectado)
                 tray.ShowBalloonTip(5000, "Agente de impressão", t + ". As fichas não estão saindo.", ToolTipIcon.Warning);

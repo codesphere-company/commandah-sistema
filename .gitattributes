@@ -4,3 +4,6 @@
 
 # Agente de impressão: o cmd.exe exige CRLF nos .cmd
 *.cmd text eol=crlf
+
+# Agente de impressão para baixar pelo Commandah
+*.exe binary

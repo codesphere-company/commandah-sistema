@@ -1,9 +1,12 @@
 // Fala com o banco (Supabase) pelas funções do agente:
+//   print_agent_pair_start / _pair_poll   -> conectar este computador por código (2.1)
 //   print_agent_ping(token)               -> o token vale? (e carimba "visto agora")
-//   print_agent_fetch_pending(token)      -> fichas pendentes do estabelecimento
+//   print_agent_report(token, ...)        -> impressoras que este computador encontrou (2.1)
+//   print_agent_fetch_pending(token)      -> fichas pendentes para este computador
 //   print_agent_claim_job(token, id)      -> pega a ficha (pendente -> processando)
-//   print_agent_mark_status(token, id, s) -> 'impresso' ou 'erro'
-// O token é o do Commandah em Configurações › Impressoras › Gerar/Regenerar token.
+//   print_agent_mark_status(token, id, s, erro) -> 'impresso' ou 'erro' (com o motivo)
+// O token vem da conexão por código (um por computador) ou, no modo antigo, de
+// Configurações › Impressoras › Gerar/Regenerar token (um por estabelecimento).
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -20,6 +23,29 @@ namespace Commandah.Agente
         public string PrinterIp;
         public string Content;
         public DateTime CreatedAt;
+    }
+
+    public class PingResult
+    {
+        public bool? Ok;      // null = servidor sem a função de checagem (banco antigo)
+        public bool Rescan;   // o Commandah pediu para procurar impressoras de novo
+        public string Name;   // nome deste computador no Commandah (vazio no modo antigo)
+        public string AgentId;
+    }
+
+    public class PairStart
+    {
+        public string Code;
+        public string Secret;
+        public DateTime ExpiresAt;
+    }
+
+    public class PairPoll
+    {
+        public string Status; // waiting | ok | expired
+        public string Token;
+        public string Name;
+        public string AgentId;
     }
 
     public class ApiException : Exception
@@ -77,20 +103,44 @@ namespace Commandah.Agente
             return d;
         }
 
-        // null = servidor sem a função de checagem (banco antigo): não dá para saber.
-        public bool? Ping()
+        public PingResult Ping()
         {
             try
             {
                 var r = Rpc("print_agent_ping", Args("p_token", cfg.Token)) as Dictionary<string, object>;
-                object ok;
-                return r != null && r.TryGetValue("ok", out ok) && ok is bool && (bool)ok;
+                return new PingResult { Ok = r != null && Bool(r, "ok"), Rescan = r != null && Bool(r, "rescan"), Name = r == null ? "" : Str(r, "name"), AgentId = r == null ? "" : Str(r, "agent_id") };
             }
             catch (ApiException e)
             {
-                if (e.Status == 404) return null;
+                if (e.Status == 404) return new PingResult { Ok = null };
                 throw;
             }
+        }
+
+        public PairStart StartPairing(string machine)
+        {
+            var r = Rpc("print_agent_pair_start", Args("p_machine", machine, "p_version", Config.Version)) as Dictionary<string, object>;
+            if (r == null || Str(r, "code").Length == 0) throw new ApiException(0, "O servidor não devolveu o código.");
+            var p = new PairStart { Code = Str(r, "code"), Secret = Str(r, "secret"), ExpiresAt = DateTime.Now.AddMinutes(30) };
+            DateTime exp;
+            if (DateTime.TryParse(Str(r, "expires_at"), out exp)) p.ExpiresAt = exp;
+            return p;
+        }
+
+        public PairPoll PollPairing(string code, string secret)
+        {
+            var r = Rpc("print_agent_pair_poll", Args("p_code", code, "p_secret", secret)) as Dictionary<string, object>;
+            if (r == null) return new PairPoll { Status = "expired" };
+            return new PairPoll { Status = Str(r, "status"), Token = Str(r, "token"), Name = Str(r, "name"), AgentId = Str(r, "agent_id") };
+        }
+
+        // network = null: não varreu a rede agora (o servidor mantém o que já sabia).
+        // Devolve false quando o token é o do estabelecimento (modo antigo, sem configuração automática).
+        public bool Report(string machine, List<string> windows, List<string> network)
+        {
+            var r = Rpc("print_agent_report", Args("p_token", cfg.Token, "p_machine", machine, "p_version", Config.Version,
+                "p_windows", windows ?? new List<string>(), "p_network", network)) as Dictionary<string, object>;
+            return r != null && Bool(r, "ok");
         }
 
         public List<PrintJob> FetchPending()
@@ -119,15 +169,23 @@ namespace Commandah.Agente
             return r is bool && (bool)r;
         }
 
-        public void MarkStatus(string jobId, bool ok)
+        public void MarkStatus(string jobId, bool ok, string error)
         {
-            Rpc("print_agent_mark_status", Args("p_token", cfg.Token, "p_job_id", jobId, "p_status", ok ? "impresso" : "erro"));
+            var args = Args("p_token", cfg.Token, "p_job_id", jobId, "p_status", ok ? "impresso" : "erro");
+            if (!ok && !string.IsNullOrEmpty(error)) args["p_error"] = error;
+            Rpc("print_agent_mark_status", args);
         }
 
         static string Str(Dictionary<string, object> d, string k)
         {
             object v;
             return d.TryGetValue(k, out v) && v != null ? Convert.ToString(v) : "";
+        }
+
+        static bool Bool(Dictionary<string, object> d, string k)
+        {
+            object v;
+            return d.TryGetValue(k, out v) && v is bool && (bool)v;
         }
     }
 }

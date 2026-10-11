@@ -1,4 +1,5 @@
-// Janela do agente: token, situação, impressoras deste computador, teste e histórico.
+// Janela do agente: conexão com o Commandah (código), situação, impressoras deste
+// computador, teste e histórico.
 using System;
 using System.Drawing;
 using System.Linq;
@@ -10,7 +11,16 @@ namespace Commandah.Agente
     {
         readonly Agent agent;
         readonly Label status = new Label();
+        // Conexão
+        readonly Panel pairPanel = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, WrapContents = false };
+        readonly Label codeLabel = new Label { AutoSize = true, Font = new Font("Consolas", 30f, FontStyle.Bold), ForeColor = Color.FromArgb(13, 120, 90), Margin = new Padding(0, 4, 0, 4) };
+        readonly Label codeExpires = new Label { AutoSize = true, ForeColor = Color.DimGray };
+        readonly Panel connectedPanel = new FlowLayoutPanel { AutoSize = true, WrapContents = false };
+        readonly Label connectedLabel = new Label { AutoSize = true, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), Margin = new Padding(0, 7, 10, 0) };
+        readonly Panel tokenPanel = new FlowLayoutPanel { AutoSize = true, WrapContents = false };
+        readonly LinkLabel tokenLink = new LinkLabel { AutoSize = true, Text = "Tenho um token do estabelecimento (modo antigo)" };
         readonly TextBox token = new TextBox();
+        // Impressoras
         readonly ComboBox printers = new ComboBox();
         readonly TextBox ip = new TextBox();
         readonly ListBox history = new ListBox();
@@ -23,8 +33,8 @@ namespace Commandah.Agente
             this.agent = agent;
             Text = "Commandah — Agente de impressão " + Config.Version;
             Font = new Font("Segoe UI", 10f);
-            ClientSize = new Size(620, 600);
-            MinimumSize = new Size(560, 520);
+            ClientSize = new Size(640, 660);
+            MinimumSize = new Size(580, 580);
             StartPosition = FormStartPosition.CenterScreen;
             Icon = AgentIcons.For(AgentState.Conectado);
 
@@ -42,20 +52,30 @@ namespace Commandah.Agente
             status.Font = new Font("Segoe UI", 11f, FontStyle.Bold);
             root.Controls.Add(status);
 
-            // Token
-            var gToken = Group("1. Token do Commandah");
-            var tokRow = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false };
-            token.Width = 360; token.UseSystemPasswordChar = true; token.Text = agent.Cfg.Token;
+            // 1. Conexão
+            var gConn = Group("1. Conectar este computador ao Commandah");
+            pairPanel.Controls.Add(new Label { AutoSize = true, MaximumSize = new Size(580, 0), Text = "No Commandah, entre como administrador e vá em Configurações › Impressoras › Conectar computador. Digite este código:" });
+            pairPanel.Controls.Add(codeLabel);
+            pairPanel.Controls.Add(codeExpires);
+            var disconnect = new Button { Text = "Desconectar", AutoSize = true };
+            disconnect.Click += (s, e) =>
+            {
+                if (MessageBox.Show("Desconectar este computador do Commandah? As fichas param de sair nas impressoras dele até conectar de novo com um código.", "Commandah", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+                    agent.Disconnect();
+            };
+            connectedPanel.Controls.AddRange(new Control[] { connectedLabel, disconnect });
+            token.Width = 330; token.UseSystemPasswordChar = true;
             var show = new CheckBox { Text = "mostrar", AutoSize = true, Margin = new Padding(6, 6, 6, 0) };
             show.CheckedChanged += (s, e) => token.UseSystemPasswordChar = !show.Checked;
-            var save = new Button { Text = "Salvar", AutoSize = true };
-            save.Click += (s, e) => agent.SetToken(token.Text);
-            tokRow.Controls.AddRange(new Control[] { token, show, save });
-            var tokHelp = new Label { AutoSize = true, MaximumSize = new Size(560, 0), ForeColor = Color.DimGray, Text = "No Commandah: Configurações › Impressoras › Gerar/Regenerar token (só o dono). Gerar um token novo desliga o agente que usava o antigo." };
-            gToken.Controls.Add(Stack(tokRow, tokHelp));
-            root.Controls.Add(gToken);
+            var save = new Button { Text = "Salvar token", AutoSize = true };
+            save.Click += (s, e) => { agent.SetToken(token.Text); tokenPanel.Visible = false; };
+            tokenPanel.Controls.AddRange(new Control[] { token, show, save });
+            tokenPanel.Visible = false;
+            tokenLink.LinkClicked += (s, e) => { tokenPanel.Visible = !tokenPanel.Visible; };
+            gConn.Controls.Add(Stack(pairPanel, connectedPanel, tokenLink, tokenPanel));
+            root.Controls.Add(gConn);
 
-            // Impressoras e teste
+            // 2. Impressoras e teste
             var gPrint = Group("2. Impressoras deste computador e teste");
             printers.DropDownStyle = ComboBoxStyle.DropDownList; printers.Width = 330;
             var reload = new Button { Text = "Atualizar", AutoSize = true };
@@ -70,8 +90,10 @@ namespace Commandah.Agente
             testIp.Click += (s, e) => { if (ip.Text.Trim().Length > 0) agent.PrintTest(null, ip.Text.Trim()); };
             var row2 = new FlowLayoutPanel { AutoSize = true, WrapContents = false };
             row2.Controls.AddRange(new Control[] { new Label { Text = "IP:", AutoSize = true, Margin = new Padding(0, 7, 4, 0) }, ip, testIp });
-            var pHelp = new Label { AutoSize = true, MaximumSize = new Size(560, 0), ForeColor = Color.DimGray, Text = "No cadastro da impressora no Commandah, o \"Nome exato no Windows\" tem que ser igual ao nome desta lista. Impressora de rede: preencha o IP no cadastro." };
-            gPrint.Controls.Add(Stack(row1, row2, pHelp));
+            var scan = new Button { Text = "Procurar impressoras (Windows e rede)", AutoSize = true };
+            scan.Click += (s, e) => { LoadPrinters(); agent.ScanAndReport(); };
+            var pHelp = new Label { AutoSize = true, MaximumSize = new Size(580, 0), ForeColor = Color.DimGray, Text = "Com o computador conectado, as impressoras encontradas aparecem sozinhas no Commandah (Configurações › Impressoras). Lá você escolhe o que cada uma imprime e faz o teste." };
+            gPrint.Controls.Add(Stack(row1, row2, scan, pHelp));
             root.Controls.Add(gPrint);
 
             autostart.Text = "Abrir o agente sozinho quando o Windows iniciar (recomendado)";
@@ -133,21 +155,29 @@ namespace Commandah.Agente
 
         void RefreshView()
         {
+            bool hasToken = !string.IsNullOrEmpty(agent.Cfg.Token);
             switch (agent.State)
             {
                 case AgentState.Conectado:
                     status.Text = "● Conectado — imprimindo as fichas do Commandah" + (agent.PrintedToday > 0 ? " (" + agent.PrintedToday + " desde que abriu)" : "");
                     status.BackColor = Color.FromArgb(220, 245, 230); status.ForeColor = Color.FromArgb(10, 100, 50); break;
                 case AgentState.SemToken:
-                    status.Text = "● Falta o token: cole abaixo e clique em Salvar";
+                    status.Text = "● Aguardando conexão: digite o código abaixo no Commandah";
                     status.BackColor = Color.FromArgb(255, 243, 205); status.ForeColor = Color.FromArgb(120, 80, 0); break;
                 case AgentState.TokenInvalido:
-                    status.Text = "● Token inválido: gere um novo no Commandah e cole abaixo";
+                    status.Text = agent.IsPairedByCode ? "● Computador removido no Commandah: clique em Desconectar" : "● Token inválido: gere um novo no Commandah ou conecte com código";
                     status.BackColor = Color.FromArgb(253, 226, 226); status.ForeColor = Color.FromArgb(150, 20, 20); break;
                 default:
                     status.Text = "● Sem conexão com o servidor — confira a internet";
                     status.BackColor = Color.FromArgb(253, 226, 226); status.ForeColor = Color.FromArgb(150, 20, 20); break;
             }
+            pairPanel.Visible = !hasToken;
+            codeLabel.Text = string.IsNullOrEmpty(agent.PairCode) ? "······" : Agent.FormatCode(agent.PairCode);
+            codeExpires.Text = string.IsNullOrEmpty(agent.PairCode) ? "Pedindo um código ao servidor..." : "Vale até " + agent.PairExpires.ToString("HH:mm") + ". Depois aparece um código novo sozinho.";
+            connectedPanel.Visible = hasToken;
+            connectedLabel.Text = agent.IsPairedByCode ? "Conectado como: " + agent.Cfg.AgentName : "Usando o token do estabelecimento (modo antigo)";
+            tokenLink.Visible = !hasToken;
+            if (hasToken) tokenPanel.Visible = false;
             Icon = AgentIcons.For(agent.State);
             var entries = agent.Entries();
             history.BeginUpdate();

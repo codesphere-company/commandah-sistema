@@ -12,13 +12,15 @@ namespace Commandah.Agente
 {
     public class Config
     {
-        public const string Version = "2.0.0";
+        public const string Version = "2.1.0";
         public const string DefaultApiUrl = "https://ezfoymdesmarpunmixbs.supabase.co";
         public const string DefaultApiKey = "sb_publishable_m56iV0j3aIHlj_jth44jyw_CIw7CmyG";
         const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         const string RunName = "CommandahImpressora";
 
         public string Token = "";
+        public string AgentName = ""; // nome no Commandah quando conectado por código (vazio = token do estabelecimento)
+        public string AgentId = "";   // id deste computador no Commandah (o navegador deste PC lê em /status)
         public string ApiUrl = DefaultApiUrl;
         public string ApiKey = DefaultApiKey;
         public int PollSeconds = 3;
@@ -26,7 +28,15 @@ namespace Commandah.Agente
         public string PrintToFileDir = ""; // só para teste: imprime em arquivo em vez da impressora
         public bool IsNew; // primeira vez neste computador (sem arquivo de configuração)
 
-        static string Dir { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Commandah"); } }
+        // COMMANDAH_AGENT_DIR: só para teste (configuração numa pasta à parte).
+        static string Dir
+        {
+            get
+            {
+                var test = Environment.GetEnvironmentVariable("COMMANDAH_AGENT_DIR");
+                return !string.IsNullOrEmpty(test) ? test : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Commandah");
+            }
+        }
         static string FilePath { get { return Path.Combine(Dir, "agente-impressao.json"); } }
 
         public static Config Load()
@@ -39,6 +49,8 @@ namespace Commandah.Agente
                 object v;
                 if (d.TryGetValue("tokenProtected", out v) && v is string && ((string)v).Length > 0)
                     c.Token = Unprotect((string)v);
+                if (d.TryGetValue("agentName", out v) && v is string) c.AgentName = (string)v;
+                if (d.TryGetValue("agentId", out v) && v is string) c.AgentId = (string)v;
                 if (d.TryGetValue("apiUrl", out v) && v is string && ((string)v).Length > 0) c.ApiUrl = (string)v;
                 if (d.TryGetValue("apiKey", out v) && v is string && ((string)v).Length > 0) c.ApiKey = (string)v;
                 if (d.TryGetValue("pollSeconds", out v) && v is int && (int)v >= 1) c.PollSeconds = (int)v;
@@ -53,6 +65,8 @@ namespace Commandah.Agente
             Directory.CreateDirectory(Dir);
             var d = new Dictionary<string, object>();
             d["tokenProtected"] = string.IsNullOrEmpty(Token) ? "" : Protect(Token);
+            if (!string.IsNullOrEmpty(AgentName)) d["agentName"] = AgentName;
+            if (!string.IsNullOrEmpty(AgentId)) d["agentId"] = AgentId;
             if (ApiUrl != DefaultApiUrl) d["apiUrl"] = ApiUrl;
             if (ApiKey != DefaultApiKey) d["apiKey"] = ApiKey;
             if (PollSeconds != 3) d["pollSeconds"] = PollSeconds;
