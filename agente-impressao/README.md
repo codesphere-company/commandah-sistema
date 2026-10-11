@@ -26,7 +26,7 @@ Fechar a janela não desliga o agente. Para desligar: botão direito no ícone �
 
 1. Copie `CommandahImpressora.exe` para `C:\Commandah\`. De pendrive é o mais simples. Baixado da internet, o Windows pode mostrar "O Windows protegeu o computador": clique em **Mais informações › Executar assim mesmo**.
 2. Abra o programa. Na primeira vez ele já fica marcado para abrir junto com o Windows.
-3. No Commandah, entre como **dono** e vá em **Configurações › Impressoras › Gerar/Regenerar token**. Copie o token.
+3. No Commandah, entre como **administrador** (ou dono) e vá em **Configurações › Impressoras › Gerar/Regenerar token**. Copie o token.
 4. Cole o token no agente e clique em **Salvar**. A faixa do topo fica verde, com "Conectado".
 5. Em **Impressoras deste computador**, escolha a impressora e clique em **Imprimir teste**. Para impressora de rede, digite o IP e clique em **Testar impressora de rede**.
 6. No Commandah, em **Configurações › Impressoras**, confira cada impressora:
