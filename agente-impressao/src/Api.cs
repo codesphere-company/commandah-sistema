@@ -30,6 +30,7 @@ namespace Commandah.Agente
         public bool? Ok;      // null = servidor sem a função de checagem (banco antigo)
         public bool Rescan;   // o Commandah pediu para procurar impressoras de novo
         public string Name;   // nome deste computador no Commandah (vazio no modo antigo)
+        public string AgentId;
     }
 
     public class PairStart
@@ -44,6 +45,7 @@ namespace Commandah.Agente
         public string Status; // waiting | ok | expired
         public string Token;
         public string Name;
+        public string AgentId;
     }
 
     public class ApiException : Exception
@@ -106,7 +108,7 @@ namespace Commandah.Agente
             try
             {
                 var r = Rpc("print_agent_ping", Args("p_token", cfg.Token)) as Dictionary<string, object>;
-                return new PingResult { Ok = r != null && Bool(r, "ok"), Rescan = r != null && Bool(r, "rescan"), Name = r == null ? "" : Str(r, "name") };
+                return new PingResult { Ok = r != null && Bool(r, "ok"), Rescan = r != null && Bool(r, "rescan"), Name = r == null ? "" : Str(r, "name"), AgentId = r == null ? "" : Str(r, "agent_id") };
             }
             catch (ApiException e)
             {
@@ -129,7 +131,7 @@ namespace Commandah.Agente
         {
             var r = Rpc("print_agent_pair_poll", Args("p_code", code, "p_secret", secret)) as Dictionary<string, object>;
             if (r == null) return new PairPoll { Status = "expired" };
-            return new PairPoll { Status = Str(r, "status"), Token = Str(r, "token"), Name = Str(r, "name") };
+            return new PairPoll { Status = Str(r, "status"), Token = Str(r, "token"), Name = Str(r, "name"), AgentId = Str(r, "agent_id") };
         }
 
         // network = null: não varreu a rede agora (o servidor mantém o que já sabia).

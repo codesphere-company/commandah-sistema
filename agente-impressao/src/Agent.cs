@@ -68,6 +68,7 @@ namespace Commandah.Agente
         {
             Cfg.Token = (token ?? "").Trim();
             Cfg.AgentName = "";
+            Cfg.AgentId = "";
             Cfg.Save();
             ResetConnection();
             Log(string.IsNullOrEmpty(Cfg.Token) ? "Token apagado." : "Token salvo. Conferindo com o servidor...", false);
@@ -78,6 +79,7 @@ namespace Commandah.Agente
         {
             Cfg.Token = "";
             Cfg.AgentName = "";
+            Cfg.AgentId = "";
             Cfg.Save();
             ResetConnection();
             Log("Computador desconectado do Commandah. Use o novo código para conectar de novo.", false);
@@ -141,9 +143,10 @@ namespace Commandah.Agente
                     var ping = api.Ping();
                     lastPing = DateTime.Now;
                     if (ping.Ok == false) { SetState(AgentState.TokenInvalido); return; }
-                    if (!string.IsNullOrEmpty(ping.Name) && ping.Name != Cfg.AgentName && IsPairedByCode)
+                    if (IsPairedByCode && ((!string.IsNullOrEmpty(ping.Name) && ping.Name != Cfg.AgentName) || (!string.IsNullOrEmpty(ping.AgentId) && ping.AgentId != Cfg.AgentId)))
                     {
-                        Cfg.AgentName = ping.Name; // renomeado no Commandah
+                        if (!string.IsNullOrEmpty(ping.Name)) Cfg.AgentName = ping.Name; // renomeado no Commandah
+                        if (!string.IsNullOrEmpty(ping.AgentId)) Cfg.AgentId = ping.AgentId;
                         Cfg.Save();
                     }
                     if (ping.Rescan) { Log("O Commandah pediu para procurar as impressoras de novo.", false); ScanAndReport(); }
@@ -191,6 +194,7 @@ namespace Commandah.Agente
                 {
                     Cfg.Token = r.Token;
                     Cfg.AgentName = string.IsNullOrEmpty(r.Name) ? Machine : r.Name;
+                    Cfg.AgentId = r.AgentId ?? "";
                     Cfg.Save();
                     ResetConnection();
                     Log("Conectado! Este computador aparece no Commandah como \"" + Cfg.AgentName + "\". Procurando as impressoras...", false);
