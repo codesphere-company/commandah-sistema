@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-10-11, noite** (impressão automática: computador conectado por código, impressoras encontradas, caixa imprime tudo — ver primeira seção do Estado atual). Antes: **2026-10-11** (PR #93: administrador gera o token do agente de impressão; instalação do agente no clube em andamento). Antes: **2026-10-11** (PR #90: login por e-mail mostrava a lista de colaboradores vazia — confirmado; SEG-04 concluído). Antes: **2026-10-10, fim do dia** (ver "Fim do dia 10/10" no começo do Estado atual). Antes: **2026-10-10, tarde** (PRs #65–#67: bloqueio v2, transferir itens, reabrir comanda, movimentações por usuário — ver "Resumo rápido (10/10, tarde)"). Antes: **2026-10-10** (SEG-12, OPS-05, OP-14, PROD-18 e BD-11 publicados; main protegida — ver "Resumo rápido (10/10)"). Antes: **2026-10-09, noite** (auditoria de 07/10 praticamente concluída: Fases A, B, U, C e D publicadas — PRs #40 a #55; SEG-12 no PR #56 esperando "publicar"; o que falta depende do dono. Ver "Resumo rápido (09/10, noite)" no começo do Estado atual). Antes, **2026-10-09, tarde** (PRs #40 a #43 publicados: comandas e Novo Pedido redesenhados, Fase C lotes 1 a 3).
+Última atualização: **2026-10-11, fim do dia** (ver "Fim do dia 11/10" no começo do Estado atual: o Commandah NÃO está em uso no clube, que opera com o Saipos; mapa da rede do clube; impressão automática publicada). Antes: **2026-10-11, noite** (impressão automática: computador conectado por código, impressoras encontradas, caixa imprime tudo). Antes: **2026-10-11** (PR #93: administrador gera o token do agente de impressão; instalação do agente no clube em andamento). Antes: **2026-10-11** (PR #90: login por e-mail mostrava a lista de colaboradores vazia — confirmado; SEG-04 concluído). Antes: **2026-10-10, fim do dia** (ver "Fim do dia 10/10" no começo do Estado atual). Antes: **2026-10-10, tarde** (PRs #65–#67: bloqueio v2, transferir itens, reabrir comanda, movimentações por usuário — ver "Resumo rápido (10/10, tarde)"). Antes: **2026-10-10** (SEG-12, OPS-05, OP-14, PROD-18 e BD-11 publicados; main protegida — ver "Resumo rápido (10/10)"). Antes: **2026-10-09, noite** (auditoria de 07/10 praticamente concluída: Fases A, B, U, C e D publicadas — PRs #40 a #55; SEG-12 no PR #56 esperando "publicar"; o que falta depende do dono. Ver "Resumo rápido (09/10, noite)" no começo do Estado atual). Antes, **2026-10-09, tarde** (PRs #40 a #43 publicados: comandas e Novo Pedido redesenhados, Fase C lotes 1 a 3).
 
 > **Sobre os números de linha** (`index.html:NNNN`): nas seções datadas eles valem para o código **daquela data** e envelhecem a cada mudança — procure pelo nome da função, não pela linha. Só as Pendências abertas são mantidas com linha atual (conferida em 2026-10-02).
 
@@ -10,13 +10,16 @@ Atualização anterior: **2026-09-24** (cancelar item/comanda com permissão por
 
 ## O que é o projeto
 
-Commandah é o sistema de comanda/PDV do **Clube Olímpico** (Maringá — negócio real do Fabricio, não é side project fictício). Roda direto no navegador, sem servidor de aplicação:
+Commandah é o sistema de comanda/PDV do **Clube Olímpico** (Maringá — negócio real do Fabricio, não é side project fictício). Roda direto no navegador, sem servidor de aplicação.
+
+> **Situação real (confirmada pelo dono em 11/10):** o Commandah **ainda não está em uso** no clube. A operação roda no **Saipos**. Este computador (COMPANYPC, notebook do Fabricio) é onde o Commandah é programado e testado, e ele fica **na rede real do clube**, junto com os notebooks do Saipos. Frases antigas deste arquivo como "nada imprime desde 29/08" ou "colar o token no agente do clube" falam de testes, não de operação. Não varrer a rede, não mandar impressão de teste para as impressoras do clube e não deixar o agente de teste rodando sem combinar com o dono.
+
 
 - **Frontend**: um único `index.html` (8435 linhas / ~1,1 MB em 2026-10-09), sem build step. Mais `sw.js` (service worker, PROD-17) e `manifest.webmanifest`.
 - **Deploy**: GitHub Pages, `https://codesphere-company.github.io/commandah-sistema/` (push em `main` já publica; cache do Pages é `max-age=600` — se algo "não atualizou", é isso, pedir pro usuário dar Ctrl+Shift+R ou testar em anônima antes de investigar bug).
 - **Backend**: Supabase (projeto `ezfoymdesmarpunmixbs`) — Postgres + PostgREST + Auth + Edge Functions, acessado direto do navegador com a chave anon. **RLS é a única barreira de segurança real** — não existe camada de API própria.
 - **Multi-tenant**: `tenant_owners` (user_id → tenant_id) + tabela `app_data` (JSON por `(tenant_id, key)`, ex. chave `cantina2:settings`). Tenant do Fabricio: `clube-olimpico-maringa-y8mt`. Já saíram do blob para tabela própria: sócios (`members`, Fase 1), pedidos da cozinha (`orders`, Fase 3a) e **vendas (`sales`, EST-01 em 09/10)**. Caixa e insumos continuam no blob, mas gravados por funções com trava (BD-03, BD-10).
-- **Impressão**: agente desktop Electron instalado no PC do estabelecimento, faz polling na fila `print_jobs` (`print_agent_fetch_pending`, que desde 09/10 carimba `last_seen_at`) e imprime via ESC/POS (TCP raw pra impressoras de rede, driver Windows pras locais). **Desde 10/10 o agente é o 2.0, com código em `agente-impressao/` (OPS-12 resolvido).**
+- **Impressão**: agente desktop (C#, `agente-impressao/`, versão **2.1** desde 11/10) num computador da rede das impressoras. Ele faz polling na fila `print_jobs` (`print_agent_fetch_pending`) e imprime via ESC/POS (TCP raw na porta 9100 para impressoras de rede, driver do Windows para as USB). Desde 11/10 o computador é conectado por código e as impressoras são escolhidas em Configurações › Impressoras (ver "Impressão automática").
 
 ## Limitação importante da minha conexão
 
@@ -24,18 +27,60 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
-### Impressão automática (11/10, noite) — PR aberto, branch `impressao-automatica` (migration `20261011070000`, agente 2.1)
+### Fim do dia 11/10 — leia isto primeiro na próxima conversa
+- **Publicado hoje (todos com "pode publicar" do dono):**
+  - **#90:** login por e-mail mostrava a lista de colaboradores vazia (confirmado pelo dono; SEG-04 concluído).
+  - **#93:** administrador gera o token do agente.
+  - **#95:** Produtos — a busca não some ao clicar e código repetido não trava a edição.
+  - **#96:** impressão automática.
+  - **#91, #92 e #94:** HANDOFF.
+- **Commandah não está em produção** (ver o aviso em "O que é o projeto"). O clube imprime pelo Saipos.
+- **Mapa da rede do clube** (descoberto em 11/10, testado deste computador):
+  - Wi-Fi **"MGP-lanchonete_5G"** = 192.168.1.x (roteador 192.168.1.1).
+  - Wi-Fi **"LANCHONETE SISTEMA"** = 192.168.15.x (roteador 192.168.15.1). Este PC (192.168.15.117) e o notebook do Saipos (192.168.15.28) ficam aqui.
+  - Impressoras = rede com cabo **192.168.110.x**, atrás de um aparelho que junta as duas internets e fixa os IPs. Pelo notebook do Saipos: Bematech MP-4200 TH em .111, churrasqueira em .112 (porta "CHURRASQUEIRA"), **bar em .113**, caixa em .114.
+  - **Dos Wi-Fi não se chega à 110.x:** `tracert` de 192.168.15.117 para 192.168.110.113 sai pelo roteador para a operadora (201.1.224.5). A tabela de rotas do notebook do Saipos é igual (só Wi-Fi 15.x).
+  - O notebook do Saipos só lança o pedido. Quem imprime é o **Saipos Printer no computador da cozinha, ligado na rede 110** (pedido pela nuvem, igual ao Commandah).
+  - Varredura da porta 9100 em 192.168.15.x: nenhuma impressora. O 192.168.15.62 tem a porta 515 aberta. Em 192.168.1.x, o 192.168.1.3 tem a 9100 aberta (não identificado).
+- **Incidente de 11/10 (~19h20):**
+  - O notebook do Saipos parou de imprimir no bar porque **a impressora do bar voltou ao IP de fábrica 192.168.123.100** (Xprinter, driver "POS-80C", USB VID_0483 PID_5743). Causa não identificada.
+  - Este computador nunca alcançou a 110.x. O agente de teste só tocou a 9100 do 192.168.1.3 (abriu e fechou) às 19:13.
+  - O dono regravou o IP **192.168.110.113** pela USB com o programa da Xprinter, e o Saipos voltou a imprimir.
+  - O agente 2.1 de teste deste PC foi **encerrado** (processo parado).
+  - A impressora "POS-80C" do Windows deste PC tem a porta "BAR" apontando para 192.168.1.113 (não existe). Por isso o Windows dizia "impresso" e nada saía. Não serve; pode ser apagada.
+- **Para o Commandah imprimir no clube no futuro:**
+  - O agente precisa rodar **num computador da rede 110** (o da cozinha, onde está o Saipos Printer). Lá não precisa de porta no Windows: o agente imprime direto no IP, e a busca automática acha as impressoras da faixa 110.
+  - **Antes de instalar no computador da cozinha:** combinar horário com o dono (todo teste sai papel de verdade). Fazer também a melhoria proposta: opção de **desligar a varredura de rede** e imprimir só nos IPs escolhidos, para não abrir conexões nas impressoras do Saipos a cada 30 min.
+  - Melhorias propostas e ainda **não feitas**: o agente testar também os IPs já cadastrados no Commandah (fora da /24 dele) e a tela ganhar **"Adicionar impressora de rede pelo IP"**.
+  - Para testar **aqui**, usar uma impressora no **USB deste PC**.
+- **Estado no banco depois dos testes de hoje:**
+  - O computador "PC FABRICIO" (COMPANYPC) está conectado por código, com POS-80C, Microsoft Print to PDF e a rede 192.168.1.3 encontradas. Dá para remover na tela, se não for usar.
+  - O cadastro manual tem "BAR" (192.168.110.113, bar, ambos) e "Impressora Churrasqueira — App" (192.168.110.112, só App). O dono pode ter mexido na tela nova durante os testes: conferir antes de qualquer teste real.
+  - As 6 fichas pendentes de 26 a 28/08 foram tiradas da fila (status 'erro').
+- **Migration `20261011070000`: aplicada pelo dono** (`db query`). O `migration repair --status applied 20261011070000` **ainda não foi confirmado**. Rodar `npx supabase migration list --linked < /dev/null` e, se faltar, o repair.
+- **Pendências do dono:**
+  - preencher o encarregado em Configurações › Privacidade (LGPD);
+  - BD-11 (secret `GDRIVE_TOKEN`);
+  - PROD-09 NFC-e (contador);
+  - decidir quando começar a usar o Commandah no clube.
+
+### Produtos: busca e código repetido (11/10) — PR #95 no ar (merge `0471a8c`)
+- **Busca:** clicar numa linha redesenha a tela (botões Editar, Duplicar e Estoque) e a busca voltava vazia. Agora `productSearchQuery` + `applyProductSearch()` a reaplicam a cada desenho.
+- **"Já existe um produto com este código":** barrava qualquer edição, porque a importação de planilha grava o código "0" em vários produtos (`mergeImportedProducts` ignora "0" ao casar). Agora só confere quando o código é novo ou foi trocado, e diz qual produto já usa o código. Testado em harness (`mkprod.js`).
+
+### Impressão automática (11/10, noite) — PR #96 no ar (merge `0482a11`; migration `20261011070000` aplicada pelo dono; agente 2.1 em `downloads/CommandahImpressora.exe`, conferido igual ao build)
 - Pedido do dono: "achar uma forma mais simples de configurar" (5 impressoras no clube: 3 em computadores, 2 de rede) e "os caixas que possuem computadores precisam imprimir tudo ali" (decisão: tudo lançado no computador do caixa — fichas de todas as estações e comprovante — sai na impressora dele; garçom pelo celular segue as estações).
 - **Banco (`20261011070000_impressao_automatica.sql`):** `print_agents` (um token por computador), `print_agent_pairings` (código de 6 dígitos, 30 min, segredo só do agente), `print_agent_printers` (o que cada computador encontrou + saúde: last_ok/last_error). `print_jobs.agent_id` (ficha para um computador) e `print_jobs.error`. Funções: `print_agent_pair_start/confirm/poll`, `print_agent_report`, `print_setup_state`, `print_agent_manage` (rename/remove/rescan), `print_agent_auth` (token de computador ou o antigo do estabelecimento). `fetch_pending`: computador recebe as dele, as sem computador de USB, e as de rede dos IPs que encontrou (ou que ninguém encontrou); token antigo só as sem computador. `mark_status` ganhou `p_error` (o agente 2.0 continua chamando com 3 parâmetros). 41 testes em Postgres local (`flow.js` no scratchpad).
 - **Agente 2.1 (`agente-impressao/`):** sem token mostra o código; `Discovery.cs` varre a /24 de cada placa na porta 9100 (ao conectar, a cada 30 min e quando o Commandah pede); `print_agent_report`; erro volta com motivo; `/status` local devolve `agent_id`/`agent_name`; "Desconectar"; token antigo em "modo antigo". `downloads/CommandahImpressora.exe` (cópia do build, o Commandah oferece para baixar). 15 testes ponta a ponta (Harness.exe + servidor HTTP falso → Postgres local + impressora de rede falsa).
 - **Commandah:** Configurações › Impressoras: "Computadores com o agente" (Conectar computador por código, ligado/desligado, Renomear, Remover, seletor "Caixa: imprimir tudo lançado aqui em…") e "Impressoras encontradas" (chips por estação + Comprovante do caixa, papel, Imprimir teste com resultado/erro, impressoras virtuais escondidas). Escolha vira entrada comum em `state.impressoras` (origem 'ambos'; USB leva `agentId`; caixa = `estacao:'tudo'` + `deviceAgentId`). `printSingleTicket` usa `deviceCaixaPrinter()` (navegador descobre o computador por `127.0.0.1:9123/status`, só se há caixa configurado e não é usuário do app). Configuração manual e token antigo em "avançado".
 - **Bug antigo corrigido junto:** havia duas `checkPrintAgentStatus` — a da tela de Impressoras (declarada depois) substituía a do aviso OP-19, então o aviso "Agente de impressão desconectado" **nunca aparecia**. A da tela virou `renderPrinterQueueStatus`; o aviso agora sai por computador ("…desconectado: PC do Bar").
-- **Para publicar:** aplicar a migration antes (o site sem ela só mostra "configuração automática ainda não está ativa"); depois instalar o agente 2.1 nos 3 PCs do clube (desconectar o 2.0/token antigo) e configurar pela tela.
+- **Depois da publicação:** o agente 2.1 foi testado só neste PC, que não alcança as impressoras do clube. Ver "Fim do dia 11/10" para onde ele deve rodar (computador da cozinha, rede 110) e os cuidados com o Saipos.
+- **Caixa e garçom:** o celular do garçom não precisa ver as impressoras (o pedido vai pela fila na nuvem). "Caixa imprime tudo" vale só para o que é lançado no computador marcado como caixa.
 
 ### Token do agente: administrador também gera (11/10) — PR #93 no ar (merge `231f4e9`; migration `20261011060000` aplicada pelo dono)
 - Sintoma: Configurações › Impressoras › Gerar/Regenerar token → "not a tenant owner" para todos. A função só aceitava sessão de dono, e depois do PIN a sessão é sempre a do colaborador (`setSession` em `attemptPinLogin`) — o botão nunca funcionou desde o login por PIN no servidor.
 - Decisão do dono (opção A): `regenerate_print_agent_token(p_by text default null)` aceita dono ou admin ativo (`is_admin_like()`), grava no `audit_log`; 42501 com mensagem clara para os outros. Site manda `p_by`. Registrada pelo dono (`migration list` bate, 26 migrations).
-- **Agente no clube (em andamento):** antes de conectar, tirar da fila as fichas antigas — `print_agent_fetch_pending` devolve TODA ficha pendente, sem limite de idade (desde 29/08). SQL usado: `update print_jobs set status='erro' where tenant_id='clube-olimpico-maringa-y8mt' and status='pendente' and created_at < now() - interval '30 minutes'` (o aviso de fila travada só olha 'pendente'). Agente antigo (Electron) usava a mesma porta 9123: sair e desinstalar antes. O exe da Área de Trabalho bate com `agente-impressao/dist` (hash `154B46F1…`).
+- **Agente (testes de 11/10 — o Commandah não está em produção):** antes de conectar, tirar da fila as fichas antigas — `print_agent_fetch_pending` devolve TODA ficha pendente, sem limite de idade (desde 29/08). SQL usado: `update print_jobs set status='erro' where tenant_id='clube-olimpico-maringa-y8mt' and status='pendente' and created_at < now() - interval '30 minutes'` (o aviso de fila travada só olha 'pendente'). Agente antigo (Electron) usava a mesma porta 9123: sair e desinstalar antes. O exe da Área de Trabalho bate com `agente-impressao/dist` (hash `154B46F1…`).
 - **Teste de migration nesta máquina:** o Windows (Controle de Aplicativo) bloqueia `psql.exe`; `initdb`/`pg_ctl` funcionam. Cliente usado: `pg@8.13.1` via Node no scratchpad (`run.js` que executa arquivos .sql), banco temporário na porta 55432.
 
 ### Login por e-mail sem colaboradores (11/10) — PR #90 no ar (merge `1f5e576`)
