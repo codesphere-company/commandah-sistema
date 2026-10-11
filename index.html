@@ -8361,8 +8361,12 @@ async function regeneratePrintAgentToken(){
   if(!supabaseClient){ toast('Disponível só no modo nuvem (Supabase).'); return; }
   if(!confirm('Gerar um novo token vai invalidar o token anterior — qualquer agente de impressão já configurado vai parar de funcionar até você colar o novo token nele. Continuar?')) return;
   try{
-    const { data, error } = await supabaseClient.rpc('regenerate_print_agent_token');
-    if(error) throw error;
+    // Dono ou administrador (migration 20261011060000); o nome vai para o audit_log.
+    const { data, error } = await supabaseClient.rpc('regenerate_print_agent_token', { p_by: currentUser ? currentUser.name : null });
+    if(error){
+      if(error.code==='42501' || /tenant owner/i.test(error.message||'')){ toast('Só o administrador gera o token do agente de impressão.'); return; }
+      throw error;
+    }
     openModal('Token do agente de impressão', `
       <p class="sub">Copie esse token agora e cole no agente de impressão (ele pede na primeira vez que roda, ou quando o token muda). Ele não será mostrado de novo — se perder, gere outro.</p>
       <div class="field"><input value="${h(data)}" readonly class="mono" onclick="this.select()"></div>
