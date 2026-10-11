@@ -9188,6 +9188,9 @@ async function tenantSignIn(){
     if(!resolved){ showTenantError('Essa conta ainda não tem um estabelecimento vinculado.'); return; }
     sessionIsOwner = resolved.isOwner;
     setTenantId(resolved.tenantId);
+    // Sem isto o loadAll rodava sem a nuvem: toda leitura falhava e a tela de colaboradores
+    // vinha vazia até recarregar (o boot só monta a nuvem quando já existe sessão salva).
+    storageApi = buildSupabaseStorageApi(supabaseClient, resolved.tenantId);
     document.getElementById('tenantSetupOverlay').style.display = 'none';
     startApp();
   } finally { btn.disabled=false; btn.textContent='Entrar'; resetTurnstile(); }
@@ -9209,6 +9212,7 @@ async function tenantSignUp(){
     if(insertErr){ showTenantError('Conta criada, mas houve erro ao vincular o estabelecimento: '+insertErr.message); return; }
     sessionIsOwner = true; // acabou de criar a linha em tenant_owners: é o dono
     setTenantId(tenantId);
+    storageApi = buildSupabaseStorageApi(supabaseClient, tenantId);
     document.getElementById('tenantSetupOverlay').style.display = 'none';
     startApp();
   } finally { btn.disabled=false; btn.textContent='Criar novo estabelecimento'; resetTurnstile(); }
