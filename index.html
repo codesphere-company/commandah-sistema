@@ -1187,6 +1187,44 @@ button.cash-open-row:hover{border-color:var(--c-primary)}
 .statement-sum .statement-final{background:var(--c-primary-soft)}
 @media (max-width:700px){.aging-chips,.statement-sum{grid-template-columns:1fr 1fr}}
 .kcanceled-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:var(--r-pill);background:var(--c-danger);color:var(--c-text-inverse);font-size:.8em;font-weight:700}
+/* Impressão automática (11/10): computadores conectados por código e impressoras encontradas */
+.ps-block{border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-surface);padding:14px 16px;margin:0 0 14px}
+.ps-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.ps-head h3{margin:0;font-size:15px}
+.ps-list{display:grid;gap:8px}
+.ps-agent{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border-radius:var(--r-md);background:var(--c-surface-2)}
+.ps-agent-name{font-weight:700}
+.ps-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto;background:var(--c-text-3)}
+.ps-dot.on{background:var(--c-success)}
+.ps-dot.off{background:var(--c-danger)}
+.ps-agent .sub{margin:0}
+.ps-agent-actions{margin-left:auto;display:flex;gap:6px}
+.ps-printer{border:1px solid var(--c-border);border-radius:var(--r-md);padding:10px 12px;display:grid;gap:8px}
+.ps-printer.assigned{border-color:var(--c-primary);box-shadow:inset 3px 0 0 var(--c-primary)}
+.ps-printer-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ps-printer-name{font-weight:700;word-break:break-word}
+.ps-printer-where{color:var(--c-text-2);font-size:13px}
+.ps-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ps-chips-label{font-size:13px;color:var(--c-text-2);margin-right:2px}
+.ps-chip{border:1px solid var(--c-border-strong);background:var(--c-surface);color:var(--c-text);border-radius:var(--r-pill);padding:5px 12px;font-size:13px;cursor:pointer;min-height:32px}
+.ps-chip:hover{background:var(--c-surface-3)}
+.ps-chip.on{background:var(--c-primary);border-color:var(--c-primary);color:var(--c-text-inverse);font-weight:600}
+.ps-chip.on::before{content:'✓ '}
+.ps-chip.partial{border-style:dashed;border-color:var(--c-warning-solid);background:var(--c-warning-soft);color:var(--c-warning)}
+.ps-chip.partial::before{content:'◐ '}
+.ps-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.ps-actions select{width:auto;min-height:32px;padding:4px 8px}
+.ps-test-result{font-size:13px}
+.ps-test-result.ok{color:var(--c-success);font-weight:600}
+.ps-test-result.err{color:var(--c-danger);font-weight:600}
+.ps-empty{padding:12px;border-radius:var(--r-md);background:var(--c-surface-2);color:var(--c-text-2);font-size:13.5px;line-height:1.6}
+.ps-empty ol{margin:6px 0 0;padding-left:20px}
+.ps-more{font-size:13px}
+.ps-more summary{cursor:pointer;color:var(--c-primary-text);font-weight:600;margin:4px 0}
+.ps-advanced{margin-top:6px}
+.ps-advanced>summary{cursor:pointer;font-weight:700;padding:8px 0;color:var(--c-text-2)}
+.pair-code-input{font-family:var(--font-mono,monospace);font-size:28px;letter-spacing:.25em;text-align:center}
+@media (max-width:700px){.ps-agent-actions{margin-left:0;width:100%}.ps-block{padding:12px}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
 <!-- Versão exata + integridade (SEG-05): "@2" puxava a última 2.x a cada carregamento, sem conferência. Ao atualizar, troque a versão aqui, em SUPABASE_SDK_URLS e o hash nos dois lugares. -->
@@ -2344,17 +2382,27 @@ function showPrintQueueBanner(qtd, mins, printer){
    O aviso não tem botão: some sozinho quando o agente volta. */
 const PRINT_AGENT_OFFLINE_MIN = 3;
 let printAgentOffline = false;
+// (11/10) Antes havia outra função com este mesmo nome, da tela de Impressoras, declarada
+// mais abaixo: ela substituía esta e o aviso nunca aparecia. Aquela virou renderPrinterQueueStatus.
+// Com computadores conectados por código (migration 20261011070000), avisa por computador:
+// o que tem impressora escolhida e parou de dar sinal.
 async function checkPrintAgentStatus(){
   if(!supabaseClient || !getTenantId() || !currentUser) return;
   try{
     const { data, error } = await supabaseClient.rpc('print_agent_status');
     if(error || !data || !data.configured || !(state.impressoras||[]).length){ setPrintAgentOffline(false); return; }
-    const seen = data.last_seen_at ? new Date(data.last_seen_at).getTime() : 0;
     const now = data.now ? new Date(data.now).getTime() : Date.now();
-    setPrintAgentOffline(!seen || now - seen > PRINT_AGENT_OFFLINE_MIN*60*1000, seen);
+    const at = t => t ? new Date(t).getTime() : 0;
+    const alive = t => at(t) && now - at(t) <= PRINT_AGENT_OFFLINE_MIN*60*1000;
+    const agents = data.agents || [];
+    const used = new Set((state.impressoras||[]).map(p=>p.agentId).filter(Boolean));
+    const down = agents.filter(a=>used.has(a.id) && !alive(a.last_seen_at));
+    if(down.length){ setPrintAgentOffline(true, Math.max(...down.map(a=>at(a.last_seen_at))), down.map(a=>a.name)); return; }
+    const anyAlive = alive(data.last_seen_at) || agents.some(a=>alive(a.last_seen_at));
+    setPrintAgentOffline(!anyAlive, Math.max(at(data.last_seen_at), ...agents.map(a=>at(a.last_seen_at))));
   }catch(e){ /* aviso: nunca deve atrapalhar a venda */ }
 }
-function setPrintAgentOffline(off, seen){
+function setPrintAgentOffline(off, seen, names){
   printAgentOffline = off;
   const root = document.getElementById('localModeRoot'); if(!root) return;
   let el = root.querySelector('.agent-offline');
@@ -2367,6 +2415,7 @@ function setPrintAgentOffline(off, seen){
     el.innerHTML = '<div class="local-mode-ico" aria-hidden="true">&#128424;</div><div class="local-mode-txt"><span class="local-mode-title">Agente de impressão desconectado</span><span class="local-mode-sub"></span></div>';
     root.appendChild(el);
   }
+  el.querySelector('.local-mode-title').textContent = names && names.length ? 'Agente de impressão desconectado: '+names.join(', ') : 'Agente de impressão desconectado';
   el.querySelector('.local-mode-sub').textContent = (seen ? 'Visto pela última vez às '+new Date(seen).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'. ' : '')
     + 'As fichas não estão saindo na impressora. Abra o agente no computador da impressão; até lá, leve os pedidos até a estação.';
   applyTopBannerOffset();
@@ -5455,8 +5504,9 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
         return { estacao, items:groups[estacao], printer: printer?printer.nome:null };
       });
       printNovoPedidoTickets(who, cota, '', printJobs, sale.orderNumber);
-      if(currentUser.caixaPrinterOsName){
-        printCaixaReceipt(who, cota, currentSaleDraft.items, sale.orderNumber, currentUser.caixaPrinterOsName);
+      const receiptPrinter = receiptPrinterFor(currentUser);
+      if(receiptPrinter){
+        printCaixaReceipt(who, cota, currentSaleDraft.items, sale.orderNumber, receiptPrinter);
       }
     }
   } else if(mode==='agendamento'){
@@ -5945,7 +5995,7 @@ async function pingPrintAgent(base, timeoutMs){
     return res.ok;
   }catch(e){ return false; }
 }
-async function checkPrintAgentStatus(){
+async function renderPrinterQueueStatus(){
   const box = document.getElementById('agentStatusBox'); if(!box) return;
   if(!state.impressoras.length){ box.className='tag tag-gray'; box.textContent='Cadastre impressoras abaixo pra habilitar a checagem do agente.'; return; }
   if(supabaseClient && getTenantId()){
@@ -6043,17 +6093,27 @@ function buildTicketText(who, cota, local, estacao, items, orderNumber, columns,
   // byte nulo (\x00) em coluna de texto, quebraria o insert do print_jobs.
   return '\x1B\x40' + stripAccentsForPrint(out) + '\n\n\n\x1D\x56\x01';
 }
-async function printCaixaReceipt(who, cota, items, orderNumber, printerOsName){
-  const text = buildTicketText(who, cota, '', 'caixa', items, orderNumber, 48, false).replace('CAIXA','COMPROVANTE DE VENDA');
+// Impressora do comprovante: a do cadastro do usuário (modo antigo, nome no Windows) ou a
+// escolhida como "Comprovante do caixa" na configuração automática (estacao 'caixa').
+function receiptPrinterFor(user){
+  if(user && user.caixaPrinterOsName) return { nome:user.caixaPrinterOsName, osName:user.caixaPrinterOsName };
+  return (state.impressoras||[]).find(p=>p.estacao==='caixa') || null;
+}
+async function printCaixaReceipt(who, cota, items, orderNumber, imp){
+  const printerOsName = imp.osName || imp.nome;
+  const text = buildTicketText(who, cota, '', 'caixa', items, orderNumber, paperColumns(imp), !!imp.ip).replace('CAIXA','COMPROVANTE DE VENDA');
   if(supabaseClient && getTenantId()){
     try{
-      const { error } = await supabaseClient.from('print_jobs').insert({ tenant_id: getTenantId(), printer_name: printerOsName, content: text, status: 'pendente' });
+      const job = { tenant_id: getTenantId(), printer_name: printerOsName, printer_ip: imp.ip||null, content: text, status: 'pendente' };
+      if(imp.agentId) job.agent_id = imp.agentId;
+      let { error } = await supabaseClient.from('print_jobs').insert(job);
+      if(error && job.agent_id){ delete job.agent_id; ({ error } = await supabaseClient.from('print_jobs').insert(job)); }
       if(!error) return;
     }catch(e){ /* segue pro modo manual abaixo */ }
   }
   try{
     const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 3000);
-    const res = await fetch(PRINT_AGENT_URL+'/print', { method:'POST', signal:ctrl.signal, headers:{'Content-Type':'application/json'}, body: JSON.stringify({ printer: printerOsName, text }) });
+    const res = await fetch(PRINT_AGENT_URL+'/print', { method:'POST', signal:ctrl.signal, headers:{'Content-Type':'application/json'}, body: JSON.stringify({ printer: printerOsName, text, ip: imp.ip||'' }) });
     clearTimeout(t);
     if(res.ok) return;
   }catch(e){}
@@ -6067,7 +6127,12 @@ async function printSingleTicket(who, cota, local, estacao, printer, items, orde
     const text = buildTicketText(who, cota, local, estacao, items, orderNumber, paperColumns(imp), useEscPos);
     if(supabaseClient && getTenantId()){
       try{
-        const { error } = await supabaseClient.from('print_jobs').insert({ tenant_id: getTenantId(), printer_name: targetName, printer_ip: imp&&imp.ip||null, content: text, status: 'pendente' });
+        // agent_id: impressora USB escolhida na configuração automática vai para o computador dela.
+        const job = { tenant_id: getTenantId(), printer_name: targetName, printer_ip: imp&&imp.ip||null, content: text, status: 'pendente' };
+        if(imp && imp.agentId) job.agent_id = imp.agentId;
+        let { error } = await supabaseClient.from('print_jobs').insert(job);
+        // Computador removido (ou banco sem a coluna): manda sem computador definido, como antes.
+        if(error && job.agent_id){ delete job.agent_id; ({ error } = await supabaseClient.from('print_jobs').insert(job)); }
         if(!error){ toast('Pedido enviado pra fila de impressão: '+printer); return; }
       }catch(e){ /* cai pro modo antigo abaixo */ }
     }
@@ -8311,13 +8376,16 @@ function deleteEstacao(id){
 function renderImpressoras(){
   const el = document.getElementById('view-impressoras');
   const rows = state.impressoras.length ? state.impressoras.map(p=>`
-    <tr><td>${h(p.nome)}${p.osName?`<br><small class="mono" style="color:var(--muted)">${h(p.osName)}</small>`:''}${p.ip?`<br><small class="mono" style="color:var(--muted)">rede: ${h(p.ip)}</small>`:''}</td><td>${h(estacaoLabel(p.estacao)||'—')}</td><td>${h(origemLabel(p.origem)||'—')}</td>
+    <tr><td>${h(p.nome)}${p.osName?`<br><small class="mono" style="color:var(--muted)">${h(p.osName)}</small>`:''}${p.ip?`<br><small class="mono" style="color:var(--muted)">rede: ${h(p.ip)}</small>`:''}</td><td>${h(printStationName(p.estacao)||'—')}</td><td>${h(origemLabel(p.origem)||'—')}</td>
     <td>${p.agentUrl?`<span class="mono" style="font-size:12px">${h(p.agentUrl)}</span>`:'<span class="sub" style="font-size:12px">— (mesmo computador)</span>'}</td>
     <td id="impStatus-${p.id}"><span class="tag tag-gray">verificando...</span></td>
     <td><button class="btn btn-sm" onclick="openImpressoraModal(${jsArg(p.id)})">Editar</button>
     <button class="btn btn-sm btn-danger" onclick="deleteImpressora(${jsArg(p.id)})">Excluir</button></td></tr>`).join('')
     : `<tr><td colspan="6" class="empty">Nenhuma impressora cadastrada.</td></tr>`;
   el.innerHTML = `<div class="panel"><h2>Impressoras</h2>
+    ${supabaseClient?`<p class="sub">Abra o agente de impressão em cada computador que tem impressora ligada no USB e conecte com o código que aparece nele. As impressoras de rede (cabo de rede ou Wi-Fi, sem computador) são encontradas pelos computadores conectados na mesma rede. Depois é só escolher aqui o que cada impressora imprime e fazer o teste.</p>
+    <div id="printSetupAuto"><div class="ps-block"><p class="sub" style="margin:0">Carregando…</p></div></div>`:''}
+    <details class="ps-advanced" ${!supabaseClient||psAdvancedOpen?'open':''} ontoggle="psAdvancedOpen=this.open"><summary>Configuração manual e token antigo (avançado)</summary>
     <p class="sub">Cada impressora atende uma estação. Gerencie quais estações existem e o modo de saída (imprimir/tela) de cada uma em <a href="#" onclick="switchView('estacoes');return false" style="color:var(--c-primary-text);font-weight:600">Configurações → Áreas do Clube → Estações</a>.</p>
     <div id="agentStatusBox" class="tag tag-gray" style="margin-bottom:14px">Verificando agentes de impressão...</div>
     ${supabaseClient?`<div class="field" style="margin-bottom:14px"><label>Token do agente de impressão</label>
@@ -8325,12 +8393,259 @@ function renderImpressoras(){
       <button class="btn btn-sm" onclick="regeneratePrintAgentToken()">Gerar/Regenerar token</button>
       <p class="sub">Cole esse token no agente de impressão local (ele pede na primeira vez que roda, ou quando você regenerar). Regenerar invalida o token anterior — os agentes já configurados param até você colar o novo.</p>
     </div>`:''}
-    ${renderTicketConfigHtml()}
     <button class="btn btn-primary" onclick="openImpressoraModal()">+ Nova impressora</button>
     <table style="margin-top:14px"><tr><th>Nome</th><th>Estação</th><th>Origem atendida</th><th>Agente (rede)</th><th>Status</th><th>Ações</th></tr>${rows}</table>
+    </details>
+    ${renderTicketConfigHtml()}
   </div>`;
-  checkPrintAgentStatus();
+  renderPrinterQueueStatus();
   checkPrintTokenStatus();
+  if(supabaseClient){ renderPrintSetupAuto(); loadPrintSetup(); startPrintSetupPolling(); }
+}
+
+/* ============ IMPRESSÃO AUTOMÁTICA (11/10) ============
+   Pedido do dono: configurar a impressão sem digitar token, nome do Windows nem IP.
+   O agente 2.1 se conecta com um código de 6 números (print_agent_pair_confirm) e conta
+   as impressoras que encontrou (USB/Windows daquele computador e de rede, porta 9100).
+   Aqui o administrador só escolhe o que cada uma imprime. A escolha vira uma entrada comum
+   em state.impressoras (origem 'ambos'), então resolvePrinterFor/printSingleTicket seguem
+   iguais; impressora USB leva agentId para a ficha ir ao computador certo. Migration
+   20261011070000. */
+let psAdvancedOpen = false, printSetup = null, printSetupError = '', printSetupClockSkew = 0, printSetupTimer = null;
+let psFound = {}, psPaper = {}, psTestResults = {};
+const PS_ALIVE_MIN = 3;
+const PS_VIRTUAL_RE = /pdf|xps|onenote|fax|send to|enviar para|anydesk|teamviewer|bullzip|cutepdf|nitro|foxit|snagit/i;
+function printStationName(k){ return k==='caixa' ? 'Comprovante do caixa' : estacaoLabel(k); }
+function impKey(p){
+  if(p.ip) return 'rede:'+String(p.ip).trim();
+  return p.agentId ? 'win:'+p.agentId+':'+String(p.osName||p.nome||'').trim().toLowerCase() : '';
+}
+function psNow(){ return Date.now() + printSetupClockSkew; }
+function psAlive(t){ return !!t && psNow() - new Date(t).getTime() <= PS_ALIVE_MIN*60*1000; }
+function psAgo(t){
+  if(!t) return 'nunca';
+  const min = Math.max(0, Math.round((psNow() - new Date(t).getTime())/60000));
+  if(min < 1) return 'agora';
+  if(min < 60) return 'há '+min+' min';
+  if(min < 48*60) return 'há '+Math.round(min/60)+' h';
+  return 'em '+new Date(t).toLocaleDateString('pt-BR');
+}
+function psTime(t){ const d=new Date(t); return d.toDateString()===new Date().toDateString() ? d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+async function loadPrintSetup(){
+  if(!supabaseClient) return;
+  try{
+    const { data, error } = await supabaseClient.rpc('print_setup_state');
+    if(error){
+      printSetupError = error.code==='42501' ? 'Só o administrador vê e muda a configuração automática da impressão.'
+        : error.code==='PGRST202' || /print_setup_state/.test(error.message||'') ? 'A configuração automática ainda não está ativa no servidor.'
+        : 'Não foi possível carregar a configuração da impressão agora. Confira a internet.';
+    } else {
+      printSetupError = ''; printSetup = data || { agents:[], printers:[] };
+      if(data && data.now) printSetupClockSkew = new Date(data.now).getTime() - Date.now();
+    }
+  }catch(e){ printSetupError = 'Não foi possível carregar a configuração da impressão agora. Confira a internet.'; }
+  renderPrintSetupAuto();
+}
+function startPrintSetupPolling(){
+  if(printSetupTimer) return;
+  printSetupTimer = setInterval(()=>{
+    const v = document.getElementById('view-impressoras');
+    if(!v || !v.classList.contains('active') || !document.getElementById('printSetupAuto')){ clearInterval(printSetupTimer); printSetupTimer = null; return; }
+    loadPrintSetup();
+  }, 15000);
+}
+// Junta o que os computadores contaram: USB uma por computador; rede uma por IP.
+function psFoundPrinters(d){
+  const agents = Object.fromEntries((d.agents||[]).map(a=>[a.id,a]));
+  const latest = (list, f)=> list.map(x=>x[f]).filter(Boolean).sort().pop() || null;
+  const out = [];
+  const rede = {};
+  (d.printers||[]).filter(p=>p.kind==='rede').forEach(p=>{ (rede[p.name]=rede[p.name]||[]).push(p); });
+  Object.keys(rede).sort().forEach(ip=>{
+    const list = rede[ip], errAt = latest(list,'last_error_at'), errRow = list.find(p=>p.last_error_at===errAt);
+    out.push({ key:'rede:'+ip, kind:'rede', name:ip, title:'Impressora de rede '+ip,
+      where:'encontrada por '+[...new Set(list.map(p=>(agents[p.agent_id]||{}).name).filter(Boolean))].join(', '),
+      last_seen_at:latest(list,'last_seen_at'), last_ok_at:latest(list,'last_ok_at'), last_error_at:errAt, last_error:errRow&&errRow.last_error, virtual:false });
+  });
+  (d.printers||[]).filter(p=>p.kind==='windows').forEach(p=>{
+    const a = agents[p.agent_id] || {};
+    out.push({ key:'win:'+p.agent_id+':'+p.name.trim().toLowerCase(), kind:'windows', name:p.name, agentId:p.agent_id, title:p.name,
+      where:'ligada no '+(a.name||'computador')+' (Windows)', last_seen_at:p.last_seen_at, last_ok_at:p.last_ok_at,
+      last_error_at:p.last_error_at, last_error:p.last_error, virtual:PS_VIRTUAL_RE.test(p.name) });
+  });
+  return out;
+}
+function psStations(){ return [...state.estacoes.map(e=>({k:e.chave, n:e.nome})), {k:'caixa', n:'Comprovante do caixa'}]; }
+function psPrinterCard(fp){
+  const assigned = state.impressoras.filter(p=>impKey(p)===fp.key);
+  const chips = psStations().map(s=>{ const mine = assigned.filter(p=>p.estacao===s.k), on = mine.length>0;
+    // Cadastro manual que atende só uma origem (ex.: só App do Garçom): marcado pela metade.
+    const partial = on && mine.every(p=>p.origem && p.origem!=='ambos');
+    const label = partial ? s.n+' (só '+[...new Set(mine.map(p=>origemLabel(p.origem)))].join(', ')+')' : s.n;
+    return `<button type="button" class="ps-chip${on?(partial?' partial':' on'):''}" aria-pressed="${partial?'mixed':on}" title="${partial?'Clique para imprimir aqui todos os pedidos de '+h(s.n):''}" onclick="togglePrinterStation(${jsArg(fp.key)},${jsArg(s.k)})">${h(label)}</button>`; }).join('');
+  const paper = assigned.length ? (Number(assigned[0].larguraPapel)===58?58:80) : (psPaper[fp.key]||80);
+  const okAt = fp.last_ok_at ? new Date(fp.last_ok_at).getTime() : 0, errAt = fp.last_error_at ? new Date(fp.last_error_at).getTime() : 0;
+  const health = errAt > okAt ? `<span class="tag tag-red" title="${h(fp.last_error||'')}">✗ Erro ${h(psTime(fp.last_error_at))}: ${h(String(fp.last_error||'').slice(0,80))}</span>`
+    : okAt ? `<span class="tag tag-green">● Imprimiu ${h(psTime(fp.last_ok_at))}</span>` : '';
+  const stale = fp.last_seen_at && psNow() - new Date(fp.last_seen_at).getTime() > 24*3600*1000 ? `<span class="tag tag-gray">não encontrada ${h(psAgo(fp.last_seen_at))}</span>` : '';
+  const t = psTestResults[fp.key];
+  return `<div class="ps-printer${assigned.length?' assigned':''}">
+    <div class="ps-printer-top"><span class="ps-printer-name">${h(fp.title)}</span><span class="ps-printer-where">${h(fp.where)}</span>${health}${stale}</div>
+    <div class="ps-chips"><span class="ps-chips-label">Imprime:</span>${chips}</div>
+    <div class="ps-actions"><label>Papel <select onchange="setFoundPrinterPaper(${jsArg(fp.key)},this.value)"><option value="80" ${paper===80?'selected':''}>80 mm</option><option value="58" ${paper===58?'selected':''}>58 mm</option></select></label>
+      <button type="button" class="btn btn-sm" onclick="testFoundPrinter(${jsArg(fp.key)})">Imprimir teste</button>
+      <span class="ps-test-result${t?' '+t.cls:''}" data-ps-test="${h(fp.key)}" role="status">${t?h(t.msg):''}</span></div>
+  </div>`;
+}
+function renderPrintSetupAuto(){
+  const box = document.getElementById('printSetupAuto'); if(!box) return;
+  if(printSetupError && !printSetup){ box.innerHTML = `<div class="ps-block"><p class="sub" style="margin:0">${h(printSetupError)}</p></div>`; return; }
+  if(!printSetup) return;
+  const d = printSetup, agents = d.agents||[];
+  const agentRows = agents.map(a=>{ const on = psAlive(a.last_seen_at);
+    return `<div class="ps-agent"><span class="ps-dot ${on?'on':'off'}" aria-hidden="true"></span><div><div class="ps-agent-name">${h(a.name)}</div>
+      <p class="sub">${on?'Ligado':'Desligado — visto '+h(psAgo(a.last_seen_at))}${a.machine?' · '+h(a.machine):''}${a.version?' · agente '+h(a.version):''}</p></div>
+      <div class="ps-agent-actions"><button type="button" class="btn btn-sm" onclick="renamePrintAgent(${jsArg(a.id)})">Renomear</button><button type="button" class="btn btn-sm btn-danger" onclick="removePrintAgent(${jsArg(a.id)})">Remover</button></div></div>`; }).join('');
+  const legacy = d.legacy_token ? `<div class="ps-agent"><span class="ps-dot ${psAlive(d.legacy_token.last_seen_at)?'on':'off'}" aria-hidden="true"></span><div><div class="ps-agent-name">Agente com o token do estabelecimento (modo antigo)</div>
+      <p class="sub">${psAlive(d.legacy_token.last_seen_at)?'Ligado':'Desligado — visto '+h(psAgo(d.legacy_token.last_seen_at))} · imprime as fichas sem computador definido. Para a configuração automática, clique em "Desconectar" no agente e conecte com o código.</p></div></div>` : '';
+  const steps = `<div class="ps-empty"><b>Nenhum computador conectado ainda.</b><ol>
+      <li>No computador da impressora, abra o <b>agente de impressão do Commandah</b> (CommandahImpressora.exe) — <a href="downloads/CommandahImpressora.exe" download>baixar o agente</a>.</li>
+      <li>A janela do agente mostra um código de 6 números.</li>
+      <li>Clique em <b>Conectar computador</b> e digite o código.</li></ol></div>`;
+  const found = psFoundPrinters(d); psFound = Object.fromEntries(found.map(f=>[f.key,f]));
+  const real = found.filter(f=>!f.virtual), virt = found.filter(f=>f.virtual);
+  const printersHtml = !agents.length ? '<p class="sub" style="margin:0">As impressoras aparecem aqui quando o primeiro computador for conectado.</p>'
+    : !found.length ? '<p class="sub" style="margin:0">Nenhuma impressora encontrada ainda. Se acabou de conectar, espere alguns segundos.</p>'
+    : `<div class="ps-list">${real.map(psPrinterCard).join('') || '<p class="sub" style="margin:0">Só foram encontradas impressoras virtuais (PDF, Fax…).</p>'}</div>
+       ${virt.length?`<details class="ps-more"><summary>Outras impressoras do Windows (PDF, Fax…) — ${virt.length}</summary><div class="ps-list">${virt.map(psPrinterCard).join('')}</div></details>`:''}`;
+  box.innerHTML = `
+    <div class="ps-block"><div class="ps-head"><h3>Computadores com o agente</h3><button type="button" class="btn btn-primary btn-sm" onclick="openPairAgentModal()">＋ Conectar computador</button></div>
+      <div class="ps-list">${agentRows}${legacy}</div>${agents.length?'':steps}</div>
+    <div class="ps-block"><div class="ps-head"><h3>Impressoras encontradas</h3>${agents.length?'<button type="button" class="btn btn-sm" onclick="requestPrinterRescan()">↻ Procurar de novo</button>':''}</div>
+      ${printersHtml}${printSetupError?`<p class="sub" style="margin:8px 0 0;color:var(--c-danger)">${h(printSetupError)}</p>`:''}</div>`;
+}
+async function togglePrinterStation(key, st){
+  const fp = psFound[key]; if(!fp) return;
+  const stName = printStationName(st);
+  const mine = state.impressoras.filter(p=>impKey(p)===key && p.estacao===st);
+  const partial = mine.length && mine.every(p=>p.origem && p.origem!=='ambos');
+  if(mine.length && !partial){
+    state.impressoras = state.impressoras.filter(p=>!mine.includes(p));
+    await save('impressoras'); renderImpressoras();
+    toast(stName+' deixou de imprimir em '+fp.title+'.'); logAction('Impressão: '+stName+' saiu de '+fp.title);
+    return;
+  }
+  const others = state.impressoras.filter(p=>p.estacao===st && !mine.includes(p));
+  if(others.length){
+    const ok = await askConfirm({ title:'Trocar a impressora de '+stName+'?', message:stName+' hoje imprime em '+others.map(p=>p.nome).join(', ')+'. Passar a imprimir em '+fp.title+'?', confirmLabel:'Trocar', cancelLabel:'Manter como está', danger:false });
+    if(!ok) return;
+  }
+  if(st!=='caixa' && saidaModoEstacao(st)==='tela'){
+    const ok = await askConfirm({ title:'Ligar a impressão de '+stName+'?', message:stName+' está configurada para aparecer só na tela (Monitor de Cozinha). Passar para tela e impressora?', confirmLabel:'Tela e impressora', cancelLabel:'Cancelar', danger:false });
+    if(!ok) return;
+    const e = state.estacoes.find(x=>x.chave===st); if(e){ e.saida='ambos'; save('estacoes'); }
+  }
+  if(partial){
+    // Já imprimia aqui só os pedidos de uma origem: passa a imprimir todos.
+    mine.forEach(p=>p.origem='ambos');
+    state.impressoras = state.impressoras.filter(p=>p.estacao!==st || mine.includes(p));
+    await save('impressoras'); renderImpressoras();
+    toast('Todos os pedidos de '+stName+' agora imprimem em '+fp.title+'.'); logAction('Impressão: '+stName+' passou a imprimir todos os pedidos em '+fp.title);
+    return;
+  }
+  const paper = state.impressoras.filter(p=>impKey(p)===key).map(p=>Number(p.larguraPapel)).find(Boolean) || psPaper[key] || 80;
+  state.impressoras = state.impressoras.filter(p=>p.estacao!==st);
+  state.impressoras.push({ id:uid(), nome:stName+' — '+fp.title+(fp.kind==='windows'?' ('+((printSetup.agents||[]).find(a=>a.id===fp.agentId)||{}).name+')':''),
+    osName: fp.kind==='windows' ? fp.name : '', ip: fp.kind==='rede' ? fp.name : '', agentId: fp.kind==='windows' ? fp.agentId : null,
+    larguraPapel: paper, agentUrl:'', estacao:st, origem:'ambos', auto:true });
+  await save('impressoras'); renderImpressoras();
+  toast(stName+' agora imprime em '+fp.title+'. Faça um teste.'); logAction('Impressão: '+stName+' passou a imprimir em '+fp.title);
+}
+function setFoundPrinterPaper(key, v){
+  psPaper[key] = Number(v)===58 ? 58 : 80;
+  const list = state.impressoras.filter(p=>impKey(p)===key);
+  if(!list.length) return;
+  list.forEach(p=>p.larguraPapel = psPaper[key]);
+  save('impressoras'); toast('Largura do papel: '+psPaper[key]+' mm.');
+}
+function setPsTestResult(key, cls, msg){
+  psTestResults[key] = { cls, msg };
+  document.querySelectorAll('[data-ps-test]').forEach(el=>{ if(el.dataset.psTest===key){ el.className='ps-test-result '+cls; el.textContent=msg; } });
+}
+async function testFoundPrinter(key){
+  const fp = psFound[key]; if(!fp || !supabaseClient) return;
+  const stations = state.impressoras.filter(p=>impKey(p)===key).map(p=>printStationName(p.estacao));
+  const agentName = fp.kind==='windows' ? (((printSetup&&printSetup.agents)||[]).find(a=>a.id===fp.agentId)||{}).name || '' : '';
+  const line = c=>c.repeat(32);
+  const txt = line('=')+'\nTESTE DE IMPRESSAO - COMMANDAH\n'+line('=')+'\n'+new Date().toLocaleString('pt-BR')+'\nImpressora: '+fp.title+'\n'
+    +(agentName?'Computador: '+agentName+'\n':'')+'Imprime: '+(stations.join(', ')||'(nada escolhido ainda)')+'\n'+line('-')+'\nSe este papel saiu, esta tudo certo.\n\n\n';
+  const content = fp.kind==='rede' ? '\x1B\x40'+stripAccentsForPrint(txt)+'\n\n\n\x1D\x56\x01' : txt;
+  setPsTestResult(key, '', 'Enviando…');
+  const job = { tenant_id:getTenantId(), printer_name: fp.kind==='rede' ? 'Teste '+fp.name : fp.name, printer_ip: fp.kind==='rede' ? fp.name : null, content, status:'pendente' };
+  if(fp.kind==='windows') job.agent_id = fp.agentId;
+  const { data, error } = await supabaseClient.from('print_jobs').insert(job).select('id').single();
+  if(error || !data){ setPsTestResult(key, 'err', '✗ Não foi possível mandar o teste: '+((error&&error.message)||'sem resposta')); return; }
+  setPsTestResult(key, '', 'Esperando o agente…');
+  for(let i=0; i<20; i++){
+    await new Promise(r=>setTimeout(r, 1500));
+    const { data:row } = await supabaseClient.from('print_jobs').select('status,error').eq('id', data.id).maybeSingle();
+    if(row && row.status==='impresso'){ setPsTestResult(key, 'ok', '✓ Enviado às '+psTime(new Date())+'. Confira se o papel saiu.'); loadPrintSetup(); return; }
+    if(row && row.status==='erro'){ setPsTestResult(key, 'err', '✗ '+(row.error||'A impressora não imprimiu.')); loadPrintSetup(); return; }
+  }
+  setPsTestResult(key, 'err', '✗ Nenhum agente pegou o teste em 30 s. '+(agentName?'O computador "'+agentName+'" está ligado e com o agente aberto?':'Algum computador conectado está ligado na mesma rede da impressora?'));
+}
+function openPairAgentModal(){
+  openModal('Conectar computador', `
+    <ol class="sub" style="line-height:1.7;padding-left:20px;margin-top:0">
+      <li>No computador da impressora, abra o <b>agente de impressão do Commandah</b> (CommandahImpressora.exe). Ainda não tem? <a href="downloads/CommandahImpressora.exe" download>Baixar o agente</a>.</li>
+      <li>A janela do agente mostra um código de 6 números.</li>
+      <li>Digite o código aqui e dê um nome para esse computador.</li></ol>
+    <div class="field"><label for="pairCode">Código que aparece no agente</label><input id="pairCode" class="pair-code-input" inputmode="numeric" autocomplete="off" maxlength="7" placeholder="000 000"></div>
+    <div class="field"><label for="pairName">Nome deste computador</label><input id="pairName" maxlength="60" placeholder="Ex.: PC do Caixa, PC da Cozinha"></div>
+    <p id="pairError" class="sub" style="color:var(--c-danger)" hidden></p>
+    <button class="btn btn-primary btn-block" id="pairBtn">Conectar</button>`);
+  const btn = document.getElementById('pairBtn'), err = document.getElementById('pairError');
+  document.getElementById('pairCode').focus();
+  btn.onclick = async ()=>{
+    const code = document.getElementById('pairCode').value.replace(/\D/g,''), name = document.getElementById('pairName').value.trim();
+    if(code.length!==6){ err.hidden=false; err.textContent='O código tem 6 números. Confira na janela do agente.'; return; }
+    if(!name){ err.hidden=false; err.textContent='Dê um nome para o computador, por exemplo "PC do Caixa".'; return; }
+    btn.disabled = true; btn.textContent = 'Conectando…';
+    try{
+      const { data, error } = await supabaseClient.rpc('print_agent_pair_confirm', { p_code:code, p_name:name, p_by: currentUser ? currentUser.name : null });
+      if(error){ err.hidden=false; err.textContent = error.message || 'Não foi possível conectar agora.'; return; }
+      closeModal();
+      toast('"'+((data&&data.name)||name)+'" conectado. Em alguns segundos as impressoras dele aparecem aqui.');
+      loadPrintSetup(); setTimeout(loadPrintSetup, 6000); setTimeout(loadPrintSetup, 15000);
+    }catch(e){ err.hidden=false; err.textContent='Não foi possível conectar agora. Confira a internet.'; }
+    finally{ btn.disabled = false; btn.textContent = 'Conectar'; }
+  };
+}
+function renamePrintAgent(id){
+  const a = ((printSetup&&printSetup.agents)||[]).find(x=>x.id===id); if(!a) return;
+  openModal('Renomear computador', `<div class="field"><label for="psRename">Nome</label><input id="psRename" maxlength="60" value="${h(a.name)}"></div><button class="btn btn-primary btn-block" id="psRenameBtn">Salvar</button>`);
+  document.getElementById('psRenameBtn').onclick = async ()=>{
+    const name = document.getElementById('psRename').value.trim(); if(!name){ toast('Informe o nome.'); return; }
+    const { error } = await supabaseClient.rpc('print_agent_manage', { p_action:'rename', p_agent_id:id, p_name:name });
+    if(error){ toast(error.message||'Não foi possível renomear.'); return; }
+    closeModal(); toast('Computador renomeado.'); loadPrintSetup();
+  };
+}
+async function removePrintAgent(id){
+  const a = ((printSetup&&printSetup.agents)||[]).find(x=>x.id===id); if(!a) return;
+  const used = state.impressoras.filter(p=>p.agentId===id);
+  const ok = await askConfirm({ title:'Remover "'+a.name+'"?', message:'O agente desse computador para de imprimir até ser conectado de novo com um código novo.'+(used.length?' As escolhas das impressoras dele ('+used.map(p=>printStationName(p.estacao)).join(', ')+') também saem.':''), confirmLabel:'Remover computador', cancelLabel:'Manter' });
+  if(!ok) return;
+  const { error } = await supabaseClient.rpc('print_agent_manage', { p_action:'remove', p_agent_id:id, p_by: currentUser ? currentUser.name : null });
+  if(error){ toast(error.message||'Não foi possível remover.'); return; }
+  if(used.length){ state.impressoras = state.impressoras.filter(p=>p.agentId!==id); await save('impressoras'); }
+  toast('"'+a.name+'" removido.'); renderImpressoras();
+}
+async function requestPrinterRescan(){
+  const { error } = await supabaseClient.rpc('print_agent_manage', { p_action:'rescan' });
+  if(error){ toast(error.message||'Não foi possível pedir a busca.'); return; }
+  toast('Os computadores ligados vão procurar as impressoras em até 1 minuto.');
+  setTimeout(loadPrintSetup, 20000); setTimeout(loadPrintSetup, 65000);
 }
 function renderTicketConfigHtml(){
   // Bloco só aparece pra quem pode gravar settings — não adianta mostrar um
