@@ -69,7 +69,14 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - A resposta de `ConsultarNotaFiscal` usa nomes diferentes da emissão (`Chave`, `CodStatusResposta`, `Emitida`, XML dentro de `Nota`): a função trata os dois.
   - **Token da Brasil NFe vazou na tela em 12/10** (o `npm notice` imprimiu o `secrets set`). Foi regenerado no painel, o antigo foi conferido como revogado ("Token inválido") e o secret foi atualizado com `--env-file .claude/tmp/nfce.env`. **Nunca passar o token na linha de comando: usar sempre `--env-file`.**
   - Deploy da função: `npx supabase functions deploy nfce --project-ref ezfoymdesmarpunmixbs --use-api` (a primeira tentativa deu 500 interno; a segunda passou).
-- **Próximo (13/10):** colar o CSC de homologação no painel da Brasil NFe (Configurações › Geral › NFC-e). Depois: Produtos › Opções › Dados fiscais › Preencher; fechar uma comanda de teste e clicar em "Emitir NFC-e de teste" no detalhe. Depois disso: tela de configuração da NFC-e (ambiente e série), DANFE no agente de impressão (t303) e emissão automática ao fechar.
+- **t303, cupom da NFC-e (DANFE), publicado** (PR #107, merge `07b71d0`; sem migration; agente **2.3** em `downloads/`, conferido igual ao build):
+  - `buildNfceDanfe(xml, cols)` no index.html monta o cupom do XML autorizado no leiaute do Manual do DANFE NFC-e, com QR Code nativo ESC/POS (`GS ( k`, modelo 2, correção M) e 80/58 mm.
+  - Botão "Imprimir cupom da NFC-e" na nota autorizada; sai em `receiptPrinterFor(currentUser)`.
+  - **Agente 2.3:** `Printing.NeedsRaw` (ESC/POS que contém `GS ( k`) faz `PrintWindowsRaw` (winspool RAW) em impressora USB; com `PrintToFileDir` grava `.bin`. Fichas comuns iguais.
+  - **Bug antigo corrigido:** o agente troca todo 0x01 por 0x00 (NUL_PLACEHOLDER), então `ESC E 1`, `ESC a 1` e `ESC M 1` viravam "desligar". O negrito do "ENTREGAR EM" das fichas de rede nunca funcionou. **Regra: liga/desliga ESC/POS usa '1'/'0' (0x31/0x30), nunca 0x01.** O QR é recusado quando pL ou pH cairia em 1.
+  - **Testes:** 19 do cupom com XML de exemplo (`danfe-test/` no scratchpad: `danfe.test.js`, `sample-nfce.xml`, `paper.js` gera a prévia do papel com o QR); agente em modo arquivo (`RawTest.cs`). **Ainda não impresso em papel real.**
+  - **Riscos a conferir no clube:** USB precisa do agente 2.3; Bematech em modo ESC/Bema pode não aceitar `GS ( k`.
+- **Próximo (13/10):** colar o CSC de homologação no painel da Brasil NFe (Configurações › Geral › NFC-e). Depois: Produtos › Opções › Dados fiscais › Preencher; fechar uma comanda de teste, clicar em "Emitir NFC-e de teste" no detalhe e depois em "Imprimir cupom da NFC-e". Se a SEFAZ recusar por causa do primeiro item em homologação (regra do xProd "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL"), ajustar o `payload.ts`. Depois disso: tela de configuração da NFC-e (ambiente e série), emissão automática ao fechar, cancelamento e contingência (resto da t303).
 
 ### Fim do dia 11/10
 - **Publicado hoje (todos com "pode publicar" do dono):**
