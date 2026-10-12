@@ -96,6 +96,12 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - **Reabrir comanda com nota autorizada** (`openReopenComanda`, agora async): dentro dos 30 min, cancela a nota junto com o motivo da reabertura; depois, bloqueia com orientação (contador, nota de devolução). Cancelar a comanda inteira só vale para comanda aberta, que não tem nota.
   - **Contingência offline não é necessária para a virada** (o Saipos também não emite sem internet).
   - **Testado:** migration local; resposta real do `CancelarNotaFiscal` com a nota recusada ("protocolo não encontrado"). **Não testado:** cancelamento de nota autorizada (depende do CSC).
+- **Login com uma leitura só (t404) e Impressoras no celular** (PR #115, merge `0302fed`; **o dono entrou numa janela anônima e conferiu que está tudo certo**):
+  - `storageApi.getMany(keys)` (`.in('key', …)`) traz as ~30 chaves do `app_data` numa requisição. Se falhar, `loadAll` volta para o `get()` chave por chave.
+  - Na tela de Impressoras, `.ps-list` passou a usar `grid-template-columns:minmax(0,1fr)`: a opção longa da lista "Caixa:" alargava a grade. Ficou certo a 380 px.
+  - **Armadilha do Chrome em modo invisível:** ele não abre janela com menos de 504 px. Para medir celular, limite o contêiner a 380 px (ver `ovf.js` no scratchpad).
+  - **Prévias do Netlify não fazem login:** a verificação de humano (Turnstile) só aceita `codesphere-company.github.io`. Mudança no login se confere no site oficial, logo depois do merge, com reversão pronta.
+  - O ganho real de velocidade ainda precisa ser medido na internet do clube (t404).
 - **Próximo (13/10):** colar o CSC de homologação no painel da Brasil NFe (Configurações › Geral › NFC-e). Depois:
   1. Produtos › Opções › Dados fiscais › Preencher;
   2. fechar uma comanda de teste, clicar em "Emitir NFC-e de teste" no detalhe e depois em "Imprimir cupom da NFC-e";
