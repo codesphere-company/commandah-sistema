@@ -76,7 +76,13 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - **Bug antigo corrigido:** o agente troca todo 0x01 por 0x00 (NUL_PLACEHOLDER), então `ESC E 1`, `ESC a 1` e `ESC M 1` viravam "desligar". O negrito do "ENTREGAR EM" das fichas de rede nunca funcionou. **Regra: liga/desliga ESC/POS usa '1'/'0' (0x31/0x30), nunca 0x01.** O QR é recusado quando pL ou pH cairia em 1.
   - **Testes:** 19 do cupom com XML de exemplo (`danfe-test/` no scratchpad: `danfe.test.js`, `sample-nfce.xml`, `paper.js` gera a prévia do papel com o QR); agente em modo arquivo (`RawTest.cs`). **Ainda não impresso em papel real.**
   - **Riscos a conferir no clube:** USB precisa do agente 2.3; Bematech em modo ESC/Bema pode não aceitar `GS ( k`.
-- **Equipamentos do clube (t102, respondido em 12/10):** 2 computadores de caixa, cada um com a sua impressora; 1 computador na cozinha com impressora; bar (rede .113) e churrasqueira (rede .112) sem computador. Ainda não se sabe se as impressoras dos caixas são USB ou de rede (.111 Bematech MP-4200 e .114 aparecem no mapa).
+- **Equipamentos do clube (t102, respondido em 12/10):**
+  - Todas as impressoras são de **rede (cabo)**: cozinha **.111 (Bematech MP-4200)**, caixa **.114** (os 2 caixas imprimem nela, por enquanto há uma só), bar **.113** e churrasqueira **.112**.
+  - Os **3 computadores** (2 caixas + cozinha) estão na mesma rede 192.168.110.x.
+  - **Plano de instalação (t202):** agente 2.3 nos 3 computadores, com a **busca na rede desligada** e os 4 IPs adicionados pelo IP em todos (se um estiver desligado, outro imprime; o claim garante uma impressão só). Nos 2 caixas, "Caixa: imprimir tudo lançado aqui em .114" + "Exceto: Cozinha".
+  - A Bematech fica na cozinha, que só imprime fichas. O cupom da NFC-e (QR) sai na .114.
+- **Maquininha (t103):** não é integrada; o TEF existe, mas é opcional e pago. O caixa digita o valor. A NFC-e manda cartão com `TipoIntegracao: false` (PR #111, merge `926921b`; função `nfce` publicada de novo; testado em homologação, recusada só pelo CSC).
+- **Saipos (t104):** não há data limite; encerra 30 dias depois do pedido de cancelamento. Sugestão anotada na t901: pedir só depois da decisão da virada (t602, 21/11).
 - **Regras de impressão do dono, publicadas no PR #109 (merge `9de054a`, sem migration):**
   - No computador de caixa, comida com preparo (Cozinha) vai **só para a impressora da cozinha** e para o monitor. Bebida, lanche pronto e sem preparo saem **no caixa**, para o cliente retirar.
   - Garçom: cada estação na sua impressora. Bar e churrasqueira só recebem ficha do app do garçom.
