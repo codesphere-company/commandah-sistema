@@ -58,6 +58,31 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - O cadastro manual tem "BAR" (192.168.110.113, bar, ambos) e "Impressora Churrasqueira — App" (192.168.110.112, só App). O dono pode ter mexido na tela nova durante os testes: conferir antes de qualquer teste real.
   - As 6 fichas pendentes de 26 a 28/08 foram tiradas da fila (status 'erro').
 - **Migration `20261011070000`: aplicada e registrada pelo dono** (`migration list` bate: 27 migrations).
+- **Plano de lançamento (11/10, noite):** painel ao vivo em **https://claude.ai/artifact/9ZiwkEfqYUeNnPd1T9y3Vm**, com contagem, linha do tempo de 8 semanas, fases, tarefas, prazos, riscos e modo "Apresentar".
+  - **Dados:** ficam no `db` do artefato: `config/projeto` (virada), `fases/f0..f9`, `tarefas/tNNN` (`status` a_fazer, andamento, bloqueado ou feito; `responsavel` dono, contador, claude ou equipe), `riscos/r1..r5`.
+  - **Para atualizar daqui:** usar o `ArtifactData` (com `if_version`). Ao terminar uma tarefa, marcar como `feito` lá.
+  - **Cronograma:**
+
+    | Semana | Datas | Fase |
+    |---|---|---|
+    | 1 | 12–18/10 | Preparação: contador, NFC-e, emissor, agente, exportar do Saipos |
+    | 2 | 19–25/10 | Cadastros e impressão; NFC-e em teste |
+    | 3 | 26/10–01/11 | Ensaio geral 1 |
+    | 4 | 02–08/11 | NFC-e em produção, ensaio 2, treinamento |
+    | 5 | 09–15/11 | Piloto |
+    | 6 | 16–22/11 | Piloto ampliado e decisão |
+    | 7 | **23/11** | **Virada** |
+    | 8–9 | até 06/12 | Acompanhamento e cancelamento do Saipos |
+
+  - **Caminho crítico:** a NFC-e, que depende do contador (certificado A1, CSC/ID da Receita/PR, NCM/CFOP/CSOSN) e do emissor por API escolhido.
+  - **Perguntas abertas ao dono** (tarefas t101 a t104 do painel):
+    - o Saipos emite NFC-e hoje?
+    - quantos caixas e impressoras entram, e onde fica cada uma?
+    - a maquininha tem TEF?
+    - existe data limite (evento do clube, contrato do Saipos)?
+  - **Minhas próximas tarefas no painel:**
+    - t106: comparar os emissores de NFC-e, até 15/10;
+    - t108: agente com a busca de rede desligável e "adicionar impressora pelo IP", até 17/10.
 - **Pendências do dono:**
   - preencher o encarregado em Configurações › Privacidade (LGPD);
   - BD-11 (secret `GDRIVE_TOKEN`);
