@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-10-11, fim do dia** (ver "Fim do dia 11/10" no começo do Estado atual: o Commandah NÃO está em uso no clube, que opera com o Saipos; mapa da rede do clube; impressão automática publicada). Antes: **2026-10-11, noite** (impressão automática: computador conectado por código, impressoras encontradas, caixa imprime tudo). Antes: **2026-10-11** (PR #93: administrador gera o token do agente de impressão; instalação do agente no clube em andamento). Antes: **2026-10-11** (PR #90: login por e-mail mostrava a lista de colaboradores vazia — confirmado; SEG-04 concluído). Antes: **2026-10-10, fim do dia** (ver "Fim do dia 10/10" no começo do Estado atual). Antes: **2026-10-10, tarde** (PRs #65–#67: bloqueio v2, transferir itens, reabrir comanda, movimentações por usuário — ver "Resumo rápido (10/10, tarde)"). Antes: **2026-10-10** (SEG-12, OPS-05, OP-14, PROD-18 e BD-11 publicados; main protegida — ver "Resumo rápido (10/10)"). Antes: **2026-10-09, noite** (auditoria de 07/10 praticamente concluída: Fases A, B, U, C e D publicadas — PRs #40 a #55; SEG-12 no PR #56 esperando "publicar"; o que falta depende do dono. Ver "Resumo rápido (09/10, noite)" no começo do Estado atual). Antes, **2026-10-09, tarde** (PRs #40 a #43 publicados: comandas e Novo Pedido redesenhados, Fase C lotes 1 a 3).
+Última atualização: **2026-10-12, fim do dia** (ver "Fim do dia 12/10" no começo do Estado atual: NFC-e com a Brasil NFe em homologação, códigos fiscais dos produtos, lanchonete é da irmã do Fabricio). Antes: **2026-10-11, fim do dia** (ver "Fim do dia 11/10" no começo do Estado atual: o Commandah NÃO está em uso no clube, que opera com o Saipos; mapa da rede do clube; impressão automática publicada). Antes: **2026-10-11, noite** (impressão automática: computador conectado por código, impressoras encontradas, caixa imprime tudo). Antes: **2026-10-11** (PR #93: administrador gera o token do agente de impressão; instalação do agente no clube em andamento). Antes: **2026-10-11** (PR #90: login por e-mail mostrava a lista de colaboradores vazia — confirmado; SEG-04 concluído). Antes: **2026-10-10, fim do dia** (ver "Fim do dia 10/10" no começo do Estado atual). Antes: **2026-10-10, tarde** (PRs #65–#67: bloqueio v2, transferir itens, reabrir comanda, movimentações por usuário — ver "Resumo rápido (10/10, tarde)"). Antes: **2026-10-10** (SEG-12, OPS-05, OP-14, PROD-18 e BD-11 publicados; main protegida — ver "Resumo rápido (10/10)"). Antes: **2026-10-09, noite** (auditoria de 07/10 praticamente concluída: Fases A, B, U, C e D publicadas — PRs #40 a #55; SEG-12 no PR #56 esperando "publicar"; o que falta depende do dono. Ver "Resumo rápido (09/10, noite)" no começo do Estado atual). Antes, **2026-10-09, tarde** (PRs #40 a #43 publicados: comandas e Novo Pedido redesenhados, Fase C lotes 1 a 3).
 
 > **Sobre os números de linha** (`index.html:NNNN`): nas seções datadas eles valem para o código **daquela data** e envelhecem a cada mudança — procure pelo nome da função, não pela linha. Só as Pendências abertas são mantidas com linha atual (conferida em 2026-10-02).
 
@@ -13,6 +13,8 @@ Atualização anterior: **2026-09-24** (cancelar item/comanda com permissão por
 Commandah é o sistema de comanda/PDV do **Clube Olímpico** (Maringá — negócio real do Fabricio, não é side project fictício). Roda direto no navegador, sem servidor de aplicação.
 
 > **Situação real (confirmada pelo dono em 11/10):** o Commandah **ainda não está em uso** no clube. A operação roda no **Saipos**. Este computador (COMPANYPC, notebook do Fabricio) é onde o Commandah é programado e testado, e ele fica **na rede real do clube**, junto com os notebooks do Saipos. Frases antigas deste arquivo como "nada imprime desde 29/08" ou "colar o token no agente do clube" falam de testes, não de operação. Não varrer a rede, não mandar impressão de teste para as impressoras do clube e não deixar o agente de teste rodando sem combinar com o dono.
+>
+> **A lanchonete é da irmã do Fabricio** (contado em 12/10): empresa **A&V Rosa Foods Ltda**, CNPJ 55.147.384/0001-61, Simples Nacional. CNPJ, certificado A1, CSC, contador e o contrato com o emissor de NFC-e são dela. Decisões fiscais e a troca do Saipos passam por ela.
 
 
 - **Frontend**: um único `index.html` (8435 linhas / ~1,1 MB em 2026-10-09), sem build step. Mais `sw.js` (service worker, PROD-17) e `manifest.webmanifest`.
@@ -27,7 +29,31 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
-### Fim do dia 11/10 — leia isto primeiro na próxima conversa
+### Fim do dia 12/10 — leia isto primeiro na próxima conversa
+- **Nada do site mudou hoje.** O trabalho foi de planejamento da NFC-e, no painel do lançamento e fora do repositório.
+- **Respostas do dono e da irmã (dona da lanchonete):**
+  - o Saipos emite NFC-e (t101 feito): credenciamento, certificado A1 e CSC já existem;
+  - quando a internet cai, o Saipos **não** emite: contingência offline não é obrigatória para a virada;
+  - já houve mês com **mais de 8 mil NFC-e**;
+  - no Saipos, a comida está com NCM 2106.90.90, CFOP 5101 e CSOSN 102; as cervejas com NCM 2203.00.00 e CSOSN 500; a tela não mostra CEST nem CFOP das bebidas;
+  - **erro no Saipos:** a Coca-Cola está com NCM 2203.00.00 (cerveja); o certo é 2202.10.00. Avisar o contador.
+- **Emissor escolhido: Brasil NFe** (t106 feito, t107 em andamento). Comparação publicada em https://claude.ai/artifact/HZ1VCTEcbvGGdgWPWFky6U (Focus NFe fica como plano B).
+  - Plano de R$ 49,90/mês, NF-e e NFC-e ilimitadas, 1 CNPJ. A Focus custaria uns R$ 475 com 8 mil notas.
+  - Tem um programa para o caixa ("Brasil NFe Agente") que assina a nota sem internet; fica para depois.
+  - **Conta criada em homologação** no CNPJ da lanchonete. O suporte confirmou pelo WhatsApp: serviços "desativados" no painel = homologação, grátis; ativar (e pagar) só na produção.
+  - **Certificado A1 enviado ao painel, válido até 25/03/2027** (renovar antes e subir no Saipos e na Brasil NFe).
+  - **Token da empresa** salvo em `.claude/tmp/brasilnfe-token.txt` (pasta fora do git). É o "Token – A&V ROSA FOODS LTDA" do menu Credenciais, não o token pessoal. Vale para produção também: tratar como senha.
+  - Teste feito: `POST https://api.brasilnfe.com.br/services/fiscal/ConsultarStatusSefaz` com `{"ModeloDocumento":65}` e header `Token` → 107 "Serviço em Operação", PR (41), 1,2 s.
+  - **Falta o CSC de homologação** (o contador manda em 13/10). Vai em Configurações › Geral › NFC-e › "Ident./Código CSC Homologação". Depois: emitir em homologação uma comanda de teste (1 cerveja em lata + 1 lanche).
+  - API: `POST /services/Fiscal/EnviarNotaFiscal` (`ModeloDocumento` 65, `TipoAmbiente` 2 = homologação), `ConsultarNotaFiscal`, `ObterArquivoNotaFiscal`, cancelamento em "Eventos". Documentação em https://brasilnfe.com.br/api; SDKs .NET, PHP, Node e Python.
+  - Emissor próprio (no agente C#, biblioteca DFe.NET) é possível, mas ficou para depois da virada: com a Brasil NFe a economia seria só uns R$ 600/ano.
+- **Códigos fiscais (t201 em andamento):** planilha `C:\Users\fabri\Documents\commandah\codigos-fiscais-sugeridos.xlsx` (fora do repositório) com NCM, CEST, CFOP e CSOSN sugeridos para os 104 produtos do Commandah, colunas amarelas para o contador. Comida confirmada pelo Saipos; bebidas: falta CEST e CFOP (esperado 5405), conferir num XML de NFC-e já emitida ou na nota de compra do fornecedor. O cadastro do Commandah tem só 1 refrigerante e nenhuma água: falta produto em relação ao Saipos.
+  - Para ler os produtos de produção: `bash .claude/tmp/produtos.sh` (só `select`; o dono liberou essa regra em `/permissions`). Gera `.claude/tmp/produtos.json`.
+- **Painel do lançamento:** as anotações das tarefas agora aparecem inteiras, em destaque, com a etiqueta "tem anotação" (antes ficavam escondidas numa caixa de uma linha). Notas novas em t101, t105, t106, t107, t109 e t201.
+- **NFS-e tomadas** (opção da Brasil NFe) não é necessária: são notas de serviço. As notas dos fornecedores são NF-e de produto; o Commandah já importa o XML em Insumos › Alterar Estoque com NFe (manual). Busca automática na SEFAZ fica como melhoria futura.
+- **Próximo:** t108 (agente: desligar a busca de rede e "adicionar impressora pelo IP", até 17/10); emitir a NFC-e de teste quando o CSC chegar.
+
+### Fim do dia 11/10
 - **Publicado hoje (todos com "pode publicar" do dono):**
   - **#90:** login por e-mail mostrava a lista de colaboradores vazia (confirmado pelo dono; SEG-04 concluído).
   - **#93:** administrador gera o token do agente.
