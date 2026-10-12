@@ -12,7 +12,7 @@ namespace Commandah.Agente
 {
     public class Config
     {
-        public const string Version = "2.2.0";
+        public const string Version = "2.3.0";
         public const string DefaultApiUrl = "https://ezfoymdesmarpunmixbs.supabase.co";
         public const string DefaultApiKey = "sb_publishable_m56iV0j3aIHlj_jth44jyw_CIw7CmyG";
         const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
