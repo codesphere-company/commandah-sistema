@@ -89,7 +89,19 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - Comprovante **só se o cliente pedir**: caixinha "Imprimir comprovante (se o cliente pedir)" no pagamento e botão no detalhe da comanda paga. Antes saía sozinho no balcão; agora traz as formas de pagamento e o troco.
   - No código: `caixaKeepStations(dev)` lê `keepStations` na entrada `estacao:'tudo'` (padrão `['cozinha']`). `printSingleTicket` só desvia para o caixa o que não está nessa lista, ou quando a estação não tem impressora. Funções `printSaleReceipt` e `receiptPayLines`.
   - Testado em simulação (11 cenários); ainda não em impressora real.
-- **Próximo (13/10):** colar o CSC de homologação no painel da Brasil NFe (Configurações › Geral › NFC-e). Depois: Produtos › Opções › Dados fiscais › Preencher; fechar uma comanda de teste, clicar em "Emitir NFC-e de teste" no detalhe e depois em "Imprimir cupom da NFC-e". Se a SEFAZ recusar por causa do primeiro item em homologação (regra do xProd "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL"), ajustar o `payload.ts`. Depois disso: tela de configuração da NFC-e (ambiente e série), emissão automática ao fechar, cancelamento e contingência (resto da t303).
+- **NFC-e: configuração, emissão ao fechar e cancelamento publicados** (PR #113, merge `06a5ea9`; migration **`20261012020000_nfce_cancelamento.sql` aplicada e registrada**, 30 migrations; função `nfce` publicada de novo):
+  - **Configurações › "NFC-e (nota fiscal)"** (`openNfceSettings`): `state.settings.nfce = {ambiente, serie, autoEmitir, autoImprimir}`. Produção exige série e confirmação; o servidor ainda exige `NFCE_PRODUCAO=liberada`.
+  - **Emissão ao fechar** (`autoEmitNfce`, chamada depois de `finalizeSale` na tela de pagamento): desligada por padrão. Se estiver ligada, emite e imprime o cupom (`printNfceDanfe`). Recusa ou falta de código fiscal vira aviso de erro e log.
+  - **Cancelamento:** ação `cancelar` na função (`CancelarNotaFiscal`; sucesso = cStat 135/155; 501 = fora do prazo). A nota vira `cancelada` com `cancel_protocolo`, `cancel_motivo`, `cancelada_por` e `cancelada_em`, e vai para o audit_log. Botão "Cancelar NFC-e (faltam N min)" na nota autorizada (`openCancelNfce`), só dentro de `NFCE_CANCEL_MIN` (30). Depois de cancelada, a comanda pode ter nota nova.
+  - **Reabrir comanda com nota autorizada** (`openReopenComanda`, agora async): dentro dos 30 min, cancela a nota junto com o motivo da reabertura; depois, bloqueia com orientação (contador, nota de devolução). Cancelar a comanda inteira só vale para comanda aberta, que não tem nota.
+  - **Contingência offline não é necessária para a virada** (o Saipos também não emite sem internet).
+  - **Testado:** migration local; resposta real do `CancelarNotaFiscal` com a nota recusada ("protocolo não encontrado"). **Não testado:** cancelamento de nota autorizada (depende do CSC).
+- **Próximo (13/10):** colar o CSC de homologação no painel da Brasil NFe (Configurações › Geral › NFC-e). Depois:
+  1. Produtos › Opções › Dados fiscais › Preencher;
+  2. fechar uma comanda de teste, clicar em "Emitir NFC-e de teste" no detalhe e depois em "Imprimir cupom da NFC-e";
+  3. testar "Cancelar NFC-e" dentro dos 30 min e, se quiser, ligar "Emitir sozinha ao fechar" em Configurações › NFC-e.
+
+  Se a SEFAZ recusar por causa do primeiro item em homologação (regra do xProd "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL"), ajustar o `payload.ts`.
 
 ### Fim do dia 11/10
 - **Publicado hoje (todos com "pode publicar" do dono):**
