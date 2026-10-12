@@ -76,6 +76,13 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - **Bug antigo corrigido:** o agente troca todo 0x01 por 0x00 (NUL_PLACEHOLDER), então `ESC E 1`, `ESC a 1` e `ESC M 1` viravam "desligar". O negrito do "ENTREGAR EM" das fichas de rede nunca funcionou. **Regra: liga/desliga ESC/POS usa '1'/'0' (0x31/0x30), nunca 0x01.** O QR é recusado quando pL ou pH cairia em 1.
   - **Testes:** 19 do cupom com XML de exemplo (`danfe-test/` no scratchpad: `danfe.test.js`, `sample-nfce.xml`, `paper.js` gera a prévia do papel com o QR); agente em modo arquivo (`RawTest.cs`). **Ainda não impresso em papel real.**
   - **Riscos a conferir no clube:** USB precisa do agente 2.3; Bematech em modo ESC/Bema pode não aceitar `GS ( k`.
+- **Equipamentos do clube (t102, respondido em 12/10):** 2 computadores de caixa, cada um com a sua impressora; 1 computador na cozinha com impressora; bar (rede .113) e churrasqueira (rede .112) sem computador. Ainda não se sabe se as impressoras dos caixas são USB ou de rede (.111 Bematech MP-4200 e .114 aparecem no mapa).
+- **Regras de impressão do dono, publicadas no PR #109 (merge `9de054a`, sem migration):**
+  - No computador de caixa, comida com preparo (Cozinha) vai **só para a impressora da cozinha** e para o monitor. Bebida, lanche pronto e sem preparo saem **no caixa**, para o cliente retirar.
+  - Garçom: cada estação na sua impressora. Bar e churrasqueira só recebem ficha do app do garçom.
+  - Comprovante **só se o cliente pedir**: caixinha "Imprimir comprovante (se o cliente pedir)" no pagamento e botão no detalhe da comanda paga. Antes saía sozinho no balcão; agora traz as formas de pagamento e o troco.
+  - No código: `caixaKeepStations(dev)` lê `keepStations` na entrada `estacao:'tudo'` (padrão `['cozinha']`). `printSingleTicket` só desvia para o caixa o que não está nessa lista, ou quando a estação não tem impressora. Funções `printSaleReceipt` e `receiptPayLines`.
+  - Testado em simulação (11 cenários); ainda não em impressora real.
 - **Próximo (13/10):** colar o CSC de homologação no painel da Brasil NFe (Configurações › Geral › NFC-e). Depois: Produtos › Opções › Dados fiscais › Preencher; fechar uma comanda de teste, clicar em "Emitir NFC-e de teste" no detalhe e depois em "Imprimir cupom da NFC-e". Se a SEFAZ recusar por causa do primeiro item em homologação (regra do xProd "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL"), ajustar o `payload.ts`. Depois disso: tela de configuração da NFC-e (ambiente e série), emissão automática ao fechar, cancelamento e contingência (resto da t303).
 
 ### Fim do dia 11/10
