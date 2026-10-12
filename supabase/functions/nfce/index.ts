@@ -4,6 +4,7 @@
 //
 // POST { action: "emitir", sale_id }      -> emite (ou devolve a que já foi autorizada)
 // POST { action: "consultar", sale_id }   -> últimas tentativas dessa comanda
+// POST { action: "cancelar", sale_id, justificativa } -> cancela a autorizada (até 30 min, regra da SEFAZ)
 //
 // Ambiente: homologação (2) por padrão. Produção (1) só se as DUAS travas estiverem ligadas:
 // settings.nfce.ambiente = 1 no Commandah E o secret NFCE_PRODUCAO = "liberada". Assim nenhum
@@ -81,7 +82,7 @@ Deno.serve(async (req) => {
   const who = await caller(req);
   if (!who) return json({ error: "Só o administrador ou o caixa emitem NFC-e. Entre de novo e tente outra vez." }, 403);
 
-  let body: { action?: string; sale_id?: string };
+  let body: { action?: string; sale_id?: string; justificativa?: string };
   try { body = await req.json(); } catch { return json({ error: "Pedido inválido." }, 400); }
   const saleId = String(body.sale_id || "");
   if (!/^[A-Za-z0-9_-]{1,80}$/.test(saleId)) return json({ error: "Comanda inválida." }, 400);
@@ -90,6 +91,36 @@ Deno.serve(async (req) => {
     const { data } = await admin.from("nfce_notas").select("*").eq("tenant_id", who.tenantId).eq("sale_id", saleId)
       .order("created_at", { ascending: false }).limit(10);
     return json({ notas: (data || []).map(publicRow) });
+  }
+  if (body.action === "cancelar") {
+    if (!BRASILNFE_TOKEN) return json({ error: "O emissor de NFC-e ainda não está configurado no servidor." }, 503);
+    const just = String(body.justificativa || "").trim().replace(/\s+/g, " ");
+    if (just.length < 15) return json({ error: "Escreva o motivo do cancelamento com pelo menos 15 letras." }, 400);
+    const { data: nota } = await admin.from("nfce_notas").select("*").eq("tenant_id", who.tenantId).eq("sale_id", saleId)
+      .eq("status", "autorizada").order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (!nota) return json({ error: "Esta comanda não tem NFC-e autorizada para cancelar." }, 404);
+    const r = await brasilNfe("CancelarNotaFiscal", { ChaveNF: nota.chave, Justificativa: just.slice(0, 1000), TipoAmbiente: nota.ambiente })
+      .catch((e) => ({ ok: false, status: 0, body: null, text: String(e) }));
+    const b = (r.body || {}) as Record<string, unknown>;
+    const cod = Number(b.CodStatusRespostaSefaz) || null;
+    // 135 = evento registrado e vinculado à nota; 155 = cancelamento homologado fora do prazo.
+    if (cod !== 135 && cod !== 155) {
+      const motivo = String(b.DsMotivo || b.Error || r.text || "sem resposta").slice(0, 300);
+      const prazo = cod === 501 || /prazo/i.test(motivo);
+      return json({ error: prazo
+        ? "Passou o prazo de 30 minutos para cancelar esta NFC-e. Fale com o contador (nota de devolução)."
+        : `A SEFAZ não aceitou o cancelamento${cod ? " (" + cod + ")" : ""}: ${motivo}` }, 422);
+    }
+    const upd = { status: "cancelada", cancelada_em: new Date().toISOString(), cancel_protocolo: (b.NuProtocolo as string) || null,
+      cancel_motivo: just.slice(0, 500), cancelada_por: who.name };
+    const { data: saved, error: updErr } = await admin.from("nfce_notas").update(upd).eq("id", nota.id).select("*").single();
+    if (updErr) console.error("[nfce] cancelada na SEFAZ, mas falhou ao gravar:", updErr);
+    await admin.from("audit_log").insert({
+      tenant_id: who.tenantId, actor_name: who.name, entity: "sale", entity_id: saleId,
+      action: `NFC-e cancelada${nota.ambiente === 2 ? " (homologação)" : ""}: nº ${nota.numero} série ${nota.serie} — ${just.slice(0, 120)}`,
+      meta: { chave: nota.chave, protocolo: upd.cancel_protocolo },
+    });
+    return json({ nota: publicRow(saved || { ...nota, ...upd }) });
   }
   if (body.action !== "emitir") return json({ error: "Ação inválida." }, 400);
   if (!BRASILNFE_TOKEN) return json({ error: "O emissor de NFC-e ainda não está configurado no servidor (falta o token da Brasil NFe)." }, 503);

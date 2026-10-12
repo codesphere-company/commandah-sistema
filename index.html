@@ -1465,7 +1465,7 @@ const RIBBON_TABS = [
   { id:'config', label:'Configurações', groups:[
       { label:'Configurações', items:[
           {label:'Configurações do Sistema', icon:ICN.gear, perm:'config-sistema', action:'openSystemSettings'}, {label:'Numeração de Pedidos', icon:ICN.hash, perm:'config-sistema', action:'openNumberingSettings'}, {label:'Impressora', icon:ICN.sliders, perm:'config-sistema', action:'openPrinterSettings'},
-          {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios'}, {label:'Alterar Minha Senha', icon:ICN.key, perm:'senha-propria', action:'openChangePinModal'}, {label:'Backup', icon:ICN.save, view:'backup'}, {label:'Privacidade (LGPD)', icon:ICN.key, perm:'config-sistema', action:'openPrivacySettings'}
+          {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios'}, {label:'Alterar Minha Senha', icon:ICN.key, perm:'senha-propria', action:'openChangePinModal'}, {label:'Backup', icon:ICN.save, view:'backup'}, {label:'Privacidade (LGPD)', icon:ICN.key, perm:'config-sistema', action:'openPrivacySettings'}, {label:'NFC-e (nota fiscal)', icon:ICN.receipt, perm:'config-sistema', action:'openNfceSettings'}
       ]},
       { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Quem Levou', icon:ICN.handoff, view:'quemlevou'}, {label:'Estações', icon:ICN.station, view:'estacoes'}, {label:'Origens de Pedido', icon:ICN.route, view:'origens'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },
       { label:'Logs e Fila de Eventos', items:[ {label:'Logs', icon:ICN.scroll, perm:'logs', action:'openLogsView', actionArg:'Logs'}, {label:'Fila de Eventos', icon:ICN.inbox, perm:'logs', action:'openLogsView', actionArg:'Fila de Eventos'}, {label:'Erros do Sistema', icon:ICN.alert, perm:'logs', action:'openLogsView', actionArg:'Erros do Sistema'} ] },
@@ -4503,6 +4503,57 @@ function openPrivacySettings(){
     <h4 style="margin:18px 0 6px">Sócios arquivados há mais de ${ps.anos} ano${ps.anos===1?'':'s'} (${vencidos.length})</h4>
     ${vencidos.length?`<div class="lgpd-list">${vencidos.map(m=>`<div class="lgpd-row"><span>${h(m.name)}${m.code?' · Cota '+h(m.code):''} <span class="sub">arquivado em ${new Date(m.archivedAt).toLocaleDateString('pt-BR')}</span></span>${isAdminUser()?`<button class="op-btn" onclick="anonymizeMember(${jsArg(m.id)})">Anonimizar</button>`:''}</div>`).join('')}</div>`:'<p class="sub">Nenhum. Quando algum passar do prazo, ele aparece aqui.</p>'}`);
 }
+/* ============ NFC-e: CONFIGURAÇÃO (t207) ============
+   state.settings.nfce = { ambiente: 2|1, serie, autoEmitir, autoImprimir }. A Edge Function "nfce"
+   lê ambiente e série daqui; produção ainda exige o secret NFCE_PRODUCAO=liberada no servidor. */
+function nfceSettings(){ const c=(state.settings&&state.settings.nfce)||{}; return { ambiente: Number(c.ambiente)===1?1:2, serie: Number(c.serie)>0?Number(c.serie):'', autoEmitir: !!c.autoEmitir, autoImprimir: c.autoImprimir!==false }; }
+function openNfceSettings(){
+  if(!requirePerm('config-sistema')) return;
+  const c = nfceSettings();
+  openModal('NFC-e (nota fiscal)', `
+    <p class="sub" style="margin-top:0">A nota é emitida pela Brasil NFe, no CNPJ da lanchonete. Os códigos fiscais de cada produto ficam em Produtos › Editar › aba Fiscal.</p>
+    <div class="row">
+      <div class="field"><label for="nfceAmb">Ambiente</label><select id="nfceAmb"><option value="2" ${c.ambiente===2?'selected':''}>Teste (homologação) — sem valor fiscal</option><option value="1" ${c.ambiente===1?'selected':''}>Produção — nota de verdade</option></select></div>
+      <div class="field"><label for="nfceSerie">Série da NFC-e do Commandah</label><input id="nfceSerie" type="number" min="1" max="999" value="${c.serie}" placeholder="definida pelo contador"></div>
+    </div>
+    <p class="sub">A série precisa ser <b>diferente da do Saipos</b>, porque os dois emitem no mesmo CNPJ durante o piloto. Sem série, a produção não emite. Produção também precisa estar liberada no servidor (proteção contra nota de verdade por engano).</p>
+    <label class="comp-switch" style="margin:10px 0"><input type="checkbox" id="nfceAuto" ${c.autoEmitir?'checked':''}><span></span> <b style="font-weight:400">Emitir a NFC-e sozinha ao fechar a comanda (pagamento)</b></label>
+    <label class="comp-switch" style="margin:0 0 10px"><input type="checkbox" id="nfceAutoPrint" ${c.autoImprimir?'checked':''}><span></span> <b style="font-weight:400">Imprimir o cupom da NFC-e no caixa quando ela for autorizada</b></label>
+    <p class="sub">Desligado, a nota é emitida pelo botão "Emitir NFC-e" no detalhe da comanda (Relatórios › Histórico de Pedidos). Cancelamento: até 30 minutos depois da autorização, no mesmo lugar.</p>
+    <button class="btn btn-primary btn-block" id="nfceSaveBtn">Salvar</button>`);
+  document.getElementById('nfceSaveBtn').onclick = async ()=>{
+    const ambiente = document.getElementById('nfceAmb').value==='1' ? 1 : 2;
+    const serieRaw = document.getElementById('nfceSerie').value.trim(), serie = serieRaw ? parseInt(serieRaw,10) : '';
+    if(serieRaw && !(serie>=1 && serie<=999)){ toast('A série é um número de 1 a 999.'); return; }
+    if(ambiente===1 && !serie){ toast('Para produção, informe a série do Commandah (pedir ao contador).'); return; }
+    if(ambiente===1 && c.ambiente!==1){
+      const ok = await askConfirm({ title:'Passar a NFC-e para produção?', message:'A partir daqui as notas têm valor fiscal, no CNPJ da lanchonete, na série '+serie+'. Confirme que o contador aprovou os códigos fiscais e a série.', confirmLabel:'Passar para produção', cancelLabel:'Continuar em teste' });
+      if(!ok) return;
+    }
+    state.settings.nfce = { ambiente, serie: serie||null, autoEmitir: document.getElementById('nfceAuto').checked, autoImprimir: document.getElementById('nfceAutoPrint').checked };
+    await save('settings');
+    logAction('NFC-e: ambiente '+(ambiente===1?'PRODUÇÃO':'teste')+', série '+(serie||'—')+', emissão '+(state.settings.nfce.autoEmitir?'automática':'manual'));
+    closeModal(); toast('Configuração da NFC-e salva.');
+  };
+}
+// Depois do pagamento (t207): emite sozinha se estiver ligado, e imprime o cupom no caixa.
+async function autoEmitNfce(saleId){
+  const c = nfceSettings(); if(!c.autoEmitir) return;
+  const sale = state.sales.find(x=>x.id===saleId); if(!nfceCanUse(sale)) return;
+  const r = await nfceCall('emitir', saleId);
+  if(r.error){
+    toast('NFC-e não emitida: '+r.error+((r.problemas||[]).length?' '+r.problemas[0]:'')+' Veja no detalhe da comanda.', 'erro');
+    logAction('NFC-e não emitida (pedido '+(sale.orderNumber||saleId)+'): '+r.error);
+    return;
+  }
+  const n = r.nota || {};
+  if(n.status==='autorizada'){
+    if(c.autoImprimir && n.id) printNfceDanfe(n.id);
+  } else {
+    toast('A SEFAZ recusou a NFC-e do pedido '+(sale.orderNumber||'')+': '+(n.motivo||'sem motivo')+'. Veja no detalhe da comanda.', 'erro');
+    logAction('NFC-e recusada (pedido '+(sale.orderNumber||saleId)+'): '+(n.cod_status||'')+' '+(n.motivo||''));
+  }
+}
 function savePrivacySettings(){
   const anos=Math.max(1,Math.min(20,parseInt(document.getElementById('lgpdAnos').value,10)||2));
   state.settings.privacy={ nome:document.getElementById('lgpdNome').value.trim(), email:document.getElementById('lgpdEmail').value.trim(), anos, atualizado:todayStr() };
@@ -5568,6 +5619,7 @@ function openPaymentModal(mode, comandaId){
     if(closedSaleId){
       recordChangeOutInCash(cashChangeOut, closedSaleId);
       if(wantReceipt) printSaleReceipt(closedSaleId);
+      autoEmitNfce(closedSaleId); // não espera: a venda já está registrada
       if(mode==='balcao') document.getElementById('modalRoot').dataset.confirmPdv='false';
       closeModal();
     }
@@ -6654,7 +6706,7 @@ async function confirmReorderComandaItem(){
 // pagamentos já deixam de contar quando ela reabre). Depois edita, transfere ou cancela como
 // qualquer comanda aberta.
 function canReopenSale(s){ return !!s && s.type==='comanda' && s.status==='closed' && !s.canceled; }
-function openReopenComanda(saleId){
+async function openReopenComanda(saleId){
   const s=state.sales.find(x=>x.id===saleId); if(!s) return;
   if(!(currentUser && (currentUser.role==='admin' || sessionIsOwner))){ toast('Só o administrador reabre comanda fechada.'); return; }
   if(!canReopenSale(s)){ toast('Só comanda fechada (e não cancelada) pode ser reaberta.'); return; }
@@ -6667,6 +6719,13 @@ function openReopenComanda(saleId){
   const lines=[];
   if(paid.length) lines.push(sameSession?'Os pagamentos ('+paid.map(p=>paymentMethodLabel(p.method)+' '+fmt(p.amount)).join(', ')+') deixam de contar neste caixa.':'Sai do caixa de agora: '+paid.map(p=>paymentMethodLabel(p.method)+' '+fmt(p.amount)).join(', ')+'.');
   if(fiado.length || Number(s.creditApplied)>0.009) lines.push('O fiado/crédito desta venda no extrato do sócio é estornado.');
+  // t303: NFC-e autorizada. Dentro do prazo é cancelada junto; fora do prazo não dá para reabrir.
+  const nota = await nfceAutorizadaDaComanda(saleId);
+  if(nota){
+    const mins = nfceMinutesSince(nota.created_at);
+    if(mins >= NFCE_CANCEL_MIN){ toast('Esta comanda tem a NFC-e nº '+nota.numero+' autorizada há '+mins+' min. Passou o prazo de 30 minutos para cancelar: fale com o contador (nota de devolução) antes de reabrir.', 'erro'); return; }
+    lines.unshift('A NFC-e nº '+nota.numero+(nota.ambiente===2?' (teste)':'')+' será cancelada junto (faltam '+(NFCE_CANCEL_MIN-mins)+' min do prazo).');
+  }
   lines.push('Depois é só editar, transferir ou cancelar e fechar de novo.');
   askStaffPin({
     title:'Reabrir pedido #'+(s.orderNumber||'—')+' · '+(s.customerName||'Avulso'),
@@ -6682,6 +6741,12 @@ function openReopenComanda(saleId){
         if(r.error) return r.error;
         if(r.data.staff_id!==currentUser.id) return 'Senha de outro colaborador.';
       } else if(String(currentUser.pin||'')!==String(pin)) return 'PIN incorreto.';
+      if(nota){
+        const just = ('Comanda reaberta para correcao: '+reason).slice(0, 255);
+        const c = await nfceCall('cancelar', saleId, { justificativa: just });
+        if(c.error) return 'A comanda não foi reaberta porque a NFC-e não pôde ser cancelada: '+c.error;
+        logAction('NFC-e nº '+nota.numero+' cancelada ao reabrir o pedido '+(s.orderNumber||saleId));
+      }
       return await reopenClosedComanda(saleId, reason, sameSession);
     }
   });
@@ -8168,9 +8233,9 @@ function renderOrderHistoryReport(sales){const f=orderHistoryFilters,from=f.from
 function openOrderHistoryColumns(){const groups=orderHistoryColumnGroups.map((g,i)=>`<details class="columns-group" ${i===0?'open':''}><summary>${h(g[0])}</summary><div class="columns-fields">${g[1].map(([key,label])=>`<label><input class="history-column-choice" type="checkbox" value="${key}" ${orderHistoryExtraColumns.includes(key)?'checked':''}> ${h(label)}</label>`).join('')}</div></details>`).join(''),groupChoices=[['operator','Criado por'],['origin','Origem'],['utmMedium','UTM Medium'],['district','Bairro'],['deliveryType','Tipo Entrega'],['utmCampaign','UTM Campaign'],['type','Tipo'],['utmSource','UTM Source']];openModal('Exibir / Ocultar Colunas',`<div class="columns-panel"><div class="columns-tree">${groups}</div><div class="columns-grouping"><b>Agrupar Por</b><div class="columns-grouping-grid">${groupChoices.map(([key,label])=>`<label><input type="radio" name="historyGroup" value="${key}" ${orderHistoryGroupBy===key?'checked':''}>${h(label)}</label>`).join('')}</div></div></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="consumer-save" id="historyColumnsApply">✓ Aplicar</button></div>`);const modal=document.querySelector('#modalRoot .modal');modal.classList.add('columns-record-modal');document.getElementById('historyColumnsApply').onclick=()=>{orderHistoryExtraColumns=[...document.querySelectorAll('.history-column-choice:checked')].map(x=>x.value);orderHistoryGroupBy=document.querySelector('input[name="historyGroup"]:checked')?.value||'';closeModal();renderRelatorios();toast('Colunas atualizadas.');};}
 // ---------- t207: NFC-e da comanda (Edge Function "nfce"; por enquanto só homologação) ----------
 function nfceCanUse(sale){ return !!(sale && sale.status==='closed' && !sale.canceled && isCloudMode() && supabaseClient && ((currentUser && (currentUser.role==='admin'||currentUser.role==='caixa')) || sessionIsOwner)); }
-async function nfceCall(action, saleId){
+async function nfceCall(action, saleId, extra){
   try{
-    const { data, error } = await supabaseClient.functions.invoke('nfce', { body:{ action, sale_id:saleId } });
+    const { data, error } = await supabaseClient.functions.invoke('nfce', { body:{ action, sale_id:saleId, ...(extra||{}) } });
     if(error){
       let j = null; try{ j = await error.context.json(); }catch(e){}
       if(j && j.error) return { error:j.error, problemas:j.problemas||[] };
@@ -8179,11 +8244,19 @@ async function nfceCall(action, saleId){
     return data || {};
   }catch(e){ return { error:'Sem conexão com o servidor. Confira a internet.' }; }
 }
+// Prazo da SEFAZ para cancelar NFC-e: 30 minutos depois da autorização.
+const NFCE_CANCEL_MIN = 30;
+function nfceMinutesSince(t){ return t ? Math.floor((Date.now() - new Date(t).getTime())/60000) : Infinity; }
 function nfceNotaHtml(n){
   const amb = n.ambiente===2 ? ' <span class="tag tag-gray">homologação (teste)</span>' : '';
   const when = n.created_at ? reportDateTime(n.created_at) : '';
-  if(n.status==='autorizada') return `<p style="margin:4px 0"><span class="tag tag-green">✓ Autorizada</span>${amb} nº ${h(String(n.numero||'—'))} · série ${h(String(n.serie||'—'))} · ${h(when)}<br><span class="sub mono" style="word-break:break-all">Chave ${h(n.chave||'—')}</span></p>
-    ${n.id?`<button class="op-btn" onclick="printNfceDanfe(${jsArg(n.id)})">▣ &nbsp; Imprimir cupom da NFC-e</button>`:''}`;
+  if(n.status==='cancelada') return `<p style="margin:4px 0"><span class="tag tag-gray">⊘ Cancelada</span>${amb} nº ${h(String(n.numero||'—'))} · série ${h(String(n.serie||'—'))}<br><span class="sub">Cancelada ${n.cancelada_em?h(reportDateTime(n.cancelada_em)):''}${n.cancelada_por?' por '+h(n.cancelada_por):''}: ${h(n.cancel_motivo||'')}</span></p>`;
+  if(n.status==='autorizada'){
+    const left = NFCE_CANCEL_MIN - nfceMinutesSince(n.created_at);
+    return `<p style="margin:4px 0"><span class="tag tag-green">✓ Autorizada</span>${amb} nº ${h(String(n.numero||'—'))} · série ${h(String(n.serie||'—'))} · ${h(when)}<br><span class="sub mono" style="word-break:break-all">Chave ${h(n.chave||'—')}</span></p>
+    ${n.id?`<button class="op-btn" onclick="printNfceDanfe(${jsArg(n.id)})">▣ &nbsp; Imprimir cupom da NFC-e</button>`:''}
+    ${left>0?`<button class="op-btn" onclick="openCancelNfce(${jsArg(n.sale_id)})">⊘ &nbsp; Cancelar NFC-e (faltam ${left} min)</button>`:'<span class="sub">Prazo de cancelamento (30 min) encerrado.</span>'}`;
+  }
   return `<p style="margin:4px 0"><span class="tag tag-red">✗ ${n.status==='rejeitada'?'Recusada pela SEFAZ':'Falha no envio'}</span>${amb} ${h(when)}<br><span class="sub">${n.cod_status?h(String(n.cod_status))+' · ':''}${h(n.motivo||'')}</span></p>`;
 }
 async function loadNfceBox(saleId, flash){
@@ -8193,7 +8266,33 @@ async function loadNfceBox(saleId, flash){
   const notas = r.notas || [], ok = notas.find(n=>n.status==='autorizada');
   box.innerHTML = `<b>NFC-e</b>${flash||''}
     ${r.error?`<p class="sub" style="margin:4px 0">${h(r.error)}</p>`:notas.length?notas.slice(0,3).map(nfceNotaHtml).join(''):'<p class="sub" style="margin:4px 0">Nenhuma NFC-e emitida para esta comanda.</p>'}
-    ${!ok&&!r.error?`<button class="op-btn" id="nfceEmitBtn" onclick="emitNfceForSale(${jsArg(saleId)})">▤ &nbsp; Emitir NFC-e de teste (homologação)</button>`:''}`;
+    ${!ok&&!r.error?`<button class="op-btn" id="nfceEmitBtn" onclick="emitNfceForSale(${jsArg(saleId)})">▤ &nbsp; ${nfceSettings().ambiente===1?'Emitir NFC-e':'Emitir NFC-e de teste (homologação)'}</button>`:''}`;
+}
+function openCancelNfce(saleId){
+  openModal('Cancelar NFC-e', `
+    <p class="sub" style="margin-top:0">A SEFAZ aceita o cancelamento até 30 minutos depois da autorização. Depois de cancelada, a comanda pode receber uma NFC-e nova.</p>
+    <div class="field"><label for="nfceCancelMotivo">Motivo (mínimo 15 letras) *</label><input id="nfceCancelMotivo" maxlength="255" placeholder="Ex.: pagamento lançado na forma errada"></div>
+    <p id="nfceCancelErr" class="sub" style="color:var(--c-danger)" hidden></p>
+    <div class="row"><button class="btn" id="nfceCancelBack">Voltar</button><button class="btn btn-danger-solid" id="nfceCancelBtn">Cancelar a NFC-e</button></div>`);
+  document.getElementById('nfceCancelMotivo').focus();
+  document.getElementById('nfceCancelBack').onclick = ()=>{ closeModal(); openOrderHistoryDetail(saleId); };
+  document.getElementById('nfceCancelBtn').onclick = async ()=>{
+    const motivo = document.getElementById('nfceCancelMotivo').value.trim(), err = document.getElementById('nfceCancelErr'), btn = document.getElementById('nfceCancelBtn');
+    if(motivo.length<15){ err.hidden=false; err.textContent='Escreva o motivo com pelo menos 15 letras.'; return; }
+    btn.disabled = true; btn.textContent = 'Cancelando…';
+    const r = await nfceCall('cancelar', saleId, { justificativa: motivo });
+    if(r.error){ err.hidden=false; err.textContent=r.error; btn.disabled=false; btn.textContent='Cancelar a NFC-e'; return; }
+    toast('NFC-e cancelada.'); logAction('NFC-e cancelada: pedido '+saleId+' — '+motivo);
+    closeModal(); openOrderHistoryDetail(saleId);
+  };
+}
+// Reabrir comanda com NFC-e autorizada: dentro dos 30 min a nota é cancelada junto; depois, bloqueia.
+async function nfceAutorizadaDaComanda(saleId){
+  if(!isCloudMode() || !supabaseClient) return null;
+  try{
+    const { data } = await supabaseClient.from('nfce_notas').select('id, numero, serie, ambiente, created_at').eq('sale_id', saleId).eq('status','autorizada').order('created_at',{ascending:false}).limit(1);
+    return (data && data[0]) || null;
+  }catch(e){ return null; }
 }
 async function emitNfceForSale(saleId){
   const btn = document.getElementById('nfceEmitBtn'); if(btn){ btn.disabled = true; btn.textContent = 'Emitindo…'; }
