@@ -57,7 +57,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - O computador "PC FABRICIO" (COMPANYPC) está conectado por código, com POS-80C, Microsoft Print to PDF e a rede 192.168.1.3 encontradas. Dá para remover na tela, se não for usar.
   - O cadastro manual tem "BAR" (192.168.110.113, bar, ambos) e "Impressora Churrasqueira — App" (192.168.110.112, só App). O dono pode ter mexido na tela nova durante os testes: conferir antes de qualquer teste real.
   - As 6 fichas pendentes de 26 a 28/08 foram tiradas da fila (status 'erro').
-- **Migration `20261011070000`: aplicada pelo dono** (`db query`). O `migration repair --status applied 20261011070000` **ainda não foi confirmado**. Rodar `npx supabase migration list --linked < /dev/null` e, se faltar, o repair.
+- **Migration `20261011070000`: aplicada e registrada pelo dono** (`migration list` bate: 27 migrations).
 - **Pendências do dono:**
   - preencher o encarregado em Configurações › Privacidade (LGPD);
   - BD-11 (secret `GDRIVE_TOKEN`);
