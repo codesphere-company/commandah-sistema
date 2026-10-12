@@ -31,6 +31,8 @@ namespace Commandah.Agente
         public bool Rescan;   // o Commandah pediu para procurar impressoras de novo
         public string Name;   // nome deste computador no Commandah (vazio no modo antigo)
         public string AgentId;
+        public bool Scan = true;   // 2.2: false = não varrer a rede, só conferir os IPs escolhidos
+        public List<string> CheckIps = new List<string>(); // 2.2: IPs adicionados à mão no Commandah
     }
 
     public class PairStart
@@ -108,7 +110,14 @@ namespace Commandah.Agente
             try
             {
                 var r = Rpc("print_agent_ping", Args("p_token", cfg.Token)) as Dictionary<string, object>;
-                return new PingResult { Ok = r != null && Bool(r, "ok"), Rescan = r != null && Bool(r, "rescan"), Name = r == null ? "" : Str(r, "name"), AgentId = r == null ? "" : Str(r, "agent_id") };
+                var p = new PingResult { Ok = r != null && Bool(r, "ok"), Rescan = r != null && Bool(r, "rescan"), Name = r == null ? "" : Str(r, "name"), AgentId = r == null ? "" : Str(r, "agent_id") };
+                // Servidor sem os campos novos (antes da migration 20261012000000): varre como na 2.1.
+                object v;
+                if (r != null && r.TryGetValue("scan", out v) && v is bool) p.Scan = (bool)v;
+                if (r != null && r.TryGetValue("check_ips", out v) && v is object[])
+                    foreach (var ip in (object[])v)
+                        if (ip is string && ((string)ip).Trim().Length > 0) p.CheckIps.Add(((string)ip).Trim());
+                return p;
             }
             catch (ApiException e)
             {

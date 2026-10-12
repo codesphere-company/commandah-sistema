@@ -1,4 +1,6 @@
-# Agente de impressão do Commandah (versão 2.1)
+# Agente de impressão do Commandah (versão 2.2)
+
+**Novo na 2.2 (12/10/2026):** em Configurações › Impressoras, cada computador tem a opção **"Procurar impressoras na rede sozinho"** e o botão **"＋ Impressora pelo IP"**. Com a busca desligada, o agente não varre mais a rede: usa só as impressoras USB dele e os IPs escolhidos, que podem estar em outra faixa (por exemplo 192.168.110.x). É o modo indicado quando a rede tem impressoras de outro sistema (no clube, as do Saipos). O agente confere os IPs escolhidos ao conectar, a cada 30 minutos e quando um IP é adicionado; o que não responder aparece em vermelho na tela. Precisa da migration `20261012000000`. Agente 2.1 com a busca desligada continua varrendo, mas o servidor não acrescenta o que ele achar.
 
 Programa que fica nos computadores do estabelecimento e imprime as fichas do Commandah. Foi refeito do zero em 10/10/2026: o agente antigo (Electron) não estava em nenhum repositório (OPS-12) e estava parado desde 29/08, quando o token foi regenerado. A versão 2.1 (11/10/2026) trouxe a **configuração automática**: o computador é conectado por código e as impressoras são encontradas sozinhas.
 
@@ -21,8 +23,8 @@ Repita os passos 1 a 3 em cada computador que tem impressora ligada no USB. As i
    - **Impressora de rede:** quando a ficha tem IP, o texto já vem em ESC/POS e vai direto para a porta 9100. Também dá para usar `IP:porta`.
    - **Impressora do Windows:** quando a ficha não tem IP, o agente imprime pelo driver, com fonte de largura fixa ajustada ao papel. Os acentos saem certos.
    - **Impressora que não existe neste computador:** a ficha continua na fila e o histórico do agente avisa.
-4. Ao conectar, a cada 30 minutos e quando o Commandah pede ("Procurar de novo"), o agente procura as impressoras: as do Windows e as de rede (porta 9100 aberta na faixa /24 de cada placa de rede). Conta tudo ao servidor com `print_agent_report`.
-5. A cada minuto o agente confere se o computador continua conectado (`print_agent_ping`). Computador removido no Commandah aparece em vermelho na janela.
+4. Ao conectar, a cada 30 minutos e quando o Commandah pede ("Procurar de novo"), o agente procura as impressoras: as do Windows e as de rede (porta 9100 aberta na faixa /24 de cada placa de rede, se a busca estiver ligada, mais os IPs escolhidos). Conta tudo ao servidor com `print_agent_report`.
+5. A cada minuto o agente confere se o computador continua conectado (`print_agent_ping`). A resposta traz também se a busca na rede está ligada (`scan`) e os IPs escolhidos (`check_ips`). Computador removido no Commandah aparece em vermelho na janela.
 6. Atendimento local em `http://127.0.0.1:9123`:
    - `GET /status`: inclui `agent_id` e `agent_name`, para o Commandah aberto neste computador saber qual computador é (regra do caixa);
    - `POST /print {printer, text, ip}`: reserva para quando a ficha não entra na fila da nuvem.

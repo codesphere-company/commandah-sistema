@@ -3,6 +3,8 @@
 // Só a faixa /24 de cada placa de rede (ex.: 192.168.110.1 a .254): redes maiores
 // teriam milhares de endereços e a impressora quase sempre está na mesma faixa do PC.
 // Abre e fecha a conexão sem mandar nada, então a impressora não imprime.
+// 2.2: a varredura pode ser desligada no Commandah (por computador); aí o agente só
+// confere os IPs escolhidos à mão (Probe), para não tocar nas impressoras de outro sistema.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -49,17 +51,35 @@ namespace Commandah.Agente
         public static List<string> ScanNetwork(int timeoutMs = 1500)
         {
             var own = OwnAddresses();
-            var tries = new List<Tuple<string, TcpClient, IAsyncResult>>();
+            var ips = new List<string>();
             foreach (var net in LocalSubnets().Take(4))
-            {
                 for (int i = 1; i < 255; i++)
+                    if (!own.Contains(net + "." + i)) ips.Add(net + "." + i);
+            return Probe(ips, timeoutMs);
+        }
+
+        // 2.2: confere só os endereços pedidos, em qualquer faixa ("192.168.110.113" ou
+        // "192.168.110.113:9100"). Devolve os que aceitaram a conexão, escritos como vieram.
+        public static List<string> Probe(IEnumerable<string> addresses, int timeoutMs = 1500)
+        {
+            var tries = new List<Tuple<string, TcpClient, IAsyncResult>>();
+            foreach (var addr in addresses.Where(a => a != null).Select(a => a.Trim()).Distinct())
+            {
+                string host = addr;
+                int port = PrinterPort;
+                int colon = host.LastIndexOf(':');
+                if (colon > 0)
                 {
-                    var ip = net + "." + i;
-                    if (own.Contains(ip)) continue;
-                    var c = new TcpClient();
-                    try { tries.Add(Tuple.Create(ip, c, c.BeginConnect(IPAddress.Parse(ip), PrinterPort, null, null))); }
-                    catch (Exception) { c.Close(); }
+                    int p;
+                    if (!int.TryParse(host.Substring(colon + 1), out p) || p < 1 || p > 65535) continue;
+                    port = p;
+                    host = host.Substring(0, colon);
                 }
+                IPAddress ip;
+                if (!IPAddress.TryParse(host, out ip) || ip.AddressFamily != AddressFamily.InterNetwork) continue;
+                var c = new TcpClient();
+                try { tries.Add(Tuple.Create(addr, c, c.BeginConnect(ip, port, null, null))); }
+                catch (Exception) { c.Close(); }
             }
             var deadline = DateTime.Now.AddMilliseconds(timeoutMs);
             while (DateTime.Now < deadline && tries.Any(t => !t.Item3.IsCompleted)) Thread.Sleep(50);
@@ -77,7 +97,7 @@ namespace Commandah.Agente
                 catch (Exception) { /* recusou: não é impressora */ }
                 finally { t.Item2.Close(); }
             }
-            return found.OrderBy(ip => ip.Split('.').Select(int.Parse).Aggregate(0L, (a, n) => a * 256 + n)).ToList();
+            return found.OrderBy(ip => ip.Split(':')[0].Split('.').Select(int.Parse).Aggregate(0L, (a, n) => a * 256 + n)).ToList();
         }
     }
 }
