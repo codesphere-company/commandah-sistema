@@ -3868,8 +3868,33 @@ const IMPORT_FIELDS = [
   {key:'measure', label:'Medida', required:false, guesses:['Medida','Unidade']},
   {key:'minStock', label:'Estoque Mínimo', required:false, guesses:['Estoque Mín','Estoque mínimo','Estoque Min']},
   {key:'pdvCode', label:'Código PDV', required:false, guesses:['Cód. PDV','Cod. PDV','Código PDV']},
-  {key:'code', label:'Código Personalizado', required:false, guesses:['Código','Cód. Busca','Cod. Busca','Cód','Codigo']}
+  {key:'code', label:'Código Personalizado', required:false, guesses:['Código','Cód. Busca','Cod. Busca','Cód','Codigo']},
+  // t204: estação de preparo e dados fiscais (exportação do Saipos ou planilha do contador)
+  {key:'estacao', label:'Estação de preparo', required:false, guesses:['Estação','Estacao','Setor','Local de preparo','Impressora','Produção','Producao']},
+  {key:'ncm', label:'NCM', required:false, guesses:['NCM','NCM confirmado','NCM sugerido']},
+  {key:'cest', label:'CEST', required:false, guesses:['CEST','CEST confirmado','CEST sugerido']},
+  {key:'cfop', label:'CFOP', required:false, guesses:['CFOP','CFOP confirmado','CFOP sugerido']},
+  {key:'csosn', label:'CSOSN', required:false, guesses:['CSOSN','CSOSN confirmado','CSOSN sugerido','CST','Situação Tributária','Situacao Tributaria']},
+  {key:'origem', label:'Origem (fiscal)', required:false, guesses:['Origem','Origem da mercadoria']}
 ];
+// Texto da planilha -> chave da estação (nome ou chave cadastrados; "sem preparo" -> nenhuma). '' = não mexe.
+function importEstacaoKey(v){
+  const t = String(v||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if(!t) return '';
+  if(/^(nenhum|nenhuma|sem preparo|nao exige|pronto|industrializado)/.test(t)) return 'nenhuma';
+  const e = state.estacoes.find(x=>[x.chave, x.nome].some(n=>String(n||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')===t));
+  return e ? e.chave : '';
+}
+// Dados fiscais de uma linha. null = sem NCM válido (o produto fica como está).
+function importFiscal(ncm, cest, cfop, csosn, origem){
+  const n = fiscalDigits(ncm), ce = fiscalDigits(cest), cf = fiscalDigits(cfop);
+  let cs = fiscalDigits(csosn); if(cs.length>3) cs = cs.slice(-3);
+  if(n.length!==8) return null;
+  if(ce && ce.length!==7) return null;
+  if(cf && !/^[5-6]\d{3}$/.test(cf)) return null;
+  const o = fiscalDigits(origem).slice(0,1) || '0';
+  return { ncm:n, cest:ce, cfop:cf, csosn:cs, origem:o, status:'conferir', nota:'Importado de planilha em '+new Date().toLocaleDateString('pt-BR')+'. Conferir com o contador.' };
+}
 let importWorkbook=null, importSheetName='', importHeaders=[], importRows=[], importMapping={};
 function openProductImportWizard(){
   productOptionsOpen=false;
@@ -3987,27 +4012,78 @@ function startMappedImport(){
       minStock: Number(String(val(r,'minStock')||0).toString().replace(',','.'))||0,
       pdvCode: String(val(r,'pdvCode')||'').trim(),
       code: String(val(r,'code')||'').trim(),
-      kind:'produto', active:true
+      kind:'produto', active:true,
+      // t204: só vão quando a coluna foi mapeada e o valor é válido (senão o produto fica como está)
+      ...(importEstacaoKey(val(r,'estacao')) ? { estacao: importEstacaoKey(val(r,'estacao')) } : {}),
+      ...(idx.ncm>=0 && importFiscal(val(r,'ncm'), val(r,'cest'), val(r,'cfop'), val(r,'csosn'), val(r,'origem')) ? { fiscal: importFiscal(val(r,'ncm'), val(r,'cest'), val(r,'cfop'), val(r,'csosn'), val(r,'origem')) } : {}),
+      _ncmInvalido: idx.ncm>=0 && String(val(r,'ncm')||'').trim()!=='' && !importFiscal(val(r,'ncm'), val(r,'cest'), val(r,'cfop'), val(r,'csosn'), val(r,'origem')),
+      _estacaoDesconhecida: idx.estacao>=0 && String(val(r,'estacao')||'').trim()!=='' && !importEstacaoKey(val(r,'estacao')) ? String(val(r,'estacao')).trim() : '',
+      _cols: Object.keys(idx).filter(k=>idx[k]>=0) // colunas mapeadas: na atualização só elas mudam
     };
   }).filter(Boolean);
   closeModal();
   mergeImportedProducts(incoming, importSheetName||'planilha selecionada');
 }
+// Qual produto do cadastro é o mesmo da linha importada: id, código PDV, código (menos o "0" da
+// importação antiga) ou, sem código, nome + categoria iguais (o mesmo nome existe em várias
+// categorias: AMSTEL lata, long neck, 600 ml…). Nunca só pelo nome.
+function findImportMatch(raw, taken){
+  const norm = s=>String(s||'').trim().toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ');
+  const code = String(raw.code||'').trim(), pdvCode = String(raw.pdvCode||'').trim();
+  const free = p=>!taken.has(p.id);
+  return state.products.find(p=>free(p) && raw.id && p.id===raw.id)
+    || (pdvCode && state.products.find(p=>free(p) && String(p.pdvCode||'').trim()===pdvCode))
+    || (code && code!=='0' && state.products.find(p=>free(p) && String(p.code||'').trim()===code))
+    || (raw.category ? (()=>{ const c = state.products.filter(p=>free(p) && norm(p.name)===norm(raw.name) && norm(p.category)===norm(raw.category)); return c.length===1 ? c[0] : null; })() : null)
+    || null;
+}
 function mergeImportedProducts(incoming,fileName){
   if(!incoming.length){toast('Nenhum produto válido foi encontrado.');return;}
-  if(!confirm(`Importar ${incoming.length} produto(s) de ${fileName}? Produtos com o mesmo código serão atualizados.`))return;
-  incoming.forEach(raw=>{
-    const code=String(raw.code||'').trim();
-    const pdvCode=String(raw.pdvCode||'').trim();
-    const existing=state.products.find(p=>
-      (raw.id&&p.id===raw.id) ||
-      (pdvCode && String(p.pdvCode||'').trim()===pdvCode) ||
-      (code && code!=='0' && String(p.code||'').trim()===code)
-    );
-    const normalized={...raw,id:existing?existing.id:(raw.id||uid()),name:String(raw.name).trim(),code,pdvCode,kind:['produto','tamanho','combo'].includes(raw.kind)?raw.kind:'produto',category:String(raw.category||''),measure:String(raw.measure||'un'),price:Math.max(0,Number(raw.price)||0),minStock:Math.max(0,Number(raw.minStock)||0),active:raw.active!==false,recipe:Array.isArray(raw.recipe)?raw.recipe:(existing&&existing.recipe||[])};
-    if(existing)Object.assign(existing,normalized);else state.products.push(normalized);
-  });
-  save('products');renderAll();toast(`${incoming.length} produto(s) importado(s).`);logAction('Produtos importados de '+fileName);
+  const full = !incoming[0] || !incoming[0]._cols; // pacote .ccprod: cadastro completo
+  const taken = new Set();
+  const plan = incoming.map(raw=>{ const existing = findImportMatch(raw, taken); if(existing) taken.add(existing.id); return { raw, existing }; });
+  const novos = plan.filter(x=>!x.existing), atual = plan.filter(x=>x.existing);
+  const comFiscal = incoming.filter(r=>r.fiscal).length, comEstacao = incoming.filter(r=>r.estacao).length;
+  const ncmRuim = incoming.filter(r=>r._ncmInvalido).map(r=>r.name), estRuim = [...new Set(incoming.map(r=>r._estacaoDesconhecida).filter(Boolean))];
+  const list = (arr, f)=>arr.slice(0,12).map(f).join(', ')+(arr.length>12?' e mais '+(arr.length-12):'');
+  openModal('Conferir a importação', `
+    <p class="sub" style="margin-top:0">${h(fileName)}: ${incoming.length} linha(s). Nada é gravado até você clicar em "Importar".</p>
+    <div class="finance-grid"><table><tbody>
+      <tr><td><b>${novos.length}</b> produto(s) novo(s)</td><td class="sub">${h(list(novos, x=>x.raw.name))}</td></tr>
+      <tr><td><b>${atual.length}</b> já existente(s), serão atualizados</td><td class="sub">${h(list(atual, x=>x.existing.name+(x.existing.category?' ('+x.existing.category+')':'')))}${full?'':' — só o que a planilha traz preenchido; ficha técnica e o resto do cadastro ficam como estão'}</td></tr>
+      ${comFiscal?`<tr><td><b>${comFiscal}</b> com dados fiscais</td><td class="sub">entram como "a conferir" na aba Fiscal</td></tr>`:''}
+      ${comEstacao?`<tr><td><b>${comEstacao}</b> com estação de preparo</td><td class="sub">define a impressora de cada produto</td></tr>`:''}
+      ${ncmRuim.length?`<tr><td style="color:var(--c-danger)"><b>${ncmRuim.length}</b> com NCM/CEST/CFOP inválido</td><td class="sub">ficam sem dados fiscais: ${h(list(ncmRuim, n=>n))}</td></tr>`:''}
+      ${estRuim.length?`<tr><td style="color:var(--c-danger)">Estação não reconhecida</td><td class="sub">${h(estRuim.join(', '))} — cadastre a estação ou corrija na planilha; esses produtos ficam com a estação atual</td></tr>`:''}
+    </tbody></table></div>
+    <div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="primary" id="importConfirmBtn">Importar</button></div>`, true);
+  document.querySelector('#modalRoot .modal').classList.add('app-config-modal');
+  document.getElementById('importConfirmBtn').onclick = ()=>{
+    plan.forEach(({ raw, existing })=>{
+      const code = String(raw.code||'').trim(), pdvCode = String(raw.pdvCode||'').trim();
+      const clean = { ...raw }; delete clean._cols; delete clean._ncmInvalido; delete clean._estacaoDesconhecida;
+      if(existing && !full){
+        // Atualização parcial: só o que veio preenchido.
+        const patch = { name:String(raw.name).trim(), price:Math.max(0,Number(raw.price)||0) };
+        if(raw.category) patch.category = String(raw.category);
+        if(raw._cols.includes('measure') && raw.measure) patch.measure = String(raw.measure);
+        if(raw._cols.includes('minStock')) patch.minStock = Math.max(0,Number(raw.minStock)||0);
+        if(raw._cols.includes('cost') && Number(raw.costPerUnit)>0) patch.costPerUnit = Number(raw.costPerUnit);
+        if(pdvCode) patch.pdvCode = pdvCode;
+        if(code && code!=='0') patch.code = code;
+        if(raw.estacao){ patch.estacao = raw.estacao; patch.kitchenItem = raw.estacao==='cozinha'; }
+        if(raw.fiscal) patch.fiscal = raw.fiscal;
+        Object.assign(existing, patch);
+        return;
+      }
+      const normalized={...clean,id:existing?existing.id:(raw.id||uid()),name:String(raw.name).trim(),code,pdvCode,kind:['produto','tamanho','combo'].includes(raw.kind)?raw.kind:'produto',category:String(raw.category||''),measure:String(raw.measure||'un'),price:Math.max(0,Number(raw.price)||0),minStock:Math.max(0,Number(raw.minStock)||0),active:raw.active!==false,recipe:Array.isArray(raw.recipe)?raw.recipe:(existing&&existing.recipe||[])};
+      if(normalized.estacao) normalized.kitchenItem = normalized.estacao==='cozinha';
+      if(existing)Object.assign(existing,normalized);else state.products.push(normalized);
+    });
+    save('products'); closeModal(); renderAll();
+    toast(`${novos.length} produto(s) novo(s) e ${atual.length} atualizado(s).`);
+    logAction('Produtos importados de '+fileName+': '+novos.length+' novos, '+atual.length+' atualizados'+(comFiscal?', '+comFiscal+' com dados fiscais':''));
+  };
 }
 function renderRecipeRows(){
   const el = document.getElementById('recipeRowsList'); if(!el) return;
@@ -8693,7 +8769,7 @@ function deleteCrudItem(entityKey, id){
 }
 
 /* ============ IMPRESSORAS (estação + origem) ============ */
-function estacaoLabel(chave){ const e=state.estacoes.find(x=>x.chave===chave); return e?e.nome:(chave||'—'); }
+function estacaoLabel(chave){ const e=state.estacoes.find(x=>x.chave===chave); return e?e.nome:chave==='nenhuma'?'Sem preparo':(chave||'—'); }
 function origemLabel(chave){ if(chave==='ambos') return 'Caixa e App (compartilhada)'; const o=state.origens.find(x=>x.chave===chave); return o?o.nome:(chave||'—'); }
 function slugifyEstacao(nome){ return String(nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,40)||uid(); }
 function slugifyOrigem(nome){ return String(nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,40)||uid(); }
@@ -9299,6 +9375,9 @@ function openImpressoraModal(id){
 }
 function deleteImpressora(id){ if(!confirm('Excluir esta impressora?')) return; state.impressoras=state.impressoras.filter(x=>x.id!==id); save('impressoras'); renderAll(); }
 function resolvePrinterFor(estacao, origem){
+  // Sem preparo (água, refrigerante lacrado) não tem impressora própria: sai no bar, que entrega
+  // (decisão de 12/10). No computador de caixa continua saindo no caixa (deviceCaixaPrinter).
+  if(estacao==='nenhuma' && !state.impressoras.some(p=>p.estacao==='nenhuma')) return resolvePrinterFor('bar', origem);
   const exact = state.impressoras.find(p=>p.estacao===estacao && p.origem===origem);
   if(exact) return exact;
   const shared = state.impressoras.find(p=>p.estacao===estacao && p.origem==='ambos');
@@ -9582,13 +9661,17 @@ const HELP_SHEETS = {
       <li>Confira no rodapé: <b>Conexão: Conectado</b> e <b>Caixa: Aberto</b>.</li></ol>
     <h3>Comandas</h3><ol>
       <li><b>Principal › Mesas/Comandas</b>. Para abrir: <b>+ Abrir comanda</b> e busque o sócio pelo nome ou pela cota.</li>
-      <li>Toque na comanda para abrir. <b>Novo Pedido</b> lança os itens: ao confirmar, eles vão para a cozinha e a ficha imprime.</li>
+      <li>Toque na comanda para abrir. <b>Novo Pedido</b> lança os itens. Ao confirmar:
+        <ul><li><b>Comida com preparo:</b> a ficha sai <b>na cozinha</b> e o pedido aparece na TV.</li>
+        <li><b>Bebida, lanche pronto e o que não tem preparo:</b> a ficha sai <b>aqui no caixa</b>. Entregue ao cliente para ele retirar o produto.</li></ul></li>
       <li>Item errado: <b>Cancelar</b> na linha do item. Ficha que não saiu: <b>Reimprimir</b>.</li>
       <li><b>Bloquear Pedido</b> impede novos pedidos na comanda (ex.: o cliente pediu a conta).</li></ol>
     <h3>Receber</h3><ol>
       <li>Alguém vai embora antes e paga a parte dele: <b>Receber parcial</b>. O valor sai do total da comanda.</li>
       <li>Fechar a conta: <b>Pagamento</b>, toque na forma (atalhos: A dinheiro, P Pix, C crédito, B débito, F fiado), confira o valor e <b>Adicionar</b>. Dá para misturar formas.</li>
       <li>Fiado só para sócio. Se aparecer <b>Consumo bloqueado</b>, o sócio tem pendência: receba o pagamento ou chame o gerente.</li>
+      <li><b>Comprovante só se o cliente pedir:</b> marque <b>Imprimir comprovante</b> antes de concluir o pagamento. Pediu depois? <b>Relatórios › Histórico de Pedidos</b>, abra o pedido e toque <b>Imprimir comprovante</b>.</li>
+      <li><b>Nota fiscal (NFC-e):</b> quando estiver ligada, o cupom fiscal sai sozinho no caixa ao concluir o pagamento. Apareceu o aviso vermelho <b>"NFC-e não emitida"</b> ou <b>"recusou"</b>? A venda está registrada: avise o gerente, que emite de novo pelo detalhe do pedido. Errou a forma de pagamento? O gerente cancela a NFC-e em <b>até 30 minutos</b>.</li>
       <li>Pagamento de fiado: <b>Financeiro › Conta Corrente (Fiado)</b>, escolha o sócio e <b>Registrar Pagamento</b>.</li></ol>
     <h3>Dinheiro na gaveta</h3><ol>
       <li>Retirada ou reforço de troco: <b>Abrir/Fechar › + Novo Lançamento</b> (Saída ou Entrada do caixa), sempre com o motivo.</li></ol>
@@ -9606,7 +9689,7 @@ const HELP_SHEETS = {
       <li>Escolha <b>Quem está pedindo</b> (titular ou dependente).</li>
       <li>Toque na categoria e nos produtos. Para procurar, use <b>Todos os produtos</b>.</li>
       <li>Na revisão, confira as quantidades, o local e a observação (ex.: "sem cebola").</li>
-      <li>Toque <b>✓ Enviar pedido</b>. O pedido vai direto para a cozinha ou o bar e a ficha imprime. Não precisa avisar o caixa.</li></ol>
+      <li>Toque <b>✓ Enviar pedido</b>. O pedido vai direto para a cozinha, a churrasqueira ou o bar, e a ficha imprime lá. Bebida lacrada e o que não tem preparo saem <b>no bar</b>. Não precisa avisar o caixa.</li></ol>
     <h3>Situações comuns</h3><ul>
       <li>Comanda com <b>🔒</b>: o caixa travou a comanda (ex.: já pediu a conta). Fale com o caixa.</li>
       <li>Sócio com <b>consumo bloqueado</b>: não insista. Peça para ele passar no caixa.</li>
@@ -9633,6 +9716,7 @@ const HELP_SHEETS = {
       <li>Anote em papel: comanda, itens, valor e forma de pagamento. Lance tudo quando a internet voltar.</li>
       <li>Apareceu a faixa vermelha <b>"Não foi possível salvar"</b>? Não feche a página. Quando a internet voltar, toque em <b>Tentar de novo</b>.</li>
       <li>Recarregou sem internet e apareceu <b>"O sistema não conseguiu carregar"</b>? Não precisa fazer nada: ele tenta de novo sozinho e entra quando a internet voltar.</li>
+      <li><b>Sem internet a NFC-e não sai</b> (é assim também no Saipos). Quando a internet voltar, o gerente emite as notas que faltaram pelo detalhe de cada pedido.</li>
       <li>Celular do garçom sem sinal: use o Wi-Fi do clube ou leve o pedido ao caixa, que lança em <b>Novo Pedido</b>.</li></ol>
     <h3>Parou a impressora</h3><ol>
       <li>Confira papel, tampa fechada e se está ligada. O computador da impressão precisa estar ligado e com internet.</li>
@@ -9646,7 +9730,7 @@ const HELP_SHEETS = {
     <table><tbody>
       <tr><td>0–5 min</td><td>Cada pessoa entra com o próprio PIN e troca a senha em <b>Alterar Minha Senha</b>. Entregue a folha de cada função.</td></tr>
       <tr><td>5–15 min</td><td><b>Caixa:</b> abre o caixa, abre a comanda TESTE, lança um Novo Pedido, cancela um item e reimprime uma ficha.<br><b>Garçons:</b> lançam pedidos pelo celular na comanda TESTE.<br><b>Cozinha:</b> marca um item pronto, depois o pedido inteiro.</td></tr>
-      <tr><td>15–20 min</td><td><b>Caixa:</b> Receber parcial e depois Pagamento com duas formas (ex.: Pix + dinheiro).</td></tr>
+      <tr><td>15–20 min</td><td><b>Caixa:</b> Receber parcial e depois Pagamento com duas formas (ex.: Pix + dinheiro), marcando <b>Imprimir comprovante</b>. Lance uma bebida no caixa e veja a ficha de retirada sair ali; lance um lanche e veja a ficha sair na cozinha. Com a NFC-e em teste, confira o cupom fiscal.</td></tr>
       <tr><td>20–25 min</td><td><b>Simule falhas:</b> desligue o Wi-Fi de um celular e tente enviar um pedido; desligue a impressora e veja o pedido no Monitor de Cozinha. Siga a folha "Caiu a internet ou a impressora".</td></tr>
       <tr><td>25–30 min</td><td><b>Fechamento:</b> conte a gaveta, faça o fechamento às cegas e veja a diferença. Cancele a comanda TESTE. Tire as dúvidas.</td></tr>
     </tbody></table>` }
