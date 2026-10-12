@@ -5386,6 +5386,7 @@ function openPaymentModal(mode, comandaId){
     <div class="field"><label>Associado (opcional — necessário para fiado)</label>
       <select id="paySelMember"><option value="">— Cliente avulso —</option>${memberOptions}</select></div>
     <label class="comp-switch" id="payUseCreditBox" style="margin:0 0 8px" hidden><input type="checkbox" id="payUseCredit"><span></span> <b id="payUseCreditLabel" style="font-weight:400">Usar crédito do sócio</b></label>
+    <label class="comp-switch" style="margin:0 0 8px"><input type="checkbox" id="payPrintReceipt"><span></span> <b style="font-weight:400">Imprimir comprovante (se o cliente pedir)</b></label>
     <label class="np-label" style="margin-top:12px;display:block">Forma de pagamento <span style="text-transform:none;font-weight:400">(atalho de teclado entre parênteses)</span></label>
     <div class="pay-method-grid" id="payMethodGrid">
       ${methods.map(m=>`<button class="pay-method-btn" data-key="${m.key}" data-method="${h(m.method)}" onclick="selectPayMethod(${jsArg(m.key)})"><span class="pay-method-icon">${m.icon}</span><span>${h(m.label)}</span><span class="pay-method-key">${m.key}</span></button>`).join('')}
@@ -5561,10 +5562,12 @@ function openPaymentModal(mode, comandaId){
       }
     }
     document.removeEventListener('keydown', payKeyHandler);
+    const wantReceipt = !!(document.getElementById('payPrintReceipt')||{}).checked;
     // OP-15: a venda guarda como o total foi formado (antes só o total final, sem saber de cupom ou desconto).
     const closedSaleId = await finalizeSale(mode, comandaId, memberId, payments, finalTotal, creditApplied, creditFromChange, { subtotal: Math.round(subtotal*100)/100, discount: Math.round(discount*100)/100, couponCode: appliedCouponCode||null, creditApplied: Math.round((creditApplied||0)*100)/100, serviceCharge: serviceAmount, partialPaid });
     if(closedSaleId){
       recordChangeOutInCash(cashChangeOut, closedSaleId);
+      if(wantReceipt) printSaleReceipt(closedSaleId);
       if(mode==='balcao') document.getElementById('modalRoot').dataset.confirmPdv='false';
       closeModal();
     }
@@ -5626,10 +5629,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
         return { estacao, items:groups[estacao], printer: printer?printer.nome:null };
       });
       printNovoPedidoTickets(who, cota, '', printJobs, sale.orderNumber);
-      const receiptPrinter = receiptPrinterFor(currentUser);
-      if(receiptPrinter){
-        printCaixaReceipt(who, cota, currentSaleDraft.items, sale.orderNumber, receiptPrinter);
-      }
+      // Comprovante não sai sozinho: só se o cliente pedir (printSaleReceipt).
     }
   } else if(mode==='agendamento'){
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
@@ -5716,6 +5716,8 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
     logAction('ATENÇÃO: venda '+sale.id+' registrada, mas fiado/crédito/pontos do sócio NÃO foram lançados por erro — conferir no extrato do sócio.');
     setTimeout(()=>toast('Venda registrada, mas o fiado/crédito do sócio NÃO foi lançado. Confira o extrato do sócio.'), 2700);
   }
+  // Comprovante só quando o cliente pede (decisão de 12/10): botão "Imprimir comprovante" no
+  // detalhe da comanda (printSaleReceipt). Antes saía sozinho na venda de balcão.
   newDraft(mode); toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
   if(fiadoMemberForPrompt) promptWhatsAppCollection(fiadoMemberForPrompt);
   return sale.id;
@@ -6160,7 +6162,7 @@ function stripAccentsForPrint(s){ const lo=String.fromCharCode(0x0300), hi=Strin
 // fora do banco) troca pelo byte nulo de verdade. Ver printRawTcp no agente.
 const NUL_PLACEHOLDER = String.fromCharCode(0x01);
 function paperColumns(imp){ return imp && Number(imp.larguraPapel)===58 ? 32 : 48; }
-function buildTicketText(who, cota, local, estacao, items, orderNumber, columns, escPos){
+function buildTicketText(who, cota, local, estacao, items, orderNumber, columns, escPos, payLines){
   const cfg = state.settings.ticketConfig || {};
   const nameSizeByte = {normal:NUL_PLACEHOLDER, grande:'\x11', extra:'\x22'}[cfg.nomeProdutoTamanho] || '\x11';
   const entregaDestaque = cfg.entregaDestaque!==false;
@@ -6207,6 +6209,8 @@ function buildTicketText(who, cota, local, estacao, items, orderNumber, columns,
   if(juntoCom) out += line('*')+'\n'+big('LEVAR JUNTO:')+'\n'+wrapWords(juntoCom)+'\n(bebida no bar)\n'+line('*')+'\n';
   out += line('-')+'\n';
   if(showPrices) out += 'TOTAL: '+fmt(total)+'\n';
+  // Comprovante de pagamento: formas de pagamento e troco (ver printCaixaReceipt).
+  if(payLines && payLines.length) out += line('-')+'\n'+payLines.map(l=>wrap(l)).join('\n')+'\n';
   out += line('=')+'\n\n\n';
   if(!escPos) return out;
   // Modo ESC/POS (impressora de rede, via socket cru): sem driver do Windows no meio,
@@ -6222,9 +6226,26 @@ function receiptPrinterFor(user){
   if(user && user.caixaPrinterOsName) return { nome:user.caixaPrinterOsName, osName:user.caixaPrinterOsName };
   return deviceCaixaPrinter() || (state.impressoras||[]).find(p=>p.estacao==='caixa') || null;
 }
-async function printCaixaReceipt(who, cota, items, orderNumber, imp){
+// Linhas de pagamento do comprovante: cada forma, e o troco quando o pago passa do total.
+function receiptPayLines(payments, total){
+  const pays = (payments||[]).filter(p=>!p.reversed && Number(p.amount)>0);
+  const lines = pays.map(p=>(p.partial?'Pago antes: ':'')+paymentMethodLabel(p.method)+': '+fmt(p.amount));
+  const troco = Math.round((pays.reduce((a,p)=>a+Number(p.amount||0),0)-Number(total||0))*100)/100;
+  if(troco>0.009 && pays.some(p=>p.method==='dinheiro')) lines.push('Troco: '+fmt(troco));
+  return lines;
+}
+// Comprovante pedido pelo cliente, de uma comanda já paga (botão no detalhe da comanda).
+async function printSaleReceipt(saleId){
+  const sale = state.sales.find(x=>x.id===saleId); if(!sale) return;
+  const imp = receiptPrinterFor(currentUser);
+  if(!imp){ toast('Escolha a impressora do "Comprovante do caixa" em Configurações › Impressoras.'); return; }
+  const member = state.members.find(m=>m.id===sale.memberId);
+  await printCaixaReceipt(member?member.name:(sale.customerName||'Cliente avulso'), member?member.code:'', sale.items||[], sale.orderNumber, imp, receiptPayLines(sale.payments, sale.total));
+  toast('Comprovante enviado para '+(imp.nome||imp.osName)+'.');
+}
+async function printCaixaReceipt(who, cota, items, orderNumber, imp, payLines){
   const printerOsName = imp.osName || imp.nome;
-  const text = buildTicketText(who, cota, '', 'caixa', items, orderNumber, paperColumns(imp), !!imp.ip).replace('CAIXA','COMPROVANTE DE VENDA');
+  const text = buildTicketText(who, cota, '', 'caixa', (items||[]).filter(i=>!i.canceled), orderNumber, paperColumns(imp), !!imp.ip, payLines).replace('CAIXA','COMPROVANTE DE VENDA');
   if(supabaseClient && getTenantId()){
     try{
       const job = { tenant_id: getTenantId(), printer_name: printerOsName, printer_ip: imp.ip||null, content: text, status: 'pendente' };
@@ -6358,8 +6379,10 @@ async function printNfceDanfe(notaId){
 }
 async function printSingleTicket(who, cota, local, estacao, printer, items, orderNumber){
   // Computador de caixa: tudo que for lançado aqui sai na impressora dele (ver deviceCaixaPrinter).
+  // Exceção (12/10): estações com preparo (padrão: Cozinha) mandam a ficha para a impressora delas,
+  // não para a do caixa; o resto (bebida, lanche pronto, sem preparo) sai no caixa para o cliente retirar.
   const devicePrinter = deviceCaixaPrinter();
-  if(devicePrinter) printer = devicePrinter.nome;
+  if(devicePrinter && !(caixaKeepsStation(devicePrinter, estacao) && printer)) printer = devicePrinter.nome;
   if(printer){
     const imp = state.impressoras.find(p=>p.nome===printer);
     const targetName = imp&&imp.osName ? imp.osName : printer;
@@ -8185,7 +8208,7 @@ async function emitNfceForSale(saleId){
   await loadNfceBox(saleId, flash);
 }
 function openOrderHistoryDetail(id){const sale=state.sales.find(x=>x.id===id);if(!sale)return;const member=state.members.find(x=>x.id===sale.memberId),items=sale.items||[],payments=sale.payments||[],canReopen=canReopenSale(sale)&&currentUser&&(currentUser.role==='admin'||sessionIsOwner),nfceSlot=nfceCanUse(sale)?'<div class="nfce-box" id="nfceBox"><b>NFC-e</b><p class="sub" style="margin:4px 0">Carregando…</p></div>':'';
-  openModal('Pedido #'+(sale.orderNumber||sale.id),`<div class="consumer-form-frame"><div class="app-status"><b>${h(member&&member.name||sale.customerName||'Cliente avulso')}${member&&member.code?` <span class="sub">· Cota ${h(member.code)}</span>`:''}</b><span class="tag ${sale.canceled?'tag-red':sale.status==='closed'?'tag-green':'tag-blue'}">${sale.canceled?'Cancelado':sale.status==='closed'?'Finalizado':'Aberto'}</span></div><div class="grid3"><p><b>Abertura</b><br>${reportDateTime(sale.openedAt)}</p><p><b>Fechamento</b><br>${sale.closedAt?reportDateTime(sale.closedAt):'—'}</p><p><b>Operador</b><br>${h(sale.operatorName||'—')}</p></div><div class="finance-grid order-detail-items"><table><thead><tr><th>Qtd.</th><th>Produto</th><th>Detalhes</th><th>Unitário</th><th>Total</th></tr></thead><tbody>${items.map(i=>`<tr class="${i.canceled?'canceled':''}"><td>${Number(i.qty)||0}</td><td>${h(i.name)}${i.canceled?' <span class="tag tag-red">cancelado</span>':''}</td><td>${h(i.notes||'—')}</td><td class="nowrap">${fmt(i.price)}</td><td class="nowrap">${fmt(Number(i.price||0)*Number(i.qty||0))}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Pedido sem itens.</td></tr>'}</tbody></table></div><div class="app-status"><b>Total · ${items.filter(i=>!i.canceled).length} ite${items.filter(i=>!i.canceled).length===1?'m':'ns'}</b><strong>${fmt(sale.total)}</strong></div><p><b>Pagamento:</b> ${h(payments.map(p=>paymentMethodLabel(p.method)+' '+fmt(p.amount)).join(' · ')||'—')}</p>${sale.notes?`<p><b>Observação:</b> ${h(sale.notes)}</p>`:''}${(sale.reopenHistory||[]).length?`<p class="sub"><b>Reaberta:</b> ${sale.reopenHistory.map(r=>reportDateTime(r.at)+' por '+h(r.by||'—')+' — '+h(r.reason||'')).join(' · ')}</p>`:''}${nfceSlot}</div><div class="order-detail-actions"><button class="op-btn" onclick="closeModal()">‹ &nbsp; Voltar</button>${canReopen?`<button class="op-btn" onclick="openReopenComanda(${jsArg(sale.id)})">↺ &nbsp; Reabrir comanda</button>`:''}<button class="op-btn" onclick="window.print()">▣ &nbsp; Imprimir</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');if(nfceSlot)loadNfceBox(sale.id);}
+  openModal('Pedido #'+(sale.orderNumber||sale.id),`<div class="consumer-form-frame"><div class="app-status"><b>${h(member&&member.name||sale.customerName||'Cliente avulso')}${member&&member.code?` <span class="sub">· Cota ${h(member.code)}</span>`:''}</b><span class="tag ${sale.canceled?'tag-red':sale.status==='closed'?'tag-green':'tag-blue'}">${sale.canceled?'Cancelado':sale.status==='closed'?'Finalizado':'Aberto'}</span></div><div class="grid3"><p><b>Abertura</b><br>${reportDateTime(sale.openedAt)}</p><p><b>Fechamento</b><br>${sale.closedAt?reportDateTime(sale.closedAt):'—'}</p><p><b>Operador</b><br>${h(sale.operatorName||'—')}</p></div><div class="finance-grid order-detail-items"><table><thead><tr><th>Qtd.</th><th>Produto</th><th>Detalhes</th><th>Unitário</th><th>Total</th></tr></thead><tbody>${items.map(i=>`<tr class="${i.canceled?'canceled':''}"><td>${Number(i.qty)||0}</td><td>${h(i.name)}${i.canceled?' <span class="tag tag-red">cancelado</span>':''}</td><td>${h(i.notes||'—')}</td><td class="nowrap">${fmt(i.price)}</td><td class="nowrap">${fmt(Number(i.price||0)*Number(i.qty||0))}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Pedido sem itens.</td></tr>'}</tbody></table></div><div class="app-status"><b>Total · ${items.filter(i=>!i.canceled).length} ite${items.filter(i=>!i.canceled).length===1?'m':'ns'}</b><strong>${fmt(sale.total)}</strong></div><p><b>Pagamento:</b> ${h(payments.map(p=>paymentMethodLabel(p.method)+' '+fmt(p.amount)).join(' · ')||'—')}</p>${sale.notes?`<p><b>Observação:</b> ${h(sale.notes)}</p>`:''}${(sale.reopenHistory||[]).length?`<p class="sub"><b>Reaberta:</b> ${sale.reopenHistory.map(r=>reportDateTime(r.at)+' por '+h(r.by||'—')+' — '+h(r.reason||'')).join(' · ')}</p>`:''}${nfceSlot}</div><div class="order-detail-actions"><button class="op-btn" onclick="closeModal()">‹ &nbsp; Voltar</button>${canReopen?`<button class="op-btn" onclick="openReopenComanda(${jsArg(sale.id)})">↺ &nbsp; Reabrir comanda</button>`:''}${sale.status==='closed'&&!sale.canceled?`<button class="op-btn" onclick="printSaleReceipt(${jsArg(sale.id)})">▤ &nbsp; Imprimir comprovante</button>`:''}<button class="op-btn" onclick="window.print()">▣ &nbsp; Imprimir</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');if(nfceSlot)loadNfceBox(sale.id);}
 function reportPeriodFilterHtml(prefix,title='Período de abertura do pedido'){const from=new Date();from.setDate(1);return `<b>${title}</b><div class="report-period-links"><button onclick="setSpecialReportPeriod(${jsArg(prefix)},'today')">Hoje</button><button onclick="setSpecialReportPeriod(${jsArg(prefix)},'yesterday')">Ontem</button><button onclick="setSpecialReportPeriod(${jsArg(prefix)},'previous')">Mês Anterior</button><button onclick="setSpecialReportPeriod(${jsArg(prefix)},'current')">Mês Atual</button></div><div class="report-date-row"><label>De</label><div><input id="${prefix}From" type="date" value="${localDay(from)}"><input type="time" value="00:00"></div></div><div class="report-date-row"><label>Até</label><div><input id="${prefix}To" type="date" value="${todayStr()}"><input type="time" value="23:59"></div></div>`;}
 function setSpecialReportPeriod(prefix,kind){const now=new Date(),from=new Date(now),to=new Date(now);if(kind==='yesterday'){from.setDate(from.getDate()-1);to.setDate(to.getDate()-1)}else if(kind==='previous'){from.setMonth(from.getMonth()-1,1);to.setDate(0)}else if(kind==='current')from.setDate(1);const local=d=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);document.getElementById(prefix+'From').value=local(from);document.getElementById(prefix+'To').value=local(to);filterSpecialReport(prefix);}
 function filterSpecialReport(prefix){const from=document.getElementById(prefix+'From')?.value||'',to=document.getElementById(prefix+'To')?.value||'';document.querySelectorAll('[data-special-date]').forEach(r=>{const d=r.dataset.specialDate||'';r.style.display=(!from||d>=from)&&(!to||d<=to)?'':'none'});}
@@ -8721,6 +8744,18 @@ function deviceCaixaPrinter(){
   if(!localPrintAgent) return null;
   return (state.impressoras||[]).find(p=>p.estacao==='tudo' && p.deviceAgentId===localPrintAgent.id) || null;
 }
+// Estações que, lançadas no computador de caixa, imprimem na própria impressora (padrão: Cozinha).
+function caixaKeepStations(dev){ return Array.isArray(dev && dev.keepStations) ? dev.keepStations : ['cozinha']; }
+function caixaKeepsStation(dev, estacao){ return caixaKeepStations(dev).includes(estacao); }
+async function toggleCaixaKeepStation(agentId, estacao, on){
+  const dev = state.impressoras.find(p=>p.estacao==='tudo' && p.deviceAgentId===agentId); if(!dev) return;
+  const set = new Set(caixaKeepStations(dev)); if(on) set.add(estacao); else set.delete(estacao);
+  dev.keepStations = [...set];
+  await save('impressoras'); renderImpressoras();
+  const a = ((printSetup&&printSetup.agents)||[]).find(x=>x.id===agentId);
+  toast(printStationName(estacao)+(on?' lançado no '+(a?a.name:'caixa')+' imprime na impressora da estação.':' lançado no '+(a?a.name:'caixa')+' imprime no caixa.'));
+  logAction('Impressão: '+printStationName(estacao)+(on?' imprime na própria impressora':' imprime no caixa')+' quando lançado no '+(a?a.name:'caixa'));
+}
 async function setDeviceCaixaPrinter(agentId, key){
   const a = ((printSetup&&printSetup.agents)||[]).find(x=>x.id===agentId); if(!a) return;
   state.impressoras = state.impressoras.filter(p=>!(p.estacao==='tudo' && p.deviceAgentId===agentId));
@@ -8834,7 +8869,9 @@ function renderPrintSetupAuto(){
     // Caixa: impressoras USB deste computador + as de rede.
     const opts = found.filter(f=>!f.virtual && (f.kind==='rede' || f.agentId===a.id));
     const dev = state.impressoras.find(p=>p.estacao==='tudo' && p.deviceAgentId===a.id), devKey = dev ? impKey(dev) : '';
-    const caixaSel = `<label class="ps-caixa">Caixa: <select onchange="setDeviceCaixaPrinter(${jsArg(a.id)},this.value)"><option value="">não — segue as impressoras das estações</option>${opts.map(f=>`<option value="${h(f.key)}" ${f.key===devKey?'selected':''}>imprimir tudo lançado aqui em ${h(f.kind==='rede'?f.title:f.name+' (USB deste PC)')}</option>`).join('')}${dev&&!opts.some(f=>f.key===devKey)?`<option value="${h(devKey)}" selected>${h(dev.nome)}</option>`:''}</select></label>`;
+    const caixaSel = `<label class="ps-caixa">Caixa: <select onchange="setDeviceCaixaPrinter(${jsArg(a.id)},this.value)"><option value="">não — segue as impressoras das estações</option>${opts.map(f=>`<option value="${h(f.key)}" ${f.key===devKey?'selected':''}>imprimir tudo lançado aqui em ${h(f.kind==='rede'?f.title:f.name+' (USB deste PC)')}</option>`).join('')}${dev&&!opts.some(f=>f.key===devKey)?`<option value="${h(devKey)}" selected>${h(dev.nome)}</option>`:''}</select></label>`
+      // Estações com preparo: a ficha vai para a impressora delas (padrão: Cozinha).
+      + (dev ? `<div class="ps-scan"><span>Exceto, na impressora da própria estação:</span>${state.estacoes.map(e=>`<label><input type="checkbox" id="psKeep-${h(a.id)}-${h(e.chave)}" ${caixaKeepsStation(dev, e.chave)?'checked':''} onchange="toggleCaixaKeepStation(${jsArg(a.id)},${jsArg(e.chave)},this.checked)"> ${h(e.nome)}</label>`).join('')}</div>` : '');
     const here = localPrintAgent && localPrintAgent.id===a.id ? ' <span class="tag tag-blue">este computador</span>' : '';
     // t108: busca na rede por computador (servidor sem a migration 20261012000000 não manda scan_network).
     const scanOn = a.scan_network !== false, hasScanOpt = typeof a.scan_network === 'boolean';
