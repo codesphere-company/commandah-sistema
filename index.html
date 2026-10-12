@@ -1193,7 +1193,7 @@ button.cash-open-row:hover{border-color:var(--c-primary)}
 .ps-block{border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-surface);padding:14px 16px;margin:0 0 14px}
 .ps-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .ps-head h3{margin:0;font-size:15px}
-.ps-list{display:grid;gap:8px}
+.ps-list{display:grid;gap:8px;grid-template-columns:minmax(0,1fr)} /* minmax(0,…): a opção longa da lista "Caixa:" não alarga a tela no celular */
 .ps-agent{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border-radius:var(--r-md);background:var(--c-surface-2)}
 .ps-agent-name{font-weight:700}
 .ps-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto;background:var(--c-text-3)}
@@ -1202,7 +1202,8 @@ button.cash-open-row:hover{border-color:var(--c-primary)}
 .ps-agent .sub{margin:0}
 .ps-agent-info{flex:1 1 260px;min-width:0}
 .ps-caixa{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:13px;color:var(--c-text-2)}
-.ps-caixa select{width:auto;max-width:100%;min-height:32px;padding:4px 8px;font-size:13px}
+/* min-width:0: sem isso a lista fica do tamanho da opção mais comprida e alarga a tela no celular */
+.ps-caixa select{width:auto;max-width:100%;min-width:0;flex:1 1 200px;min-height:32px;padding:4px 8px;font-size:13px;text-overflow:ellipsis}
 .ps-scan{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:13px;color:var(--c-text-2)}
 .ps-scan label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--c-text)}
 .ps-scan input{width:auto;min-height:0;margin:0}
@@ -1739,6 +1740,15 @@ function buildSupabaseStorageApi(client, tenantId){
       if(data.value && data.value[APP_DATA_NULL] === true) return { value: 'null' };
       return { value: JSON.stringify(data.value) };
     },
+    // t404: todas as chaves numa requisição só (no login eram ~30 idas e voltas). Chave que não
+    // veio (não existe ou a RLS escondeu) fica de fora, igual ao get() que devolve null.
+    async getMany(keys){
+      const { data, error } = await client.from('app_data').select('key, value').eq('tenant_id', tenantId).in('key', keys);
+      if(error) throw error;
+      const out = {};
+      (data||[]).forEach(row=>{ out[row.key] = (row.value && row.value[APP_DATA_NULL] === true) ? { value: 'null' } : { value: JSON.stringify(row.value) }; });
+      return out;
+    },
     async set(key, value){
       // app_data.value é NOT NULL e o PostgREST transforma JSON null em NULL do SQL.
       // Sem o marcador, fechar o caixa (cashSession = null) era recusado pelo banco:
@@ -1824,15 +1834,18 @@ async function loadAll(){
   // Tudo em paralelo (10/10): antes eram ~30 leituras uma depois da outra e, com sócios, vendas e
   // pedidos atrás, o login passava de 6 s e o vigia de boot mostrava "Não foi possível carregar".
   const keys = Object.keys(STORE).filter(key=>!(key==='members'||key==='orders'||(key==='sales' && isCloudMode()))); // EST-01: sales vem da tabela
-  const blobsP = Promise.all(keys.map(async key=>{
-    try{
-      const r = await storageApi.get(STORE[key]);
-      state[key] = r ? JSON.parse(r.value) : (key in scalarDefaults ? scalarDefaults[key] : []);
-    }catch(e){ readFailed[key] = true; state[key] = (key in scalarDefaults ? scalarDefaults[key] : []); }
-  }));
   const membersP = MembersStore.load().catch(()=>[]);
   const ordersP = OrdersStore.load().catch(()=>[]);
   const salesP = isCloudMode() ? SalesStore.load().catch(()=>{ setSalesBase([]); return []; }) : null;
+  // t404: na nuvem, as chaves vêm numa leitura só; se ela falhar, lê uma por uma como antes.
+  let many = null;
+  if(typeof storageApi.getMany === 'function'){ try{ many = await storageApi.getMany(keys.map(k=>STORE[k])); }catch(e){ many = null; } }
+  const blobsP = Promise.all(keys.map(async key=>{
+    try{
+      const r = many ? (many[STORE[key]] || null) : await storageApi.get(STORE[key]);
+      state[key] = r ? JSON.parse(r.value) : (key in scalarDefaults ? scalarDefaults[key] : []);
+    }catch(e){ readFailed[key] = true; state[key] = (key in scalarDefaults ? scalarDefaults[key] : []); }
+  }));
   await blobsP;
   stripIntegrationTokens(state.settings);
   setCashMovementsBase(state.cashMovements);
