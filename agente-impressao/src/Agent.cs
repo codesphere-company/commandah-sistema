@@ -46,6 +46,10 @@ namespace Commandah.Agente
 
         public List<string> LastNetworkFound { get; private set; }
 
+        // 2.2: escolhas do Commandah para este computador (vêm no ping a cada minuto).
+        public bool ScanEnabled { get; private set; }
+        List<string> checkIps = new List<string>();
+
         public Agent(Config cfg)
         {
             Cfg = cfg;
@@ -53,6 +57,7 @@ namespace Commandah.Agente
             Printing.PrintToFileDir = cfg.PrintToFileDir;
             State = string.IsNullOrEmpty(cfg.Token) ? AgentState.SemToken : AgentState.SemConexao;
             LastNetworkFound = new List<string>();
+            ScanEnabled = true;
         }
 
         public static string Machine { get { return Environment.MachineName; } }
@@ -148,6 +153,14 @@ namespace Commandah.Agente
                         if (!string.IsNullOrEmpty(ping.Name)) Cfg.AgentName = ping.Name; // renomeado no Commandah
                         if (!string.IsNullOrEmpty(ping.AgentId)) Cfg.AgentId = ping.AgentId;
                         Cfg.Save();
+                    }
+                    if (IsPairedByCode)
+                    {
+                        if (ping.Scan != ScanEnabled)
+                            Log(ping.Scan ? "Busca de impressoras na rede ligada no Commandah."
+                                          : "Busca de impressoras na rede desligada no Commandah: este computador só usa os IPs escolhidos.", false);
+                        ScanEnabled = ping.Scan;
+                        checkIps = ping.CheckIps;
                     }
                     if (ping.Rescan) { Log("O Commandah pediu para procurar as impressoras de novo.", false); ScanAndReport(); }
                 }
@@ -246,15 +259,22 @@ namespace Commandah.Agente
                 try
                 {
                     var nets = Discovery.LocalSubnets();
-                    var found = Discovery.ScanNetwork();
+                    var chosen = new List<string>(checkIps);
+                    var found = ScanEnabled ? Discovery.ScanNetwork() : new List<string>();
+                    var extra = chosen.Where(ip => !found.Contains(ip)).ToList();
+                    if (extra.Count > 0) found.AddRange(Discovery.Probe(extra));
                     LastNetworkFound = found;
                     var windows = Printing.WindowsPrinters();
                     api.Report(Machine, windows, found);
                     lastWindowsList = string.Join("\n", windows.OrderBy(x => x));
                     lastReport = DateTime.Now;
+                    var silent = chosen.Where(ip => !found.Contains(ip)).ToList();
                     Log("Impressoras encontradas: " + windows.Count + " no Windows" +
                         (found.Count > 0 ? ", " + found.Count + " de rede (" + string.Join(", ", found) + ")" : ", nenhuma de rede") +
-                        " — rede " + (nets.Count > 0 ? string.Join(", ", nets.Select(n => n + ".x")) : "não encontrada") + ".", false);
+                        (ScanEnabled ? " — rede " + (nets.Count > 0 ? string.Join(", ", nets.Select(n => n + ".x")) : "não encontrada")
+                                     : " — busca na rede desligada, conferidos só os IPs escolhidos") + ".", false);
+                    if (silent.Count > 0)
+                        Log("Não responderam: " + string.Join(", ", silent) + ". Confira se a impressora está ligada e se este computador alcança essa rede.", true);
                 }
                 catch (Exception e)
                 {
