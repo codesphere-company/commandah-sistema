@@ -51,7 +51,15 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - Para ler os produtos de produção: `bash .claude/tmp/produtos.sh` (só `select`; o dono liberou essa regra em `/permissions`). Gera `.claude/tmp/produtos.json`.
 - **Painel do lançamento:** as anotações das tarefas agora aparecem inteiras, em destaque, com a etiqueta "tem anotação" (antes ficavam escondidas numa caixa de uma linha). Notas novas em t101, t105, t106, t107, t109 e t201.
 - **NFS-e tomadas** (opção da Brasil NFe) não é necessária: são notas de serviço. As notas dos fornecedores são NF-e de produto; o Commandah já importa o XML em Insumos › Alterar Estoque com NFe (manual). Busca automática na SEFAZ fica como melhoria futura.
-- **Próximo:** t108 (agente: desligar a busca de rede e "adicionar impressora pelo IP", até 17/10); emitir a NFC-e de teste quando o CSC chegar.
+- **t108 pronta no PR #101, esperando "pode publicar"** (branch `t108-ips-escolhidos`):
+  - **Tela:** em Configurações › Impressoras, cada computador ganha a chave "Procurar impressoras na rede sozinho" e o botão "＋ Impressora pelo IP". Cada impressora de rede ganha "Remover", e IP escolhido que não respondeu aparece em vermelho.
+  - **Ao desligar a busca:** as impressoras de rede achadas sozinho que já imprimem algo viram "escolhidas"; as outras saem da lista.
+  - **Agente 2.2** (`downloads/CommandahImpressora.exe` atualizado, igual ao build): com a busca desligada não varre a /24, só confere os IPs escolhidos (`Discovery.Probe`, qualquer faixa, porta opcional).
+  - **Migration `20261012000000_impressao_ips_escolhidos.sql` ainda NÃO aplicada:** `print_agents.scan_network` (padrão true), `print_agent_printers.manual`, `print_ip_valid()`. O ping devolve `scan` e `check_ips`; `print_agent_manage` ganha `scan_on`, `scan_off`, `add_ip` e `remove_ip` (sem computador = todos), com audit_log. O report com a busca desligada não cria impressora nova, o que protege contra o agente 2.1.
+  - **Testes:** 34 verificações em Postgres local (`t108.js` + `stubs.sql` no scratchpad da sessão), Probe contra impressora falsa local e captura da tela com dados de exemplo.
+  - **Ordem para publicar:** dono aplica a migration com `!` e registra com `migration repair`, depois merge. No computador da cozinha: agente 2.2 e **busca desligada antes de qualquer teste**; depois "＋ Impressora pelo IP" com 192.168.110.112, .113 e .114.
+  - **Achado:** a seção de Impressoras passa da largura da tela no celular (já era assim antes; é usada no PC).
+- **Próximo:** emitir a NFC-e de teste quando o CSC chegar (13/10); publicar a t108.
 
 ### Fim do dia 11/10
 - **Publicado hoje (todos com "pode publicar" do dono):**
