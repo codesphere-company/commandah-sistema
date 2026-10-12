@@ -2,7 +2,14 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-10-12, fim do dia** (ver "Fim do dia 12/10" no começo do Estado atual: NFC-e com a Brasil NFe em homologação, códigos fiscais dos produtos, lanchonete é da irmã do Fabricio). Antes: **2026-10-11, fim do dia** (ver "Fim do dia 11/10" no começo do Estado atual: o Commandah NÃO está em uso no clube, que opera com o Saipos; mapa da rede do clube; impressão automática publicada). Antes: **2026-10-11, noite** (impressão automática: computador conectado por código, impressoras encontradas, caixa imprime tudo). Antes: **2026-10-11** (PR #93: administrador gera o token do agente de impressão; instalação do agente no clube em andamento). Antes: **2026-10-11** (PR #90: login por e-mail mostrava a lista de colaboradores vazia — confirmado; SEG-04 concluído). Antes: **2026-10-10, fim do dia** (ver "Fim do dia 10/10" no começo do Estado atual). Antes: **2026-10-10, tarde** (PRs #65–#67: bloqueio v2, transferir itens, reabrir comanda, movimentações por usuário — ver "Resumo rápido (10/10, tarde)"). Antes: **2026-10-10** (SEG-12, OPS-05, OP-14, PROD-18 e BD-11 publicados; main protegida — ver "Resumo rápido (10/10)"). Antes: **2026-10-09, noite** (auditoria de 07/10 praticamente concluída: Fases A, B, U, C e D publicadas — PRs #40 a #55; SEG-12 no PR #56 esperando "publicar"; o que falta depende do dono. Ver "Resumo rápido (09/10, noite)" no começo do Estado atual). Antes, **2026-10-09, tarde** (PRs #40 a #43 publicados: comandas e Novo Pedido redesenhados, Fase C lotes 1 a 3).
+Última atualização: **2026-10-12, noite** (ver "Fim do dia 12/10" no começo do Estado atual). No ar hoje:
+- NFC-e completa em homologação: dados fiscais, emissão manual e ao fechar, cupom com QR, cancelamento e configuração;
+- regras de impressão do caixa e agente 2.3;
+- login com uma leitura só;
+- importação de produtos com dados fiscais;
+- manual atualizado.
+
+Falta o CSC de homologação para o primeiro teste real. A lanchonete é da irmã do Fabricio. Antes: **2026-10-11, fim do dia** (ver "Fim do dia 11/10" no começo do Estado atual: o Commandah NÃO está em uso no clube, que opera com o Saipos; mapa da rede do clube; impressão automática publicada). Antes: **2026-10-11, noite** (impressão automática: computador conectado por código, impressoras encontradas, caixa imprime tudo). Antes: **2026-10-11** (PR #93: administrador gera o token do agente de impressão; instalação do agente no clube em andamento). Antes: **2026-10-11** (PR #90: login por e-mail mostrava a lista de colaboradores vazia — confirmado; SEG-04 concluído). Antes: **2026-10-10, fim do dia** (ver "Fim do dia 10/10" no começo do Estado atual). Antes: **2026-10-10, tarde** (PRs #65–#67: bloqueio v2, transferir itens, reabrir comanda, movimentações por usuário — ver "Resumo rápido (10/10, tarde)"). Antes: **2026-10-10** (SEG-12, OPS-05, OP-14, PROD-18 e BD-11 publicados; main protegida — ver "Resumo rápido (10/10)"). Antes: **2026-10-09, noite** (auditoria de 07/10 praticamente concluída: Fases A, B, U, C e D publicadas — PRs #40 a #55; SEG-12 no PR #56 esperando "publicar"; o que falta depende do dono. Ver "Resumo rápido (09/10, noite)" no começo do Estado atual). Antes, **2026-10-09, tarde** (PRs #40 a #43 publicados: comandas e Novo Pedido redesenhados, Fase C lotes 1 a 3).
 
 > **Sobre os números de linha** (`index.html:NNNN`): nas seções datadas eles valem para o código **daquela data** e envelhecem a cada mudança — procure pelo nome da função, não pela linha. Só as Pendências abertas são mantidas com linha atual (conferida em 2026-10-02).
 
@@ -102,6 +109,14 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - **Armadilha do Chrome em modo invisível:** ele não abre janela com menos de 504 px. Para medir celular, limite o contêiner a 380 px (ver `ovf.js` no scratchpad).
   - **Prévias do Netlify não fazem login:** a verificação de humano (Turnstile) só aceita `codesphere-company.github.io`. Mudança no login se confere no site oficial, logo depois do merge, com reversão pronta.
   - O ganho real de velocidade ainda precisa ser medido na internet do clube (t404).
+- **Importação de produtos com dados fiscais, manual da equipe e "sem preparo" no bar** (PR #117, merge `b94841c`, sem migration):
+  - **Importar (t204, preparado):** `IMPORT_FIELDS` ganhou estação, NCM, CEST, CFOP, CSOSN e origem (`importEstacaoKey`, `importFiscal`; fiscal sempre "a conferir").
+    - `findImportMatch` reconhece o produto por id, código PDV, código (menos "0") ou nome + categoria. Nunca só pelo nome: AMSTEL existe em 4 categorias e os 104 produtos têm código PDV único.
+    - `mergeImportedProducts` mostra "Conferir a importação" no lugar do `confirm()`. Com `_cols` (planilha), a atualização é parcial e não apaga o que não veio. O pacote .ccprod continua com a atualização completa.
+    - **Bug antigo corrigido:** coluna ausente apagava o dado do produto (categoria, código).
+    - Testado com o cadastro real (12 verificações, `import-test.js` no scratchpad). Falta a planilha do Saipos (t109).
+  - **Manual (t403):** as `HELP_SHEETS` de caixa, garçom, falhas e treino agora falam de ficha na cozinha × retirada no caixa, comprovante só se pedir e NFC-e (aviso, cancelamento em 30 min, sem internet).
+  - **Garçom × sem preparo:** `resolvePrinterFor('nenhuma')` cai na impressora do bar quando não há impressora de "nenhuma". No caixa continua no caixa. `estacaoLabel('nenhuma')` = "Sem preparo". Testado com 12 cenários de roteamento.
 - **Próximo (13/10):** colar o CSC de homologação no painel da Brasil NFe (Configurações › Geral › NFC-e). Depois:
   1. Produtos › Opções › Dados fiscais › Preencher;
   2. fechar uma comanda de teste, clicar em "Emitir NFC-e de teste" no detalhe e depois em "Imprimir cupom da NFC-e";
