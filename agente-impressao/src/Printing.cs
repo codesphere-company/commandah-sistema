@@ -4,12 +4,14 @@
 //   aqui. Vai direto para a porta 9100 da impressora (ou a porta escrita depois do IP).
 // - Impressora do Windows (sem IP): texto simples, impresso pelo driver com fonte de
 //   largura fixa ajustada à largura do papel. Acentos saem certos.
+//   2.3: ESC/POS com QR Code (cupom da NFC-e) vai "cru" (RAW) para o driver.
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Printing;
 using System.Linq;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Commandah.Agente
@@ -49,12 +51,7 @@ namespace Commandah.Agente
                 int p;
                 if (int.TryParse(host.Substring(colon + 1), out p)) { port = p; host = host.Substring(0, colon); }
             }
-            var bytes = new byte[content.Length];
-            for (int i = 0; i < content.Length; i++)
-            {
-                char ch = content[i] == NulPlaceholder ? '\0' : content[i];
-                bytes[i] = ch < 256 ? (byte)ch : (byte)'?';
-            }
+            var bytes = EscPosBytes(content);
             using (var client = new TcpClient())
             {
                 var ar = client.BeginConnect(host, port, null, null);
@@ -90,8 +87,65 @@ namespace Commandah.Agente
             return sb.ToString();
         }
 
+        // 2.3: ESC/POS com QR Code (GS ( k), como o cupom da NFC-e, não pode virar texto: vai
+        // "cru" para o driver (tipo RAW), que as térmicas USB aceitam.
+        public static bool NeedsRaw(string text)
+        {
+            return LooksLikeEscPos(text) && text.IndexOf("\x1D(k", StringComparison.Ordinal) >= 0;
+        }
+
+        static byte[] EscPosBytes(string content)
+        {
+            var bytes = new byte[content.Length];
+            for (int i = 0; i < content.Length; i++)
+            {
+                char ch = content[i] == NulPlaceholder ? '\0' : content[i];
+                bytes[i] = ch < 256 ? (byte)ch : (byte)'?';
+            }
+            return bytes;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        class DOCINFO { public string pDocName; public string pOutputFile; public string pDataType; }
+        [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)] static extern bool OpenPrinter(string name, out IntPtr h, IntPtr defaults);
+        [DllImport("winspool.drv", SetLastError = true)] static extern bool ClosePrinter(IntPtr h);
+        [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)] static extern int StartDocPrinter(IntPtr h, int level, [In] DOCINFO di);
+        [DllImport("winspool.drv", SetLastError = true)] static extern bool EndDocPrinter(IntPtr h);
+        [DllImport("winspool.drv", SetLastError = true)] static extern bool StartPagePrinter(IntPtr h);
+        [DllImport("winspool.drv", SetLastError = true)] static extern bool EndPagePrinter(IntPtr h);
+        [DllImport("winspool.drv", SetLastError = true)] static extern bool WritePrinter(IntPtr h, byte[] data, int len, out int written);
+
+        public static void PrintWindowsRaw(string printerName, string content, string jobTitle)
+        {
+            var bytes = EscPosBytes(content);
+            if (!string.IsNullOrEmpty(PrintToFileDir))
+            {
+                // Modo de teste: grava os bytes que iriam para a impressora.
+                System.IO.File.WriteAllBytes(System.IO.Path.Combine(PrintToFileDir, jobTitle.Replace(' ', '-') + "-" + DateTime.Now.ToString("HHmmssfff") + ".bin"), bytes);
+                return;
+            }
+            IntPtr h;
+            if (!OpenPrinter(printerName, out h, IntPtr.Zero)) throw new Exception("Impressora \"" + printerName + "\" não encontrada neste computador");
+            try
+            {
+                if (StartDocPrinter(h, 1, new DOCINFO { pDocName = jobTitle, pDataType = "RAW" }) == 0)
+                    throw new Exception("O Windows recusou o envio direto para \"" + printerName + "\" (erro " + Marshal.GetLastWin32Error() + ")");
+                try
+                {
+                    StartPagePrinter(h);
+                    int written;
+                    if (!WritePrinter(h, bytes, bytes.Length, out written) || written != bytes.Length)
+                        throw new Exception("A impressora \"" + printerName + "\" não recebeu o cupom inteiro (erro " + Marshal.GetLastWin32Error() + ")");
+                    EndPagePrinter(h);
+                }
+                finally { EndDocPrinter(h); }
+            }
+            finally { ClosePrinter(h); }
+        }
+
         public static void PrintWindows(string printerName, string text, string jobTitle)
         {
+            if (NeedsRaw(text)) { PrintWindowsRaw(printerName, text, jobTitle); return; }
             if (LooksLikeEscPos(text)) text = StripEscPos(text);
             var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n').ToList();
             while (lines.Count > 0 && lines[lines.Count - 1].Trim().Length == 0) lines.RemoveAt(lines.Count - 1);

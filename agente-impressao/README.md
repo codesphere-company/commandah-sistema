@@ -1,4 +1,6 @@
-# Agente de impressão do Commandah (versão 2.2)
+# Agente de impressão do Commandah (versão 2.3)
+
+**Novo na 2.3 (12/10/2026):** o cupom da NFC-e (ESC/POS com QR Code) vai "cru" (RAW) para as impressoras USB pelo driver do Windows, para o QR Code sair. As fichas comuns continuam como antes.
 
 **Novo na 2.2 (12/10/2026):** em Configurações › Impressoras, cada computador tem a opção **"Procurar impressoras na rede sozinho"** e o botão **"＋ Impressora pelo IP"**. Com a busca desligada, o agente não varre mais a rede: usa só as impressoras USB dele e os IPs escolhidos, que podem estar em outra faixa (por exemplo 192.168.110.x). É o modo indicado quando a rede tem impressoras de outro sistema (no clube, as do Saipos). O agente confere os IPs escolhidos ao conectar, a cada 30 minutos e quando um IP é adicionado; o que não responder aparece em vermelho na tela. Precisa da migration `20261012000000`. Agente 2.1 com a busca desligada continua varrendo, mas o servidor não acrescenta o que ele achar.
 
