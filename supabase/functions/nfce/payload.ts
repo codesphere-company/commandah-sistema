@@ -81,6 +81,9 @@ export function buildNfcePayload(sale: Sale, products: Product[], opts: { ambien
     const valor = cents(Math.min(Number(p.amount) || 0, falta));
     const pg: Record<string, unknown> = { IndicadorPagamento: 0, FormaPagamento: tPag, VlPago: valor };
     if (tPag === "99") pg.Descricao = String(p.method || "Outros").slice(0, 60);
+    // Cartão: a NFC-e exige o grupo do cartão com o tipo de integração. No clube a maquininha
+    // não é integrada (TEF existe, mas não é contratado; confirmado em 12/10) -> tpIntegra 2.
+    if (tPag === "03" || tPag === "04") pg.TipoIntegracao = false;
     pagamentos.push(pg);
     falta = cents(falta - valor);
   }
