@@ -1,10 +1,12 @@
 name: Check index.html JS syntax
 
-# index.html não tem bundler nem build step, e o GitHub Pages deste repo
-# publica direto da branch main (sem staging) - um <script> quebrado só
-# aparece quando a página carrega no navegador do cliente do bar. Esse
-# workflow roda o mesmo check de sintaxe usado localmente (guard-index-syntax.sh)
-# em todo PR que tocar index.html, como segundo gate antes do merge.
+# O app não tem bundler nem build step, e o GitHub Pages deste repo publica direto
+# da branch main (sem staging) - um script quebrado, um arquivo faltando ou um ?v=
+# esquecido só aparece quando a página carrega no navegador do cliente do bar.
+# Este workflow roda as mesmas checagens de scripts/ usadas localmente (hook
+# guard-index-syntax.sh) em todo PR, como segundo gate antes do merge.
+# O nome do workflow e o job "syntax-check" são o check exigido pela proteção da
+# main: não renomear sem atualizar a regra no GitHub.
 
 on:
   # Roda em TODO PR (nao so nos que mexem no index.html): desde o OPS-05 a main
@@ -17,6 +19,8 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+      - 'assets/**'
+      - 'scripts/**'
 
 permissions:
   contents: read
@@ -38,22 +42,25 @@ jobs:
         with:
           node-version: 20
 
-      - name: Validar sintaxe dos blocos <script> inline
+      - name: Validar index.html e assets (sintaxe, arquivos, ?v= único, órfãos)
+        run: node scripts/check-app.js
+
+      - name: Validar ordem de carregamento dos scripts
         run: |
-          node -e '
-          const fs = require("fs");
-          const html = fs.readFileSync("index.html", "utf8");
-          const re = /<script(?![^>]*src)[^>]*>([\s\S]*?)<\/script>/g;
-          let m, i = 0, errors = [];
-          while ((m = re.exec(html))) {
-            i++;
-            try { new Function(m[1]); }
-            catch (e) { errors.push("bloco " + i + ": " + e.message); }
-          }
-          if (errors.length) {
-            console.error("Erro de sintaxe JS em index.html:");
-            errors.forEach(e => console.error("  - " + e));
-            process.exit(1);
-          }
-          console.log("OK: " + i + " bloco(s) <script> validado(s).");
-          '
+          npm i --no-save --no-package-lock --silent acorn@8.14.0 acorn-walk@8.3.4
+          node scripts/check-load-order.js
+
+      - name: Mudou assets/js ou assets/css? O ?v= do index.html tem que mudar junto
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          if git diff --quiet "$BASE_SHA" HEAD -- assets/js assets/css; then exit 0; fi
+          ver() { grep -o "?v=[A-Za-z0-9]*" | head -1; }
+          old=$(git show "$BASE_SHA:index.html" | ver); new=$(ver < index.html)
+          if [ -n "$old" ] && [ "$old" = "$new" ]; then
+            echo "::error file=index.html::assets/ mudou mas o $new continua igual. Rode: node scripts/bump-version.js"
+            exit 1
+          fi
+          echo "OK: versão $old -> $new"
