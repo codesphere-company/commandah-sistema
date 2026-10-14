@@ -11,14 +11,36 @@
    Desligar em emergência: trocar o conteúdo deste arquivo por
      self.addEventListener('install',()=>self.skipWaiting());
      self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.map(c=>caches.delete(c)))).then(()=>self.registration.unregister())));
-   e publicar. */
-const CACHE = 'commandah-app-v1';
+   e publicar.
+
+   v2 (14/10): o app saiu do index.html para assets/js e assets/css, sempre com ?v=<versão>
+   nas tags. Cada versão é uma URL nova, então "cópia guardada primeiro" é seguro para eles.
+   Na instalação, a lista desses arquivos é lida do próprio index.html (fonte única) e
+   guardada junto, para abrir sem internet já depois da primeira visita. Ao guardar uma
+   versão nova de um arquivo, as cópias das versões antigas dele são apagadas. */
+const CACHE = 'commandah-app-v2';
 const SHELL = new URL('./', self.registration.scope).href;
 const PRECACHE = ['./', 'manifest.webmanifest', 'assets/marca/favicon.svg', 'assets/marca/icon-192.png'];
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+const APP_FILE = /\/assets\/(js|css)\//;
+
+function appFilesFromPage(html){
+  return [...html.matchAll(/(?:src|href)="(assets\/(?:js|css)\/[^"]+)"/g)].map(m => m[1]);
+}
+
+// Apaga as cópias de outras versões (outro ?v=) do mesmo arquivo de assets/js|css.
+function pruneOldVersions(c, url){
+  return c.keys().then(keys => Promise.all(keys
+    .filter(k => { const u = new URL(k.url); return u.pathname === url.pathname && u.search !== url.search; })
+    .map(k => c.delete(k))));
+}
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)).catch(() => {}).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE).then(async c => {
+    await c.addAll(PRECACHE);
+    const page = await c.match(SHELL);
+    if(page) await c.addAll(appFilesFromPage(await page.text()));
+  }).catch(() => {}).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {
@@ -61,7 +83,10 @@ self.addEventListener('fetch', event => {
     event.respondWith(caches.open(CACHE).then(async c => {
       const cached = await c.match(req);
       const fresh = fetch(req).then(res => {
-        if(res && (res.ok || res.type === 'opaque')) c.put(req, res.clone()).catch(() => {});
+        if(res && (res.ok || res.type === 'opaque')){
+          c.put(req, res.clone()).catch(() => {});
+          if(sameOriginAsset && APP_FILE.test(url.pathname)) pruneOldVersions(c, url).catch(() => {});
+        }
         return res;
       });
       if(cached){ fresh.catch(() => {}); return cached; }

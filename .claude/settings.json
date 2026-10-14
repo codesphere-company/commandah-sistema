@@ -2,6 +2,23 @@
   "enabledPlugins": {
     "superpowers@superpowers-marketplace": true
   },
+  "permissions": {
+    "deny": [
+      "Read(./node_modules/**)",
+      "Read(./**/node_modules/**)",
+      "Read(./downloads/**)",
+      "Read(./agente-impressao/dist/**)",
+      "Read(./**/*.exe)",
+      "Read(./**/package-lock.json)",
+      "Read(./**/*.lock)",
+      "Read(./assets/marca/*.png)",
+      "Read(./graphify-out/graph.json)",
+      "Read(./graphify-out/cache/**)",
+      "Read(./.claude/worktrees/**)",
+      "Read(./supabase/.temp/**)",
+      "Read(./.local-backups/**)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
