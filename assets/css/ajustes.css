@@ -1,0 +1,387 @@
+/* ===== AJUSTES DA AUDITORIA 07/10 (redesign etapa 9) ===== */
+/* UX-01: ação perigosa confirmada = vermelho sólido (o .btn da etapa 4 usa !important, por isso a regra também usa) */
+.btn-danger-solid,.btn.btn-danger-solid{background:var(--c-danger)!important;border-color:var(--c-danger)!important;color:var(--c-text-inverse)!important}
+.btn-danger-solid:hover,.btn.btn-danger-solid:hover{background:color-mix(in srgb,var(--c-danger) 86%,#000)!important;border-color:color-mix(in srgb,var(--c-danger) 86%,#000)!important;color:var(--c-text-inverse)!important}
+.gc-discard-link{display:block;margin:14px 0 0 auto;background:none;border:0;padding:10px 4px;min-height:44px;color:var(--c-danger);font-weight:600;font-size:15px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+/* UX-02: painel de senhas claro e legível a 3 m, também em tela cheia */
+.score-panel{background:var(--c-surface)}
+.score-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))!important}
+.tile.score-tile{padding:20px 12px;border-radius:var(--r-lg)}
+.tile.score-tile:hover{background:var(--c-surface)}
+.tile.score-tile.ready,.tile.score-tile.ready:hover{background:var(--c-success-soft);border:2px solid var(--c-success);color:var(--c-text)}
+.tile.score-tile .tile-cap{font-size:18px;font-weight:700;color:var(--c-text-2)}
+.tile.score-tile.ready .tile-cap{color:var(--c-success)}
+.tile.score-tile .tile-num{font-size:clamp(40px,4.5vw,56px);line-height:1.1;font-weight:700;color:var(--c-text);overflow-wrap:anywhere}
+#view-painel-senhas:fullscreen{background:var(--c-bg);padding:32px;overflow:auto}
+/* UX-03: no PC do caixa (1366x768) a janela da comanda e a do delivery cabem na tela, com Pagamento/Salvar visíveis */
+.cash-order-modal{min-height:min(650px,calc(100dvh - 24px))!important}
+.delivery-modal{min-height:min(690px,calc(100dvh - 24px))!important}
+@media (max-height:800px){.op-window{min-height:min(520px,calc(100dvh - 182px))}.rb-caption{display:none}}
+/* UX-05: ações perigosas separadas no fim do menu, cada uma com explicação */
+.pdv-options-danger{border-top:1px solid var(--c-border-strong);margin-top:8px;padding-top:8px}
+.pdv-options-inner .pdv-options-danger .danger{border:0;margin:0;padding:12px 8px;text-align:left;color:var(--c-danger)}
+.pdv-options-inner .pdv-options-danger .danger:disabled{color:var(--c-text-3)}
+.pdv-options-inner .danger small{display:block;margin-top:2px;font-size:12px;font-weight:400;color:var(--c-text-2)}
+/* UX-06: nos cadastros, Salvar é o botão principal; Voltar secundário; Excluir com contorno vermelho */
+.consumer-modal-actions button.consumer-save{background:var(--c-primary);border:1px solid var(--c-primary);color:var(--c-text-inverse);font-weight:600;border-radius:var(--r-md);min-height:40px}
+.consumer-modal-actions button.consumer-save:hover{background:var(--c-primary-hover);border-color:var(--c-primary-hover)}
+.consumer-modal-actions button.consumer-back{border:1px solid var(--c-border-input);background:var(--c-surface);color:var(--c-text);border-radius:var(--r-md);min-height:40px}
+.consumer-modal-actions button.consumer-back:hover{background:var(--c-surface-3)}
+.consumer-modal-actions button.consumer-delete{border:1px solid var(--c-danger);background:var(--c-surface);color:var(--c-danger);border-radius:var(--r-md);min-height:40px}
+.consumer-modal-actions button.consumer-delete:hover{background:var(--c-danger-soft)}
+.consumer-modal-actions button:disabled{background:var(--c-surface-3);border-color:var(--c-border);color:var(--c-text-3);cursor:not-allowed}
+/* OP-09: item cancelado na comanda continua visível no Monitor, riscado, para a cozinha não preparar */
+.kitem-canceled{color:var(--c-danger)}
+.kitem-canceled s{text-decoration-thickness:2px}
+.sale-pending-warning{margin:0 0 10px;padding:10px 12px;border:2px solid var(--c-danger);border-radius:var(--r-md);background:var(--c-danger-soft);color:var(--c-text);font-weight:600}
+/* UX-17: janelas grandes com o mesmo arredondamento das pequenas (as regras antigas forçavam canto reto) */
+.app-config-modal,.scale-config-modal,.campaign-modal,.sms-window-modal,.integration-modal,.nfe-stock-modal,.record-modal,.cash-order-modal,.cash-close-modal,.cash-entry-modal,.finance-record-modal,.columns-record-modal,.scheduled-record-modal,.bulk-product-modal{border-radius:var(--r-lg)!important}
+.app-config-modal>:first-child,.scale-config-modal>:first-child,.campaign-modal>:first-child,.sms-window-modal>:first-child,.integration-modal>:first-child,.nfe-stock-modal>:first-child,.record-modal>:first-child,.cash-order-modal>:first-child,.cash-close-modal>:first-child,.cash-entry-modal>:first-child,.finance-record-modal>:first-child,.columns-record-modal>:first-child,.scheduled-record-modal>:first-child,.bulk-product-modal>:first-child{border-top-left-radius:inherit;border-top-right-radius:inherit}
+/* UX-07: adicionais legíveis fora do Modo TV; observação em destaque */
+.kcard .kextras{font-size:14px;color:var(--c-text-2)}
+.kcard .kobs{margin:2px 0 4px;font-size:14px;font-weight:700;color:var(--c-warning)}
+body.tv-mode .kcard .kobs{font-size:18px}
+/* UX-11: no app do garçom, campos e botões com 48px e letra de 16px (abaixo disso o iPhone dá zoom ao tocar) */
+#garcomApp input:not([type=checkbox]):not([type=radio]),#garcomApp select,#garcomApp .np-section select,#garcomApp .np-section input{min-height:48px;height:auto;font-size:16px}
+#garcomApp textarea{min-height:48px;font-size:16px}
+#garcomApp .btn{min-height:48px}
+#garcomApp .gc-menu-panel button{min-height:48px;font-size:16px}
+/* UX-12: campo e botão desabilitados não parecem ativos; botão processando mostra indicador */
+input:disabled,select:disabled,textarea:disabled{background-color:var(--c-surface-3)!important;color:var(--c-text-3)!important;border-color:var(--c-border)!important;cursor:not-allowed}
+.cash-order-links button:disabled,.pdv-options-inner button:disabled{color:var(--c-text-3)!important;opacity:.6;cursor:not-allowed}
+button[aria-busy="true"]{pointer-events:none;opacity:.8}
+button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;height:14px;margin-left:8px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:cmd-spin .7s linear infinite}
+@keyframes cmd-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){button[aria-busy="true"]::after{animation:none}}
+.boot-loading{text-align:center}
+/* UX-13: avisos empilhados; erro com cara própria */
+#toastRoot{position:fixed;right:20px;bottom:20px;z-index:300;display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:min(440px,calc(100vw - 40px));pointer-events:none}
+#toastRoot .toast{position:static;pointer-events:auto;display:flex;align-items:center;gap:10px}
+#toastRoot .toast-erro{background:var(--c-danger-soft);color:var(--c-text);border:1px solid var(--c-danger);border-left-width:4px}
+#toastRoot .toast-close{background:none;border:0;color:inherit;font-size:20px;line-height:1;min-width:32px;min-height:32px;cursor:pointer}
+/* UX-04: janela de confirmação do sistema (acima dos modais) */
+.confirm-backdrop{position:fixed;inset:0;z-index:400;background:rgba(15,20,30,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.confirm-box{background:var(--c-surface);color:var(--c-text);border-radius:var(--r-lg);padding:22px;width:100%;max-width:420px;box-shadow:var(--sh-2);display:grid;gap:10px}
+.confirm-box h3{margin:0;font-size:18px}
+.confirm-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px}
+.confirm-actions .btn{min-height:44px;padding:0 16px}
+/* UX-14: Totem é tela de toque */
+#view-totem .btn,#view-totem .op-btn{min-height:48px;padding-left:18px;padding-right:18px}
+#view-totem input,#view-totem select{min-height:48px;font-size:16px}
+#view-totem .menu-item{padding:10px 12px}
+/* UX-14: relatórios com período ativo marcado e Pesquisar como ação principal */
+.report-period-links button.active,.history-quick-links button.active{background:var(--c-primary-soft);color:var(--c-primary-text);font-weight:700;border-radius:var(--r-pill)}
+.report-search-button{background:var(--c-primary)!important;border:1px solid var(--c-primary)!important;color:var(--c-text-inverse)!important;border-radius:var(--r-md)!important;font-weight:600;min-height:40px}
+.report-search-button:hover{background:var(--c-primary-hover)!important}
+/* UX-10: ícone de traço na tela de pagamento */
+.pay-method-icon svg{width:22px;height:22px;display:block}
+/* Comanda (auditoria 08/10): janela mais larga em telas grandes, cabeçalho sem espremer o nome,
+   histórico em 5 colunas e menu "Mais opções" flutuante */
+.cash-order-modal{max-width:min(1240px,calc(100vw - 48px))!important}
+.cash-order-head{grid-template-columns:minmax(0,1fr) auto!important}
+.cmd-row td{padding:9px 10px;vertical-align:top;height:auto}
+.cmd-row small{display:block;margin-top:2px;font-size:12px;color:var(--c-text-3);line-height:1.35}
+.cmd-row small.cmd-note{color:var(--c-warning);font-weight:600}
+.cmd-row small.cmd-cancel{color:var(--c-danger)}
+.cmd-row b{font-weight:600}
+.cmd-when{white-space:nowrap;width:1%}
+.cmd-total{text-align:right;white-space:nowrap;width:1%}
+.cmd-entrega{width:170px}
+.comanda-levou{margin-top:4px;width:100%;height:34px;font-size:13px;padding:0 6px}
+.cmd-status{width:1%;white-space:nowrap}
+.cmd-actions{display:flex;gap:6px;margin-top:6px}
+.cmd-act{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;min-height:34px;font-size:13px}
+.cmd-act svg{width:16px;height:16px;flex:none}
+.cmd-act-danger{color:var(--c-danger)!important}
+.cmd-row.is-canceled{opacity:.6}
+.cmd-group{cursor:pointer;background:var(--c-surface-2)}
+.cmd-caret{display:inline-block;transition:transform .15s}
+.cmd-caret.open{transform:rotate(90deg)}
+@media (prefers-reduced-motion:reduce){.cmd-caret{transition:none}}
+.pdv-options-panel.floating{border-radius:var(--r-lg);background:var(--c-surface);box-shadow:var(--sh-2)}
+.pdv-options-panel.floating .pdv-options-inner{border:0;padding:6px}
+.pdv-options-panel.floating .pdv-options-inner button{text-align:left;padding:11px 10px;border-radius:var(--r-md);display:flex;align-items:flex-start;gap:8px;flex-wrap:nowrap}
+.pdv-options-panel.floating .pdv-options-inner button.danger{flex-wrap:wrap}
+/* o × flutuava à direita e estreitava o corpo inteiro da comanda (faixa vazia na lateral) */
+.cash-order-modal{position:relative}
+.cash-order-modal>.modal-close{position:absolute!important;top:6px;right:10px;margin:0!important;float:none}
+.pdv-options-panel.floating .pdv-options-inner .danger small{flex-basis:100%;margin:0 0 0 24px}
+/* Lista de comandas abertas (09/10) */
+.comanda-workspace .table-toolbar{gap:10px;flex-wrap:wrap}
+.seg-toggle{display:inline-flex;background:var(--c-surface-3);border-radius:var(--r-pill);padding:3px;gap:2px}
+.seg-toggle button{border:0;background:none;color:var(--c-text-2);border-radius:var(--r-pill);padding:7px 14px;font-weight:600;font-size:13px;cursor:pointer;min-height:36px}
+.seg-toggle button.active{background:var(--c-surface);color:var(--c-text);box-shadow:var(--sh-1)}
+.comanda-list-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:18px 0 10px}
+.comanda-list-head .table-heading{margin:0}
+.comanda-list-head .table-heading span{display:inline-block;min-width:26px;padding:1px 8px;margin-left:6px;border-radius:var(--r-pill);background:var(--c-primary-soft);color:var(--c-primary-text);font-size:14px;text-align:center}
+.comanda-list-sum{color:var(--c-text-2);font-size:14px}
+.comanda-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.comanda-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:4px 10px;text-align:left;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);border-left:5px solid var(--c-border-strong);border-radius:var(--r-lg);padding:12px 14px;min-height:92px;cursor:pointer;box-shadow:var(--sh-1);font:inherit}
+.comanda-card:hover{border-color:var(--c-border-strong);box-shadow:var(--sh-2)}
+.comanda-card:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
+.comanda-card .cc-name{font-size:16px;font-weight:700;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.comanda-card .cc-total{font-size:16px;font-weight:700;white-space:nowrap}
+.comanda-card .cc-meta{grid-column:1/-1;font-size:13px;color:var(--c-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.comanda-card .cc-time{grid-column:1/-1;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--c-text-2)}
+.comanda-card .cc-dot{width:9px;height:9px;border-radius:50%;background:var(--c-text-3);display:inline-block}
+.comanda-card.ctime-green{border-left-color:var(--c-success)}
+.comanda-card.ctime-green .cc-dot{background:var(--c-success)}
+.comanda-card.ctime-yellow{border-left-color:var(--c-warning-solid)}
+.comanda-card.ctime-yellow .cc-dot{background:var(--c-warning-solid)}
+.comanda-card.ctime-yellow .cc-time{color:var(--c-warning)}
+.comanda-card.ctime-red{border-left-color:var(--c-danger)}
+.comanda-card.ctime-red .cc-dot{background:var(--c-danger)}
+.comanda-card.ctime-red .cc-time{color:var(--c-danger)}
+.comanda-card-add{display:flex;align-items:center;justify-content:center;gap:8px;border:2px dashed var(--c-border-strong);border-left-width:2px;box-shadow:none;background:transparent;color:var(--c-primary-text);font-weight:700}
+.comanda-card-add .cc-plus{font-size:22px;line-height:1}
+.comanda-card-add:hover{background:var(--c-primary-soft);border-color:var(--c-primary)}
+/* Novo Pedido em duas colunas (09/10) */
+.modal.np-modal{width:min(1180px,calc(100vw - 32px))!important;max-width:none!important;height:calc(100dvh - 32px);display:flex;flex-direction:column;padding:0 0 0 0!important}
+.np-modal .modal-title{padding:14px 18px;margin:0;border-bottom:1px solid var(--c-border)}
+.np-modal>.modal-close{position:absolute!important;top:8px;right:10px;margin:0!important;float:none}
+.np-modal{position:relative}
+.np-layout{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 360px;background:var(--c-surface-2)}
+.np-menu{min-width:0;min-height:0;display:flex;flex-direction:column;padding:14px 16px;gap:10px}
+.np-search-row{display:flex;align-items:center;gap:12px}
+.np-search-row input{flex:1;height:46px;font-size:16px;padding:0 14px}
+.np-search-row .sub{white-space:nowrap;font-size:13px}
+.np-modal .np-cat-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.np-modal .np-cat-tab{min-height:38px;padding:0 14px;font-size:14px;font-weight:600}
+.np-cat-hist b{margin-left:4px;font-weight:700}
+.np-modal .np-menu-grid{flex:1;min-height:0;max-height:none;overflow:auto;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;align-content:start;padding:2px 4px 8px 2px}
+.np-modal .np-prod-btn{min-height:118px!important;height:118px!important;padding:12px!important;border-radius:var(--r-md)!important;background:var(--c-surface)!important;gap:3px;overflow:hidden}
+.np-modal .np-prod-btn .np-prod-name{font-size:15px;font-weight:600;line-height:1.3;color:var(--c-text);display:block;max-height:2.6em;overflow:hidden;word-break:normal;overflow-wrap:anywhere;padding-right:24px;flex:none}
+.np-modal .np-prod-btn .np-prod-cat{font-size:12px;color:var(--c-text-3)}
+.np-modal .np-prod-btn .np-prod-price{align-self:flex-start;margin-top:auto;font-size:16px;font-weight:700;color:var(--c-primary-text)}
+.np-modal .np-prod-btn.has-qty{background:var(--c-primary-soft)!important;border-color:var(--c-primary)!important}
+.np-modal .np-prod-btn .np-qty-badge{top:8px;right:8px;min-width:24px;height:24px;border-radius:12px;font-size:13px}
+.np-side{min-height:0;display:flex;flex-direction:column;gap:10px;padding:14px 16px;background:var(--c-surface);border-left:1px solid var(--c-border);overflow:auto}
+.np-side .np-section{margin:0;padding:12px}
+.np-side select{height:44px;font-size:15px}
+.np-side .np-origin-badge{margin-top:8px;display:inline-block}
+.np-side .np-cart{flex:1;min-height:120px;display:flex;flex-direction:column;background:var(--c-surface)!important}
+.np-cart-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+#npCartList{flex:1;overflow:auto}
+.np-line{padding:10px 0;border-bottom:1px solid var(--c-border);display:grid;gap:6px}
+.np-line:last-child{border-bottom:0}
+.np-line-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.np-line-name{font-weight:600;font-size:15px;line-height:1.3}
+.np-line-sub{font-weight:700;white-space:nowrap}
+.np-line-ctrl{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.np-line .qty-ctrl{gap:6px}
+.np-line .qty-ctrl button{min-width:38px;min-height:38px;font-size:18px}
+.np-line .qty-ctrl .mono{display:inline-block;min-width:30px;text-align:center;font-weight:700;font-size:16px}
+.np-cart-head .sub{font-size:13px}
+.np-side-foot{border-top:1px solid var(--c-border);padding-top:10px;display:grid;gap:10px}
+.np-side-foot .np-total{margin:0;padding:0;border:0;font-size:20px}
+.np-actions{display:grid;grid-template-columns:auto 1fr;gap:8px}
+.np-actions .btn{min-height:48px;font-size:15px}
+@media (max-width:900px){.modal.np-modal{height:auto;max-height:none}.np-layout{grid-template-columns:1fr}.np-side{border-left:0;border-top:1px solid var(--c-border)}.np-modal .np-menu-grid{max-height:50vh}}
+/* elemento com o atributo hidden fica escondido mesmo que a classe dele defina display */
+[hidden]{display:none!important}
+/* PROD-05: fechamento com contagem às cegas */
+.cash-count-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:left}
+.cash-count-grid input{height:48px;font-size:18px}
+.cash-check-table{width:100%;border-collapse:collapse;margin:12px 0 6px;font-size:15px}
+.cash-check-table th,.cash-check-table td{padding:8px 10px;border-bottom:1px solid var(--c-border);text-align:left}
+.cash-check-table th{font-size:13px;color:var(--c-text-2);font-weight:600}
+.cash-ok{color:var(--c-success);font-weight:700}
+.cash-short{color:var(--c-danger);font-weight:700}
+.cash-over{color:var(--c-warning);font-weight:700}
+.cash-close-actions button.primary{background:var(--c-primary);border-color:var(--c-primary);color:var(--c-text-inverse);font-weight:700}
+@media (max-width:600px){.cash-count-grid{grid-template-columns:1fr}}
+/* PROD-18: resumo do dia */
+.daily-summary-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.daily-summary-head h2{margin:0}
+.daily-summary-head .sub{margin:2px 0 0}
+.daily-summary-head .sub::first-letter{text-transform:uppercase}
+.daily-summary-nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.daily-summary-nav input[type=date]{height:38px}
+.daily-summary .stat .sub{font-size:12px;margin-top:2px}
+@media print{.daily-summary-nav{display:none}}
+/* OP-14: link discreto (liberar sócio com senha de administrador) */
+.link-btn{background:none;border:0;padding:4px 0;color:var(--c-text-2);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer}
+.link-btn:hover{color:var(--c-text)}
+/* Transferir itens: lista com escolha item a item */
+.transfer-items{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto}
+.field .transfer-item{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;margin:0;padding:7px 10px;border:1px solid var(--c-border);border-radius:8px;background:var(--c-surface);color:var(--c-text);font-size:14px;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer}
+.field .transfer-item input{width:18px;height:18px;margin:0;padding:0}
+.field .transfer-item .sub{font-size:12px;margin:0}
+/* Relatórios: #view-relatorios corta o que passa dele (overflow:hidden) e as páginas de relatório
+   usavam margem negativa de 24px para encostar na borda: perdiam 24px à esquerda e no topo
+   (primeira coluna e botões do topo cortados). Ficam dentro da área, como as outras telas. */
+#view-relatorios>.full-report-page,#view-relatorios>.report-workspace{margin:0;width:100%;max-width:100%}
+/* A janela de relatório deixava 13% da largura vazia à esquerda e passava da borda direita. */
+#view-relatorios .report-window{margin-left:0;width:100%}
+/* Valor, data e porcentagem não quebram em duas linhas ("R$" numa, "12,00" na outra). */
+#view-relatorios td.nowrap,#view-relatorios th.nowrap{white-space:nowrap}
+/* Rótulos do filtro de relatório (ex.: "Período" grudado no checkbox anterior). */
+.full-report-filter>label{display:block}
+.full-report-filter>b{display:block;margin-top:10px}
+/* Janelas de configuração/registro sem espaço interno: o título encostava na borda. */
+:is(.app-config-modal,.scale-config-modal,.campaign-modal,.integration-modal,.record-modal,.cash-close-modal,.cash-entry-modal,.finance-record-modal,.columns-record-modal,.scheduled-record-modal,.bulk-product-modal,.nfe-stock-modal,.sms-window-modal,.cash-order-modal)>.modal-title{padding:16px 48px 12px 20px;margin:0;border-bottom:1px solid var(--c-border)}
+.app-config-modal>.consumer-form-frame{margin:14px 16px}
+/* Janela mais alta que a tela (ex.: detalhe de pedido com muitos itens): rola em vez de cortar os botões. */
+.app-config-modal{max-height:calc(100vh - 32px);overflow-y:auto}
+/* Comanda: a busca mostra 3 linhas inteiras de produtos (antes 3 e meia, cartão cortado), com
+   folga para o selo de quantidade; a coluna da direita rola em vez de esmagar o histórico. */
+.cash-order-modal #comandaQuickSearchResults{max-height:calc(56px * 3 + 8px * 2 + 10px);padding:10px 8px 0 0;scroll-snap-type:y proximity}
+.cash-order-modal #comandaQuickSearchResults>*{scroll-snap-align:start}
+.cash-order-modal .cash-order-main{overflow-y:auto!important}
+.cash-order-modal .cash-order-main .comanda-history-panel{min-height:220px!important;flex-shrink:0}
+.cash-order-modal .cash-order-main>.np-section,.cash-order-modal #draftTotalWrap,.cash-order-modal #comandaPartialWrap{flex-shrink:0}
+.cash-order-modal .cash-order-links{margin-top:6px!important}
+.cash-order-modal .cash-order-links button{padding:5px 6px!important}
+/* Detalhe do pedido */
+.order-detail-items{max-height:min(40vh,420px)}
+.order-detail-items tr.canceled td{text-decoration:line-through;color:var(--c-text-3)}
+.order-detail-actions{display:flex;justify-content:flex-end;gap:10px;padding:12px 16px 16px;border-top:1px solid var(--c-border)}
+.nfce-box{margin-top:12px;padding:10px 12px;border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-surface-2)}
+.nfce-box .op-btn{margin-top:6px}
+/* Histórico de itens vendidos: filtros */
+.sold-filter{max-height:calc(100vh - 230px);overflow-y:auto}
+.sold-filter .report-search-button{position:sticky;bottom:0;z-index:1}
+.sold-filter .field{margin:8px 0 0}
+.sold-filter .field input,.sold-filter .field select{width:100%}
+.sold-summary{display:flex;flex-wrap:wrap;gap:8px 18px;padding:8px 12px;border-bottom:1px solid var(--c-border);font-size:13px;color:var(--c-text-2)}
+.sold-summary b{color:var(--c-text)}
+#view-relatorios tr.canceled td{text-decoration:line-through;color:var(--c-text-3)}
+/* Levar a bebida junto com a comida */
+.levar-junto{display:flex;align-items:center;gap:8px;margin:10px 0 4px;padding:9px 10px;border:1px dashed var(--c-border-strong);border-radius:8px;font-size:14px;font-weight:600;color:var(--c-text);cursor:pointer}
+.levar-junto input{width:18px;height:18px;margin:0}
+.kjunto{margin-top:4px;padding:3px 8px;border-radius:6px;background:var(--c-warning);color:#1a1a1a;font-weight:800;font-size:.85em;text-transform:uppercase;display:inline-block}
+.cmd-junto{display:block;color:var(--c-warning);font-weight:700}
+/* Privacidade (LGPD) */
+.privacy-modal{max-width:760px!important}
+.modal-overlay:has(.privacy-modal){z-index:250} /* abre por cima da tela de entrada */
+.privacy-notice{max-height:min(62vh,560px);overflow-y:auto;padding-right:6px;font-size:14px;line-height:1.5}
+.privacy-notice h4{margin:14px 0 4px}
+.privacy-notice ul{margin:4px 0 4px 18px;padding:0}
+.login-privacy{margin:14px 0 0;text-align:center}
+.lgpd-optin{margin-top:10px}
+.lgpd-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--c-border)}
+.lgpd-list{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow:auto}
+.lgpd-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 10px;border:1px solid var(--c-border);border-radius:8px}
+/* Movimentações por usuário */
+.user-activity-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.user-activity-filters .field{margin:0;min-width:150px}
+.user-activity-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.user-activity-chip{border:1px solid var(--c-border);border-radius:999px;background:var(--c-surface);color:var(--c-text);padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+.user-activity-chip:hover{border-color:var(--c-primary)}
+.ua-sens{color:var(--c-danger)}
+tr.ua-row-sens td{background:color-mix(in srgb,var(--c-danger) 8%,transparent)}
+/* OP-14: comandas abertas no fechamento */
+.cash-open-summary{margin:12px 0 4px;padding:10px 12px;border:1px solid var(--c-border);border-radius:10px;background:var(--c-surface-2);text-align:left}
+.cash-open-summary .sub{margin:2px 0 8px}
+.cash-open-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;margin:8px 0;text-align:left}
+.cash-open-row{display:flex;justify-content:space-between;gap:12px;padding:7px 10px;border:1px solid var(--c-border);border-radius:8px;background:var(--c-surface);color:var(--c-text);font:inherit;font-size:14px;text-align:left}
+button.cash-open-row{cursor:pointer}
+button.cash-open-row:hover{border-color:var(--c-primary)}
+/* OPS-11: aviso de versão nova */
+.new-version-bar{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:320;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border-strong);border-left:5px solid var(--c-primary);border-radius:var(--r-lg);box-shadow:var(--sh-2);padding:10px 14px;font-weight:600;max-width:calc(100vw - 24px)}
+.new-version-bar button{min-height:38px;border-radius:var(--r-md);border:1px solid var(--c-primary);background:var(--c-primary);color:var(--c-text-inverse);font-weight:700;padding:0 14px;cursor:pointer}
+.new-version-bar .nv-later{background:none;color:var(--c-text-2);border-color:var(--c-border-input)}
+/* OP-13: pagamentos parciais na comanda */
+.partial-box{margin-top:8px;border:1px solid var(--c-border);border-left:4px solid var(--c-primary);border-radius:var(--r-md);padding:8px 12px;background:var(--c-surface);display:grid;gap:4px}
+.partial-head{display:flex;justify-content:space-between;gap:10px;font-size:14px}
+.partial-line{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--c-text-2)}
+/* PROD-07: extrato por período e saldos em atraso */
+.finance-top.fiado-top{height:auto!important;min-height:74px;flex-wrap:wrap;padding:10px 14px!important;row-gap:10px}
+.fiado-top .finance-actions{flex-wrap:wrap;gap:8px;margin-left:auto}
+.fiado-top .finance-actions .op-btn{white-space:nowrap}
+.modal.aging-modal,.modal.statement-modal{width:min(860px,calc(100vw - 32px))!important;max-width:none!important}
+.aging-body,.statement-body{display:grid;gap:12px}
+.aging-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.aging-chip{border:1px solid var(--c-border);border-left:5px solid var(--c-border-strong);border-radius:var(--r-md);padding:10px 12px;display:grid;gap:2px;background:var(--c-surface)}
+.aging-chip span{font-size:13px;color:var(--c-text-2)}
+.aging-chip b{font-size:20px}
+.aging-chip small{color:var(--c-text-3)}
+.aging-chip.ok{border-left-color:var(--c-success)}
+.aging-chip.warn{border-left-color:var(--c-warning-solid)}
+.aging-chip.late{border-left-color:var(--c-danger)}
+.aging-grid,.statement-grid{max-height:min(52vh,460px);overflow:auto}
+.aging-grid tr{cursor:pointer}
+.aging-grid tr.aging-late td:last-child{color:var(--c-danger);font-weight:700}
+.aging-grid tr.aging-warn td:last-child{color:var(--c-warning);font-weight:700}
+.help-nav-group{font-size:12px;font-weight:700;color:var(--c-text-3);text-transform:uppercase;letter-spacing:.04em;padding:14px 16px 4px}
+.help-sheet{max-width:760px}
+.help-sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.help-sheet-head h2{margin:0}
+.help-sheet h3{font-size:16px;margin:18px 0 6px;color:var(--c-primary)}
+.help-sheet ol,.help-sheet ul{margin:0;padding-left:22px;display:grid;gap:5px;line-height:1.45}
+.help-sheet .help-warn{border-left:4px solid var(--c-danger);background:var(--c-surface-2);border-radius:var(--r-md);padding:10px 14px;margin-top:16px}
+.help-sheet .help-warn b{color:var(--c-danger)}
+.help-sheet table{width:100%;border-collapse:collapse}
+.help-sheet td{border-bottom:1px solid var(--c-border);padding:8px 6px;vertical-align:top;line-height:1.4}
+.help-sheet td:first-child{white-space:nowrap;font-weight:700;width:110px}
+.modal.count-modal{width:min(960px,calc(100vw - 32px))!important;max-width:none!important}
+.count-body{display:grid;gap:12px}
+.count-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.count-top .op-search{flex:1;min-width:200px}
+.count-grid{max-height:min(42vh,400px);overflow:auto}
+.count-grid input{width:110px;height:34px;text-align:right;font-variant-numeric:tabular-nums}
+.count-grid td.count-falta{color:var(--c-danger);font-weight:700}
+.count-grid td.count-sobra{color:var(--c-success);font-weight:700}
+.count-sum{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.count-sum div{background:var(--c-surface-2);border-radius:var(--r-md);padding:10px 12px;display:grid;gap:2px}
+.count-sum span{font-size:12px;color:var(--c-text-2)}
+.count-sum b{font-size:18px}
+.count-sum .count-loss b{color:var(--c-danger)}
+.count-sum .count-gain b{color:var(--c-success)}
+.count-history summary{cursor:pointer;font-weight:700;color:var(--c-text-2);padding:4px 0}
+.count-history .finance-grid{max-height:200px;overflow:auto;margin-top:6px}
+@media (max-width:700px){.count-sum{grid-template-columns:repeat(2,1fr)}}
+.statement-filter{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.statement-filter .field{margin:0}
+.statement-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.statement-sum div{background:var(--c-surface-2);border-radius:var(--r-md);padding:10px 12px;display:grid;gap:2px}
+.statement-sum span{font-size:12px;color:var(--c-text-2)}
+.statement-sum b{font-size:17px}
+.statement-sum .statement-final{background:var(--c-primary-soft)}
+@media (max-width:700px){.aging-chips,.statement-sum{grid-template-columns:1fr 1fr}}
+.kcanceled-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:var(--r-pill);background:var(--c-danger);color:var(--c-text-inverse);font-size:.8em;font-weight:700}
+/* Impressão automática (11/10): computadores conectados por código e impressoras encontradas */
+.ps-block{border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-surface);padding:14px 16px;margin:0 0 14px}
+.ps-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.ps-head h3{margin:0;font-size:15px}
+.ps-list{display:grid;gap:8px;grid-template-columns:minmax(0,1fr)} /* minmax(0,…): a opção longa da lista "Caixa:" não alarga a tela no celular */
+.ps-agent{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border-radius:var(--r-md);background:var(--c-surface-2)}
+.ps-agent-name{font-weight:700}
+.ps-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto;background:var(--c-text-3)}
+.ps-dot.on{background:var(--c-success)}
+.ps-dot.off{background:var(--c-danger)}
+.ps-agent .sub{margin:0}
+.ps-agent-info{flex:1 1 260px;min-width:0}
+.ps-caixa{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:13px;color:var(--c-text-2)}
+/* min-width:0: sem isso a lista fica do tamanho da opção mais comprida e alarga a tela no celular */
+.ps-caixa select{width:auto;max-width:100%;min-width:0;flex:1 1 200px;min-height:32px;padding:4px 8px;font-size:13px;text-overflow:ellipsis}
+.ps-scan{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:13px;color:var(--c-text-2)}
+.ps-scan label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--c-text)}
+.ps-scan input{width:auto;min-height:0;margin:0}
+.ps-agent-actions{margin-left:auto;display:flex;gap:6px}
+.ps-printer{border:1px solid var(--c-border);border-radius:var(--r-md);padding:10px 12px;display:grid;gap:8px}
+.ps-printer.assigned{border-color:var(--c-primary);box-shadow:inset 3px 0 0 var(--c-primary)}
+.ps-printer-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ps-printer-name{font-weight:700;word-break:break-word}
+.ps-printer-where{color:var(--c-text-2);font-size:13px}
+.ps-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ps-chips-label{font-size:13px;color:var(--c-text-2);margin-right:2px}
+.ps-chip{border:1px solid var(--c-border-strong);background:var(--c-surface);color:var(--c-text);border-radius:var(--r-pill);padding:5px 12px;font-size:13px;cursor:pointer;min-height:32px}
+.ps-chip:hover{background:var(--c-surface-3)}
+.ps-chip.on{background:var(--c-primary);border-color:var(--c-primary);color:var(--c-text-inverse);font-weight:600}
+.ps-chip.on::before{content:'✓ '}
+.ps-chip.partial{border-style:dashed;border-color:var(--c-warning-solid);background:var(--c-warning-soft);color:var(--c-warning)}
+.ps-chip.partial::before{content:'◐ '}
+.ps-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.ps-actions select{width:auto;min-height:32px;padding:4px 8px}
+.ps-test-result{font-size:13px}
+.ps-test-result.ok{color:var(--c-success);font-weight:600}
+.ps-test-result.err{color:var(--c-danger);font-weight:600}
+.ps-empty{padding:12px;border-radius:var(--r-md);background:var(--c-surface-2);color:var(--c-text-2);font-size:13.5px;line-height:1.6}
+.ps-empty ol{margin:6px 0 0;padding-left:20px}
+.ps-more{font-size:13px}
+.ps-more summary{cursor:pointer;color:var(--c-primary-text);font-weight:600;margin:4px 0}
+.ps-advanced{margin-top:6px}
+.ps-advanced>summary{cursor:pointer;font-weight:700;padding:8px 0;color:var(--c-text-2)}
+.pair-code-input{font-family:var(--font-mono,monospace);font-size:28px;letter-spacing:.25em;text-align:center}
+@media (max-width:700px){.ps-agent-actions{margin-left:0;width:100%}.ps-block{padding:12px}}
