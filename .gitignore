@@ -7,3 +7,17 @@ supabase/.temp/
 
 # Mapa do código gerado pelo graphify: só local (decisão OPS-03, auditoria 07/10)
 graphify-out/
+
+# Gerados localmente (checagens, testes, sistema operacional)
+node_modules/
+package-lock.json
+agente-impressao/dist/
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Segredos locais (nunca versionar)
+.env
+.env.*
+supabase/.env
