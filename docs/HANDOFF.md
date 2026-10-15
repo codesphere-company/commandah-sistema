@@ -122,7 +122,12 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
     - Testado com o cadastro real (12 verificações, `import-test.js` no scratchpad). Falta a planilha do Saipos (t109).
   - **Manual (t403):** as `HELP_SHEETS` de caixa, garçom, falhas e treino agora falam de ficha na cozinha × retirada no caixa, comprovante só se pedir e NFC-e (aviso, cancelamento em 30 min, sem internet).
   - **Garçom × sem preparo:** `resolvePrinterFor('nenhuma')` cai na impressora do bar quando não há impressora de "nenhuma". No caixa continua no caixa. `estacaoLabel('nenhuma')` = "Sem preparo". Testado com 12 cenários de roteamento.
-- **Próximo (13/10):** colar o CSC de homologação no painel da Brasil NFe (Configurações › Geral › NFC-e). Depois:
+- **CSC (15/10):** o contador mandou um CSC (ID `000003`), salvo em `.claude/tmp/csc.txt` (fora do git; linha "TOKEN" = IdCSC, linha "CSC" = código). Também saiu a "autorização de uso de sistema" na Receita PR.
+  - **Onde fica na Brasil NFe:** no cadastro da empresa, campos "Identificação CSC" e "Código CSC", um par para homologação e outro para produção (na API: `Configuracao.NFCe.IdCSCHomologacao`/`CSCHomologacao` em `services/empresa/EditarEmpresa`). O caminho "Configurações › Geral › NFC-e" anotado antes estava errado. Não editar pela API: o `BuscarEmpresa` sem o `UserToken` (token pessoal, não salvo) devolve o cadastro vazio, e não se sabe se o `EditarEmpresa` troca o cadastro inteiro.
+  - O Fabricio cadastrou o CSC nos campos de **homologação**. Teste direto na Brasil NFe (payload da função, Heineken lata + Cheese Burguer, R$ 33): a SEFAZ-PR recusou com **462 "Codigo Identificador do CSC no QR-Code nao cadastrado na SEFAZ"**. O QR saiu com o ID 3, ou seja, a Brasil NFe usa o CSC certo, mas a homologação da SEFAZ não conhece esse ID.
+  - **Esperando o contador:** o CSC 3 é de produção ou de homologação? Se for de produção, passar para os campos de produção e pedir o CSC de homologação (gerado à parte no portal da Receita PR). Se for de homologação, testar de novo mais tarde.
+  - Os produtos do clube ainda estão com `fiscal = null` no banco (o "Preencher" dos dados fiscais não foi rodado).
+- **Próximo:** com o CSC de homologação aceito pela SEFAZ:
   1. Produtos › Opções › Dados fiscais › Preencher;
   2. fechar uma comanda de teste, clicar em "Emitir NFC-e de teste" no detalhe e depois em "Imprimir cupom da NFC-e";
   3. testar "Cancelar NFC-e" dentro dos 30 min e, se quiser, ligar "Emitir sozinha ao fechar" em Configurações › NFC-e.
