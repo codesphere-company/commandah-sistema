@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-10-16** (painel do lançamento sincronizado com este arquivo; ver "16/10" no começo do Estado atual). Antes: **2026-10-15** (CSC 3 é de produção; ver "CSC (15/10)"). Antes: **2026-10-12, noite** (ver "Fim do dia 12/10"). No ar desde 12/10:
+Última atualização: **2026-10-17** (ordem do que falta combinada com o dono e Fase 3 conferida como concluída; ver "17/10" no começo do Estado atual). Antes: **2026-10-16** (painel do lançamento sincronizado com este arquivo). Antes: **2026-10-15** (CSC 3 é de produção; ver "CSC (15/10)"). Antes: **2026-10-12, noite** (ver "Fim do dia 12/10"). No ar desde 12/10:
 - NFC-e completa em homologação: dados fiscais, emissão manual e ao fechar, cupom com QR, cancelamento e configuração;
 - regras de impressão do caixa e agente 2.3;
 - login com uma leitura só;
@@ -35,6 +35,13 @@ Commandah é o sistema de comanda/PDV do **Clube Olímpico** (Maringá — negó
 O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são aplicadas pelo CLI desta máquina** (logado na conta do Commandah): `npx supabase db query --linked -f supabase/migrations/<arquivo>.sql < /dev/null` (sem o `< /dev/null` o comando fica preso esperando entrada) e depois `npx supabase migration repair --status applied <versão> --linked`. Leituras de conferência do mesmo jeito, com um `.sql` de `select`. Teste de migration antes de produção: Postgres 18 local (`C:/Program Files/PostgreSQL/18/bin`, cluster temporário com stubs de `current_tenant_id`/`current_staff_role`). Deploy de Edge Function é feito pela Supabase CLI local (`supabase functions deploy <nome> --project-ref ezfoymdesmarpunmixbs --use-api`), sem precisar de Docker nem `supabase link`.
 
 ## Estado atual (o que já está pronto)
+
+### 17/10 — ordem do que falta (combinada com o dono)
+- **Nada do site mudou.**
+- **Esperando o contador:** CSC de homologação, série nova da NFC-e e as decisões fiscais (t105, t207, t303). Não há o que adiantar até ele mandar.
+- **Fica para o fim, tudo junto, quando formos imprimir:** instalar os agentes nos 3 computadores e configurar as impressoras (t202, t203), imprimir o cupom da NFC-e em papel e conferir os NCM (t201).
+- **Planilha do Saipos (t109):** a irmã do Fabricio manda depois (o prazo de 18/10 não vale mais). Com ela, rodar a importação (t204), primeiro só na prévia.
+- **Fase 3 conferida no código: concluída.** O item 6 das Pendências já estava resolvido por outras tarefas: vendas na tabela `sales` (EST-01), caixa e insumos por funções com trava (BD-03, BD-10) e número do pedido por função com trava (`set_order_counter`). O poll de 6 s já busca só o que mudou (BD-06). Do item 7 sobra só o Realtime nos pedidos da cozinha: o dono decidiu não fazer agora (ganho de até 6 s, pequeno perto do resto da virada).
 
 ### 16/10 — painel do lançamento em dia
 - **Nada do site mudou.** O painel (https://claude.ai/artifact/9ZiwkEfqYUeNnPd1T9y3Vm) só abre na conta do claude.ai do Commandah. Se ele der 404, é login em outra conta: fazer `/login` com a conta certa, não criar outro painel.
@@ -154,9 +161,9 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 **Fase 3a — pedidos da cozinha em tabela relacional:** concluída (ver seção própria acima, 2026-09-08) — reteste funcional de ponta a ponta ainda pendente.
 
-**Fase 3 — arquitetura de dados (médio prazo):**
-6. Migrar `sales`/`cashSession`/`orderCounter` de blob pra tabelas relacionais — resolve o last-write-wins entre dispositivos (cto-arquiteto + backend-senior + dba-dados). `orders` **já migrado** (Fase 3a, concluída em 2026-09-08, ver seção própria acima) — falta o resto.
-7. Substituir o poll de 6s (compara JSON inteiro de orders+sales) por Realtime (frontend-senior) — agora que `orders` é tabela relacional, fica mais direto de fazer só pra ele.
+**Fase 3 — arquitetura de dados:** concluída (conferido no código em 2026-10-17).
+6. ~~Migrar `sales`/`cashSession`/`orderCounter` de blob pra tabelas relacionais.~~ — **CONCLUÍDO.** O last-write-wins entre aparelhos foi resolvido sem tirar tudo do blob: `orders` em tabela (Fase 3a), `sales` em tabela (EST-01, 09/10), caixa por `cash_session_open/close` e `cash_movements_apply` (BD-03), insumos por `insumos_apply` (BD-10) e número do pedido por `set_order_counter` (migration `20261008000000`), todos com trava no servidor.
+7. ~~Substituir o poll de 6s (compara JSON inteiro de orders+sales) por Realtime.~~ — **Em grande parte resolvido:** desde BD-06/EST-01 o poll busca só as linhas com `updated_at` novo (`OrdersStore.changes`, `SalesStore.changes`). Realtime nos pedidos da cozinha ficou como melhoria opcional; o dono decidiu não fazer agora (17/10).
 
 **Fase 4 — evolução, não bloqueante:**
 8. Unificar as 5 implementações de carrinho duplicadas (frontend-senior).
