@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-10-12, noite** (ver "Fim do dia 12/10" no começo do Estado atual). No ar hoje:
+Última atualização: **2026-10-16** (painel do lançamento sincronizado com este arquivo; ver "16/10" no começo do Estado atual). Antes: **2026-10-15** (CSC 3 é de produção; ver "CSC (15/10)"). Antes: **2026-10-12, noite** (ver "Fim do dia 12/10"). No ar desde 12/10:
 - NFC-e completa em homologação: dados fiscais, emissão manual e ao fechar, cupom com QR, cancelamento e configuração;
 - regras de impressão do caixa e agente 2.3;
 - login com uma leitura só;
@@ -35,6 +35,14 @@ Commandah é o sistema de comanda/PDV do **Clube Olímpico** (Maringá — negó
 O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são aplicadas pelo CLI desta máquina** (logado na conta do Commandah): `npx supabase db query --linked -f supabase/migrations/<arquivo>.sql < /dev/null` (sem o `< /dev/null` o comando fica preso esperando entrada) e depois `npx supabase migration repair --status applied <versão> --linked`. Leituras de conferência do mesmo jeito, com um `.sql` de `select`. Teste de migration antes de produção: Postgres 18 local (`C:/Program Files/PostgreSQL/18/bin`, cluster temporário com stubs de `current_tenant_id`/`current_staff_role`). Deploy de Edge Function é feito pela Supabase CLI local (`supabase functions deploy <nome> --project-ref ezfoymdesmarpunmixbs --use-api`), sem precisar de Docker nem `supabase link`.
 
 ## Estado atual (o que já está pronto)
+
+### 16/10 — painel do lançamento em dia
+- **Nada do site mudou.** O painel (https://claude.ai/artifact/9ZiwkEfqYUeNnPd1T9y3Vm) só abre na conta do claude.ai do Commandah. Se ele der 404, é login em outra conta: fazer `/login` com a conta certa, não criar outro painel.
+- Tarefas atualizadas com o que está abaixo (CSC de 15/10, PR #113):
+  - **t105** (contador) passou para "em andamento". Falta pedir o CSC de homologação, a série nova e as decisões fiscais da t207.
+  - **t107** (emissor): autorização de uso de sistema feita. Falta passar o CSC 3 para os campos de produção na Brasil NFe.
+  - **t207** e **t303**: dependem só do CSC de homologação. Cancelamento e Configurações › NFC-e já estão publicados.
+- **Prazos de agora:** t107 (16/10), t109 (exportar produtos do Saipos, 18/10; a importação t204 espera essa planilha), e de 21 a 24/10 as t202, t203, t205 e t206 (agente na cozinha, impressoras, colaboradores, locais e pagamentos). Virada mantida em 23/11.
 
 ### Estrutura de pastas (14/10) — branch `refactor/estrutura-pastas`
 - O `index.html` de 10 mil linhas foi dividido sem mudar lógica: CSS em `assets/css/`, JS em `assets/js/<área>/` na mesma ordem. Conferido por reconstrução byte a byte, análise de ordem de carregamento e Chrome (online e offline, capturas idênticas).
