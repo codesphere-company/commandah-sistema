@@ -10,6 +10,7 @@ saveNewNamedComanda = singleFlight('saveNewNamedComanda', saveNewNamedComanda);
 gcOpenBarComanda = singleFlight('gcOpenBarComanda', gcOpenBarComanda);
 gcSelectMember = singleFlight('gcSelectMember', gcSelectMember);
 gcConfirmOrder = singleFlight('gcConfirmOrder', gcConfirmOrder);
+gcConfirmCharge = singleFlight('gcConfirmCharge', gcConfirmCharge);
 sendScheduledToKitchen = singleFlight('sendScheduledToKitchen', sendScheduledToKitchen);
 acceptRequest = singleFlight('acceptRequest', acceptRequest);
 submitTotemOrder = singleFlight('submitTotemOrder', submitTotemOrder);

@@ -2,9 +2,12 @@
 let gcFlow = { saleId:null, step:'home', category:null };
 let gcCart = [];
 let gcRequester = null;
+// Rascunho da venda avulsa em cobrança: reaproveitado entre tentativas para o finalizeSale não
+// duplicar a venda nem mandar a ficha de novo para a cozinha.
+let gcChargeDraft = null;
 
 function gcRenderHome(){
-  gcFlow = { saleId:null, step:'home', category:null }; gcCart=[]; levarJunto.gc=false; gcRequester=null;
+  gcFlow = { saleId:null, step:'home', category:null }; gcCart=[]; levarJunto.gc=false; gcRequester=null; gcChargeDraft=null;
   const screen = document.getElementById('gcScreen'); if(!screen) return;
   const open = state.sales.filter(s=>s.status==='open');
   const isBar = (state.settings.operationMode||'clube')==='bar';
@@ -14,7 +17,7 @@ function gcRenderHome(){
       ${isBar ? `<input id="gcSearch" placeholder="Número da mesa ou nome do cliente..." oninput="gcRenderHomeSearch(this.value)" autocomplete="off">
       <button class="btn btn-primary btn-block" style="margin-top:10px" onclick="gcOpenBarComanda()">+ Abrir nova comanda</button>`
       : `<input id="gcSearch" placeholder="Nome ou cota do sócio, ou nome/mesa do cliente avulso" oninput="gcRenderHomeSearch(this.value)" autocomplete="off">
-      <button class="btn btn-block" style="margin-top:10px" onclick="gcOpenBarComanda()">+ Cliente avulso (não sócio)</button>`}
+      <button class="btn btn-block" style="margin-top:10px" onclick="gcOpenAvulso()">+ Cliente avulso (não sócio) — paga na hora</button>`}
       <div id="gcHomeResults"></div>
       <div class="gc-section-label">Comandas em andamento (${open.length})</div>
       <div class="gc-tile-grid" id="gcOpenTiles"></div>
@@ -45,8 +48,22 @@ function gcRenderHomeSearch(q){
   el.innerHTML = matches.length ? matches.map(m=>{
     const existing = state.sales.find(s=>s.status==='open'&&s.memberId===m.id);
     return `<div class="gc-card ${m.debt>0?'gc-debt':''}"><div><div class="gc-name">${h(m.name)}</div><div class="gc-sub">${m.code?'Cota '+h(m.code):''}${m.debt>0?' · Deve '+fmt(m.debt):m.debt<0?' · Crédito '+fmt(-m.debt):''}</div></div><button onclick="gcSelectMember(${jsArg(m.id)})">${existing?'Abrir':'+ Comanda'}</button></div>`;
-  }).join('') : `<p class="gc-empty">Nenhum associado encontrado.</p><button class="btn btn-primary btn-block" onclick="gcOpenBarComanda()">Abrir comanda avulsa para "${h(String(q).trim())}"</button>`;
+  }).join('') : `<p class="gc-empty">Nenhum associado encontrado.</p><button class="btn btn-primary btn-block" onclick="gcOpenAvulso()">Atender "${h(String(q).trim())}" como avulso (paga na hora)</button>`;
 }
+// Cliente avulso no modo clube (pedido do dono, 17/10): não abre comanda. O garçom lança e
+// cobra na hora (gcRenderCharge); a venda fecha como balcão e a ficha sai na cozinha.
+function gcOpenAvulso(){
+  const name = (document.getElementById('gcSearch')?.value||'').trim();
+  if(!name){ toast('Digite o nome do cliente ou a mesa na busca acima.'); document.getElementById('gcSearch')?.focus(); return; }
+  gcFlow = { saleId:null, step:'categories', category:null, avulso:name }; gcCart=[]; levarJunto.gc=false; gcRequester=null; gcChargeDraft=null;
+  gcRenderCategories();
+}
+// Comanda do fluxo atual; no avulso é uma venda ainda não gravada.
+function gcSale(){
+  if(gcFlow.avulso) return { id:null, memberId:null, customerName:gcFlow.avulso, notes:gcFlow.obs||'', items:[] };
+  return state.sales.find(x=>x.id===gcFlow.saleId);
+}
+function gcCartTotal(){ return Math.round(gcCart.reduce((a,i)=>a+i.price*i.qty,0)*100)/100; }
 // UX-11: no celular do garçom, sem escolha salva, o tema segue o do aparelho (e muda junto
 // se o celular mudar); o botão do menu ☰ grava a escolha, como a caixinha do computador.
 function setAppTheme(tema, persist){
@@ -85,7 +102,7 @@ function gcFooterHtml(backFn){
   return `<div class="gc-footer"><button class="gc-btn-back" onclick="${backFn}">‹ Voltar</button><button class="gc-btn-review" ${count?'':'disabled'} onclick="gcRenderReview()">✓ Revisar${count?' ('+count+')':''}</button></div>`;
 }
 function gcRenderCategories(){
-  const s = state.sales.find(x=>x.id===gcFlow.saleId); if(!s){ gcRenderHome(); return; }
+  const s = gcSale(); if(!s){ gcRenderHome(); return; }
   const info = comandaPersonData(s);
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const requesterOptions = member
@@ -111,7 +128,7 @@ async function gcBackFromCategories(){
   gcRenderHome();
 }
 function gcSetRequester(value){
-  const s = state.sales.find(x=>x.id===gcFlow.saleId); if(!s) return;
+  const s = gcSale(); if(!s) return;
   const member = s.memberId?state.members.find(m=>m.id===s.memberId):null;
   if(!value){ gcRequester=null; return; }
   if(value==='guest'){ gcRequester={key:'guest',id:null,name:s.customerName||'Cliente avulso',type:'avulso',canOrder:true}; return; }
@@ -137,7 +154,7 @@ function gcSelectCategory(cat){
   gcRenderProducts();
 }
 function gcRenderProducts(q){
-  const s = state.sales.find(x=>x.id===gcFlow.saleId); if(!s){ gcRenderHome(); return; }
+  const s = gcSale(); if(!s){ gcRenderHome(); return; }
   const info = comandaPersonData(s);
   const cat = gcFlow.category;
   let list = state.products.filter(p=>p.active!==false);
@@ -170,7 +187,7 @@ function gcAddToCart(productId){
 function gcRenderReview(){
   if(!gcRequester){ toast('Selecione quem está pedindo.'); gcRenderCategories(); return; }
   if(!gcCart.length){ toast('Adicione ao menos um produto.'); return; }
-  const s = state.sales.find(x=>x.id===gcFlow.saleId); if(!s) return;
+  const s = gcSale(); if(!s) return;
   const info = comandaPersonData(s);
   const screen = document.getElementById('gcScreen');
   screen.innerHTML = gcBarHtml('Confirmar Pedido', info.person) + `
@@ -193,8 +210,99 @@ function gcRenderReview(){
       <button type="button" class="gc-discard-link" onclick="gcDiscardOrder()">Descartar pedido</button>
       <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:700;margin-top:10px"><span>Total</span><span class="mono" id="gcReviewTotal">R$ 0,00</span></div>
     </div>
-    <div class="gc-footer"><button class="gc-btn-back" onclick="gcRenderProducts()">‹ Voltar</button><button class="gc-btn-review" onclick="gcConfirmOrder()">✓ Enviar pedido</button></div>`;
+    <div class="gc-footer"><button class="gc-btn-back" onclick="gcRenderProducts()">‹ Voltar</button>${gcFlow.avulso
+      ? `<button class="gc-btn-review" onclick="gcGoCharge()">Cobrar <span class="mono" id="gcChargeBtnTotal"></span> ›</button>`
+      : `<button class="gc-btn-review" onclick="gcConfirmOrder()">✓ Enviar pedido</button>`}</div>`;
+  if(gcFlow.avulso && gcFlow.local) document.getElementById('gcLocal').value = gcFlow.local;
   gcRenderReviewList();
+}
+/* ===== Cobrança do avulso no app do garçom (pedido do dono, 17/10) =====
+   O garçom recebe na hora (dinheiro, Pix, crédito ou débito; cartão na maquininha, sem
+   integração ainda) e a venda fecha pelo mesmo finalizeSale do balcão: ficha na cozinha,
+   close_sale idempotente e pagamento no caixa aberto. */
+const GC_PAY_METHODS = ['dinheiro','pix','credito','debito'];
+function gcGoCharge(){
+  if(!gcCart.length){ toast('Adicione ao menos um produto.'); return; }
+  gcFlow.obs = (document.getElementById('gcObs')?.value||'').trim();
+  gcFlow.local = document.getElementById('gcLocal')?.value || '';
+  gcFlow.step = 'charge';
+  gcRenderCharge();
+}
+function gcRenderCharge(){
+  const total = gcCartTotal();
+  const methods = methodConfig().filter(m=>GC_PAY_METHODS.includes(m.method));
+  const screen = document.getElementById('gcScreen');
+  screen.innerHTML = gcBarHtml('Cobrar', gcFlow.avulso) + `
+    <div class="gc-body">
+      <div class="gc-charge-total"><span>Total a cobrar</span><b class="mono">${fmt(total)}</b></div>
+      <label class="np-label" style="display:block;margin:16px 0 8px">Forma de pagamento</label>
+      <div class="gc-pay-grid">${methods.map(m=>`<button type="button" class="gc-pay-btn${gcFlow.payMethod===m.method?' active':''}" data-method="${h(m.method)}" onclick="gcSelectPay(${jsArg(m.method)})"><span class="gc-pay-icon">${m.icon}</span><span>${h(m.label)}</span></button>`).join('')}</div>
+      <div id="gcCashBox" class="np-section" ${gcFlow.payMethod==='dinheiro'?'':'hidden'}>
+        <label class="np-label">Valor recebido (vazio = valor exato)</label>
+        <input id="gcCashReceived" type="number" inputmode="decimal" min="0" step="0.01" placeholder="${total.toFixed(2)}" oninput="gcUpdateChange()">
+        <div class="gc-change" id="gcChange"></div>
+      </div>
+      <p class="sub" id="gcCardHint" ${['credito','debito'].includes(gcFlow.payMethod)?'':'hidden'}>Passe o cartão na maquininha e confirme aqui depois de aprovado.</p>
+      <div id="gcChargePending" class="sale-pending-warning" role="alert" hidden>O pedido já foi para a cozinha, mas o pagamento ainda não foi registrado. Toque em "Confirmar pagamento" de novo.</div>
+    </div>
+    <div class="gc-footer"><button class="gc-btn-back" onclick="gcBackFromCharge()">‹ Voltar</button><button class="gc-btn-review" id="gcConfirmPayBtn" onclick="gcConfirmCharge()">✓ Confirmar pagamento</button></div>`;
+  if(gcChargeDraft && gcChargeDraft.items.some(i=>i.sent)) document.getElementById('gcChargePending').hidden = false;
+}
+function gcSelectPay(method){
+  gcFlow.payMethod = method;
+  document.querySelectorAll('.gc-pay-btn').forEach(b=>b.classList.toggle('active', b.dataset.method===method));
+  document.getElementById('gcCashBox').hidden = method!=='dinheiro';
+  document.getElementById('gcCardHint').hidden = !['credito','debito'].includes(method);
+  if(method==='dinheiro') setTimeout(()=>document.getElementById('gcCashReceived')?.focus(), 0);
+  gcUpdateChange();
+}
+function gcUpdateChange(){
+  const el = document.getElementById('gcChange'); if(!el) return;
+  const raw = document.getElementById('gcCashReceived')?.value||'';
+  if(raw===''){ el.textContent=''; return; }
+  const diff = Math.round(((parseFloat(raw)||0)-gcCartTotal())*100)/100;
+  el.textContent = diff>=0 ? 'Troco: '+fmt(diff) : 'Faltam '+fmt(-diff);
+  el.classList.toggle('falta', diff<0);
+}
+function gcBackFromCharge(){
+  // Ficha já na cozinha e venda não registrada: só sai daqui confirmando o pagamento.
+  if(gcChargeDraft && gcChargeDraft.items.some(i=>i.sent)){ toast('O pedido já foi para a cozinha. Confirme o pagamento.'); return; }
+  gcChargeDraft = null; gcFlow.step = 'review';
+  gcRenderReview();
+}
+async function gcConfirmCharge(){
+  const method = gcFlow.payMethod;
+  if(!GC_PAY_METHODS.includes(method)){ toast('Escolha a forma de pagamento.'); return; }
+  const total = gcCartTotal();
+  if(!(total>0)){ toast('Adicione ao menos um produto.'); return; }
+  const pay = { method, amount: total };
+  if(method==='dinheiro'){
+    const raw = document.getElementById('gcCashReceived')?.value||'';
+    const received = raw==='' ? total : Math.round((parseFloat(raw)||0)*100)/100;
+    if(received+0.009 < total){ toast('O valor recebido é menor que o total.'); return; }
+    const change = Math.round((received-total)*100)/100;
+    if(change>0.009){ pay.received = received; pay.change = change; }
+  }
+  await refreshCashState();
+  if(!state.cashSession || state.cashSession.status!=='open'){ toast('O caixa está fechado. Peça para abrirem o caixa antes de cobrar.'); return; }
+  if(!gcChargeDraft){
+    const local = gcFlow.local||'';
+    const items = gcCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local, requesterId:null, requesterName:gcFlow.avulso, requesterType:'avulso'}));
+    applyLevarJunto(items, levarJunto.gc);
+    gcChargeDraft = { items, memberId:null, customerName:gcFlow.avulso, notes:gcFlow.obs||'', type:'balcao' };
+  }
+  currentSaleDraft = gcChargeDraft;
+  const saleId = await finalizeSale('balcao', null, null, [pay], total, 0, 0, { subtotal: total, discount: 0, couponCode: null, creditApplied: 0, serviceCharge: 0, partialPaid: 0, local: gcFlow.local||'' });
+  if(!saleId){
+    const warn = document.getElementById('gcChargePending');
+    if(warn && gcChargeDraft.items.some(i=>i.sent)) warn.hidden = false;
+    return;
+  }
+  logAction('Garçom cobrou cliente avulso '+gcFlow.avulso+' — '+methodLabel(method)+' '+fmt(total)+(pay.change?' (troco '+fmt(pay.change)+')':''));
+  gcChargeDraft = null;
+  autoEmitNfce(saleId); // não espera: a venda já está registrada
+  toast(pay.change ? 'Pago e enviado. Troco: '+fmt(pay.change) : 'Pago e enviado!');
+  gcRenderHome();
 }
 async function gcDiscardOrder(){
   if(!await askConfirm({title:'Descartar este pedido?',message:'Os itens ainda não foram enviados para a cozinha.',confirmLabel:'Descartar pedido'})) return;
@@ -208,6 +316,7 @@ function gcRenderReviewList(){
     <span class="mono" style="min-width:60px;text-align:right">${fmt(i.price*i.qty)}</span></div>
     ${i.copos!=null?`<div class="gc-qty gc-copos-row"><span class="gc-copos-label">Quantidade de copos:</span><button onclick="gcCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="gcCartChangeCopos(${idx},1)">+</button></div>`:''}</div>`).join('') + levarJuntoBox(gcCart,'gc') : '<p class="gc-empty">Nenhum item.</p>';
   const totEl = document.getElementById('gcReviewTotal'); if(totEl) totEl.textContent = fmt(gcCart.reduce((a,i)=>a+i.price*i.qty,0));
+  const chEl = document.getElementById('gcChargeBtnTotal'); if(chEl) chEl.textContent = fmt(gcCartTotal());
 }
 function gcCartQty(idx,delta){
   const it = gcCart[idx]; if(!it) return;

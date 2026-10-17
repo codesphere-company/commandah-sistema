@@ -284,7 +284,8 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
     if(unsent.length){
       const unsentWithEstacao = unsent.map(i=>{ const prod=state.products.find(p=>p.id===i.productId); return {...i, estacao: i.estacao || (prod&&prod.estacao) || 'cozinha'}; });
-      if(!await sendItemsToKitchen(sale.id, unsentWithEstacao, who, mode)) return false;
+      // saleMeta.local: venda avulsa cobrada no app do garçom leva o local de entrega para a ficha.
+      if(!await sendItemsToKitchen(sale.id, unsentWithEstacao, who, mode, saleMeta.local||'')) return false;
       unsent.forEach(i=>i.sent=true);
       const origem = currentUser.origem||'caixa';
       const groups = {};
@@ -293,7 +294,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
         const printer = resolvePrinterFor(estacao, origem);
         return { estacao, items:groups[estacao], printer: printer?printer.nome:null };
       });
-      printNovoPedidoTickets(who, cota, '', printJobs, sale.orderNumber);
+      printNovoPedidoTickets(who, cota, saleMeta.local||'', printJobs, sale.orderNumber);
       // Comprovante não sai sozinho: só se o cliente pedir (printSaleReceipt).
     }
   } else if(mode==='agendamento'){
