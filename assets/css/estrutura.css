@@ -164,7 +164,9 @@ tr:hover td{background:var(--c-surface-3);}
 /* ===== MODO GARÇOM (mobile — no padrão Consumer) ===== */
 :root{ --gc-blue:#1C86EE; --gc-green:#1B6E45; --gc-amber:#9C6212; --gc-orange:#A8560D; --gc-purple:#AE2D96; }
 #garcomApp{display:none;min-height:100vh;background:var(--c-bg);}
-#garcomApp.show{display:block;}
+/* html/body têm overflow:hidden (tela do computador): o app do garçom precisa rolar sozinho,
+   senão as categorias e produtos que passam da tela ficam fora de alcance no celular. */
+#garcomApp.show{display:block;height:100vh;height:100dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
 .gc-bar{background:var(--gc-blue);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;position:sticky;top:0;z-index:20;}
 .gc-bar .gc-title{font-size:17px;font-weight:600;}
 .gc-bar .gc-title small{display:block;font-size:12px;font-weight:400;opacity:.85;}
@@ -185,6 +187,7 @@ tr:hover td{background:var(--c-surface-3);}
 .gc-tile .gc-tile-cap{font-size:12px;text-transform:none;font-weight:600;opacity:.9;}
 .gc-tile .gc-lock{position:absolute;top:6px;left:6px;font-size:12px;}
 @media(max-width:420px){.gc-tile-grid{grid-template-columns:repeat(3,1fr);}}
+.gc-tile-grid .gc-empty{grid-column:1/-1;}
 .gc-cat-grid,.gc-prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .gc-cat-tile{background:var(--gc-orange);color:#fff;border:none;border-radius:8px;padding:20px 10px;font-weight:700;font-size:14.5px;min-height:66px;display:flex;align-items:center;justify-content:center;text-align:center;}
 .gc-cat-all{background:var(--c-surface);border:1px solid var(--c-border);color:var(--ink);border-radius:8px;padding:16px 10px;font-weight:600;font-size:14px;grid-column:1/-1;text-align:left;}

@@ -13,7 +13,8 @@ function gcRenderHome(){
     <div class="gc-body">
       ${isBar ? `<input id="gcSearch" placeholder="Número da mesa ou nome do cliente..." oninput="gcRenderHomeSearch(this.value)" autocomplete="off">
       <button class="btn btn-primary btn-block" style="margin-top:10px" onclick="gcOpenBarComanda()">+ Abrir nova comanda</button>`
-      : `<input id="gcSearch" placeholder="Digite o nome ou a cota..." oninput="gcRenderHomeSearch(this.value)" autocomplete="off">`}
+      : `<input id="gcSearch" placeholder="Nome ou cota do sócio, ou nome/mesa do cliente avulso" oninput="gcRenderHomeSearch(this.value)" autocomplete="off">
+      <button class="btn btn-block" style="margin-top:10px" onclick="gcOpenBarComanda()">+ Cliente avulso (não sócio)</button>`}
       <div id="gcHomeResults"></div>
       <div class="gc-section-label">Comandas em andamento (${open.length})</div>
       <div class="gc-tile-grid" id="gcOpenTiles"></div>
@@ -22,7 +23,7 @@ function gcRenderHome(){
 }
 async function gcOpenBarComanda(){
   const name = (document.getElementById('gcSearch')?.value||'').trim();
-  if(!name){ toast('Digite o número da mesa ou o nome do cliente na busca acima.'); return; }
+  if(!name){ toast('Digite o número da mesa ou o nome do cliente na busca acima.'); document.getElementById('gcSearch')?.focus(); return; }
   const s = { id:uid(), type:'comanda', tableNumber:null, orderNumber:await nextOrderNumber(), memberId:null, dependentId:null, dependentName:'', customerName:name, items:[], total:0, status:'open', payments:[], openedAt:new Date().toISOString(), operatorName:currentUser.name };
   state.sales.push(s); save('sales');
   gcOpenFlow(s.id);
@@ -44,7 +45,7 @@ function gcRenderHomeSearch(q){
   el.innerHTML = matches.length ? matches.map(m=>{
     const existing = state.sales.find(s=>s.status==='open'&&s.memberId===m.id);
     return `<div class="gc-card ${m.debt>0?'gc-debt':''}"><div><div class="gc-name">${h(m.name)}</div><div class="gc-sub">${m.code?'Cota '+h(m.code):''}${m.debt>0?' · Deve '+fmt(m.debt):m.debt<0?' · Crédito '+fmt(-m.debt):''}</div></div><button onclick="gcSelectMember(${jsArg(m.id)})">${existing?'Abrir':'+ Comanda'}</button></div>`;
-  }).join('') : '<p class="gc-empty">Nenhum associado encontrado.</p>';
+  }).join('') : `<p class="gc-empty">Nenhum associado encontrado.</p><button class="btn btn-primary btn-block" onclick="gcOpenBarComanda()">Abrir comanda avulsa para "${h(String(q).trim())}"</button>`;
 }
 // UX-11: no celular do garçom, sem escolha salva, o tema segue o do aparelho (e muda junto
 // se o celular mudar); o botão do menu ☰ grava a escolha, como a caixinha do computador.
