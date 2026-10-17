@@ -57,7 +57,8 @@ jobs:
         run: |
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
           if git diff --quiet "$BASE_SHA" HEAD -- assets/js assets/css; then exit 0; fi
-          ver() { grep -o "?v=[A-Za-z0-9]*" | head -1; }
+          # Exige ao menos um caractere: o comentário do index.html cita "?v=" sem versão e era pego primeiro.
+          ver() { grep -o "?v=[A-Za-z0-9]\{1,\}" | head -1; }
           old=$(git show "$BASE_SHA:index.html" | ver); new=$(ver < index.html)
           if [ -n "$old" ] && [ "$old" = "$new" ]; then
             echo "::error file=index.html::assets/ mudou mas o $new continua igual. Rode: node scripts/bump-version.js"
