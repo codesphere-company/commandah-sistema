@@ -243,7 +243,6 @@ function gcRenderCharge(){
         <div class="gc-change" id="gcChange"></div>
       </div>
       <p class="sub" id="gcCardHint" ${['credito','debito'].includes(gcFlow.payMethod)?'':'hidden'}>Passe o cartão na maquininha e confirme aqui depois de aprovado.</p>
-      <label class="comp-switch" style="margin-top:14px"><input type="checkbox" id="gcPrintReceipt"><span></span> <b style="font-weight:400">Imprimir comprovante (se o cliente pedir)</b></label>
       <div id="gcChargePending" class="sale-pending-warning" role="alert" hidden>O pedido já foi para a cozinha, mas o pagamento ainda não foi registrado. Toque em "Confirmar pagamento" de novo.</div>
     </div>
     <div class="gc-footer"><button class="gc-btn-back" onclick="gcBackFromCharge()">‹ Voltar</button><button class="gc-btn-review" id="gcConfirmPayBtn" onclick="gcConfirmCharge()">✓ Confirmar pagamento</button></div>`;
@@ -293,7 +292,6 @@ async function gcConfirmCharge(){
     gcChargeDraft = { items, memberId:null, customerName:gcFlow.avulso, notes:gcFlow.obs||'', type:'balcao' };
   }
   currentSaleDraft = gcChargeDraft;
-  const wantReceipt = !!document.getElementById('gcPrintReceipt')?.checked;
   const saleId = await finalizeSale('balcao', null, null, [pay], total, 0, 0, { subtotal: total, discount: 0, couponCode: null, creditApplied: 0, serviceCharge: 0, partialPaid: 0, local: gcFlow.local||'' });
   if(!saleId){
     const warn = document.getElementById('gcChargePending');
@@ -302,7 +300,6 @@ async function gcConfirmCharge(){
   }
   logAction('Garçom cobrou cliente avulso '+gcFlow.avulso+' — '+methodLabel(method)+' '+fmt(total)+(pay.change?' (troco '+fmt(pay.change)+')':''));
   gcChargeDraft = null;
-  if(wantReceipt) printSaleReceipt(saleId);
   autoEmitNfce(saleId); // não espera: a venda já está registrada
   toast(pay.change ? 'Pago e enviado. Troco: '+fmt(pay.change) : 'Pago e enviado!');
   gcRenderHome();
