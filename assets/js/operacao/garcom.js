@@ -37,7 +37,7 @@ function gcRenderOpenTiles(){
   el.innerHTML = open.length ? open.map(s=>{
     const info = comandaPersonData(s);
     const label = info.quota || (info.person||'?').slice(0,4).toUpperCase();
-    return `<button class="gc-tile ${s.locked?'gc-amber':'gc-green'}" onclick="gcOpenFlow(${jsArg(s.id)})">${s.locked?'<span class="gc-lock">🔒</span>':''}<div>${h(label)}</div><div class="gc-tile-cap">${h((info.person||'').split(' ')[0])}</div></button>`;
+    return `<button class="gc-tile ${s.locked?'gc-amber':'gc-green'}" onclick="gcOpenComanda(${jsArg(s.id)})">${s.locked?'<span class="gc-lock">🔒</span>':''}<div>${h(label)}</div><div class="gc-tile-cap">${h((info.person||'').split(' ')[0])}</div></button>`;
   }).join('') : '<p class="gc-empty">Nenhuma comanda em andamento.</p>';
 }
 function gcRenderHomeSearch(q){
@@ -91,8 +91,88 @@ async function gcLogout(){ logAction('Logout realizado'); currentUser=null; try{
 
 function gcOpenFlow(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  if(s.locked){ toast('Comanda bloqueada no caixa: não aceita pedido.'); return; }
   gcFlow = { saleId, step:'categories', category:null }; gcCart=[]; levarJunto.gc=false; gcRequester=null;
   gcRenderCategories();
+}
+/* ===== Comanda aberta no app do garçom (pedido do dono, 18/10) =====
+   Tocar na comanda mostra o que já foi lançado; dali o garçom faz novo pedido ou fecha a
+   conta e cobra (gcGoCloseComanda), como o caixa faz no computador. Antes o toque ia direto
+   para o novo pedido e não havia como ver nem fechar a comanda pelo celular. */
+function gcOpenComanda(saleId){
+  const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+  gcFlow = { saleId, step:'comanda', category:null }; gcCart=[]; levarJunto.gc=false; gcRequester=null; gcChargeDraft=null;
+  gcRenderComanda();
+  // A cópia local pode estar alguns segundos velha: busca a mais nova e redesenha.
+  fetchFreshSales().then(fresh=>{ if(fresh) state.sales = fresh; if(gcFlow.step==='comanda' && gcFlow.saleId===saleId) gcRenderComanda(); });
+}
+// Mesma conta do pagamento do computador (openPaymentModal): crédito do sócio só se marcado,
+// serviço sobre o que sobra depois do crédito, parcial já recebido sai do total.
+function gcComandaTotals(s, useCredit){
+  const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
+  const subtotal = Math.round(saleTotal(s.items)*100)/100;
+  const partialPaid = comandaPartialPaid(s);
+  const available = memberAvailableCredit(member);
+  const creditApplied = useCredit && available>0.009 ? Math.round(Math.min(available, Math.max(0, subtotal-partialPaid))*100)/100 : 0;
+  const afterCredit = Math.max(0, subtotal-creditApplied);
+  const service = serviceRatePct()>0 ? Math.round(serviceChargeAmount(afterCredit)*100)/100 : 0;
+  const total = Math.max(0, Math.round((afterCredit+service-partialPaid)*100)/100);
+  return { member, subtotal, partialPaid, available, creditApplied, service, total };
+}
+function gcSummaryHtml(t){
+  return `<div class="gc-summary">
+    <div><span>Consumo</span><span class="mono">${fmt(t.subtotal)}</span></div>
+    ${t.creditApplied>0.009?`<div><span>Crédito do sócio</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
+    ${serviceRatePct()>0?`<div><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono">${fmt(t.service)}</span></div>`:''}
+    ${t.partialPaid>0.009?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(t.partialPaid)}</span></div>`:''}
+    <div class="gc-summary-total"><span>Total</span><span class="mono">${fmt(t.total)}</span></div>
+  </div>`;
+}
+function gcRenderComanda(){
+  const s = state.sales.find(x=>x.id===gcFlow.saleId);
+  if(!s || s.status!=='open' || s.canceled){ toast('Esta comanda já foi fechada ou cancelada.'); gcRenderHome(); return; }
+  const info = comandaPersonData(s);
+  const items = (s.items||[]).slice().sort((a,b)=>String(a.addedAt||'').localeCompare(String(b.addedAt||'')));
+  const count = items.filter(i=>!i.canceled).reduce((a,i)=>a+(Number(i.qty)||0),0);
+  const hora = iso=>iso ? new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '';
+  const screen = document.getElementById('gcScreen');
+  screen.innerHTML = gcBarHtml('Comanda'+(s.orderNumber?' #'+s.orderNumber:''), info.label) + `
+    <div class="gc-body">
+      ${s.locked?'<div class="sale-pending-warning" role="alert">Comanda bloqueada no caixa: não aceita pedido nem fechamento pelo app.</div>':''}
+      <button class="btn btn-primary btn-block" onclick="gcOpenFlow(${jsArg(s.id)})" ${s.locked?'disabled':''}>+ Novo pedido</button>
+      <div class="gc-section-label">Já lançado (${count} ${count===1?'item':'itens'})</div>
+      ${items.length ? items.map(i=>`<div class="gc-review-item gc-launched${i.canceled?' canceled':''}"><span><b>${Number(i.qty)||0}x</b> ${h(i.name)}<small>${h(i.requesterName||'')}${i.requesterName&&i.addedAt?' · ':''}${hora(i.addedAt)}${i.canceled?' · cancelado':''}</small></span><span class="mono">${fmt((Number(i.price)||0)*(Number(i.qty)||0))}</span></div>`).join('') : '<p class="gc-empty">Nada lançado ainda.</p>'}
+      ${gcSummaryHtml(gcComandaTotals(s, false))}
+    </div>
+    <div class="gc-footer"><button class="gc-btn-back" onclick="gcRenderHome()">‹ Voltar</button><button class="gc-btn-review" onclick="gcGoCloseComanda()" ${s.locked?'disabled':''}>Fechar conta ›</button></div>`;
+}
+async function gcGoCloseComanda(){
+  const saleId = gcFlow.saleId;
+  const fresh = await fetchFreshSales(); if(fresh) state.sales = fresh;
+  const s = state.sales.find(x=>x.id===saleId);
+  if(!s || s.status!=='open' || s.canceled){ toast('Esta comanda já foi fechada ou cancelada em outro aparelho.'); gcRenderHome(); return; }
+  if(s.locked){ toast('Comanda bloqueada no caixa. Peça para desbloquearem antes de fechar.'); gcRenderComanda(); return; }
+  gcFlow = { saleId, step:'charge', category:null, closeComanda:true, useCredit:false, payMethod:null };
+  gcRenderCharge();
+}
+// Formas que o garçom pode usar. Fiado só para sócio sem pendência (a mesma regra do caixa).
+function gcPayMethods(){
+  const list = [...GC_PAY_METHODS];
+  if(gcFlow.closeComanda){
+    const s = state.sales.find(x=>x.id===gcFlow.saleId);
+    const member = s && s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
+    if(member && !memberBlockedByDebt(member)) list.push('fiado');
+  }
+  return list;
+}
+function gcChargeTotal(){
+  if(!gcFlow.closeComanda) return gcCartTotal();
+  const s = state.sales.find(x=>x.id===gcFlow.saleId);
+  return s ? gcComandaTotals(s, gcFlow.useCredit).total : 0;
+}
+function gcToggleUseCredit(on){
+  gcFlow.useCredit = !!on;
+  gcRenderCharge();
 }
 function gcBarHtml(title, sub){
   return `<div class="gc-bar"><div class="gc-title">${h(title)}${sub?`<small>${h(sub)}</small>`:''}</div><button class="gc-menu-btn" onclick="gcToggleMenu()">${ICN.menu}</button><div class="gc-menu-panel" id="gcMenuPanel"><button onclick="gcToggleTheme()">${document.documentElement.getAttribute('data-theme')==='dark'?'Modo claro':'Modo escuro'}</button><button onclick="gcLogout()">Sair</button></div></div>`;
@@ -125,7 +205,7 @@ function gcRenderCategories(){
 }
 async function gcBackFromCategories(){
   if(gcCart.length && !await askConfirm({title:'Sair sem enviar o pedido?',message:'Você tem itens ainda não confirmados neste pedido.',confirmLabel:'Sair sem enviar',cancelLabel:'Continuar pedido'})) return;
-  gcRenderHome();
+  if(gcFlow.saleId) gcOpenComanda(gcFlow.saleId); else gcRenderHome();
 }
 function gcSetRequester(value){
   const s = gcSale(); if(!s) return;
@@ -229,12 +309,19 @@ function gcGoCharge(){
   gcRenderCharge();
 }
 function gcRenderCharge(){
-  const total = gcCartTotal();
-  const methods = methodConfig().filter(m=>GC_PAY_METHODS.includes(m.method));
+  const total = gcChargeTotal();
+  const allowed = gcPayMethods();
+  if(gcFlow.payMethod && !allowed.includes(gcFlow.payMethod)) gcFlow.payMethod = null;
+  const methods = methodConfig().filter(m=>allowed.includes(m.method));
+  const s = gcFlow.closeComanda ? state.sales.find(x=>x.id===gcFlow.saleId) : null;
+  const t = s ? gcComandaTotals(s, gcFlow.useCredit) : null;
+  gcFlow.shownTotal = total;
   const screen = document.getElementById('gcScreen');
-  screen.innerHTML = gcBarHtml('Cobrar', gcFlow.avulso) + `
+  screen.innerHTML = gcBarHtml(s?'Fechar conta':'Cobrar', s?comandaPersonData(s).label:gcFlow.avulso) + `
     <div class="gc-body">
-      <div class="gc-charge-total"><span>Total a cobrar</span><b class="mono">${fmt(total)}</b></div>
+      ${t ? gcSummaryHtml(t) + (t.available>0.009?`<label class="gc-credit-toggle"><input type="checkbox" ${gcFlow.useCredit?'checked':''} onchange="gcToggleUseCredit(this.checked)"> Usar crédito do sócio (disponível ${fmt(t.available)})</label>`:'') : ''}
+      <div class="gc-charge-total" ${t?'style="margin-top:14px"':''}><span>Total a cobrar</span><b class="mono">${fmt(total)}</b></div>
+      ${total<=0.009 ? '<p class="sub" style="margin-top:12px">Nada a cobrar: confirme para fechar a comanda.</p>' : `
       <label class="np-label" style="display:block;margin:16px 0 8px">Forma de pagamento</label>
       <div class="gc-pay-grid">${methods.map(m=>`<button type="button" class="gc-pay-btn${gcFlow.payMethod===m.method?' active':''}" data-method="${h(m.method)}" onclick="gcSelectPay(${jsArg(m.method)})"><span class="gc-pay-icon">${m.icon}</span><span>${h(m.label)}</span></button>`).join('')}</div>
       <div id="gcCashBox" class="np-section" ${gcFlow.payMethod==='dinheiro'?'':'hidden'}>
@@ -243,6 +330,7 @@ function gcRenderCharge(){
         <div class="gc-change" id="gcChange"></div>
       </div>
       <p class="sub" id="gcCardHint" ${['credito','debito'].includes(gcFlow.payMethod)?'':'hidden'}>Passe o cartão na maquininha e confirme aqui depois de aprovado.</p>
+      <p class="sub" id="gcFiadoHint" ${gcFlow.payMethod==='fiado'?'':'hidden'}>Vai para a conta do sócio, que fica bloqueado até pagar.</p>`}
       <div id="gcChargePending" class="sale-pending-warning" role="alert" hidden>O pedido já foi para a cozinha, mas o pagamento ainda não foi registrado. Toque em "Confirmar pagamento" de novo.</div>
     </div>
     <div class="gc-footer"><button class="gc-btn-back" onclick="gcBackFromCharge()">‹ Voltar</button><button class="gc-btn-review" id="gcConfirmPayBtn" onclick="gcConfirmCharge()">✓ Confirmar pagamento</button></div>`;
@@ -253,6 +341,7 @@ function gcSelectPay(method){
   document.querySelectorAll('.gc-pay-btn').forEach(b=>b.classList.toggle('active', b.dataset.method===method));
   document.getElementById('gcCashBox').hidden = method!=='dinheiro';
   document.getElementById('gcCardHint').hidden = !['credito','debito'].includes(method);
+  document.getElementById('gcFiadoHint').hidden = method!=='fiado';
   if(method==='dinheiro') setTimeout(()=>document.getElementById('gcCashReceived')?.focus(), 0);
   gcUpdateChange();
 }
@@ -260,29 +349,24 @@ function gcUpdateChange(){
   const el = document.getElementById('gcChange'); if(!el) return;
   const raw = document.getElementById('gcCashReceived')?.value||'';
   if(raw===''){ el.textContent=''; return; }
-  const diff = Math.round(((parseFloat(raw)||0)-gcCartTotal())*100)/100;
+  const diff = Math.round(((parseFloat(raw)||0)-gcChargeTotal())*100)/100;
   el.textContent = diff>=0 ? 'Troco: '+fmt(diff) : 'Faltam '+fmt(-diff);
   el.classList.toggle('falta', diff<0);
 }
 function gcBackFromCharge(){
+  if(gcFlow.closeComanda){ gcOpenComanda(gcFlow.saleId); return; }
   // Ficha já na cozinha e venda não registrada: só sai daqui confirmando o pagamento.
   if(gcChargeDraft && gcChargeDraft.items.some(i=>i.sent)){ toast('O pedido já foi para a cozinha. Confirme o pagamento.'); return; }
   gcChargeDraft = null; gcFlow.step = 'review';
   gcRenderReview();
 }
 async function gcConfirmCharge(){
+  if(gcFlow.closeComanda) return gcConfirmCloseComanda();
   const method = gcFlow.payMethod;
   if(!GC_PAY_METHODS.includes(method)){ toast('Escolha a forma de pagamento.'); return; }
   const total = gcCartTotal();
   if(!(total>0)){ toast('Adicione ao menos um produto.'); return; }
-  const pay = { method, amount: total };
-  if(method==='dinheiro'){
-    const raw = document.getElementById('gcCashReceived')?.value||'';
-    const received = raw==='' ? total : Math.round((parseFloat(raw)||0)*100)/100;
-    if(received+0.009 < total){ toast('O valor recebido é menor que o total.'); return; }
-    const change = Math.round((received-total)*100)/100;
-    if(change>0.009){ pay.received = received; pay.change = change; }
-  }
+  const pay = gcBuildPayment(method, total); if(!pay) return;
   await refreshCashState();
   if(!state.cashSession || state.cashSession.status!=='open'){ toast('O caixa está fechado. Peça para abrirem o caixa antes de cobrar.'); return; }
   if(!gcChargeDraft){
@@ -302,6 +386,51 @@ async function gcConfirmCharge(){
   gcChargeDraft = null;
   autoEmitNfce(saleId); // não espera: a venda já está registrada
   toast(pay.change ? 'Pago e enviado. Troco: '+fmt(pay.change) : 'Pago e enviado!');
+  gcRenderHome();
+}
+// Pagamento único do valor cheio; no dinheiro guarda recebido e troco (vazio = valor exato).
+function gcBuildPayment(method, total){
+  const pay = { method, amount: total };
+  if(method==='dinheiro'){
+    const raw = document.getElementById('gcCashReceived')?.value||'';
+    const received = raw==='' ? total : Math.round((parseFloat(raw)||0)*100)/100;
+    if(received+0.009 < total){ toast('O valor recebido é menor que o total.'); return null; }
+    const change = Math.round((received-total)*100)/100;
+    if(change>0.009){ pay.received = received; pay.change = change; }
+  }
+  return pay;
+}
+// Fechamento da comanda pelo garçom: o mesmo finalizeSale do caixa (close_sale idempotente,
+// recusa se chegou item novo por outro aparelho, lança fiado/crédito no sócio).
+async function gcConfirmCloseComanda(){
+  const saleId = gcFlow.saleId;
+  await refreshCashState();
+  if(!state.cashSession || state.cashSession.status!=='open'){ toast('O caixa está fechado. Peça para abrirem o caixa antes de cobrar.'); return; }
+  const fresh = await fetchFreshSales(); if(fresh) state.sales = fresh;
+  const s = state.sales.find(x=>x.id===saleId);
+  if(!s || s.status!=='open' || s.canceled){ toast('Esta comanda já foi fechada ou cancelada em outro aparelho.'); gcRenderHome(); return; }
+  if(s.locked){ toast('Comanda bloqueada no caixa. Peça para desbloquearem antes de fechar.'); return; }
+  const t = gcComandaTotals(s, gcFlow.useCredit);
+  // Total diferente do que o garçom mostrou ao cliente (item lançado em outro aparelho): confere antes.
+  if(Math.abs(t.total-(gcFlow.shownTotal||0))>0.009){ gcRenderCharge(); toast('O total mudou (chegou item novo nesta comanda). Confira antes de cobrar.'); return; }
+  const method = gcFlow.payMethod;
+  let payments = [];
+  if(t.total>0.009){
+    if(!gcPayMethods().includes(method)){ toast('Escolha a forma de pagamento.'); return; }
+    const pay = gcBuildPayment(method, t.total); if(!pay) return;
+    payments = [pay];
+  }
+  currentSaleDraft = { id:s.id, items:JSON.parse(JSON.stringify(s.items||[])), memberId:s.memberId, customerName:s.customerName, notes:s.notes||'', type:'comanda' };
+  const closedId = await finalizeSale('comanda', s.id, s.memberId||null, payments, t.total, t.creditApplied, 0, { subtotal: t.subtotal, discount: 0, couponCode: null, creditApplied: t.creditApplied, serviceCharge: t.service, partialPaid: t.partialPaid });
+  if(!closedId){
+    const cur = state.sales.find(x=>x.id===saleId);
+    if(!cur || cur.status!=='open' || cur.canceled) gcRenderHome(); else gcRenderCharge();
+    return;
+  }
+  const change = payments[0] && payments[0].change;
+  logAction('Garçom fechou a comanda de '+comandaPersonData(s).label+' — '+(payments.length?methodLabel(method)+' '+fmt(t.total):'nada a cobrar')+(change?' (troco '+fmt(change)+')':''));
+  autoEmitNfce(closedId); // não espera: a venda já está registrada
+  toast(change ? 'Comanda fechada. Troco: '+fmt(change) : 'Comanda fechada!');
   gcRenderHome();
 }
 async function gcDiscardOrder(){
@@ -357,7 +486,7 @@ async function gcConfirmOrder(){
 async function gcSelectMember(memberId){
   const m = state.members.find(x=>x.id===memberId); if(!m) return;
   const existing = state.sales.find(s=>s.status==='open' && s.memberId===memberId);
-  if(existing){ gcOpenFlow(existing.id); return; }
+  if(existing){ gcOpenComanda(existing.id); return; }
   if(!await ensureMemberCanOpen(m, ()=>gcSelectMember(memberId))) return;
   const s = { id:uid(), type:'comanda', tableNumber:null, orderNumber:await nextOrderNumber(), memberId:m.id, dependentId:null, dependentName:'', customerName:m.name, items:[], total:0, status:'open', payments:[], openedAt:new Date().toISOString(), operatorName:currentUser.name };
   state.sales.push(s); save('sales');
