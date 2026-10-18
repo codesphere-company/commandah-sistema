@@ -33,7 +33,7 @@ function openPaymentModal(mode, comandaId){
     <div class="pay-summary">
       <div><span>Subtotal</span><span class="mono" id="paySubtotalLine">${fmt(subtotal)}</span></div>
       <div id="payDiscountRow" style="display:none"><span>Desconto</span><span class="mono" id="payDiscountLine">− R$ 0,00</span></div>
-      <div id="payCreditRow" style="display:none"><span>Crédito do cliente</span><span class="mono" id="payCreditLine">− R$ 0,00</span></div>
+      <div id="payCreditRow" style="display:none"><span>Crédito do sócio (abatido)</span><span class="mono" id="payCreditLine">− R$ 0,00</span></div>
       ${applyService?`<div><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono" id="payServiceLine">R$ 0,00</span></div>`:''}
       ${partialPaid>0.009?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(partialPaid)}</span></div>`:''}
       <div class="pay-total-row"><span>Total a pagar</span><span class="mono" id="payFinalTotal">${fmt(subtotal)}</span></div>
@@ -49,7 +49,6 @@ function openPaymentModal(mode, comandaId){
     </div>
     <div class="field"><label>Associado (opcional — necessário para fiado)</label>
       <select id="paySelMember"><option value="">— Cliente avulso —</option>${memberOptions}</select></div>
-    <label class="comp-switch" id="payUseCreditBox" style="margin:0 0 8px" hidden><input type="checkbox" id="payUseCredit"><span></span> <b id="payUseCreditLabel" style="font-weight:400">Usar crédito do sócio</b></label>
     <label class="comp-switch" style="margin:0 0 8px"><input type="checkbox" id="payPrintReceipt"><span></span> <b style="font-weight:400">Imprimir comprovante (se o cliente pedir)</b></label>
     <label class="np-label" style="margin-top:12px;display:block">Forma de pagamento <span style="text-transform:none;font-weight:400">(atalho de teclado entre parênteses)</span></label>
     <div class="pay-method-grid" id="payMethodGrid">
@@ -79,11 +78,10 @@ function openPaymentModal(mode, comandaId){
   function recomputeTotals(){
     const afterCoupon = Math.max(0, subtotal-discount);
     const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
-    // Crédito do sócio só entra se o caixa marcar (decisão do dono, 10/10).
-    const available = memberAvailableCredit(member), creditBox = document.getElementById('payUseCreditBox');
-    creditBox.hidden = !(available>0.009);
-    if(available>0.009) document.getElementById('payUseCreditLabel').textContent = 'Usar crédito do sócio (disponível '+fmt(available)+')';
-    creditApplied = available>0.009 && document.getElementById('payUseCredit').checked ? Math.min(available, Math.max(0, afterCoupon-partialPaid)) : 0;
+    // Crédito do sócio é abatido sozinho (decisão do dono, 18/10). Antes (10/10) o caixa
+    // precisava marcar "Usar crédito do sócio"; o garçom usa a mesma regra (gcComandaTotals).
+    const available = memberAvailableCredit(member);
+    creditApplied = available>0.009 ? Math.min(available, Math.max(0, afterCoupon-partialPaid)) : 0;
     const afterDiscount = Math.max(0, afterCoupon-creditApplied);
     const service = applyService ? serviceChargeAmount(afterDiscount) : 0;
     serviceAmount = Math.round(service*100)/100;
@@ -120,19 +118,7 @@ function openPaymentModal(mode, comandaId){
     const blocked = opt && opt.dataset.blocked==='1';
     document.getElementById('fiadoWarning').style.display = (currentMethod().method==='fiado' && blocked) ? 'block':'none';
   }
-  // Sócio com crédito: pergunta se quer usar (pedido do dono, 10/10). A escolha fica no
-  // interruptor "Usar crédito do sócio" e pode ser trocada até confirmar o pagamento.
-  function askUseMemberCredit(){
-    const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
-    const available = memberAvailableCredit(member);
-    if(!(available>0.009)) return;
-    askConfirm({ title:'Sócio com crédito', message:member.name+' tem '+fmt(available)+' de crédito. Quer usar nesta conta?', confirmLabel:'Usar crédito', cancelLabel:'Não usar', danger:false }).then(use=>{
-      if(!document.getElementById('payUseCredit') || selMember.value!==member.id) return;
-      document.getElementById('payUseCredit').checked = !!use; tempPayments=[]; recomputeTotals();
-    });
-  }
-  selMember.onchange = ()=>{ checkFiado(); changeDecision='troco'; tempPayments=[]; document.getElementById('payUseCredit').checked=false; recomputeTotals(); askUseMemberCredit(); };
-  document.getElementById('payUseCredit').onchange = ()=>{ tempPayments=[]; recomputeTotals(); };
+  selMember.onchange = ()=>{ checkFiado(); changeDecision='troco'; tempPayments=[]; recomputeTotals(); };
   function renderPaymentParts(){
     const received = tempPayments.reduce((a,p)=>a+p.amount,0);
     const balance = finalTotal-received;
@@ -171,7 +157,6 @@ function openPaymentModal(mode, comandaId){
   document.getElementById('payPartAmount').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('addPaymentBtn').click(); } });
   selectPayMethod('A');
   recomputeTotals();
-  askUseMemberCredit();
   document.getElementById('applyCouponBtn').onclick = ()=>{
     const code = document.getElementById('payCoupon').value.trim().toUpperCase();
     const c = state.coupons.find(x=>x.code===code && isCouponUsable(x));
