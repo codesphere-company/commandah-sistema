@@ -511,6 +511,15 @@ body.tv-mode .tv-exit-btn{display:block;}
 .pay-progress-panel{background:var(--cream);padding:12px;margin:12px 0;}
 .pay-progress-track{height:8px;border-radius:6px;background:var(--c-surface-3);overflow:hidden;}
 .pay-progress-fill{height:100%;background:var(--c-primary);transition:width .2s;}
+/* Comanda aberta na tela de comandas, no lugar da lista (18/10): mesmo layout do antigo popup,
+   ocupando a área da tela; a barra de cima volta para a lista. */
+/* Altura: tela - topo (66) - rodapé de status - respiro do <main> (24 em cima, 44 embaixo, este último
+   compensado pela margem de baixo), para a página não ganhar rolagem. */
+.comanda-inline-wrap{min-height:0!important;margin-bottom:-44px!important;}
+.cash-order-modal.comanda-inline{width:auto!important;max-width:none!important;height:calc(100vh - 190px);min-height:520px!important;background:var(--c-surface-2);border:1px solid var(--c-border);}
+.comanda-inline .cash-order-head{min-height:64px;}
+.comanda-inline .comanda-inline-back{flex:0 0 auto;margin-right:6px;}
+.cash-order-modal.comanda-inline .record-body{height:100%;}
 .cash-order-modal>h3{height:41px;padding:11px 12px}.cash-order-modal>.modal-close{margin-top:8px}@media(max-width:800px){.cash-order-modal{width:calc(100vw - 24px)!important;height:calc(100vh - 24px)}.cash-order-head,.cash-order-layout{grid-template-columns:220px 1fr}.cash-order-toolbar{gap:8px}.cash-order-toolbar .op-search{min-width:150px}.cash-order-ident .delivery-open-badge{width:auto}.cash-order-ident strong{font-size:15px}.cash-order-balance-tag{font-size:13px;padding:7px 12px}}
 @media(max-width:760px){.record-grid{grid-template-columns:1fr}.product-image-box{height:150px}.record-pane{min-height:0}.record-tabs button{padding:9px 11px}}
 @media(max-width:760px){.consumer-workspace,.table-workspace{margin:-16px}.cash-layout{grid-template-columns:1fr}.cash-side{border-right:0;border-bottom:1px solid var(--c-border-strong)}.cash-main{min-height:260px}.free-cash{padding:35px 18px}.free-cash h2{font-size:35px}.free-cash-actions{gap:10px}.table-grid{grid-template-columns:repeat(auto-fill,minmax(96px,1fr));margin-top:30px}.table-toolbar input{width:100%}}
