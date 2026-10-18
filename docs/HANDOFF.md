@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-10-17, noite** (app do garçom: rolagem e cobrança do avulso na hora, PRs #124 e #125; checagem do `?v=` corrigida; caminho da integração com a laranjinha da Rede; ver "17/10" no começo do Estado atual). Antes: **2026-10-16** (painel do lançamento sincronizado com este arquivo). Antes: **2026-10-15** (CSC 3 é de produção; ver "CSC (15/10)"). Antes: **2026-10-12, noite** (ver "Fim do dia 12/10"). No ar desde 12/10:
+Última atualização: **2026-10-18** (app do garçom vê e fecha comanda, sem fiado; crédito do sócio abatido sozinho no caixa e no garçom, PR #127; ver "18/10" no começo do Estado atual). Antes: **2026-10-17, noite** (app do garçom: rolagem e cobrança do avulso na hora, PRs #124 e #125; checagem do `?v=` corrigida; caminho da integração com a laranjinha da Rede; ver "17/10" no começo do Estado atual). Antes: **2026-10-16** (painel do lançamento sincronizado com este arquivo). Antes: **2026-10-15** (CSC 3 é de produção; ver "CSC (15/10)"). Antes: **2026-10-12, noite** (ver "Fim do dia 12/10"). No ar desde 12/10:
 - NFC-e completa em homologação: dados fiscais, emissão manual e ao fechar, cupom com QR, cancelamento e configuração;
 - regras de impressão do caixa e agente 2.3;
 - login com uma leitura só;
@@ -35,6 +35,13 @@ Commandah é o sistema de comanda/PDV do **Clube Olímpico** (Maringá — negó
 O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são aplicadas pelo CLI desta máquina** (logado na conta do Commandah): `npx supabase db query --linked -f supabase/migrations/<arquivo>.sql < /dev/null` (sem o `< /dev/null` o comando fica preso esperando entrada) e depois `npx supabase migration repair --status applied <versão> --linked`. Leituras de conferência do mesmo jeito, com um `.sql` de `select`. Teste de migration antes de produção: Postgres 18 local (`C:/Program Files/PostgreSQL/18/bin`, cluster temporário com stubs de `current_tenant_id`/`current_staff_role`). Deploy de Edge Function é feito pela Supabase CLI local (`supabase functions deploy <nome> --project-ref ezfoymdesmarpunmixbs --use-api`), sem precisar de Docker nem `supabase link`.
 
 ## Estado atual (o que já está pronto)
+
+### 18/10 — comanda no app do garçom e crédito automático (PR #127, merge `d7a9143`, sem migration)
+- **Ver a comanda:** tocar numa comanda em andamento (ou "Abrir" num sócio com comanda) abre a tela da comanda (`gcOpenComanda`/`gcRenderComanda`): itens lançados com quem pediu e horário, cancelados riscados, consumo, serviço, parcial já pago e total. Dali, "+ Novo pedido" (o Voltar do pedido retorna à comanda) ou "Fechar conta". Antes o toque ia direto para o novo pedido.
+- **Fechar conta pelo garçom** (`gcGoCloseComanda`, `gcConfirmCloseComanda`, mesma tela de cobrança do avulso): dinheiro (troco), Pix, crédito e débito. **Sem fiado: o garçom só cobra** (decisão do dono); fiado só no caixa. Fecha por `finalizeSale('comanda', …)`, igual ao caixa (parciais entram nos pagamentos, `close_sale` idempotente, NFC-e automática).
+  - Travas: caixa fechado não cobra; busca a comanda no servidor antes de cobrar e, se o total mudou (item lançado em outro aparelho), mostra o novo total sem fechar; comanda bloqueada no caixa não aceita pedido nem fechamento pelo app.
+- **Crédito do sócio abatido sozinho** (decisão do dono, 18/10; substitui a de 10/10, em que o caixa marcava "Usar crédito do sócio"): no pagamento do caixa saíram a pergunta "Sócio com crédito" e o interruptor; o resumo mostra "Crédito do sócio (abatido)". No garçom o resumo da comanda já mostra o crédito e quanto sobra (`gcComandaTotals`, mesma conta do `openPaymentModal`: crédito antes do serviço, parcial no fim). Com duas comandas abertas, o crédito vai para a que fechar primeiro.
+- Testado no Chrome invisível a 380 px com servidor simulado (31 verificações, `gc-test/comanda.js` no scratchpad). **Falta teste real no celular** com o caixa aberto, junto com o do avulso.
 
 ### 17/10 — ordem do que falta (combinada com o dono)
 - **Nada do site mudou.**
