@@ -131,11 +131,11 @@ body.tv-mode .kbtn-ready{width:110px!important;font-size:20px!important;backgrou
 
 /* ===== APP DO GARÇOM (redesign etapa 7): cartões brancos, preço sempre visível, escolhido em destaque ===== */
 #garcomApp{background:var(--c-bg)!important}
-.gc-bar{background:var(--c-surface)!important;color:var(--c-text)!important;border-bottom:1px solid var(--c-border);box-shadow:var(--sh-1)}
+.gc-bar{background:var(--c-bar)!important;color:var(--c-bar-text)!important;border-bottom:0;box-shadow:var(--sh-1)}
 .gc-bar .gc-title{font-size:18px}
-.gc-bar .gc-title small{color:var(--c-text-2)!important;opacity:1!important;font-size:13px}
-.gc-bar .gc-menu-btn{color:var(--c-text)!important;min-width:48px;min-height:48px}
-.gc-bar .gc-menu-btn svg{stroke:var(--c-text)!important}
+.gc-bar .gc-title small{color:var(--c-bar-text-2)!important;opacity:1!important;font-size:13px}
+.gc-bar .gc-menu-btn{color:var(--c-bar-text)!important;min-width:48px;min-height:48px}
+.gc-bar .gc-menu-btn svg{stroke:var(--c-bar-text)!important}
 #gcSearch,#gcProdSearch,#gcProdSearch2{height:var(--hit-touch);width:100%;padding:0 14px;font-size:16px;margin-bottom:12px;display:block;border:1px solid var(--c-border-input);border-radius:var(--r-md);background:var(--c-surface);color:var(--c-text);box-sizing:border-box}
 .gc-section-label{color:var(--c-text-2)!important;font-size:14px!important;font-weight:600!important}
 .gc-tile{background:var(--c-surface)!important;color:var(--c-text)!important;border:1px solid var(--c-border)!important;border-top:4px solid var(--c-success)!important;border-radius:var(--r-lg)!important;box-shadow:var(--sh-1);font-size:20px}

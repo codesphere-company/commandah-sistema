@@ -4,10 +4,12 @@
    (html[data-theme="dark"], mais abaixo). Contrastes medidos (WCAG 2.x) ao lado. */
 :root{
   /* superfícies */
-  --c-bg:#F5F6F8;            /* fundo da aplicação */
-  --c-surface:#FFFFFF;       /* cartões, janelas, modais, campos */
-  --c-surface-2:#F9FAFB;     /* faixas internas, cabeçalhos, rodapés */
-  --c-surface-3:#EEF0F3;     /* áreas afundadas, hover, chips neutros */
+  /* Paleta "Grafite quente" (escolha do dono, 18/10): fundo creme e barras em grafite; antes tudo
+     era branco com pequenos detalhes de cor. Os tons de texto e de status continuam os mesmos. */
+  --c-bg:#F2ECE3;            /* fundo da aplicação (creme) */
+  --c-surface:#FFFDF9;       /* cartões, janelas, modais, campos */
+  --c-surface-2:#FAF5EE;     /* faixas internas, cabeçalhos, rodapés */
+  --c-surface-3:#EEE6DA;     /* áreas afundadas, hover, chips neutros */
   --c-overlay:rgba(16,22,34,.38);
   /* texto */
   --c-text:#1D2433;          /* 14.4:1 sobre --c-bg */
@@ -15,8 +17,8 @@
   --c-text-3:#5C6576;        /* 5.4:1 sobre --c-bg */
   --c-text-inverse:#FFFFFF;  /* texto sobre cor sólida */
   /* bordas */
-  --c-border:#E3E6EB;
-  --c-border-strong:#CDD2DA;
+  --c-border:#E5DACA;
+  --c-border-strong:#D3C4AE;
   --c-border-input:#8B94A3;  /* 3.06:1 sobre branco */
   /* ação primária */
   --c-brand:#0D9E79;         /* verde da marca: logotipo e detalhes (não usar com texto branco) */
@@ -30,7 +32,7 @@
   --c-warning:#8A4B00; --c-warning-solid:#A15C00; --c-warning-soft:#FCF0D8;
   --c-danger:#B42318;  --c-danger-soft:#FDECEA;
   --c-info:#2456A6;    --c-info-soft:#E7EFFB;
-  --c-neutral-soft:#EEF0F3;
+  --c-neutral-soft:#EEE6DA;
   /* destaque invertido (aba/chip ativo, aviso flutuante): escuro no claro, claro no escuro */
   --c-strong:var(--c-text); --c-on-strong:var(--c-surface);
   /* Cores da marca do estabelecimento: applyBranding() sobrescreve estas 5 com as escolhidas em Configurações */
@@ -40,7 +42,12 @@
   --c-mark:#0D9E79; --c-mark-ink:#1D2433;
   --c-frame:var(--navy); --c-frame-2:var(--navy2); --c-frame-3:var(--navy3);
   --c-frame-text:#FFFFFF; --c-frame-text-2:#CFD8E8; --c-frame-text-3:#9FB0CC;
-  --c-backdrop:#E9ECF0;      /* fundo atrás da folha de relatório (UX-14: era #707070, pesado) */
+  --c-backdrop:#EAE2D6;      /* fundo atrás da folha de relatório (UX-14: era #707070, pesado) */
+  /* barras do sistema (topo, abas, rodapé e topo do app do garçom): fixas, não seguem a cor da
+     marca escolhida em Configurações (essa continua em --c-frame/--navy) */
+  --c-bar:#2B2621; --c-bar-2:#38322B; --c-bar-line:rgba(255,255,255,.12);
+  --c-bar-text:#FFFFFF; --c-bar-text-2:#E8DFD3; --c-bar-text-3:#BBAE9F;
+  --c-bar-accent:#3DBE93; --c-bar-ok:#7EE0B5; --c-bar-bad:#FF9B8F;
   /* letras */
   --font-sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   --font-brand:var(--font-sans);
@@ -67,6 +74,9 @@ html[data-theme="dark"]{
   --c-info:#8DB8F7;    --c-info-soft:#1B2A40;
   --c-neutral-soft:#2A2F38;
   --c-backdrop:#0E1116;
+  --c-bar:#1C2027; --c-bar-2:#1C2027; --c-bar-line:#2E343E;
+  --c-bar-text:#E6E8ED; --c-bar-text-2:#B5BBC6; --c-bar-text-3:#9AA2AF;
+  --c-bar-accent:#3DBE93; --c-bar-ok:#6CD39C; --c-bar-bad:#F08A7E;
   --sh-1:0 1px 2px rgba(0,0,0,.30); --sh-2:0 4px 12px rgba(0,0,0,.35); --sh-3:0 18px 44px rgba(0,0,0,.50);
 }
 /* Verde de ação derivado da cor de destaque da marca (--amber), para respeitar a cor
