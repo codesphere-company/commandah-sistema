@@ -106,14 +106,14 @@ function gcOpenComanda(saleId){
   // A cópia local pode estar alguns segundos velha: busca a mais nova e redesenha.
   fetchFreshSales().then(fresh=>{ if(fresh) state.sales = fresh; if(gcFlow.step==='comanda' && gcFlow.saleId===saleId) gcRenderComanda(); });
 }
-// Mesma conta do pagamento do computador (openPaymentModal): crédito do sócio só se marcado,
-// serviço sobre o que sobra depois do crédito, parcial já recebido sai do total.
-function gcComandaTotals(s, useCredit){
+// Mesma conta do pagamento do computador (openPaymentModal): crédito do sócio abatido sozinho
+// (decisão do dono, 18/10), serviço sobre o que sobra depois do crédito, parcial sai do total.
+function gcComandaTotals(s){
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const subtotal = Math.round(saleTotal(s.items)*100)/100;
   const partialPaid = comandaPartialPaid(s);
   const available = memberAvailableCredit(member);
-  const creditApplied = useCredit && available>0.009 ? Math.round(Math.min(available, Math.max(0, subtotal-partialPaid))*100)/100 : 0;
+  const creditApplied = available>0.009 ? Math.round(Math.min(available, Math.max(0, subtotal-partialPaid))*100)/100 : 0;
   const afterCredit = Math.max(0, subtotal-creditApplied);
   const service = serviceRatePct()>0 ? Math.round(serviceChargeAmount(afterCredit)*100)/100 : 0;
   const total = Math.max(0, Math.round((afterCredit+service-partialPaid)*100)/100);
@@ -122,7 +122,7 @@ function gcComandaTotals(s, useCredit){
 function gcSummaryHtml(t){
   return `<div class="gc-summary">
     <div><span>Consumo</span><span class="mono">${fmt(t.subtotal)}</span></div>
-    ${t.creditApplied>0.009?`<div><span>Crédito do sócio</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
+    ${t.creditApplied>0.009?`<div><span>Crédito do sócio${t.available-t.creditApplied>0.009?' (sobra '+fmt(t.available-t.creditApplied)+')':''}</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
     ${serviceRatePct()>0?`<div><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono">${fmt(t.service)}</span></div>`:''}
     ${t.partialPaid>0.009?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(t.partialPaid)}</span></div>`:''}
     <div class="gc-summary-total"><span>Total</span><span class="mono">${fmt(t.total)}</span></div>
@@ -142,7 +142,7 @@ function gcRenderComanda(){
       <button class="btn btn-primary btn-block" onclick="gcOpenFlow(${jsArg(s.id)})" ${s.locked?'disabled':''}>+ Novo pedido</button>
       <div class="gc-section-label">Já lançado (${count} ${count===1?'item':'itens'})</div>
       ${items.length ? items.map(i=>`<div class="gc-review-item gc-launched${i.canceled?' canceled':''}"><span><b>${Number(i.qty)||0}x</b> ${h(i.name)}<small>${h(i.requesterName||'')}${i.requesterName&&i.addedAt?' · ':''}${hora(i.addedAt)}${i.canceled?' · cancelado':''}</small></span><span class="mono">${fmt((Number(i.price)||0)*(Number(i.qty)||0))}</span></div>`).join('') : '<p class="gc-empty">Nada lançado ainda.</p>'}
-      ${gcSummaryHtml(gcComandaTotals(s, false))}
+      ${gcSummaryHtml(gcComandaTotals(s))}
     </div>
     <div class="gc-footer"><button class="gc-btn-back" onclick="gcRenderHome()">‹ Voltar</button><button class="gc-btn-review" onclick="gcGoCloseComanda()" ${s.locked?'disabled':''}>Fechar conta ›</button></div>`;
 }
@@ -152,17 +152,13 @@ async function gcGoCloseComanda(){
   const s = state.sales.find(x=>x.id===saleId);
   if(!s || s.status!=='open' || s.canceled){ toast('Esta comanda já foi fechada ou cancelada em outro aparelho.'); gcRenderHome(); return; }
   if(s.locked){ toast('Comanda bloqueada no caixa. Peça para desbloquearem antes de fechar.'); gcRenderComanda(); return; }
-  gcFlow = { saleId, step:'charge', category:null, closeComanda:true, useCredit:false, payMethod:null };
+  gcFlow = { saleId, step:'charge', category:null, closeComanda:true, payMethod:null };
   gcRenderCharge();
 }
 function gcChargeTotal(){
   if(!gcFlow.closeComanda) return gcCartTotal();
   const s = state.sales.find(x=>x.id===gcFlow.saleId);
-  return s ? gcComandaTotals(s, gcFlow.useCredit).total : 0;
-}
-function gcToggleUseCredit(on){
-  gcFlow.useCredit = !!on;
-  gcRenderCharge();
+  return s ? gcComandaTotals(s).total : 0;
 }
 function gcBarHtml(title, sub){
   return `<div class="gc-bar"><div class="gc-title">${h(title)}${sub?`<small>${h(sub)}</small>`:''}</div><button class="gc-menu-btn" onclick="gcToggleMenu()">${ICN.menu}</button><div class="gc-menu-panel" id="gcMenuPanel"><button onclick="gcToggleTheme()">${document.documentElement.getAttribute('data-theme')==='dark'?'Modo claro':'Modo escuro'}</button><button onclick="gcLogout()">Sair</button></div></div>`;
@@ -302,12 +298,12 @@ function gcRenderCharge(){
   const total = gcChargeTotal();
   const methods = methodConfig().filter(m=>GC_PAY_METHODS.includes(m.method));
   const s = gcFlow.closeComanda ? state.sales.find(x=>x.id===gcFlow.saleId) : null;
-  const t = s ? gcComandaTotals(s, gcFlow.useCredit) : null;
+  const t = s ? gcComandaTotals(s) : null;
   gcFlow.shownTotal = total;
   const screen = document.getElementById('gcScreen');
   screen.innerHTML = gcBarHtml(s?'Fechar conta':'Cobrar', s?comandaPersonData(s).label:gcFlow.avulso) + `
     <div class="gc-body">
-      ${t ? gcSummaryHtml(t) + (t.available>0.009?`<label class="gc-credit-toggle"><input type="checkbox" ${gcFlow.useCredit?'checked':''} onchange="gcToggleUseCredit(this.checked)"> Usar crédito do sócio (disponível ${fmt(t.available)})</label>`:'') : ''}
+      ${t ? gcSummaryHtml(t) : ''}
       <div class="gc-charge-total" ${t?'style="margin-top:14px"':''}><span>Total a cobrar</span><b class="mono">${fmt(total)}</b></div>
       ${total<=0.009 ? '<p class="sub" style="margin-top:12px">Nada a cobrar: confirme para fechar a comanda.</p>' : `
       <label class="np-label" style="display:block;margin:16px 0 8px">Forma de pagamento</label>
@@ -397,7 +393,7 @@ async function gcConfirmCloseComanda(){
   const s = state.sales.find(x=>x.id===saleId);
   if(!s || s.status!=='open' || s.canceled){ toast('Esta comanda já foi fechada ou cancelada em outro aparelho.'); gcRenderHome(); return; }
   if(s.locked){ toast('Comanda bloqueada no caixa. Peça para desbloquearem antes de fechar.'); return; }
-  const t = gcComandaTotals(s, gcFlow.useCredit);
+  const t = gcComandaTotals(s);
   // Total diferente do que o garçom mostrou ao cliente (item lançado em outro aparelho): confere antes.
   if(Math.abs(t.total-(gcFlow.shownTotal||0))>0.009){ gcRenderCharge(); toast('O total mudou (chegou item novo nesta comanda). Confira antes de cobrar.'); return; }
   const method = gcFlow.payMethod;
