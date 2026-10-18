@@ -385,9 +385,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   // Comprovante só quando o cliente pede (decisão de 12/10): botão "Imprimir comprovante" no
   // detalhe da comanda (printSaleReceipt). Antes saía sozinho na venda de balcão.
   newDraft(mode); toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
-  // A cobrança por WhatsApp é do caixa: no celular do garçom (comanda fechada no fiado pelo app) não abre.
-  const noAppDoGarcom = !!document.getElementById('garcomApp')?.classList.contains('show');
-  if(fiadoMemberForPrompt && !noAppDoGarcom) promptWhatsAppCollection(fiadoMemberForPrompt);
+  if(fiadoMemberForPrompt) promptWhatsAppCollection(fiadoMemberForPrompt);
   return sale.id;
 }
 

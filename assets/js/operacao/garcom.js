@@ -155,16 +155,6 @@ async function gcGoCloseComanda(){
   gcFlow = { saleId, step:'charge', category:null, closeComanda:true, useCredit:false, payMethod:null };
   gcRenderCharge();
 }
-// Formas que o garçom pode usar. Fiado só para sócio sem pendência (a mesma regra do caixa).
-function gcPayMethods(){
-  const list = [...GC_PAY_METHODS];
-  if(gcFlow.closeComanda){
-    const s = state.sales.find(x=>x.id===gcFlow.saleId);
-    const member = s && s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
-    if(member && !memberBlockedByDebt(member)) list.push('fiado');
-  }
-  return list;
-}
 function gcChargeTotal(){
   if(!gcFlow.closeComanda) return gcCartTotal();
   const s = state.sales.find(x=>x.id===gcFlow.saleId);
@@ -310,9 +300,7 @@ function gcGoCharge(){
 }
 function gcRenderCharge(){
   const total = gcChargeTotal();
-  const allowed = gcPayMethods();
-  if(gcFlow.payMethod && !allowed.includes(gcFlow.payMethod)) gcFlow.payMethod = null;
-  const methods = methodConfig().filter(m=>allowed.includes(m.method));
+  const methods = methodConfig().filter(m=>GC_PAY_METHODS.includes(m.method));
   const s = gcFlow.closeComanda ? state.sales.find(x=>x.id===gcFlow.saleId) : null;
   const t = s ? gcComandaTotals(s, gcFlow.useCredit) : null;
   gcFlow.shownTotal = total;
@@ -330,7 +318,7 @@ function gcRenderCharge(){
         <div class="gc-change" id="gcChange"></div>
       </div>
       <p class="sub" id="gcCardHint" ${['credito','debito'].includes(gcFlow.payMethod)?'':'hidden'}>Passe o cartão na maquininha e confirme aqui depois de aprovado.</p>
-      <p class="sub" id="gcFiadoHint" ${gcFlow.payMethod==='fiado'?'':'hidden'}>Vai para a conta do sócio, que fica bloqueado até pagar.</p>`}
+`}
       <div id="gcChargePending" class="sale-pending-warning" role="alert" hidden>O pedido já foi para a cozinha, mas o pagamento ainda não foi registrado. Toque em "Confirmar pagamento" de novo.</div>
     </div>
     <div class="gc-footer"><button class="gc-btn-back" onclick="gcBackFromCharge()">‹ Voltar</button><button class="gc-btn-review" id="gcConfirmPayBtn" onclick="gcConfirmCharge()">✓ Confirmar pagamento</button></div>`;
@@ -340,9 +328,7 @@ function gcSelectPay(method){
   gcFlow.payMethod = method;
   document.querySelectorAll('.gc-pay-btn').forEach(b=>b.classList.toggle('active', b.dataset.method===method));
   document.getElementById('gcCashBox').hidden = method!=='dinheiro';
-  document.getElementById('gcCardHint').hidden = !['credito','debito'].includes(method);
-  document.getElementById('gcFiadoHint').hidden = method!=='fiado';
-  if(method==='dinheiro') setTimeout(()=>document.getElementById('gcCashReceived')?.focus(), 0);
+  document.getElementById('gcCardHint').hidden = !['credito','debito'].includes(method);  if(method==='dinheiro') setTimeout(()=>document.getElementById('gcCashReceived')?.focus(), 0);
   gcUpdateChange();
 }
 function gcUpdateChange(){
@@ -401,7 +387,8 @@ function gcBuildPayment(method, total){
   return pay;
 }
 // Fechamento da comanda pelo garçom: o mesmo finalizeSale do caixa (close_sale idempotente,
-// recusa se chegou item novo por outro aparelho, lança fiado/crédito no sócio).
+// recusa se chegou item novo por outro aparelho, lança o crédito usado no sócio). Sem fiado:
+// o garçom só cobra (decisão do dono, 18/10); fiado fica com o caixa.
 async function gcConfirmCloseComanda(){
   const saleId = gcFlow.saleId;
   await refreshCashState();
@@ -416,7 +403,7 @@ async function gcConfirmCloseComanda(){
   const method = gcFlow.payMethod;
   let payments = [];
   if(t.total>0.009){
-    if(!gcPayMethods().includes(method)){ toast('Escolha a forma de pagamento.'); return; }
+    if(!GC_PAY_METHODS.includes(method)){ toast('Escolha a forma de pagamento.'); return; }
     const pay = gcBuildPayment(method, t.total); if(!pay) return;
     payments = [pay];
   }
