@@ -197,7 +197,14 @@ function comandaListOrder(){ try{ return localStorage.getItem('cantina2:comandaO
 function setComandaListOrder(v){ try{ localStorage.setItem('cantina2:comandaOrder', v); }catch(e){} renderComandas(); }
 function renderComandas(){
   const el=document.getElementById('view-comandas');
-  if(!state.cashSession||state.cashSession.status!=='open'){el.innerHTML=`<div class="consumer-workspace"><section class="free-cash"><h2>Caixa livre</h2><div class="free-cash-actions"><button class="op-btn" onclick="switchView('caixa')">‹ &nbsp; Abrir caixa</button><button class="op-btn primary" onclick="switchView('caixa')"><span class="op-ico">＋</span> Iniciar atendimento</button></div><p class="sub" style="margin-top:25px">Abra o caixa para liberar mesas e comandas.</p></section></div>`;return;}
+  if(!state.cashSession||state.cashSession.status!=='open'){comandaAbertaId=null;el.innerHTML=`<div class="consumer-workspace"><section class="free-cash"><h2>Caixa livre</h2><div class="free-cash-actions"><button class="op-btn" onclick="switchView('caixa')">‹ &nbsp; Abrir caixa</button><button class="op-btn primary" onclick="switchView('caixa')"><span class="op-ico">＋</span> Iniciar atendimento</button></div><p class="sub" style="margin-top:25px">Abra o caixa para liberar mesas e comandas.</p></section></div>`;return;}
+  // Comanda aberta na tela (openComanda): a atualização periódica não redesenha por cima do que
+  // o caixa está digitando; se ela foi fechada, cancelada ou apagada, volta para a lista.
+  if(comandaAbertaId){
+    const cur=state.sales.find(s=>s.id===comandaAbertaId);
+    if(cur&&cur.status==='open'&&!cur.canceled){ if(!el.querySelector('.comanda-inline[data-sale="'+CSS.escape(cur.id)+'"]')) renderComandaDetail(cur.id); return; }
+    comandaAbertaId=null;
+  }
   const open=state.sales.filter(s=>s.status==='open'&&s.type==='comanda');
   // Lista de comandas abertas (pedido do dono, 09/10): cartões compactos que enchem a largura,
   // nome e total na mesma linha, cota e local abaixo, cor do tempo por idade (verde < 1 h,

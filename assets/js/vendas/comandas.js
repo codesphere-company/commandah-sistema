@@ -30,7 +30,23 @@ async function mergeOpenOrders(){
   state.sales=state.sales.filter(s=>s.id!==source.id);
   save('sales'); closeModal(); logAction(`Pedidos juntados: ${comandaDisplayName(source)} em ${comandaDisplayName(target)}`); renderAll(); toast('Pedidos juntados com sucesso.');
 }
+/* Comanda aberta na própria tela de comandas, no lugar da lista (pedido do dono, 18/10, como no
+   Saipos); antes abria num popup. Os popups que saem dela (novo pedido, parcial, trocar cliente,
+   pagamento...) continuam por cima e voltam por openComanda(id, true). Fechada, paga, cancelada ou
+   apagada, renderComandas volta para a lista. */
+let comandaAbertaId = null;
 function openComanda(id, keepRequester){
+  const s = state.sales.find(x=>x.id===id); if(!s) return;
+  if(document.getElementById('modalRoot').innerHTML.trim()) closeModal();
+  comandaAbertaId = id;
+  if(activeView!=='comandas'){ switchView('comandas'); return; } // renderComandas desenha a comanda
+  renderComandaDetail(id, keepRequester);
+}
+function closeComandaView(){
+  comandaAbertaId = null; removeFloatingComandaOptions();
+  renderComandas();
+}
+function renderComandaDetail(id, keepRequester){
   const s = state.sales.find(x=>x.id===id); if(!s) return;
   removeFloatingComandaOptions();
   currentSaleDraft = { id:s.id, items:JSON.parse(JSON.stringify(s.items)), memberId:s.memberId, customerName:s.customerName, type:'comanda' };
@@ -39,9 +55,10 @@ function openComanda(id, keepRequester){
   const person=member&&member.name||s.customerName||'Avulso',who=member?(person+(member.code?' — Cota '+member.code:'')):person;
   const quotaNum = member&&member.code ? h(member.code) : '—';
   const locked = !!s.locked;
-  openModal('Comanda'+(quotaNum!=='—'?' — Cota '+quotaNum:'')+' · Pedido #'+(s.orderNumber||'—'), `<div class="record-body">
+  document.getElementById('view-comandas').innerHTML = `<div class="table-workspace comanda-inline-wrap"><div class="cash-order-modal comanda-inline" data-sale="${h(s.id)}">
+    <div class="record-body">
     <div class="cash-order-head">
-      <div class="cash-order-ident"><span class="cash-order-quota">${quotaNum}</span><span class="delivery-open-badge">Em Aberto</span><strong>${h(person)} &nbsp;·&nbsp; Pedido ${s.orderNumber?'#'+s.orderNumber:''}</strong></div>
+      <div class="cash-order-ident"><button class="op-btn comanda-inline-back" onclick="closeComandaView()" title="Voltar para as comandas (Esc)">‹ &nbsp; Comandas</button><span class="cash-order-quota">${quotaNum}</span><span class="delivery-open-badge">Em Aberto</span><strong>${h(person)} &nbsp;·&nbsp; Pedido ${s.orderNumber?'#'+s.orderNumber:''}</strong></div>
       ${member&&Number(member.debt)<-0.009?`<div class="cash-order-balance"><span class="tag tag-green cash-order-balance-tag" title="Abatido automaticamente no pagamento desta comanda">✓ Crédito: ${fmt(-Number(member.debt))}</span></div>`:member&&Number(member.debt)>0.009?`<div class="cash-order-balance"><span class="tag tag-red cash-order-balance-tag" title="Saldo devedor deste sócio">Deve: ${fmt(Number(member.debt))}</span></div>`:''}
     </div>
     <div class="cash-order-layout">
@@ -72,7 +89,6 @@ function openComanda(id, keepRequester){
               </div>
             </div>
           </div>
-          <button onclick="closeModal()"><span class="icn">${ICN.back}</span> Voltar</button>
         </div>
       </aside>
       <main class="cash-order-main">
@@ -91,8 +107,7 @@ function openComanda(id, keepRequester){
       <button class="op-btn" onclick="window.print()"><span class="icn">${ICN.printer}</span> Imprimir</button>
       <button class="op-btn primary" id="btnCloseComanda" ${locked?'disabled':''}>Pagamento</button>
     </div>
-  </div>`, true);
-  document.querySelector('#modalRoot .modal').classList.add('record-modal','cash-order-modal');
+  </div></div></div>`;
   renderDraftItems(); renderComandaAuditHistory(); renderComandaQuickCart(); renderComandaPartials(s.id);
   let closingComanda = false;
   document.getElementById('btnCloseComanda').onclick = async ()=>{
@@ -102,7 +117,7 @@ function openComanda(id, keepRequester){
     if(unsent.length){ closingComanda = true; let ok; try{ ok = await sendItemsToKitchen(s.id, unsent, who, 'comanda', s.local); }finally{ closingComanda = false; } if(!ok) return; unsent.forEach(i=>i.sent=true); }
     const fresh = await commitSaleChange(s.id, cur=>{ if(cur.status!=='open'||cur.canceled) return false; cur.items=mergeDraftItems(cur.items, currentSaleDraft.items).items; cur.total=saleTotal(cur.items); });
     if(!fresh) return;
-    if(fresh.status!=='open'||fresh.canceled){ toast('Esta comanda já foi fechada ou cancelada em outro aparelho.'); closeModal(); renderAll(); return; }
+    if(fresh.status!=='open'||fresh.canceled){ toast('Esta comanda já foi fechada ou cancelada em outro aparelho.'); closeComandaView(); renderAll(); return; }
     currentSaleDraft.items = JSON.parse(JSON.stringify(fresh.items)); // itens do garçom entram no total do pagamento
     // OP-04: os itens que iam para a cozinha só neste clique também saem na
     // ficha da estação, como nos outros fluxos. Sem isso, estação "só imprime"
@@ -113,7 +128,7 @@ function openComanda(id, keepRequester){
       const printJobs = Object.keys(groups).map(estacao=>{ const printer = resolvePrinterFor(estacao, origem); return { estacao, items:groups[estacao], printer: printer?printer.nome:null }; });
       printNovoPedidoTickets(person, member?member.code:'', s.local, printJobs, s.orderNumber);
     }
-    closeModal(); openPaymentModal('comanda', s.id);
+    openPaymentModal('comanda', s.id); // paga, finalizeSale -> renderAll volta para a lista
   };
 }
 function saveComandaNote(saleId,value){const s=state.sales.find(x=>x.id===saleId);if(!s)return;s.notes=value.trim();save('sales');}
