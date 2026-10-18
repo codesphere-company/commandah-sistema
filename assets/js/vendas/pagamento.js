@@ -36,6 +36,7 @@ function openPaymentModal(mode, comandaId){
       <div id="payCreditRow" style="display:none"><span>Crédito do sócio (abatido)</span><span class="mono" id="payCreditLine">− R$ 0,00</span></div>
       ${applyService?`<div><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono" id="payServiceLine">R$ 0,00</span></div>`:''}
       ${partialPaid>0.009?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(partialPaid)}</span></div>`:''}
+      <div id="payDebtRow" style="display:none"><span>(+) Pendência anterior (fiado)</span><span class="mono" id="payDebtLine">R$ 0,00</span></div>
       <div class="pay-total-row"><span>Total a pagar</span><span class="mono" id="payFinalTotal">${fmt(subtotal)}</span></div>
     </div>
     <div class="row" style="align-items:flex-end;margin-top:10px">
@@ -49,6 +50,7 @@ function openPaymentModal(mode, comandaId){
     </div>
     <div class="field"><label>Associado (opcional — necessário para fiado)</label>
       <select id="paySelMember"><option value="">— Cliente avulso —</option>${memberOptions}</select></div>
+    <label class="comp-switch" id="payDebtBox" style="margin:0 0 8px" hidden><input type="checkbox" id="payChargeDebt" checked><span></span> <b id="payDebtLabel" style="font-weight:400">Cobrar a pendência anterior junto</b></label>
     <label class="comp-switch" style="margin:0 0 8px"><input type="checkbox" id="payPrintReceipt"><span></span> <b style="font-weight:400">Imprimir comprovante (se o cliente pedir)</b></label>
     <label class="np-label" style="margin-top:12px;display:block">Forma de pagamento <span style="text-transform:none;font-weight:400">(atalho de teclado entre parênteses)</span></label>
     <div class="pay-method-grid" id="payMethodGrid">
@@ -71,7 +73,7 @@ function openPaymentModal(mode, comandaId){
     <button class="btn btn-primary btn-block" id="confirmPayBtn">Confirmar pagamento</button>`,true);
   const modal=document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal'); modal.style.width='520px';
   const selMember = document.getElementById('paySelMember');
-  let finalTotal = subtotal, discount = 0, selectedMethodKey = 'A', creditApplied = 0, changeDecision = 'troco', appliedCouponCode = '', serviceAmount = 0;
+  let finalTotal = subtotal, discount = 0, selectedMethodKey = 'A', creditApplied = 0, changeDecision = 'troco', appliedCouponCode = '', serviceAmount = 0, debtIncluded = 0;
   tempPayments = [];
   if(preselected) selMember.value = preselected;
   function currentMethod(){ return methods.find(m=>m.key===selectedMethodKey)||methods[0]; }
@@ -86,6 +88,13 @@ function openPaymentModal(mode, comandaId){
     const service = applyService ? serviceChargeAmount(afterDiscount) : 0;
     serviceAmount = Math.round(service*100)/100;
     finalTotal = Math.max(0, Math.round((afterDiscount+service-partialPaid)*100)/100); // centavos exatos; parcial já pago sai do total
+    const debtDue = memberDebtDue(member), debtBox = document.getElementById('payDebtBox');
+    debtBox.hidden = !(debtDue>0.009);
+    if(debtDue>0.009) document.getElementById('payDebtLabel').textContent = 'Cobrar a pendência anterior junto ('+fmt(debtDue)+')';
+    debtIncluded = debtDue>0.009 && document.getElementById('payChargeDebt').checked ? debtDue : 0;
+    document.getElementById('payDebtRow').style.display = debtIncluded>0.009 ? 'flex':'none';
+    if(debtIncluded>0.009) document.getElementById('payDebtLine').textContent = fmt(debtIncluded);
+    finalTotal = Math.round((finalTotal+debtIncluded)*100)/100;
     document.getElementById('payDiscountRow').style.display = discount>0 ? 'flex':'none';
     if(discount>0) document.getElementById('payDiscountLine').textContent = '− '+fmt(discount);
     document.getElementById('payCreditRow').style.display = creditApplied>0.009 ? 'flex':'none';
@@ -118,7 +127,8 @@ function openPaymentModal(mode, comandaId){
     const blocked = opt && opt.dataset.blocked==='1';
     document.getElementById('fiadoWarning').style.display = (currentMethod().method==='fiado' && blocked) ? 'block':'none';
   }
-  selMember.onchange = ()=>{ checkFiado(); changeDecision='troco'; tempPayments=[]; recomputeTotals(); };
+  selMember.onchange = ()=>{ checkFiado(); changeDecision='troco'; tempPayments=[]; document.getElementById('payChargeDebt').checked=true; recomputeTotals(); };
+  document.getElementById('payChargeDebt').onchange = ()=>{ tempPayments=[]; recomputeTotals(); };
   function renderPaymentParts(){
     const received = tempPayments.reduce((a,p)=>a+p.amount,0);
     const balance = finalTotal-received;
@@ -152,6 +162,7 @@ function openPaymentModal(mode, comandaId){
     const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
     if(!amount || amount<=0){ toast('Informe o valor desta forma de pagamento.'); return; }
     if(method==='fiado' && (!member || memberBlockedByDebt(member))){ toast(!member?'Selecione um associado para usar fiado.':'Associado com pendência não pode usar fiado.'); return; }
+    if(method==='fiado' && debtIncluded>0.009){ toast('Para lançar no fiado, desmarque "Cobrar a pendência anterior junto".'); return; }
     tempPayments.push({method,amount}); renderPaymentParts();
   };
   document.getElementById('payPartAmount').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('addPaymentBtn').click(); } });
@@ -182,6 +193,7 @@ function openPaymentModal(mode, comandaId){
     if(tempPayments.some(p=>p.method==='fiado')){
       if(!member){ toast('Selecione um associado para usar fiado.'); return; }
       if(memberBlockedByDebt(member)){ toast('Associado com pendência não pode usar fiado.'); return; }
+      if(debtIncluded>0.009){ toast('Para lançar no fiado, desmarque "Cobrar a pendência anterior junto".'); return; }
     }
     const received = tempPayments.reduce((a,p)=>a+p.amount,0);
     if(received+0.009<finalTotal){ toast('Ainda falta '+fmt(finalTotal-received)+'.'); return; }
@@ -213,8 +225,14 @@ function openPaymentModal(mode, comandaId){
     document.removeEventListener('keydown', payKeyHandler);
     const wantReceipt = !!(document.getElementById('payPrintReceipt')||{}).checked;
     // OP-15: a venda guarda como o total foi formado (antes só o total final, sem saber de cupom ou desconto).
-    const closedSaleId = await finalizeSale(mode, comandaId, memberId, payments, finalTotal, creditApplied, creditFromChange, { subtotal: Math.round(subtotal*100)/100, discount: Math.round(discount*100)/100, couponCode: appliedCouponCode||null, creditApplied: Math.round((creditApplied||0)*100)/100, serviceCharge: serviceAmount, partialPaid });
+    // A pendência sai das formas de pagamento: a venda fica só com o consumo e a pendência
+    // entra como recebimento de fiado (extrato do sócio e caixa), depois da venda gravada.
+    const { salePayments, debtParts } = splitDebtFromPayments(payments, debtIncluded);
+    const meta = { subtotal: Math.round(subtotal*100)/100, discount: Math.round(discount*100)/100, couponCode: appliedCouponCode||null, creditApplied: Math.round((creditApplied||0)*100)/100, serviceCharge: serviceAmount, partialPaid };
+    if(debtIncluded>0.009) meta.debtPaid = debtIncluded;
+    const closedSaleId = await finalizeSale(mode, comandaId, memberId, salePayments, Math.round((finalTotal-debtIncluded)*100)/100, creditApplied, creditFromChange, meta);
     if(closedSaleId){
+      if(debtParts.length) await recordDebtPaidWithSale(member, debtParts, closedSaleId);
       recordChangeOutInCash(cashChangeOut, closedSaleId);
       if(wantReceipt) printSaleReceipt(closedSaleId);
       autoEmitNfce(closedSaleId); // não espera: a venda já está registrada
@@ -234,6 +252,40 @@ function showSalePendingWarning(){
   box.id = 'salePendingWarning'; box.className = 'sale-pending-warning'; box.setAttribute('role','alert');
   box.textContent = 'O pedido já foi para a cozinha, mas a venda ainda não foi registrada. Clique em confirmar de novo antes de fechar esta tela.';
   btn.parentNode.insertBefore(box, btn);
+}
+/* Pendência do sócio cobrada junto no fechamento (pedido do dono, 18/10): sócio liberado com a
+   senha do administrador consome com fiado em aberto; ao fechar, o total traz consumo + pendência.
+   No caixa dá para desmarcar ("Cobrar a pendência anterior junto"); o garçom cobra sempre. */
+function memberDebtDue(member){ return member ? Math.max(0, Math.round((Number(member.debt)||0)*100)/100) : 0; }
+// Separa a pendência das formas de pagamento, tirando das últimas linhas lançadas.
+function splitDebtFromPayments(payments, debt){
+  const salePayments = payments.map(p=>({...p})), debtParts = [];
+  let remaining = Math.round((Number(debt)||0)*100)/100;
+  for(let i=salePayments.length-1; i>=0 && remaining>0.009; i--){
+    const p = salePayments[i];
+    const take = Math.round(Math.min(p.amount, remaining)*100)/100;
+    if(take<=0) continue;
+    debtParts.unshift({ method:p.method, amount:take });
+    p.amount = Math.round((p.amount-take)*100)/100; remaining = Math.round((remaining-take)*100)/100;
+  }
+  return { salePayments: salePayments.filter(p=>p.amount>0.009 || p.change), debtParts };
+}
+// Mesmo registro do "Registrar Pagamento" da conta corrente: extrato do sócio + entrada no caixa.
+async function recordDebtPaidWithSale(member, debtParts, saleId){
+  try{
+    for(const part of debtParts){
+      const entryId = await MembersStore.recordDebtEntry(member.id, 'payment', part.amount, { reason:'Pendência paga no fechamento da venda #'+saleId, method:paymentMethodLabel(part.method), saleId });
+      recordFiadoPaymentInCash(member, part.amount, part.method, entryId);
+    }
+    logAction('Pendência de '+member.name+' paga junto com a venda #'+saleId+' — '+fmt(debtParts.reduce((a,p)=>a+p.amount,0)));
+    return true;
+  }catch(e){
+    // A venda já está gravada: não volta atrás, avisa para lançar o pagamento na conta corrente.
+    console.error('Falha ao baixar a pendência do sócio', saleId, e);
+    logAction('ATENÇÃO: venda '+saleId+' registrada, mas o pagamento da pendência de '+member.name+' NÃO foi lançado — lançar em Contas › Fiado.');
+    setTimeout(()=>toast('Venda registrada, mas a pendência do sócio NÃO foi baixada. Lance o pagamento na conta corrente.'), 2700);
+    return false;
+  }
 }
 async function finalizeSale(mode, comandaId, memberId, payments, total, creditApplied, creditFromChange, saleMeta){
   saleMeta = saleMeta || {};

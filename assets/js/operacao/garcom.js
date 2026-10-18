@@ -116,8 +116,10 @@ function gcComandaTotals(s){
   const creditApplied = available>0.009 ? Math.round(Math.min(available, Math.max(0, subtotal-partialPaid))*100)/100 : 0;
   const afterCredit = Math.max(0, subtotal-creditApplied);
   const service = serviceRatePct()>0 ? Math.round(serviceChargeAmount(afterCredit)*100)/100 : 0;
-  const total = Math.max(0, Math.round((afterCredit+service-partialPaid)*100)/100);
-  return { member, subtotal, partialPaid, available, creditApplied, service, total };
+  // Pendência anterior (fiado de sócio liberado pelo administrador) vem junto: memberDebtDue.
+  const debt = memberDebtDue(member);
+  const total = Math.round((Math.max(0, afterCredit+service-partialPaid)+debt)*100)/100;
+  return { member, subtotal, partialPaid, available, creditApplied, service, debt, total };
 }
 function gcSummaryHtml(t){
   return `<div class="gc-summary">
@@ -125,6 +127,7 @@ function gcSummaryHtml(t){
     ${t.creditApplied>0.009?`<div><span>Crédito do sócio${t.available-t.creditApplied>0.009?' (sobra '+fmt(t.available-t.creditApplied)+')':''}</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
     ${serviceRatePct()>0?`<div><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono">${fmt(t.service)}</span></div>`:''}
     ${t.partialPaid>0.009?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(t.partialPaid)}</span></div>`:''}
+    ${t.debt>0.009?`<div><span>(+) Pendência anterior (fiado)</span><span class="mono">${fmt(t.debt)}</span></div>`:''}
     <div class="gc-summary-total"><span>Total</span><span class="mono">${fmt(t.total)}</span></div>
   </div>`;
 }
@@ -152,6 +155,7 @@ async function gcGoCloseComanda(){
   const s = state.sales.find(x=>x.id===saleId);
   if(!s || s.status!=='open' || s.canceled){ toast('Esta comanda já foi fechada ou cancelada em outro aparelho.'); gcRenderHome(); return; }
   if(s.locked){ toast('Comanda bloqueada no caixa. Peça para desbloquearem antes de fechar.'); gcRenderComanda(); return; }
+  if(s.memberId){ try{ await MembersStore.refreshOne(s.memberId); }catch(e){} } // saldo (crédito ou pendência) mais novo
   gcFlow = { saleId, step:'charge', category:null, closeComanda:true, payMethod:null };
   gcRenderCharge();
 }
@@ -393,8 +397,10 @@ async function gcConfirmCloseComanda(){
   const s = state.sales.find(x=>x.id===saleId);
   if(!s || s.status!=='open' || s.canceled){ toast('Esta comanda já foi fechada ou cancelada em outro aparelho.'); gcRenderHome(); return; }
   if(s.locked){ toast('Comanda bloqueada no caixa. Peça para desbloquearem antes de fechar.'); return; }
+  if(s.memberId){ try{ await MembersStore.refreshOne(s.memberId); }catch(e){} }
   const t = gcComandaTotals(s);
-  // Total diferente do que o garçom mostrou ao cliente (item lançado em outro aparelho): confere antes.
+  // Total diferente do que o garçom mostrou ao cliente (item lançado em outro aparelho, saldo do sócio
+  // mudou): confere antes.
   if(Math.abs(t.total-(gcFlow.shownTotal||0))>0.009){ gcRenderCharge(); toast('O total mudou (chegou item novo nesta comanda). Confira antes de cobrar.'); return; }
   const method = gcFlow.payMethod;
   let payments = [];
@@ -404,7 +410,11 @@ async function gcConfirmCloseComanda(){
     payments = [pay];
   }
   currentSaleDraft = { id:s.id, items:JSON.parse(JSON.stringify(s.items||[])), memberId:s.memberId, customerName:s.customerName, notes:s.notes||'', type:'comanda' };
-  const closedId = await finalizeSale('comanda', s.id, s.memberId||null, payments, t.total, t.creditApplied, 0, { subtotal: t.subtotal, discount: 0, couponCode: null, creditApplied: t.creditApplied, serviceCharge: t.service, partialPaid: t.partialPaid });
+  const { salePayments, debtParts } = splitDebtFromPayments(payments, t.debt);
+  const meta = { subtotal: t.subtotal, discount: 0, couponCode: null, creditApplied: t.creditApplied, serviceCharge: t.service, partialPaid: t.partialPaid };
+  if(t.debt>0.009) meta.debtPaid = t.debt;
+  const closedId = await finalizeSale('comanda', s.id, s.memberId||null, salePayments, Math.round((t.total-t.debt)*100)/100, t.creditApplied, 0, meta);
+  if(closedId && debtParts.length) await recordDebtPaidWithSale(t.member, debtParts, closedId);
   if(!closedId){
     const cur = state.sales.find(x=>x.id===saleId);
     if(!cur || cur.status!=='open' || cur.canceled) gcRenderHome(); else gcRenderCharge();
