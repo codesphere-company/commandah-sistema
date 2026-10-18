@@ -2,7 +2,7 @@
 
 > Peça pra eu ler este arquivo no início de qualquer conversa nova sobre este projeto ("lê o HANDOFF.md antes de começar"). Eu mantenho ele atualizado ao fim de cada sessão relevante.
 
-Última atualização: **2026-10-18, noite** (paleta "Grafite quente": fundo creme e barras em grafite; comanda abre na própria tela de comandas, não mais em popup; testes reais de 18/10 conferidos pelo dono; app do garçom vê e fecha comanda, sem fiado; crédito do sócio abatido sozinho no caixa e no garçom, PR #127; fechamento cobra consumo + pendência do sócio, PR #129; ver "18/10" no começo do Estado atual). Antes: **2026-10-17, noite** (app do garçom: rolagem e cobrança do avulso na hora, PRs #124 e #125; checagem do `?v=` corrigida; caminho da integração com a laranjinha da Rede; ver "17/10" no começo do Estado atual). Antes: **2026-10-16** (painel do lançamento sincronizado com este arquivo). Antes: **2026-10-15** (CSC 3 é de produção; ver "CSC (15/10)"). Antes: **2026-10-12, noite** (ver "Fim do dia 12/10"). No ar desde 12/10:
+Última atualização: **2026-10-18, fim do dia** (CSC 3 passado para os campos de produção na Brasil NFe, t107 feita; painel do lançamento ganhou passo a passo, quadro kanban e custos; ver "18/10, fim do dia" no começo do Estado atual). Antes: **2026-10-18, noite** (paleta "Grafite quente": fundo creme e barras em grafite; comanda abre na própria tela de comandas, não mais em popup; testes reais de 18/10 conferidos pelo dono; app do garçom vê e fecha comanda, sem fiado; crédito do sócio abatido sozinho no caixa e no garçom, PR #127; fechamento cobra consumo + pendência do sócio, PR #129; ver "18/10" no começo do Estado atual). Antes: **2026-10-17, noite** (app do garçom: rolagem e cobrança do avulso na hora, PRs #124 e #125; checagem do `?v=` corrigida; caminho da integração com a laranjinha da Rede; ver "17/10" no começo do Estado atual). Antes: **2026-10-16** (painel do lançamento sincronizado com este arquivo). Antes: **2026-10-15** (CSC 3 é de produção; ver "CSC (15/10)"). Antes: **2026-10-12, noite** (ver "Fim do dia 12/10"). No ar desde 12/10:
 - NFC-e completa em homologação: dados fiscais, emissão manual e ao fechar, cupom com QR, cancelamento e configuração;
 - regras de impressão do caixa e agente 2.3;
 - login com uma leitura só;
@@ -35,6 +35,16 @@ Commandah é o sistema de comanda/PDV do **Clube Olímpico** (Maringá — negó
 O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são aplicadas pelo CLI desta máquina** (logado na conta do Commandah): `npx supabase db query --linked -f supabase/migrations/<arquivo>.sql < /dev/null` (sem o `< /dev/null` o comando fica preso esperando entrada) e depois `npx supabase migration repair --status applied <versão> --linked`. Leituras de conferência do mesmo jeito, com um `.sql` de `select`. Teste de migration antes de produção: Postgres 18 local (`C:/Program Files/PostgreSQL/18/bin`, cluster temporário com stubs de `current_tenant_id`/`current_staff_role`). Deploy de Edge Function é feito pela Supabase CLI local (`supabase functions deploy <nome> --project-ref ezfoymdesmarpunmixbs --use-api`), sem precisar de Docker nem `supabase link`.
 
 ## Estado atual (o que já está pronto)
+
+### 18/10, fim do dia — painel com kanban e custos; CSC 3 na produção
+- **Nada do site mudou** (fora a paleta, PR #132, já descrita abaixo).
+- **CSC 3 nos campos de produção (t107 feita):** o Fabricio passou o CSC 3 para os campos de **produção** no cadastro da empresa na Brasil NFe e apagou os de homologação. O Commandah continua travado em homologação. Falta só o **CSC de homologação** do escritório (t105); com ele, cadastrar nos campos de homologação e emitir a primeira NFC-e de teste (t207).
+- **Painel do lançamento ampliado** (mesmo link, https://claude.ai/artifact/9ZiwkEfqYUeNnPd1T9y3Vm):
+  - **Passo a passo até a virada** (`passos/p01..p13` no banco do painel): 13 passos em ordem, cada um ligado às tarefas (`tarefas`). A situação do passo vem das tarefas: marcar as tarefas, não os passos.
+  - **Quadro kanban** (visão padrão): A fazer, Em andamento, Bloqueado, Feito; arrastar o cartão ou trocar pelo seletor; filtro por responsável. A visão por fase continua em "Por fase".
+  - **Custos do projeto** (`custos`): já gasto, custo por mês depois da virada e o que falta pagar; o dono edita na própria página. Só a Brasil NFe foi cadastrada (R$ 49,90/mês, prevista a partir da primeira nota real). Os outros custos o dono lança.
+  - Tarefa nova t210 (comanda na própria tela + paleta), feita.
+- **Prazos a combinar:** t202 e t203 (agentes e impressoras) ainda estão com 21 e 22/10 no painel, mas ficaram para o fim por decisão do dono; a virada em 23/11 depende da resposta do contador.
 
 ### 18/10 — comanda no app do garçom, crédito automático e pendência no fechamento (PRs #127 e #129, sem migration)
 - **Paleta "Grafite quente" (escolha do dono entre 3 propostas, comparadas em https://claude.ai/artifact/Si3hSFUhCgcdhv7fKXbLaD):** o sistema era quase todo branco. No modo claro: fundo creme (`--c-bg:#F2ECE3`), cartões e campos `#FFFDF9`, faixas e bordas em tons de areia; barras do topo, abas, rodapé e topo do app do garçom em grafite (`--c-bar:#2B2621`, `--c-bar-2:#38322B`) com logotipo claro. Botões continuam no verde da marca e as cores de status não mudaram. Modo escuro igual a antes.
@@ -74,7 +84,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 - **Nada do site mudou.** O painel (https://claude.ai/artifact/9ZiwkEfqYUeNnPd1T9y3Vm) só abre na conta do claude.ai do Commandah. Se ele der 404, é login em outra conta: fazer `/login` com a conta certa, não criar outro painel.
 - Tarefas atualizadas com o que está abaixo (CSC de 15/10, PR #113):
   - **t105** (contador) passou para "em andamento". Falta pedir o CSC de homologação, a série nova e as decisões fiscais da t207.
-  - **t107** (emissor): autorização de uso de sistema feita. Falta passar o CSC 3 para os campos de produção na Brasil NFe.
+  - **t107** (emissor): autorização de uso de sistema feita. ~~Falta passar o CSC 3 para os campos de produção na Brasil NFe.~~ Feito em 18/10.
   - **t207** e **t303**: dependem só do CSC de homologação. Cancelamento e Configurações › NFC-e já estão publicados.
 - **Prazos de agora:** t107 (16/10), t109 (exportar produtos do Saipos, 18/10; a importação t204 espera essa planilha), e de 21 a 24/10 as t202, t203, t205 e t206 (agente na cozinha, impressoras, colaboradores, locais e pagamentos). Virada mantida em 23/11.
 
@@ -168,7 +178,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - **Onde fica na Brasil NFe:** no cadastro da empresa, campos "Identificação CSC" e "Código CSC", um par para homologação e outro para produção (na API: `Configuracao.NFCe.IdCSCHomologacao`/`CSCHomologacao` em `services/empresa/EditarEmpresa`). O caminho "Configurações › Geral › NFC-e" anotado antes estava errado. Não editar pela API: o `BuscarEmpresa` sem o `UserToken` (token pessoal, não salvo) devolve o cadastro vazio, e não se sabe se o `EditarEmpresa` troca o cadastro inteiro.
   - O Fabricio cadastrou o CSC nos campos de **homologação**. Teste direto na Brasil NFe (payload da função, Heineken lata + Cheese Burguer, R$ 33): a SEFAZ-PR recusou com **462 "Codigo Identificador do CSC no QR-Code nao cadastrado na SEFAZ"**. O QR saiu com o ID 3, ou seja, a Brasil NFe usa o CSC certo, mas a homologação da SEFAZ não conhece esse ID.
   - **Resposta do escritório (15/10): o CSC 3 é de produção.** Por isso o 462 na homologação; esperar não resolve. O suporte da Brasil NFe tinha sugerido tentar de novo em 30 min, mas o reteste foi cancelado depois dessa resposta.
-  - **A fazer:** (1) no painel, passar o CSC 3 para os campos de **produção** e apagar os de homologação (não emite nada: o Commandah segue travado em homologação); (2) pedir ao escritório o **CSC de homologação** (gerado à parte no portal da Receita PR), cadastrar nos campos de homologação e refazer o teste.
+  - **A fazer:** (1) ~~no painel, passar o CSC 3 para os campos de **produção** e apagar os de homologação~~ (feito em 18/10); (2) pedir ao escritório o **CSC de homologação** (gerado à parte no portal da Receita PR), cadastrar nos campos de homologação e refazer o teste.
   - **Alternativa, só se não houver CSC de homologação:** testar em produção com nota real e cancelar dentro dos 30 min. Exige a série nova do contador (a 1 é do Saipos), o secret `NFCE_PRODUCAO=liberada` e o ok da dona (CNPJ dela). Não recomendado agora.
   - Os produtos do clube ainda estão com `fiscal = null` no banco (o "Preencher" dos dados fiscais não foi rodado).
 - **Próximo:** com o CSC de homologação aceito pela SEFAZ:
