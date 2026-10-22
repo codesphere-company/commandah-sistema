@@ -200,6 +200,15 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .pay-modal .pay-total-row{font-size:28px!important;font-weight:800!important}
 .pay-modal #confirmPayBtn{min-height:54px;font-size:16px;font-weight:800}
 @media(max-width:900px){#view-balcao.active{height:auto}.balcao-split{flex-direction:column;height:auto;margin-bottom:-16px;overflow:visible}.balcao-main{padding:14px}.balcao-grid{overflow:visible}.balcao-cart{flex:none;border-left:0;border-top:1px solid var(--c-border)}.pay-cols{grid-template-columns:1fr;gap:12px}}
+/* Telas de cadastro (Produtos, Insumos, Categorias, Colaboradores, Clientes...) sem a "janela"
+   com borda e margem em volta: ocupam a área toda (pedido do dono, 22/10). A barra de botões
+   quebra linha em vez de cortar o último botão quando a tela é estreita ou o zoom é maior. */
+.view.active:has(>.workspace-gray){height:100%}
+.workspace-gray{margin:-24px -24px -44px;padding:0;height:calc(100% + 68px);min-height:0;max-width:none;background:var(--c-surface)}
+.workspace-gray>.op-window{width:100%;height:100%;min-height:0;margin:0;border:0;border-radius:0;box-shadow:none;background:var(--c-surface)}
+.workspace-gray>.op-window>.op-titlebar{height:auto;min-height:0;padding:18px 20px 6px;border-bottom:0;font-size:22px;font-weight:800;letter-spacing:-.01em}
+.workspace-gray>.op-window>.op-toolbar{flex-wrap:wrap;row-gap:8px;flex-shrink:0}.workspace-gray>.op-window>.op-tabs,.workspace-gray>.op-window>.op-titlebar{flex-shrink:0}
+@media(max-width:760px){.view.active:has(>.workspace-gray){height:auto}.workspace-gray{margin:-16px;height:auto}}
 /* Novo Pedido em duas colunas (09/10) */
 .modal.np-modal{width:min(1180px,calc(100vw - 32px))!important;max-width:none!important;height:calc(100dvh - 32px);display:flex;flex-direction:column;padding:0 0 0 0!important}
 .np-modal .modal-title{padding:14px 18px;margin:0;border-bottom:1px solid var(--c-border)}
