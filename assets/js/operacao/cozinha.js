@@ -333,7 +333,7 @@ function renderKitchenActiveFeed(){
             <span class="kagebadge">há ${ageMin} min</span>
           </div>
         </div>
-        <div class="ktime">${timeFmt(o.createdAt)} · ${o.source==='cardapio'?'Cardápio digital':o.source==='balcao'?'Ficha':o.source==='agendamento'?'Agendamento':o.source==='totem'?'Totem':o.source==='pedido-avulso'?'Novo Pedido':'Comanda'}</div>
+        <div class="ktime">${timeFmt(o.createdAt)} · ${o.source==='cardapio'?'Cardápio digital':o.source==='balcao'?'Balcão':o.source==='agendamento'?'Agendamento':o.source==='totem'?'Totem':o.source==='pedido-avulso'?'Novo Pedido':'Comanda'}</div>
         <ul>${items.map(({item,idx})=>{
           const extras=kitchenItemExtras(item);
           if(item.canceled) return `<li data-idx="${idx}" class="kitem-canceled"><s>${item.qty}x ${h(item.name)}</s> <span class="kcanceled-tag">Cancelado</span></li>`;
@@ -360,7 +360,7 @@ function renderKitchenReadyFeed(){
             ${o.local?`<div class="klocal"><span class="icn">${ICN.mapPin}</span>${h(o.local)}</div>`:''}
           </div>
         </div>
-        <div class="ktime">${o.source==='cardapio'?'Cardápio digital':o.source==='balcao'?'Ficha':o.source==='agendamento'?'Agendamento':o.source==='totem'?'Totem':o.source==='pedido-avulso'?'Novo Pedido':'Comanda'}</div>
+        <div class="ktime">${o.source==='cardapio'?'Cardápio digital':o.source==='balcao'?'Balcão':o.source==='agendamento'?'Agendamento':o.source==='totem'?'Totem':o.source==='pedido-avulso'?'Novo Pedido':'Comanda'}</div>
         <ul>${items.map(item=>{
           const extras=kitchenItemExtras(item);
           if(item.canceled) return `<li class="kitem-canceled"><s>${item.qty}x ${h(item.name)}</s> <span class="kcanceled-tag">Cancelado</span></li>`;

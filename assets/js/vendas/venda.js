@@ -177,7 +177,7 @@ function renderBalcao(){
     return `<tr data-search="${h((who+' '+(s.orderNumber||'')).toLowerCase())}" class="${selectedPdvSaleId===s.id?'selected':''}" onclick="selectPdvSale(${jsArg(s.id)})" ondblclick="editSelectedPdvSale()">
       <td class="mono">#${s.orderNumber||'—'}</td><td>${new Date(s.openedAt).toLocaleString('pt-BR')}</td><td>${duration} min</td>
       <td>${h(who)}</td><td>${s.status==='closed'?'<span class="tag tag-green">Finalizado</span>':'<span class="tag tag-amber">Em atendimento</span>'}</td>
-      <td>${new Date(statusAt).toLocaleString('pt-BR')}</td><td>Ficha</td><td>${h(s.operatorName||'—')}</td><td class="mono">${fmt(s.total)}</td></tr>`;
+      <td>${new Date(statusAt).toLocaleString('pt-BR')}</td><td>Balcão</td><td>${h(s.operatorName||'—')}</td><td class="mono">${fmt(s.total)}</td></tr>`;
   }).join('');
   el.innerHTML = `<div class="pdv-shell">
     <div class="pdv-actions">

@@ -5,7 +5,7 @@ function refreshComandas(){ comandaOptionsOpen=false; renderAll(); toast('Mesas 
 function comandaDisplayName(s){
   const member=s.memberId?state.members.find(m=>m.id===s.memberId):null;
   const who=member?member.name:(s.customerName||'Cliente avulso');
-  return `${s.tableNumber?'Mesa '+String(s.tableNumber).padStart(2,'0'):'Ficha'} — ${who}`;
+  return `${s.tableNumber?'Mesa '+String(s.tableNumber).padStart(2,'0'):'Pedido balcão'} — ${who}`;
 }
 function openMergeOrdersModal(){
   comandaOptionsOpen=false;
