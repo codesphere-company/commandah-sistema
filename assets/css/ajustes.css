@@ -506,3 +506,12 @@ button.cash-open-row:hover{border-color:var(--c-primary)}
 .ps-advanced>summary{cursor:pointer;font-weight:700;padding:8px 0;color:var(--c-text-2)}
 .pair-code-input{font-family:var(--font-mono,monospace);font-size:28px;letter-spacing:.25em;text-align:center}
 @media (max-width:700px){.ps-agent-actions{margin-left:0;width:100%}.ps-block{padding:12px}}
+/* Cadastro simples (openCrudModal: Locais, Quem Levou...): janela pequena, com respiro e os botões
+   à direita, em vez da .record-modal de 1020 px (22/10, pedido do dono). */
+.modal.crud-modal{max-width:440px;padding:0}
+.crud-modal>.modal-title{padding:16px 52px 12px 20px;margin:0;border-bottom:1px solid var(--c-border);font-size:16px}
+.crud-modal>.modal-close{position:absolute;top:8px;right:10px;float:none;margin:0}
+.crud-modal-body{padding:16px 20px 4px}
+.crud-modal-body .field:last-child{margin-bottom:0}
+.crud-modal-actions{display:flex;justify-content:flex-end;gap:8px;padding:16px 20px 18px}
+.crud-modal-actions .btn{min-width:110px}
