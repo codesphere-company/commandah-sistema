@@ -335,6 +335,24 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .comanda-inline .np-prod-btn .np-qty-badge{position:static;order:-1;flex:0 0 auto}
 .comanda-inline .levar-junto{border:0;border-radius:0;padding:6px 0}
 .comanda-inline .cash-order-side{border-right:0}
+/* Comanda em tela estreita (até 900 px, onde a lista de comandas também perde o painel; pedido do
+   dono, 22/10): em duas colunas a da esquerda ficava cortada no celular e, em ~820 px, o Pagamento
+   sumia embaixo. Agora é uma coluna só, a página rola e Imprimir/Pagamento ficam presos embaixo. */
+@media(max-width:900px){
+  .table-workspace.comanda-inline{height:auto;min-height:0;overflow:visible}
+  .comanda-inline .record-body{flex:none}
+  .comanda-inline .cash-order-head{grid-template-columns:1fr;gap:6px}
+  .comanda-inline .cash-order-balance{justify-content:flex-start;padding:0}
+  .comanda-inline .cash-order-layout{grid-template-columns:1fr;padding:0 12px 12px}
+  .comanda-inline .cash-order-side{padding:12px 0}
+  .comanda-inline .cash-order-links{flex-direction:row;flex-wrap:wrap;gap:2px 8px!important;padding:8px 0 0!important}
+  .comanda-inline .cash-order-main{overflow:visible!important;border-left:1px solid var(--c-border-strong)}
+  .comanda-inline .comanda-history-panel .finance-grid{max-height:60vh;overflow:auto}
+  .comanda-inline .record-actions{position:sticky;bottom:-44px;z-index:5} /* encosta no fim do <main>, descontando o respiro de baixo dele */
+}
+@media(max-width:760px){
+  .comanda-inline .record-actions{bottom:-16px}
+}
 /* Detalhe do pedido */
 .order-detail-items{max-height:min(40vh,420px)}
 .order-detail-items tr.canceled td{text-decoration:line-through;color:var(--c-text-3)}
