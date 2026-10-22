@@ -61,6 +61,21 @@ function comandaPanelPay(id){
   openComanda(id);
   const btn = document.getElementById('btnCloseComanda'); if(btn) btn.click();
 }
+// Rodapé da comanda em tela cheia (22/10): mostrava subtotal + serviço sem abater o crédito do
+// sócio, e o total ficava maior que o do pagamento. Agora é a mesma conta do pagamento, do painel
+// e do app do garçom (gcComandaTotals), com os itens ainda não enviados do rascunho.
+function comandaDraftTotalsHtml(){
+  const sale = state.sales.find(x=>x.id===currentSaleDraft.id); if(!sale) return renderTotalWithService(draftTotal());
+  const t = gcComandaTotals({ ...sale, items: currentSaleDraft.items });
+  return `<div class="cash-order-total-breakdown">
+    <div class="cash-order-subtotal-line"><span>Subtotal</span><span class="mono">${fmt(t.subtotal)}</span></div>
+    ${t.creditApplied>0.009?`<div class="cash-order-subtotal-line"><span>(−) Crédito do sócio (abatido)</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
+    ${t.service>0.009?`<div class="cash-order-service-line"><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono">${fmt(t.service)}</span></div>`:''}
+    ${t.partialPaid>0.009?`<div class="cash-order-subtotal-line"><span>(−) Já pago (parcial)</span><span class="mono">− ${fmt(t.partialPaid)}</span></div>`:''}
+    ${t.debt>0.009?`<div class="cash-order-subtotal-line"><span>(+) Pendência anterior (fiado)</span><span class="mono">${fmt(t.debt)}</span></div>`:''}
+    <div class="cash-order-total"><span>Total</span><span class="mono" id="draftTotal">${fmt(t.total)}</span></div>
+  </div>`;
+}
 function comandaPanelHtml(s){
   if(!s) return `<aside class="comanda-panel comanda-panel-empty" aria-label="Comanda selecionada"><p>Nenhuma comanda aberta.</p><button class="op-btn primary" onclick="openNewComandaModal()">＋ Abrir comanda</button></aside>`;
   const info = comandaPersonData(s);
