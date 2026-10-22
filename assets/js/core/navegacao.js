@@ -18,43 +18,79 @@ function buildNav(){
   document.getElementById('view-'+activeView).classList.add('active');
   updateTitle();
 }
+// Permissão e clique de um item do menu (usado pelo menu lateral e pela faixa de atalhos).
+function ribbonItemAction(it, allowed){
+  const hasAction = !!it.action;
+  const hasView = !!it.view;
+  // FAIL-CLOSED. Antes era `hasView ? allowed.includes(it.view) : true`, o que
+  // liberava os 39 itens de `action:` pra QUALQUER papel — o caixa via e clicava
+  // em Configurações do Sistema, Bot WhatsApp (grava token), Contas a Pagar,
+  // Logs, Cupons... sem precisar de devtools. Agora todo item de ação declara
+  // `perm:`; item de ação SEM `perm` é negado de propósito, pra que um item novo
+  // adicionado no futuro sem permissão apareça bloqueado em vez de aberto.
+  // Item sem `action` e sem `view` (módulo de referência: Connect, TEF, Emissão
+  // Fiscal) segue liberado — só abre um texto explicativo, não toca em dado.
+  const permitted = it.perm ? allowed.includes(it.perm)
+                  : hasView ? allowed.includes(it.view)
+                  : !hasAction;
+  const reason = !hasAction && !hasView ? 'Abrir detalhes e requisitos do módulo'
+    : (!permitted ? 'Sem permissão para o seu perfil' : '');
+  const onclick = permitted ? (hasAction ? `${it.action}(${it.actionArg?`${jsArg(it.actionArg)}`:''})` : hasView ? `openRibbonView(${jsArg(it.view)},${jsArg(h(it.label))})` : `openReferenceModule(${jsArg(h(it.label))})`) : `toast(${jsArg(reason)})`;
+  return { enabled: permitted, reason, onclick };
+}
+// Visual A (22/10): várias telas têm a altura em calc(100vh - Npx), com N contando a barra e as
+// abas antigas do topo (158 px até 800 px de altura de tela, 177 px acima disso; medido em 22/10).
+// --shell-gap devolve a diferença para o topo de agora (faixa de atalhos, ou nada na área Principal).
+function updateShellGap(){
+  const app = document.getElementById('app'), ribbon = document.querySelector('.ribbon'), side = document.querySelector('.sidebar');
+  if(!app || !ribbon) return;
+  const oldTop = innerHeight<=800 ? 158 : 177;
+  const sideOnTop = side && getComputedStyle(app).flexDirection==='column' ? side.offsetHeight : 0;
+  const top = sideOnTop + (ribbon.classList.contains('is-empty') ? 0 : ribbon.offsetHeight);
+  document.documentElement.style.setProperty('--shell-gap', Math.max(0, oldTop-top)+'px');
+}
+window.addEventListener('resize', ()=>{ if(currentUser) updateShellGap(); });
+// Nome no menu lateral das telas da área Principal (no ribbon eram rótulos de botão).
+const SIDEBAR_LABELS = {caixa:'Caixa', comandas:'Comandas', balcao:'Balcão', delivery:'Delivery', cozinha:'Cozinha', associados:'Clientes'};
+// Visual A (22/10): o menu lateral mostra direto as telas da primeira área ("Principal": caixa,
+// comandas, balcão...) e, abaixo, as outras áreas; clicar numa área abre a faixa de atalhos dela.
 function renderRibbonTabs(){
   const el = document.getElementById('ribbonTabs');
-  el.innerHTML = visibleTabs.map(t=>`<button data-tab="${t.id}" class="${t.id===activeRibbonTab?'active':''}">${t.label}</button>`).join('');
+  const allowed = rolePermissions(currentUser.role);
+  const [home, ...areas] = visibleTabs;
+  const homeItems = home ? home.groups.flatMap(g=>g.items).filter(it=>!HIDDEN_MODULES.has(it.label)) : [];
+  const links = homeItems.map(it=>{
+    const a = ribbonItemAction(it, allowed);
+    const active = activeRibbonTab===home.id && it.view && it.view===activeView;
+    return `<button class="sb-link ${a.enabled?'':'disabled'} ${active?'active':''}" title="${a.reason}" onclick="activeRibbonTab=${jsArg(home.id)};${a.onclick}"><span class="ic">${it.icon||''}</span>${SIDEBAR_LABELS[it.view]||it.label}</button>`;
+  }).join('');
+  const areaLinks = areas.map(t=>{
+    const first = t.groups[0] && t.groups[0].items[0];
+    return `<button class="sb-link ${t.id===activeRibbonTab?'active':''}" data-tab="${t.id}"><span class="ic">${(first&&first.icon)||''}</span>${t.label}</button>`;
+  }).join('');
+  el.innerHTML = links + (areaLinks ? `<div class="sb-sep">Gestão</div>${areaLinks}` : '');
   el.onclick = (e)=>{ const btn=e.target.closest('button[data-tab]'); if(!btn) return; activeRibbonTab=btn.dataset.tab; renderRibbonTabs(); renderRibbonToolbar(); };
 }
 function renderRibbonToolbar(){
   const el = document.getElementById('ribbonToolbar');
   const allowed = rolePermissions(currentUser.role);
   const tab = visibleTabs.find(t=>t.id===activeRibbonTab);
-  if(!tab){ el.innerHTML=''; return; }
+  // A primeira área não tem faixa: os atalhos dela já estão no menu lateral.
+  el.parentElement.classList.toggle('is-empty', !tab || tab===visibleTabs[0]);
+  if(!tab || tab===visibleTabs[0]){ el.innerHTML=''; updateShellGap(); return; }
   el.classList.toggle('reports-mode',tab.id==='relatorios');
   const groups = tab.groups.map(g=>({...g, items:g.items.filter(it=>!HIDDEN_MODULES.has(it.label))})).filter(g=>g.items.length);
   el.innerHTML = groups.map(g=>`
     <div class="rb-group">
       <div class="rb-icons">${g.items.map(it=>{
-        const hasAction = !!it.action;
-        const hasView = !!it.view;
-        // FAIL-CLOSED. Antes era `hasView ? allowed.includes(it.view) : true`, o que
-        // liberava os 39 itens de `action:` pra QUALQUER papel — o caixa via e clicava
-        // em Configurações do Sistema, Bot WhatsApp (grava token), Contas a Pagar,
-        // Logs, Cupons... sem precisar de devtools. Agora todo item de ação declara
-        // `perm:`; item de ação SEM `perm` é negado de propósito, pra que um item novo
-        // adicionado no futuro sem permissão apareça bloqueado em vez de aberto.
-        // Item sem `action` e sem `view` (módulo de referência: Connect, TEF, Emissão
-        // Fiscal) segue liberado — só abre um texto explicativo, não toca em dado.
-        const permitted = it.perm ? allowed.includes(it.perm)
-                        : hasView ? allowed.includes(it.view)
-                        : !hasAction;
-        const enabled = permitted;
-        const reason = !hasAction && !hasView ? 'Abrir detalhes e requisitos do módulo'
-          : (!permitted ? 'Sem permissão para o seu perfil' : '');
-        return `<button class="${enabled?'':'disabled'} ${(it.view && it.view===activeView)||it.label===activeRibbonAction?'active':''}" title="${reason}"
-          onclick="${enabled ? (hasAction ? `${it.action}(${it.actionArg?`${jsArg(it.actionArg)}`:''})` : hasView ? `openRibbonView(${jsArg(it.view)},${jsArg(h(it.label))})` : `openReferenceModule(${jsArg(h(it.label))})`) : `toast(${jsArg(reason)})`}">
+        const a = ribbonItemAction(it, allowed);
+        return `<button class="${a.enabled?'':'disabled'} ${(it.view && it.view===activeView)||it.label===activeRibbonAction?'active':''}" title="${a.reason}"
+          onclick="${a.onclick}">
           <span class="ic">${it.icon}</span><span class="lb">${it.label}</span></button>`;
       }).join('')}</div>
       <div class="rb-caption">${g.label}</div>
     </div>`).join('');
+  updateShellGap();
 }
 function openRibbonView(viewId,label){ activeRibbonAction=label||''; switchView(viewId); }
 function openReportView(label){activeRibbonAction=label;switchView('relatorios');}
@@ -65,7 +101,7 @@ function switchView(viewId){
   activeViewRibbonTab=activeRibbonTab;
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+activeView).classList.add('active');
-  renderRibbonToolbar(); updateTitle(); renderAll();
+  renderRibbonTabs(); renderRibbonToolbar(); updateTitle(); renderAll();
 }
 function closeOperationalWindow(){
   const modalRoot=document.getElementById('modalRoot');

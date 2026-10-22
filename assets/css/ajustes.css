@@ -16,7 +16,7 @@
 /* UX-03: no PC do caixa (1366x768) a janela da comanda e a do delivery cabem na tela, com Pagamento/Salvar visíveis */
 .cash-order-modal{min-height:min(650px,calc(100dvh - 24px))!important}
 .delivery-modal{min-height:min(690px,calc(100dvh - 24px))!important}
-@media (max-height:800px){.op-window{min-height:min(520px,calc(100dvh - 182px))}.rb-caption{display:none}}
+@media (max-height:800px){.op-window{min-height:min(520px,calc(100dvh - 182px + var(--shell-gap,0px)))}.rb-caption{display:none}}
 /* UX-05: ações perigosas separadas no fim do menu, cada uma com explicação */
 .pdv-options-danger{border-top:1px solid var(--c-border-strong);margin-top:8px;padding-top:8px}
 .pdv-options-inner .pdv-options-danger .danger{border:0;margin:0;padding:12px 8px;text-align:left;color:var(--c-danger)}

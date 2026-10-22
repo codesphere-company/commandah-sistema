@@ -4,35 +4,36 @@
    (html[data-theme="dark"], mais abaixo). Contrastes medidos (WCAG 2.x) ao lado. */
 :root{
   /* superfícies */
-  /* Paleta "Grafite quente" (escolha do dono, 18/10): fundo creme e barras em grafite; antes tudo
-     era branco com pequenos detalhes de cor. Os tons de texto e de status continuam os mesmos. */
-  --c-bg:#F2ECE3;            /* fundo da aplicação (creme) */
-  --c-surface:#FFFDF9;       /* cartões, janelas, modais, campos */
-  --c-surface-2:#FAF5EE;     /* faixas internas, cabeçalhos, rodapés */
-  --c-surface-3:#EEE6DA;     /* áreas afundadas, hover, chips neutros */
-  --c-overlay:rgba(16,22,34,.38);
+  /* Visual A "Lateral clara" (escolha do dono, 22/10, entre 4 propostas): fundo cinza-claro frio,
+     cartões brancos, menu numa coluna branca à esquerda e verde-petróleo nas ações. Substitui a
+     paleta "Grafite quente" (creme e barras escuras) de 18/10. */
+  --c-bg:#F4F6F8;            /* fundo da aplicação */
+  --c-surface:#FFFFFF;       /* cartões, janelas, modais, campos */
+  --c-surface-2:#F9FAFB;     /* faixas internas, cabeçalhos, rodapés */
+  --c-surface-3:#F0F2F5;     /* áreas afundadas, hover, chips neutros */
+  --c-overlay:rgba(17,24,39,.40);
   /* texto */
-  --c-text:#1D2433;          /* 14.4:1 sobre --c-bg */
-  --c-text-2:#465063;        /* 7.5:1 */
-  --c-text-3:#5C6576;        /* 5.4:1 sobre --c-bg */
+  --c-text:#111827;          /* 16.6:1 sobre --c-bg */
+  --c-text-2:#374151;        /* 9.6:1 */
+  --c-text-3:#525B6B;        /* 6.3:1 sobre --c-bg */
   --c-text-inverse:#FFFFFF;  /* texto sobre cor sólida */
   /* bordas */
-  --c-border:#E5DACA;
-  --c-border-strong:#D3C4AE;
+  --c-border:#E5E7EB;
+  --c-border-strong:#D1D5DB;
   --c-border-input:#8B94A3;  /* 3.06:1 sobre branco */
   /* ação primária */
   --c-brand:#0D9E79;         /* verde da marca: logotipo e detalhes (não usar com texto branco) */
-  --c-primary:#0B7A5E;       /* botão principal; texto branco 5.3:1 */
-  --c-primary-hover:#086650;
-  --c-primary-soft:#E2F3EC;
-  --c-primary-text:#086650;
-  --c-focus:#0B7A5E;
+  --c-primary:#0F766E;       /* botão principal (verde-petróleo); texto branco 5.5:1 */
+  --c-primary-hover:#115E59;
+  --c-primary-soft:#E6F4F1;
+  --c-primary-text:#0F5F58;
+  --c-focus:#0F766E;
   /* status */
   --c-success:#1B6E45; --c-success-soft:#E5F3EA;
   --c-warning:#8A4B00; --c-warning-solid:#A15C00; --c-warning-soft:#FCF0D8;
   --c-danger:#B42318;  --c-danger-soft:#FDECEA;
   --c-info:#2456A6;    --c-info-soft:#E7EFFB;
-  --c-neutral-soft:#EEE6DA;
+  --c-neutral-soft:#F0F2F5;
   /* destaque invertido (aba/chip ativo, aviso flutuante): escuro no claro, claro no escuro */
   --c-strong:var(--c-text); --c-on-strong:var(--c-surface);
   /* Cores da marca do estabelecimento: applyBranding() sobrescreve estas 5 com as escolhidas em Configurações */
@@ -42,18 +43,18 @@
   --c-mark:#0D9E79; --c-mark-ink:#1D2433;
   --c-frame:var(--navy); --c-frame-2:var(--navy2); --c-frame-3:var(--navy3);
   --c-frame-text:#FFFFFF; --c-frame-text-2:#CFD8E8; --c-frame-text-3:#9FB0CC;
-  --c-backdrop:#EAE2D6;      /* fundo atrás da folha de relatório (UX-14: era #707070, pesado) */
-  /* barras do sistema (topo, abas, rodapé e topo do app do garçom): fixas, não seguem a cor da
-     marca escolhida em Configurações (essa continua em --c-frame/--navy) */
+  --c-backdrop:#E9ECF0;      /* fundo atrás da folha de relatório (UX-14: era #707070, pesado) */
+  /* barra grafite do topo do app do garçom (até a etapa 4 do visual A; no computador o topo e as
+     abas viraram o menu lateral claro em 22/10): fixa, não segue a cor da marca de Configurações */
   --c-bar:#2B2621; --c-bar-2:#38322B; --c-bar-line:rgba(255,255,255,.12);
   --c-bar-text:#FFFFFF; --c-bar-text-2:#E8DFD3; --c-bar-text-3:#BBAE9F;
   --c-bar-accent:#3DBE93; --c-bar-ok:#7EE0B5; --c-bar-bad:#FF9B8F;
   /* letras */
-  --font-sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --font-sans:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   --font-brand:var(--font-sans);
   --fs-xs:12px; --fs-sm:13px; --fs-md:14px; --fs-lg:16px; --fs-xl:18px; --fs-2xl:22px; --fs-3xl:28px;
   /* cantos, sombras, espaços */
-  --r-sm:6px; --r-md:10px; --r-lg:14px; --r-pill:999px;
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-pill:999px;
   --sh-1:0 1px 2px rgba(16,24,40,.05);
   --sh-2:0 2px 8px rgba(16,24,40,.07),0 1px 2px rgba(16,24,40,.04);
   --sh-3:0 16px 40px rgba(16,24,40,.16);
