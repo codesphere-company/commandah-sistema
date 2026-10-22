@@ -1,5 +1,5 @@
 /* ============ AGENDAMENTO DE PEDIDOS ============ */
-function typeLabel(t){ return t==='balcao'?'Balcão':t==='comanda'?'Comanda':t==='agendamento'?'Agendamento':t==='totem'?'Totem':t; }
+function typeLabel(t){ return t==='balcao'?'Ficha':t==='comanda'?'Comanda':t==='agendamento'?'Agendamento':t==='totem'?'Totem':t; }
 function methodLabel(m){ return m==='dinheiro'?'Dinheiro':m==='credito'?'Crédito':m==='debito'?'Débito':m==='cartao'?'Cartão':m==='pix'?'Pix':m==='vale'?'Vale Refeição':m==='fiado'?'Fiado':m&&m.startsWith('outro:')?m.slice(6):m; }
 /* Pagamento de fiado recebido com o caixa aberto vira entrada no caixa. Antes ele
    só ia pro extrato do sócio: o dinheiro entrava na gaveta e o fechamento acusava
