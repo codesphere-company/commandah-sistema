@@ -29,7 +29,9 @@ function openPaymentModal(mode, comandaId){
   const memberOptions = state.members.filter(m=>!m.archived).map(m=>`<option value="${m.id}" ${memberBlockedByDebt(m)?'data-blocked="1"':''}>${h((m.code?m.code+' — ':'')+m.name+memberDebtLabel(m))}</option>`).join('');
   const preselected = currentSaleDraft.memberId || '';
   const methods = methodConfig();
-  openModal('Pagamento', `
+  // Visual A, etapa 3 (22/10): duas colunas (resumo e opções | forma de pagamento e confirmar),
+  // para caber em 1366x768 sem rolar; até 900 px de largura viram uma coluna só.
+  openModal('Pagamento', `<div class="pay-cols"><div class="pay-col">
     <div class="pay-summary">
       <div><span>Subtotal</span><span class="mono" id="paySubtotalLine">${fmt(subtotal)}</span></div>
       <div id="payDiscountRow" style="display:none"><span>Desconto</span><span class="mono" id="payDiscountLine">− R$ 0,00</span></div>
@@ -52,7 +54,8 @@ function openPaymentModal(mode, comandaId){
       <select id="paySelMember"><option value="">— Cliente avulso —</option>${memberOptions}</select></div>
     <label class="comp-switch" id="payDebtBox" style="margin:0 0 8px" hidden><input type="checkbox" id="payChargeDebt" checked><span></span> <b id="payDebtLabel" style="font-weight:400">Cobrar a pendência anterior junto</b></label>
     <label class="comp-switch" style="margin:0 0 8px"><input type="checkbox" id="payPrintReceipt"><span></span> <b style="font-weight:400">Imprimir comprovante (se o cliente pedir)</b></label>
-    <label class="np-label" style="margin-top:12px;display:block">Forma de pagamento <span style="text-transform:none;font-weight:400">(atalho de teclado entre parênteses)</span></label>
+    </div><div class="pay-col">
+    <label class="np-label" style="margin-top:0;display:block">Forma de pagamento <span style="text-transform:none;font-weight:400">(atalho de teclado entre parênteses)</span></label>
     <div class="pay-method-grid" id="payMethodGrid">
       ${methods.map(m=>`<button class="pay-method-btn" data-key="${m.key}" data-method="${h(m.method)}" onclick="selectPayMethod(${jsArg(m.key)})"><span class="pay-method-icon">${m.icon}</span><span>${h(m.label)}</span><span class="pay-method-key">${m.key}</span></button>`).join('')}
     </div>
@@ -70,8 +73,8 @@ function openPaymentModal(mode, comandaId){
       </div>
       <div id="payChangeChoice" style="display:none;gap:8px;margin-top:10px"></div>
     </div>
-    <button class="btn btn-primary btn-block" id="confirmPayBtn">Confirmar pagamento</button>`,true);
-  const modal=document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal'); modal.style.width='520px';
+    <button class="btn btn-primary btn-block" id="confirmPayBtn">Confirmar pagamento</button></div></div>`,true);
+  const modal=document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal','pay-modal'); modal.style.width='960px';
   const selMember = document.getElementById('paySelMember');
   let finalTotal = subtotal, discount = 0, selectedMethodKey = 'A', creditApplied = 0, changeDecision = 'troco', appliedCouponCode = '', serviceAmount = 0, debtIncluded = 0;
   tempPayments = [];
