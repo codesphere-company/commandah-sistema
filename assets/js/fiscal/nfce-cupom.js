@@ -629,7 +629,7 @@ function renderComandaQuickCart(){
   wrap.style.display='';
   const total = comandaQuickCart.reduce((a,i)=>a+i.price*i.qty,0);
   const qty = comandaQuickCart.reduce((a,i)=>a+i.qty,0);
-  wrap.innerHTML = `<div class="np-cart" style="border-top:1px solid var(--border,#e5e5e5);padding-top:10px">
+  wrap.innerHTML = `<div class="np-cart" style="border-top:1px solid var(--c-border);padding-top:10px">
     ${comandaQuickCart.map((i,idx)=>`
       <div class="item-line" style="flex-wrap:wrap">
         <span>${h(i.name)}</span>
