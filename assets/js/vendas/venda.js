@@ -132,7 +132,10 @@ function renderDraftItems(){
       </div>
     </div>`).join('') : `<p class="empty">${el.closest('.cash-order-modal')?'Nenhum item lançado.':'Nenhum item adicionado.'}</p>`;
   }
-  const totEl = document.getElementById('draftTotal');
+  // Comanda aberta na tela cheia: o rodapé usa a mesma conta do pagamento (comandaDraftTotalsHtml).
+  const comandaTotals = document.getElementById('draftTotalWrap');
+  if(comandaTotals && currentSaleDraft.type==='comanda' && currentSaleDraft.id) comandaTotals.innerHTML = comandaDraftTotalsHtml();
+  const totEl = comandaTotals && currentSaleDraft.type==='comanda' ? null : document.getElementById('draftTotal');
   if(totEl){
     const subtotal = draftTotal();
     const rate = currentSaleDraft.type==='comanda' ? serviceRatePct() : 0;
