@@ -135,6 +135,33 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .comanda-card-add{display:flex;align-items:center;justify-content:center;gap:8px;border:2px dashed var(--c-border-strong);border-left-width:2px;box-shadow:none;background:transparent;color:var(--c-primary-text);font-weight:700}
 .comanda-card-add .cc-plus{font-size:22px;line-height:1}
 .comanda-card-add:hover{background:var(--c-primary-soft);border-color:var(--c-primary)}
+/* Visual A, etapa 2 (22/10): lista à esquerda e a comanda escolhida num painel à direita.
+   A área tem a altura da tela; a lista e os itens do painel rolam por dentro. */
+.comanda-split{display:flex;align-items:stretch;padding:0;height:calc(100% + 68px);margin-bottom:-44px;min-height:0;overflow:hidden} /* 24 px de cima + 44 de baixo do main */
+.comanda-list-col{flex:1 1 auto;min-width:0;overflow-y:auto;padding:16px 20px}
+#view-comandas.active{height:100%} /* a lista dividida usa a altura toda da área */
+.comanda-split .op-search{width:auto;flex:1 1 180px;min-width:160px}.comanda-split .op-search input{width:100%}
+.comanda-card.selected{border-top-color:var(--c-primary);border-right-color:var(--c-primary);border-bottom-color:var(--c-primary);box-shadow:inset 0 0 0 1px var(--c-primary)} /* a faixa da esquerda continua com a cor do tempo */
+.comanda-panel{flex:0 0 340px;display:flex;flex-direction:column;gap:12px;min-height:0;padding:22px 20px;background:var(--c-surface);border-left:1px solid var(--c-border)}
+.comanda-panel .tag{align-self:flex-start}
+.comanda-panel-empty{align-items:flex-start;justify-content:center;color:var(--c-text-2)}
+.cp-head{display:flex;align-items:baseline;gap:10px;min-width:0}
+.cp-num{font-size:28px;font-weight:800;letter-spacing:-.02em;color:var(--c-text);flex-shrink:0}
+.cp-name{font-size:16px;font-weight:700;color:var(--c-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-meta{font-size:13px;color:var(--c-text-3);margin-top:-6px}
+.cp-items{flex:1 1 auto;min-height:60px;overflow-y:auto;border-top:1px solid var(--c-border)}
+.cp-item{display:flex;gap:10px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--c-border);font-size:14px;color:var(--c-text)}
+.cp-qty{color:var(--c-text-3);min-width:26px}
+.cp-iname{flex:1;min-width:0}
+.cp-item .mono{font-weight:600}
+.cp-empty{color:var(--c-text-3);font-size:14px;margin:14px 0}
+.cp-totals{display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--c-text-2)}
+.cp-totals>div{display:flex;justify-content:space-between}
+.cp-totals .cp-total{font-size:20px;font-weight:800;color:var(--c-text);padding-top:6px}
+.cp-actions{display:flex;flex-direction:column;gap:8px}
+.cp-actions .op-btn{width:100%;min-height:46px;justify-content:center}
+.cp-actions .cp-pay{min-height:52px;font-size:16px;font-weight:800}
+@media(max-width:900px){#view-comandas.active{height:auto}.comanda-panel{display:none}.comanda-split{height:auto;margin-bottom:-16px;overflow:visible}.comanda-list-col{overflow:visible;padding:14px}.comanda-card.selected{border-top-color:var(--c-border);border-right-color:var(--c-border);border-bottom-color:var(--c-border);box-shadow:none}}
 /* Novo Pedido em duas colunas (09/10) */
 .modal.np-modal{width:min(1180px,calc(100vw - 32px))!important;max-width:none!important;height:calc(100dvh - 32px);display:flex;flex-direction:column;padding:0 0 0 0!important}
 .np-modal .modal-title{padding:14px 18px;margin:0;border-bottom:1px solid var(--c-border)}
