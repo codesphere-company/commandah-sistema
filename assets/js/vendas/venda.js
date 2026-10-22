@@ -216,8 +216,8 @@ function renderBalcaoPdv(el){
       <div class="balcao-cats" role="group" aria-label="Categorias"><button class="${!balcaoCategory?'active':''}" onclick="setBalcaoCategory('')">Todos</button>${categories.map(c=>`<button class="${balcaoCategory===c?'active':''}" data-category="${h(c)}" onclick="setBalcaoCategory(this.dataset.category)">${h(c)}</button>`).join('')}</div>
       <div class="balcao-grid" id="balcaoGrid">${cards || '<p class="empty">Cadastre produtos na aba Produtos antes de vender.</p>'}</div>
     </div>
-    <aside class="balcao-cart" aria-label="Pedido do balcão">
-      <div class="bc-head"><h2>Venda no balcão</h2><span>Pedido #${(state.orderCounter||0)+1}</span></div>
+    <aside class="balcao-cart" aria-label="Pedido da ficha">
+      <div class="bc-head"><h2>Ficha</h2><span>Pedido #${(state.orderCounter||0)+1}</span></div>
       <div class="bc-client">${member?`<span>Cliente: <b>${h(member.name)}</b></span><button class="link-btn" onclick="openBalcaoClientModal()">Trocar</button><button class="link-btn" onclick="unlinkBalcaoClient()">Tirar</button>`:`<span>Cliente avulso</span><button class="link-btn" onclick="openBalcaoClientModal()">Vincular cliente</button>`}</div>
       <input id="pdvNote" placeholder="Nome para chamar ou observação" value="${h(currentSaleDraft.notes||'')}" oninput="currentSaleDraft.notes=this.value">
       <div class="bc-items" id="draftItemsList"></div>
