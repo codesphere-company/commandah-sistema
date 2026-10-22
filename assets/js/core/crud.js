@@ -153,10 +153,14 @@ function openCrudModal(entityKey, id){
   if(entityKey==='categorias'){openCategoryModal(id);return;}
   const cfg = CRUD_CONFIGS[entityKey];
   const item = id ? state[entityKey].find(x=>x.id===id) : null;
+  // Janela pequena (22/10, pedido do dono): era .record-modal, feita para cadastro grande — 1020 px de
+  // largura para um campo só, campo e botão colados na borda e "Salvar" da largura toda.
   openModal((item?'Editar':'Novo')+' — '+cfg.title, `
-    ${cfg.fields.map(f=>`<div class="field"><label>${h(f.label)}</label><input id="crud_${f.key}" type="${f.type==='number'?'number':'text'}" ${f.type==='number'?'step="0.01"':''} value="${h(item?(item[f.key]??''):'')}"></div>`).join('')}
-    <button class="btn btn-primary btn-block" id="crudSaveBtn">Salvar</button>`);
-  document.querySelector('#modalRoot .modal').classList.add('record-modal');
+    <div class="crud-modal-body">${cfg.fields.map(f=>`<div class="field"><label>${h(f.label)}</label><input id="crud_${f.key}" type="${f.type==='number'?'number':'text'}" ${f.type==='number'?'step="0.01"':''} value="${h(item?(item[f.key]??''):'')}"></div>`).join('')}</div>
+    <div class="crud-modal-actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" id="crudSaveBtn">Salvar</button></div>`);
+  document.querySelector('#modalRoot .modal').classList.add('crud-modal');
+  document.querySelectorAll('#modalRoot .crud-modal-body input').forEach(i=>i.addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('crudSaveBtn').click(); }));
+  document.querySelector('#modalRoot .crud-modal-body input')?.focus();
   document.getElementById('crudSaveBtn').onclick = ()=>{
     const data = {};
     for(const f of cfg.fields){
