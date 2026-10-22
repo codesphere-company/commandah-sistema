@@ -44,11 +44,11 @@
   --c-frame:var(--navy); --c-frame-2:var(--navy2); --c-frame-3:var(--navy3);
   --c-frame-text:#FFFFFF; --c-frame-text-2:#CFD8E8; --c-frame-text-3:#9FB0CC;
   --c-backdrop:#E9ECF0;      /* fundo atrás da folha de relatório (UX-14: era #707070, pesado) */
-  /* barra grafite do topo do app do garçom (até a etapa 4 do visual A; no computador o topo e as
-     abas viraram o menu lateral claro em 22/10): fixa, não segue a cor da marca de Configurações */
-  --c-bar:#2B2621; --c-bar-2:#38322B; --c-bar-line:rgba(255,255,255,.12);
-  --c-bar-text:#FFFFFF; --c-bar-text-2:#E8DFD3; --c-bar-text-3:#BBAE9F;
-  --c-bar-accent:#3DBE93; --c-bar-ok:#7EE0B5; --c-bar-bad:#FF9B8F;
+  /* topo do app do garçom: claro desde a etapa 4 do visual A (22/10; antes era grafite). Fixo,
+     não segue a cor da marca de Configurações (essa continua em --c-frame/--navy) */
+  --c-bar:#FFFFFF; --c-bar-2:#FFFFFF; --c-bar-line:#E5E7EB;
+  --c-bar-text:#111827; --c-bar-text-2:#374151; --c-bar-text-3:#525B6B;
+  --c-bar-accent:#0F766E; --c-bar-ok:#1B6E45; --c-bar-bad:#B42318;
   /* letras */
   --font-sans:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   --font-brand:var(--font-sans);

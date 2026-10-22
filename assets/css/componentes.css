@@ -131,7 +131,7 @@ body.tv-mode .kbtn-ready{width:110px!important;font-size:20px!important;backgrou
 
 /* ===== APP DO GARÇOM (redesign etapa 7): cartões brancos, preço sempre visível, escolhido em destaque ===== */
 #garcomApp{background:var(--c-bg)!important}
-.gc-bar{background:var(--c-bar)!important;color:var(--c-bar-text)!important;border-bottom:0;box-shadow:var(--sh-1)}
+.gc-bar{background:var(--c-bar)!important;color:var(--c-bar-text)!important;border-bottom:1px solid var(--c-border);box-shadow:none}
 .gc-bar .gc-title{font-size:18px}
 .gc-bar .gc-title small{color:var(--c-bar-text-2)!important;opacity:1!important;font-size:13px}
 .gc-bar .gc-menu-btn{color:var(--c-bar-text)!important;min-width:48px;min-height:48px}

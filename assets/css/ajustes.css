@@ -209,6 +209,23 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .workspace-gray>.op-window>.op-titlebar{height:auto;min-height:0;padding:18px 20px 6px;border-bottom:0;font-size:22px;font-weight:800;letter-spacing:-.01em}
 .workspace-gray>.op-window>.op-toolbar{flex-wrap:wrap;row-gap:8px;flex-shrink:0}.workspace-gray>.op-window>.op-tabs,.workspace-gray>.op-window>.op-titlebar{flex-shrink:0}
 @media(max-width:760px){.view.active:has(>.workspace-gray){height:auto}.workspace-gray{margin:-16px;height:auto}}
+/* Visual A, etapa 4 (22/10): app do garçom com topo claro, saudação e comandas em lista */
+.gc-bar-home{justify-content:flex-start;gap:12px}
+.gc-bar-home .gc-menu-btn{margin-left:auto}
+.gc-avatar{width:40px;height:40px;flex-shrink:0;border-radius:50%;background:var(--c-text);color:var(--c-surface);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px}
+.gc-bar .gc-title small{display:block;font-weight:500}
+.gc-row-list{display:flex;flex-direction:column;gap:10px}
+.gc-row{display:flex;align-items:center;gap:12px;width:100%;min-height:68px;padding:12px 14px;text-align:left;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);border-radius:var(--r-lg);font:inherit;cursor:pointer}
+.gc-row:active{background:var(--c-surface-3)}
+.gc-row-num{flex:0 0 auto;min-width:52px;font-size:22px;font-weight:800;letter-spacing:-.02em}
+.gc-row-main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+.gc-row-main b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gc-row-main small{font-size:12px;color:var(--c-text-3)}
+.gc-row-main em{font-style:normal;font-weight:700;color:var(--c-warning)}
+.gc-row-total{flex:0 0 auto;font-size:15px;font-weight:700}
+.gc-row-locked{border-color:var(--c-warning-solid)}
+#gcScreen .gc-footer .gc-btn-back,#gcScreen .gc-footer .gc-btn-review{flex:1}
+#gcScreen .gc-footer .gc-btn-review:only-child{flex:1 1 100%}
 /* Novo Pedido em duas colunas (09/10) */
 .modal.np-modal{width:min(1180px,calc(100vw - 32px))!important;max-width:none!important;height:calc(100dvh - 32px);display:flex;flex-direction:column;padding:0 0 0 0!important}
 .np-modal .modal-title{padding:14px 18px;margin:0;border-bottom:1px solid var(--c-border)}
