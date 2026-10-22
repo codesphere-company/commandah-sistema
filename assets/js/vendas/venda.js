@@ -158,7 +158,10 @@ function renderBalcao(){
   if(!state.cashSession || state.cashSession.status!=='open'){
     el.innerHTML = `<div class="consumer-workspace"><section class="free-cash"><h2>Caixa livre</h2><div class="free-cash-actions"><button class="op-btn" onclick="switchView('principal')">‹ &nbsp; Voltar</button><button class="op-btn primary" onclick="switchView('caixa')"><span class="op-ico">＋</span> Abrir caixa</button></div><p class="sub" style="margin-top:25px">Abra o caixa para iniciar um novo pedido.</p></section></div>`; return;
   }
-  el.innerHTML = `<div class="consumer-workspace"><section class="free-cash"><h2>Caixa livre</h2><div class="free-cash-actions"><button class="op-btn" onclick="switchView('principal')">‹ &nbsp; Voltar</button><button class="op-btn primary" onclick="openNewPdvSale()"><span class="op-ico">＋</span> Novo pedido</button></div><p class="sub" style="margin-top:25px">Caixa aberto. Pronto para iniciar uma venda no balcão.</p></section></div>`;
+  // Só desenha com o balcão na tela: renderAll chama todas as telas, e o balcão usa os mesmos
+  // #draftItemsList/#draftTotal e o mesmo currentSaleDraft da comanda aberta.
+  if(activeView!=='balcao'){ el.innerHTML=''; return; }
+  renderBalcaoPdv(el);
   return;
   /* A grade histórica permanece implementada para futura consulta dedicada. */
   const list = state.sales.filter(s=>s.type==='balcao' && (pdvShowClosed || s.status!=='closed')).slice().sort((a,b)=>new Date(b.openedAt)-new Date(a.openedAt));
@@ -188,6 +191,52 @@ function renderBalcao(){
   document.getElementById('pdvSearch').oninput=e=>{ const q=e.target.value.toLowerCase(); document.querySelectorAll('#pdvRows tr[data-search]').forEach(r=>r.style.display=r.dataset.search.includes(q)?'':'none'); };
 }
 function togglePdvOptions(){ pdvOptionsOpen=!pdvOptionsOpen; renderBalcao(); }
+/* Visual A, etapa 3 (22/10): o balcão vende direto na tela, sem popup: produtos por categoria à
+   esquerda e o pedido à direita (antes: tela "Caixa livre" + botão Novo pedido + popup com a
+   lista de produtos escondida numa gaveta). O rascunho do balcão fica guardado em balcaoDraft
+   enquanto o caixa mexe nas comandas (que usam o mesmo currentSaleDraft); finalizeSale cria um
+   rascunho novo (newDraft) e renderAll redesenha. */
+let balcaoDraft = null, balcaoCategory = '', balcaoQuery = '';
+function renderBalcaoPdv(el){
+  if(!currentSaleDraft || currentSaleDraft.type!=='balcao'){ if(balcaoDraft) currentSaleDraft = balcaoDraft; else newDraft('balcao'); }
+  balcaoDraft = currentSaleDraft;
+  const prevSearch = document.getElementById('balcaoSearch'), searchFocused = document.activeElement===prevSearch;
+  const products = state.products.filter(productEnabledForCurrentChannel).slice().sort((a,b)=>(Number(a.sortOrder)||0)-(Number(b.sortOrder)||0)||String(a.name).localeCompare(String(b.name),'pt-BR'));
+  const categories = [...new Set(products.map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  if(balcaoCategory && !categories.includes(balcaoCategory)) balcaoCategory = '';
+  const member = currentSaleDraft.memberId ? state.members.find(m=>m.id===currentSaleDraft.memberId) : null;
+  const cards = products.map(p=>{ const av = productAvailable(p), out = av!==Infinity && av<=0;
+    return `<button class="balcao-prod" data-category="${h(p.category||'')}" data-search="${h(((p.category||'')+' '+(p.code||'')+' '+(p.pdvCode||'')+' '+p.name).toLowerCase())}" ${out?'disabled title="Sem estoque"':''} onclick="addDraftItem(${jsArg(p.id)})"><span class="bp-cat">${h(p.category||'Sem categoria')}</span><span class="bp-name">${h(p.name)}</span><span class="bp-price mono">${out?'Sem estoque':fmt(p.price)}</span></button>`; }).join('');
+  el.innerHTML = `<div class="table-workspace balcao-split">
+    <div class="balcao-main">
+      <div class="table-toolbar"><div class="op-search"><input type="search" id="balcaoSearch" placeholder="Buscar produto ou código" value="${h(balcaoQuery)}" oninput="filterBalcaoProducts(this.value)"></div></div>
+      <div class="balcao-cats" role="group" aria-label="Categorias"><button class="${!balcaoCategory?'active':''}" onclick="setBalcaoCategory('')">Todos</button>${categories.map(c=>`<button class="${balcaoCategory===c?'active':''}" data-category="${h(c)}" onclick="setBalcaoCategory(this.dataset.category)">${h(c)}</button>`).join('')}</div>
+      <div class="balcao-grid" id="balcaoGrid">${cards || '<p class="empty">Cadastre produtos na aba Produtos antes de vender.</p>'}</div>
+    </div>
+    <aside class="balcao-cart" aria-label="Pedido do balcão">
+      <div class="bc-head"><h2>Venda no balcão</h2><span>Pedido #${(state.orderCounter||0)+1}</span></div>
+      <div class="bc-client">${member?`<span>Cliente: <b>${h(member.name)}</b></span><button class="link-btn" onclick="openBalcaoClientModal()">Trocar</button><button class="link-btn" onclick="unlinkBalcaoClient()">Tirar</button>`:`<span>Cliente avulso</span><button class="link-btn" onclick="openBalcaoClientModal()">Vincular cliente</button>`}</div>
+      <input id="pdvNote" placeholder="Nome para chamar ou observação" value="${h(currentSaleDraft.notes||'')}" oninput="currentSaleDraft.notes=this.value">
+      <div class="bc-items" id="draftItemsList"></div>
+      <div class="cash-order-total"><span>Total</span><span class="mono" id="draftTotal">R$ 0,00</span></div>
+      <div class="bc-actions"><button class="op-btn" onclick="clearPdvDraft()">Limpar</button><button class="op-btn primary" id="balcaoPayBtn" onclick="openPaymentModal('balcao')">Cobrar</button></div>
+    </aside>
+  </div>`;
+  filterBalcaoProducts(balcaoQuery);
+  renderDraftItems();
+  if(searchFocused) document.getElementById('balcaoSearch').focus();
+}
+function filterBalcaoProducts(q){
+  balcaoQuery = String(q||'');
+  const value = balcaoQuery.trim().toLowerCase();
+  document.querySelectorAll('#balcaoGrid .balcao-prod').forEach(b=>{ b.style.display = (!balcaoCategory||b.dataset.category===balcaoCategory) && (!value||b.dataset.search.includes(value)) ? '' : 'none'; });
+}
+function setBalcaoCategory(c){ balcaoCategory = c||''; document.querySelectorAll('.balcao-cats button').forEach(b=>b.classList.toggle('active', (b.dataset.category||'')===balcaoCategory)); filterBalcaoProducts(balcaoQuery); }
+function openBalcaoClientModal(){
+  openModal('Vincular cliente', `<div id="balcaoClientPick"><div class="field"><input id="pdvClientSearch" placeholder="Nome, telefone, CPF ou cota" oninput="filterPdvClients(this.value)"></div><p id="pdvClientTips" class="sub">Digite parte do nome, do telefone, do CPF ou o número da cota.</p><div id="pdvClientResults"></div></div>`);
+  setTimeout(()=>document.getElementById('pdvClientSearch')?.focus(), 0);
+}
+function unlinkBalcaoClient(){ currentSaleDraft.memberId=null; currentSaleDraft.customerName=''; renderBalcao(); }
 function selectPdvSale(id){ selectedPdvSaleId=id; document.querySelectorAll('#pdvRows tr').forEach(r=>r.classList.toggle('selected',r.getAttribute('onclick')&&r.getAttribute('onclick').includes(id))); }
 function focusPdvAdvancedSearch(){ pdvOptionsOpen=false; renderBalcao(); const input=document.getElementById('pdvSearch'); input.placeholder='Busca avançada: cliente, número ou operador...'; input.focus(); }
 function openNewPdvSale(){
@@ -221,7 +270,7 @@ if(typeof document.addEventListener==='function')document.addEventListener('clic
 function showPdvClientFields(){const el=document.getElementById('pdvClientSheet');if(!el)return;el.classList.add('visible');document.getElementById('pdvClientSearch').focus();filterPdvClients('');}
 function closePdvClientSheet(){document.getElementById('pdvClientSheet')?.classList.remove('visible');}
 function filterPdvClients(q){const value=String(q).trim().toLowerCase(),tips=document.getElementById('pdvClientTips'),results=document.getElementById('pdvClientResults');if(!results)return;if(!value){tips.style.display='block';results.innerHTML='';return;}tips.style.display='none';const list=state.members.filter(m=>[m.name,m.phone,m.document,m.email,m.address,m.code].some(v=>String(v||'').toLowerCase().includes(value)));results.innerHTML=list.map(m=>`<div class="pdv-client-row"><div><b>${h(m.name)}</b><div class="sub">${h(m.phone||m.email||m.code||'Sem contato')}</div></div><button class="op-btn" onclick="selectPdvClient(${jsArg(m.id)})">Vincular</button></div>`).join('')||'<p class="empty">Nenhum cliente encontrado.</p>';}
-function selectPdvClient(id){const m=state.members.find(x=>x.id===id);if(!m)return;currentSaleDraft.memberId=m.id;currentSaleDraft.customerName=m.name;closePdvClientSheet();toast('Cliente vinculado: '+m.name);}
+function selectPdvClient(id){const m=state.members.find(x=>x.id===id);if(!m)return;currentSaleDraft.memberId=m.id;currentSaleDraft.customerName=m.name;closePdvClientSheet();toast('Cliente vinculado: '+m.name);if(document.getElementById('balcaoClientPick')){closeModal();renderBalcao();}}
 function openPdvQuickClient(){document.getElementById('pdvClientTips').style.display='none';document.getElementById('pdvClientResults').innerHTML='';document.getElementById('pdvQuickClient').classList.add('visible');document.getElementById('pdvNewClientName').focus();}
 async function savePdvQuickClient(){const name=document.getElementById('pdvNewClientName').value.trim();if(!name){toast('Informe o nome do cliente.');return;}const m=await MembersStore.create({name,phone:document.getElementById('pdvNewClientPhone').value.trim(),code:document.getElementById('pdvNewClientCode').value.trim()});selectPdvClient(m.id);}
 function togglePdvOrderOptions(force){const el=document.getElementById('pdvOrderOptions');if(el)el.classList.toggle('visible',force===undefined?!el.classList.contains('visible'):!!force);}

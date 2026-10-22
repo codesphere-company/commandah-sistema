@@ -63,32 +63,32 @@ function comandaPanelPay(id){
 }
 function comandaPanelHtml(s){
   if(!s) return `<aside class="comanda-panel comanda-panel-empty" aria-label="Comanda selecionada"><p>Nenhuma comanda aberta.</p><button class="op-btn primary" onclick="openNewComandaModal()">＋ Abrir comanda</button></aside>`;
-  const info = comandaPersonData(s), member = info.member;
+  const info = comandaPersonData(s);
   const items = (s.items||[]).filter(i=>!i.canceled && Number(i.qty)>0);
   const grouped = [];
   items.forEach(i=>{ const key=(i.productId||'')+'|'+i.name+'|'+Number(i.price); const g=grouped.find(x=>x.key===key); if(g){ g.qty+=Number(i.qty); } else grouped.push({ key, name:i.name, price:Number(i.price)||0, qty:Number(i.qty) }); });
-  const consumo = items.reduce((t,i)=>t+(Number(i.price)||0)*(Number(i.qty)||0),0);
-  const servico = serviceRatePct()>0 ? serviceChargeAmount(consumo) : 0;
-  const parcial = comandaPartialPaid(s);
-  const total = Math.max(0, consumo+servico-parcial);
+  // Mesma conta do pagamento e do app do garçom: crédito do sócio abatido antes do serviço,
+  // parcial no fim e pendência anterior (fiado liberado) junto. Antes o painel somava só
+  // consumo + serviço e mostrava um total maior que o do pagamento.
+  const t = gcComandaTotals(s);
   const meta = [s.orderNumber?'Pedido #'+s.orderNumber:'', 'aberta há '+fmtOpenDuration(kOrderAgeMin(s.openedAt)), s.operatorName||'', s.local||''].filter(Boolean);
-  const debt = member ? Number(member.debt)||0 : 0;
   return `<aside class="comanda-panel" aria-label="Comanda selecionada" data-sale="${h(s.id)}">
     <div class="cp-head"><span class="cp-num">${h(info.quota||(s.orderNumber?'#'+s.orderNumber:''))}</span><span class="cp-name">${h(info.person)}</span></div>
     <div class="cp-meta">${meta.map(h).join(' · ')}</div>
     ${s.locked?`<span class="tag tag-red">Pedido bloqueado</span>`:''}
-    ${debt<-0.009?`<span class="tag tag-green" title="Abatido automaticamente no pagamento">✓ Crédito: ${fmt(-debt)}</span>`:debt>0.009?`<span class="tag tag-red">Deve: ${fmt(debt)}</span>`:''}
     <div class="cp-items">${grouped.length?grouped.map(g=>`<div class="cp-item"><span class="cp-qty">${g.qty}×</span><span class="cp-iname">${h(g.name)}</span><span class="mono">${fmt(g.price*g.qty)}</span></div>`).join(''):'<p class="cp-empty">Nenhum item lançado ainda.</p>'}</div>
     <div class="cp-totals">
-      <div><span>Consumo</span><span class="mono">${fmt(consumo)}</span></div>
-      ${servico>0.009?`<div><span>Serviço ${serviceRatePct()}%</span><span class="mono">${fmt(servico)}</span></div>`:''}
-      ${parcial>0.009?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(parcial)}</span></div>`:''}
-      <div class="cp-total"><span>Total</span><span class="mono">${fmt(total)}</span></div>
+      <div><span>Consumo</span><span class="mono">${fmt(t.subtotal)}</span></div>
+      ${t.creditApplied>0.009?`<div><span>Crédito do sócio (abatido)</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
+      ${t.service>0.009?`<div><span>Serviço ${serviceRatePct()}%</span><span class="mono">${fmt(t.service)}</span></div>`:''}
+      ${t.partialPaid>0.009?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(t.partialPaid)}</span></div>`:''}
+      ${t.debt>0.009?`<div class="cp-debt"><span>Pendência anterior (fiado)</span><span class="mono">+ ${fmt(t.debt)}</span></div>`:''}
+      <div class="cp-total"><span>Total</span><span class="mono">${fmt(t.total)}</span></div>
     </div>
     <div class="cp-actions">
       <button class="op-btn" onclick="openNovoPedidoModal(${jsArg(s.id)})" ${s.locked?'disabled':''}>＋ Novo pedido</button>
       <button class="op-btn" onclick="openComanda(${jsArg(s.id)})">Abrir comanda completa</button>
-      <button class="op-btn primary cp-pay" onclick="comandaPanelPay(${jsArg(s.id)})" ${s.locked?'disabled':''}>Fechar conta · ${fmt(total)}</button>
+      <button class="op-btn primary cp-pay" onclick="comandaPanelPay(${jsArg(s.id)})" ${s.locked?'disabled':''}>Fechar conta · ${fmt(t.total)}</button>
     </div>
   </aside>`;
 }
