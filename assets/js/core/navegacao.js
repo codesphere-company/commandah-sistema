@@ -2,7 +2,7 @@
 let activeRibbonTab = null, activeView = null, visibleTabs = [];
 let activeViewRibbonTab = null, viewHistory = [];
 let activeRibbonAction = '';
-const VIEW_LABELS = {caixa:'Caixa',balcao:'Pedido Balcão',comandas:'Comandas',delivery:'Delivery','fila-atendimento':'Fila de Atendimento',agendamentos:'Agendamentos',cardapio:'Cardápio Digital',cozinha:'Monitor de Cozinha',produtos:'Produtos',insumos:'Insumos',associados:'Clientes',usuarios:'Colaboradores',relatorios:'Relatórios',
+const VIEW_LABELS = {caixa:'Caixa',balcao:'Ficha',comandas:'Comandas',delivery:'Delivery','fila-atendimento':'Fila de Atendimento',agendamentos:'Agendamentos',cardapio:'Cardápio Digital',cozinha:'Monitor de Cozinha',produtos:'Produtos',insumos:'Insumos',associados:'Clientes',usuarios:'Colaboradores',relatorios:'Relatórios',
   categorias:'Categorias',complementos:'Complementos e Tamanhos',observacoes:'Observações',perguntas:'Perguntas',fornecedores:'Fornecedores',pagamentos:'Formas de Pagamento',
   contascategorias:'Categorias de Contas',contas:'Contas a Pagar/Receber',locais:'Locais e Áreas do Clube',impressoras:'Impressoras',estacoes:'Estações',origens:'Origens de Pedido','config-sistema':'Configurações do Sistema',backup:'Backup',logs:'Logs',
   'painel-senhas':'Painel de Senhas',ajuda:'Ajuda e Suporte',diagnostico:'Diagnóstico de Serviços',totem:'Totem de Autoatendimento',cupons:'Promoções e Cupons',modulos:'Central de Módulos','mobile-qr':'Acesso Mobile — Garçom'};
@@ -51,7 +51,7 @@ function updateShellGap(){
 }
 window.addEventListener('resize', ()=>{ if(currentUser) updateShellGap(); });
 // Nome no menu lateral das telas da área Principal (no ribbon eram rótulos de botão).
-const SIDEBAR_LABELS = {caixa:'Caixa', comandas:'Comandas', balcao:'Balcão', delivery:'Delivery', cozinha:'Cozinha', associados:'Clientes'};
+const SIDEBAR_LABELS = {caixa:'Caixa', comandas:'Comandas', balcao:'Ficha', delivery:'Delivery', cozinha:'Cozinha', associados:'Clientes'};
 // Visual A (22/10): o menu lateral mostra direto as telas da primeira área ("Principal": caixa,
 // comandas, balcão...) e, abaixo, as outras áreas; clicar numa área abre a faixa de atalhos dela.
 function renderRibbonTabs(){
