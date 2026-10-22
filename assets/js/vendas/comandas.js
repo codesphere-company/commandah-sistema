@@ -46,6 +46,52 @@ function closeComandaView(){
   comandaAbertaId = null; removeFloatingComandaOptions();
   renderComandas();
 }
+/* Visual A, etapa 2 (pedido do dono, 22/10): um clique escolhe a comanda e mostra o resumo num
+   painel à direita da lista (itens, total, novo pedido, fechar conta); dois cliques, ou "Abrir
+   comanda completa", abrem a tela cheia acima. Tela estreita (até 900 px) não tem painel: o
+   clique abre direto. */
+let comandaSelecionadaId = null;
+function selectComanda(id){
+  if(matchMedia('(max-width: 900px)').matches){ openComanda(id); return; }
+  comandaSelecionadaId = id; renderComandas();
+}
+// Fechar conta pelo painel: abre a comanda e segue o mesmo caminho do botão Pagamento dela
+// (manda o que faltar para a cozinha, junta os itens do garçom e abre o pagamento).
+function comandaPanelPay(id){
+  openComanda(id);
+  const btn = document.getElementById('btnCloseComanda'); if(btn) btn.click();
+}
+function comandaPanelHtml(s){
+  if(!s) return `<aside class="comanda-panel comanda-panel-empty" aria-label="Comanda selecionada"><p>Nenhuma comanda aberta.</p><button class="op-btn primary" onclick="openNewComandaModal()">＋ Abrir comanda</button></aside>`;
+  const info = comandaPersonData(s), member = info.member;
+  const items = (s.items||[]).filter(i=>!i.canceled && Number(i.qty)>0);
+  const grouped = [];
+  items.forEach(i=>{ const key=(i.productId||'')+'|'+i.name+'|'+Number(i.price); const g=grouped.find(x=>x.key===key); if(g){ g.qty+=Number(i.qty); } else grouped.push({ key, name:i.name, price:Number(i.price)||0, qty:Number(i.qty) }); });
+  const consumo = items.reduce((t,i)=>t+(Number(i.price)||0)*(Number(i.qty)||0),0);
+  const servico = serviceRatePct()>0 ? serviceChargeAmount(consumo) : 0;
+  const parcial = comandaPartialPaid(s);
+  const total = Math.max(0, consumo+servico-parcial);
+  const meta = [s.orderNumber?'Pedido #'+s.orderNumber:'', 'aberta há '+fmtOpenDuration(kOrderAgeMin(s.openedAt)), s.operatorName||'', s.local||''].filter(Boolean);
+  const debt = member ? Number(member.debt)||0 : 0;
+  return `<aside class="comanda-panel" aria-label="Comanda selecionada" data-sale="${h(s.id)}">
+    <div class="cp-head"><span class="cp-num">${h(info.quota||(s.orderNumber?'#'+s.orderNumber:''))}</span><span class="cp-name">${h(info.person)}</span></div>
+    <div class="cp-meta">${meta.map(h).join(' · ')}</div>
+    ${s.locked?`<span class="tag tag-red">Pedido bloqueado</span>`:''}
+    ${debt<-0.009?`<span class="tag tag-green" title="Abatido automaticamente no pagamento">✓ Crédito: ${fmt(-debt)}</span>`:debt>0.009?`<span class="tag tag-red">Deve: ${fmt(debt)}</span>`:''}
+    <div class="cp-items">${grouped.length?grouped.map(g=>`<div class="cp-item"><span class="cp-qty">${g.qty}×</span><span class="cp-iname">${h(g.name)}</span><span class="mono">${fmt(g.price*g.qty)}</span></div>`).join(''):'<p class="cp-empty">Nenhum item lançado ainda.</p>'}</div>
+    <div class="cp-totals">
+      <div><span>Consumo</span><span class="mono">${fmt(consumo)}</span></div>
+      ${servico>0.009?`<div><span>Serviço ${serviceRatePct()}%</span><span class="mono">${fmt(servico)}</span></div>`:''}
+      ${parcial>0.009?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(parcial)}</span></div>`:''}
+      <div class="cp-total"><span>Total</span><span class="mono">${fmt(total)}</span></div>
+    </div>
+    <div class="cp-actions">
+      <button class="op-btn" onclick="openNovoPedidoModal(${jsArg(s.id)})" ${s.locked?'disabled':''}>＋ Novo pedido</button>
+      <button class="op-btn" onclick="openComanda(${jsArg(s.id)})">Abrir comanda completa</button>
+      <button class="op-btn primary cp-pay" onclick="comandaPanelPay(${jsArg(s.id)})" ${s.locked?'disabled':''}>Fechar conta · ${fmt(total)}</button>
+    </div>
+  </aside>`;
+}
 function renderComandaDetail(id, keepRequester){
   const s = state.sales.find(x=>x.id===id); if(!s) return;
   removeFloatingComandaOptions();
