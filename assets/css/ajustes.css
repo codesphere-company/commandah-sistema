@@ -25,7 +25,7 @@
 /* UX-06: nos cadastros, Salvar é o botão principal; Voltar secundário; Excluir com contorno vermelho */
 .consumer-modal-actions button.consumer-save{background:var(--c-primary);border:1px solid var(--c-primary);color:var(--c-text-inverse);font-weight:600;border-radius:var(--r-md);min-height:40px}
 .consumer-modal-actions button.consumer-save:hover{background:var(--c-primary-hover);border-color:var(--c-primary-hover)}
-.consumer-modal-actions button.consumer-back{border:1px solid var(--c-border-input);background:var(--c-surface);color:var(--c-text);border-radius:var(--r-md);min-height:40px}
+.consumer-modal-actions button.consumer-back{border:1px solid var(--c-border-control);background:var(--c-surface);color:var(--c-text);border-radius:var(--r-md);min-height:40px}
 .consumer-modal-actions button.consumer-back:hover{background:var(--c-surface-3)}
 .consumer-modal-actions button.consumer-delete{border:1px solid var(--c-danger);background:var(--c-surface);color:var(--c-danger);border-radius:var(--r-md);min-height:40px}
 .consumer-modal-actions button.consumer-delete:hover{background:var(--c-danger-soft)}
@@ -119,7 +119,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .comanda-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:4px 10px;text-align:left;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);border-left:5px solid var(--c-border-strong);border-radius:var(--r-lg);padding:12px 14px;min-height:92px;cursor:pointer;box-shadow:var(--sh-1);font:inherit}
 .comanda-card:hover{border-color:var(--c-border-strong);box-shadow:var(--sh-2)}
 .comanda-card:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
-.comanda-card .cc-name{font-size:16px;font-weight:700;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.comanda-card .cc-name{font-size:16px;font-weight:600;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .comanda-card .cc-total{font-size:16px;font-weight:700;white-space:nowrap}
 .comanda-card .cc-meta{grid-column:1/-1;font-size:13px;color:var(--c-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .comanda-card .cc-time{grid-column:1/-1;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--c-text-2)}
@@ -146,8 +146,8 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .comanda-panel .tag{align-self:flex-start}
 .comanda-panel-empty{align-items:flex-start;justify-content:center;color:var(--c-text-2)}
 .cp-head{display:flex;align-items:baseline;gap:10px;min-width:0}
-.cp-num{font-size:28px;font-weight:800;letter-spacing:-.02em;color:var(--c-text);flex-shrink:0}
-.cp-name{font-size:16px;font-weight:700;color:var(--c-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-num{font-size:28px;font-weight:700;letter-spacing:-.02em;color:var(--c-text);flex-shrink:0}
+.cp-name{font-size:16px;font-weight:600;color:var(--c-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cp-meta{font-size:13px;color:var(--c-text-3);margin-top:-6px}
 .cp-items{flex:1 1 auto;min-height:60px;overflow-y:auto;border-top:1px solid var(--c-border)}
 .cp-item{display:flex;gap:10px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--c-border);font-size:14px;color:var(--c-text)}
@@ -157,10 +157,10 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .cp-empty{color:var(--c-text-3);font-size:14px;margin:14px 0}
 .cp-totals{display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--c-text-2)}
 .cp-totals>div{display:flex;justify-content:space-between}
-.cp-totals .cp-total{font-size:20px;font-weight:800;color:var(--c-text);padding-top:6px}
+.cp-totals .cp-total{font-size:20px;font-weight:700;color:var(--c-text);padding-top:6px}
 .cp-actions{display:flex;flex-direction:column;gap:8px}
 .cp-actions .op-btn{width:100%;min-height:46px;justify-content:center}
-.cp-actions .cp-pay{min-height:52px;font-size:16px;font-weight:800}
+.cp-actions .cp-pay{min-height:52px;font-size:16px;font-weight:700}
 @media(max-width:900px){#view-comandas.active{height:auto}.comanda-panel{display:none}.comanda-split{height:auto;margin-bottom:-16px;overflow:visible}.comanda-list-col{overflow:visible;padding:14px}.comanda-card.selected{border-top-color:var(--c-border);border-right-color:var(--c-border);border-bottom-color:var(--c-border);box-shadow:none}}
 /* Visual A, etapa 3 (22/10): balcão na própria tela (produtos | pedido) */
 #view-balcao.active{height:100%}
@@ -178,10 +178,10 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .balcao-prod:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;border-color:var(--c-border)}
 .bp-cat{font-size:12px;font-weight:600;color:var(--c-text-3)}
 .bp-name{font-size:15px;font-weight:700;line-height:1.25}
-.bp-price{margin-top:auto;font-size:16px;font-weight:800;color:var(--c-primary-text)}
+.bp-price{margin-top:auto;font-size:16px;font-weight:700;color:var(--c-primary-text)}
 .balcao-cart{flex:0 0 340px;display:flex;flex-direction:column;gap:12px;min-height:0;padding:22px 20px;background:var(--c-surface);border-left:1px solid var(--c-border)}
 .bc-head{display:flex;align-items:baseline;gap:8px}
-.bc-head h2{margin:0;font-size:18px;font-weight:800;color:var(--c-text)}
+.bc-head h2{margin:0;font-size:18px;font-weight:600;color:var(--c-text)}
 .bc-head span{margin-left:auto;font-size:13px;color:var(--c-text-3)}
 .bc-client{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;color:var(--c-text-2)}
 .bc-client .link-btn{color:var(--c-primary-text);font-weight:700;text-decoration:none;min-height:32px}
@@ -189,16 +189,16 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .bc-items{flex:1 1 auto;min-height:60px;overflow-y:auto;border-top:1px solid var(--c-border)}
 .bc-items .item-line{font-size:14px;padding:10px 0;border-bottom:1px solid var(--c-border);color:var(--c-text)}
 .bc-items .qty-ctrl button{min-width:32px;min-height:32px}
-.balcao-cart .cash-order-total{display:flex;justify-content:space-between;align-items:baseline;font-size:22px;font-weight:800;color:var(--c-text)}
+.balcao-cart .cash-order-total{display:flex;justify-content:space-between;align-items:baseline;font-size:22px;font-weight:700;color:var(--c-text)}
 .bc-actions{display:grid;grid-template-columns:1fr 2fr;gap:10px}
 .bc-actions .op-btn{min-height:54px;justify-content:center}
-.bc-actions .op-btn.primary{font-size:17px;font-weight:800}
+.bc-actions .op-btn.primary{font-size:17px;font-weight:700}
 /* pagamento em duas colunas */
 .pay-modal{max-width:calc(100vw - 32px)!important}
 .pay-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:28px;align-items:start;padding:16px 22px 20px}
 .pay-col{min-width:0}
-.pay-modal .pay-total-row{font-size:28px!important;font-weight:800!important}
-.pay-modal #confirmPayBtn{min-height:54px;font-size:16px;font-weight:800}
+.pay-modal .pay-total-row{font-size:28px!important;font-weight:700!important}
+.pay-modal #confirmPayBtn{min-height:54px;font-size:16px;font-weight:700}
 @media(max-width:900px){#view-balcao.active{height:auto}.balcao-split{flex-direction:column;height:auto;margin-bottom:-16px;overflow:visible}.balcao-main{padding:14px}.balcao-grid{overflow:visible}.balcao-cart{flex:none;border-left:0;border-top:1px solid var(--c-border)}.pay-cols{grid-template-columns:1fr;gap:12px}}
 /* Telas de cadastro (Produtos, Insumos, Categorias, Colaboradores, Clientes...) sem a "janela"
    com borda e margem em volta: ocupam a área toda (pedido do dono, 22/10). A barra de botões
@@ -206,18 +206,18 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .view.active:has(>.workspace-gray){height:100%}
 .workspace-gray{margin:-24px -24px -44px;padding:0;height:calc(100% + 68px);min-height:0;max-width:none;background:var(--c-surface)}
 .workspace-gray>.op-window{width:100%;height:100%;min-height:0;margin:0;border:0;border-radius:0;box-shadow:none;background:var(--c-surface)}
-.workspace-gray>.op-window>.op-titlebar{height:auto;min-height:0;padding:18px 20px 6px;border-bottom:0;font-size:22px;font-weight:800;letter-spacing:-.01em}
+.workspace-gray>.op-window>.op-titlebar{height:auto;min-height:0;padding:18px 20px 6px;border-bottom:0;font-size:20px;font-weight:600;letter-spacing:-.01em}
 .workspace-gray>.op-window>.op-toolbar{flex-wrap:wrap;row-gap:8px;flex-shrink:0}.workspace-gray>.op-window>.op-tabs,.workspace-gray>.op-window>.op-titlebar{flex-shrink:0}
 @media(max-width:760px){.view.active:has(>.workspace-gray){height:auto}.workspace-gray{margin:-16px;height:auto}}
 /* Visual A, etapa 4 (22/10): app do garçom com topo claro, saudação e comandas em lista */
 .gc-bar-home{justify-content:flex-start;gap:12px}
 .gc-bar-home .gc-menu-btn{margin-left:auto}
-.gc-avatar{width:40px;height:40px;flex-shrink:0;border-radius:50%;background:var(--c-text);color:var(--c-surface);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px}
+.gc-avatar{width:40px;height:40px;flex-shrink:0;border-radius:50%;background:var(--c-text);color:var(--c-surface);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px}
 .gc-bar .gc-title small{display:block;font-weight:500}
 .gc-row-list{display:flex;flex-direction:column;gap:10px}
 .gc-row{display:flex;align-items:center;gap:12px;width:100%;min-height:68px;padding:12px 14px;text-align:left;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);border-radius:var(--r-lg);font:inherit;cursor:pointer}
 .gc-row:active{background:var(--c-surface-3)}
-.gc-row-num{flex:0 0 auto;min-width:52px;font-size:22px;font-weight:800;letter-spacing:-.02em}
+.gc-row-num{flex:0 0 auto;min-width:52px;font-size:22px;font-weight:700;letter-spacing:-.02em}
 .gc-row-main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
 .gc-row-main b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gc-row-main small{font-size:12px;color:var(--c-text-3)}
@@ -370,7 +370,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 /* Levar a bebida junto com a comida */
 .levar-junto{display:flex;align-items:center;gap:8px;margin:10px 0 4px;padding:9px 10px;border:1px dashed var(--c-border-strong);border-radius:8px;font-size:14px;font-weight:600;color:var(--c-text);cursor:pointer}
 .levar-junto input{width:18px;height:18px;margin:0}
-.kjunto{margin-top:4px;padding:3px 8px;border-radius:6px;background:var(--c-warning);color:#1a1a1a;font-weight:800;font-size:.85em;text-transform:uppercase;display:inline-block}
+.kjunto{margin-top:4px;padding:3px 8px;border-radius:6px;background:var(--c-warning);color:#1a1a1a;font-weight:700;font-size:.85em;text-transform:uppercase;display:inline-block}
 .cmd-junto{display:block;color:var(--c-warning);font-weight:700}
 /* Privacidade (LGPD) */
 .privacy-modal{max-width:760px!important}
@@ -401,7 +401,7 @@ button.cash-open-row:hover{border-color:var(--c-primary)}
 /* OPS-11: aviso de versão nova */
 .new-version-bar{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:320;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border-strong);border-left:5px solid var(--c-primary);border-radius:var(--r-lg);box-shadow:var(--sh-2);padding:10px 14px;font-weight:600;max-width:calc(100vw - 24px)}
 .new-version-bar button{min-height:38px;border-radius:var(--r-md);border:1px solid var(--c-primary);background:var(--c-primary);color:var(--c-text-inverse);font-weight:700;padding:0 14px;cursor:pointer}
-.new-version-bar .nv-later{background:none;color:var(--c-text-2);border-color:var(--c-border-input)}
+.new-version-bar .nv-later{background:none;color:var(--c-text-2);border-color:var(--c-border-control)}
 /* OP-13: pagamentos parciais na comanda */
 .partial-box{margin-top:8px;border:1px solid var(--c-border);border-left:4px solid var(--c-primary);border-radius:var(--r-md);padding:8px 12px;background:var(--c-surface);display:grid;gap:4px}
 .partial-head{display:flex;justify-content:space-between;gap:10px;font-size:14px}
@@ -515,3 +515,9 @@ button.cash-open-row:hover{border-color:var(--c-primary)}
 .crud-modal-body .field:last-child{margin-bottom:0}
 .crud-modal-actions{display:flex;justify-content:flex-end;gap:8px;padding:16px 20px 18px}
 .crud-modal-actions .btn{min-width:110px}
+/* Auditoria de design (22/10, "está pesado"): S3 — nenhuma tabela com grade vertical (as regras
+   antigas por tela ainda tinham border-right); S4 — negrito (b/strong) em 600, e 700 fica para
+   dinheiro em destaque e número da cota. Nada de 800/900 (trocados por 700 nos arquivos). */
+:is(.op-grid,.finance-grid,.pdv-table,.cash-movement-table,.comp-recipe-grid) :is(th,td){border-right:0!important}
+:is(.cash-movement-table,.comp-recipe-grid) th{background:var(--c-surface-2)!important;border-bottom:1px solid var(--c-border)}
+b,strong{font-weight:600}
