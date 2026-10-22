@@ -69,7 +69,10 @@ function renderRibbonTabs(){
     return `<button class="sb-link ${t.id===activeRibbonTab?'active':''}" data-tab="${t.id}"><span class="ic">${(first&&first.icon)||''}</span>${t.label}</button>`;
   }).join('');
   el.innerHTML = links + (areaLinks ? `<div class="sb-sep">Gestão</div>${areaLinks}` : '');
-  el.onclick = (e)=>{ const btn=e.target.closest('button[data-tab]'); if(!btn) return; activeRibbonTab=btn.dataset.tab; renderRibbonTabs(); renderRibbonToolbar(); };
+  // Trocar de área abre a primeira tela da faixa (pedido do dono, 22/10): antes só a faixa mudava e
+  // a tela da área anterior continuava no meio.
+  el.onclick = (e)=>{ const btn=e.target.closest('button[data-tab]'); if(!btn) return; const mudou=activeRibbonTab!==btn.dataset.tab; activeRibbonTab=btn.dataset.tab; renderRibbonTabs(); renderRibbonToolbar();
+    if(mudou) document.querySelector('#ribbonToolbar button[data-abre]')?.click(); };
 }
 function renderRibbonToolbar(){
   const el = document.getElementById('ribbonToolbar');
@@ -84,7 +87,10 @@ function renderRibbonToolbar(){
     <div class="rb-group">
       <div class="rb-icons">${g.items.map(it=>{
         const a = ribbonItemAction(it, allowed);
-        return `<button class="${a.enabled?'':'disabled'} ${(it.view && it.view===activeView)||it.label===activeRibbonAction?'active':''}" title="${a.reason}"
+        // data-abre: item que abre uma tela (liberado; não conta menu suspenso, módulo de referência nem
+        // "Alterar Minha Senha", que abre janela: é o primeiro liberado do caixa em Configurações).
+        const abre = a.enabled && (it.view || (it.action && !/^toggle|^openChangePinModal$/.test(it.action)));
+        return `<button class="${a.enabled?'':'disabled'} ${(it.view && it.view===activeView)||it.label===activeRibbonAction?'active':''}" title="${a.reason}"${abre?' data-abre':''}
           onclick="${a.onclick}">
           <span class="ic">${it.icon}</span><span class="lb">${it.label}</span></button>`;
       }).join('')}</div>
