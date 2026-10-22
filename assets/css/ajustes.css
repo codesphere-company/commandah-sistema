@@ -316,13 +316,13 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .app-config-modal{max-height:calc(100vh - 32px);overflow-y:auto}
 /* Comanda: a busca mostra 3 linhas inteiras de produtos (antes 3 e meia, cartão cortado), com
    folga para o selo de quantidade; a coluna da direita rola em vez de esmagar o histórico. */
-.cash-order-modal #comandaQuickSearchResults{max-height:calc(56px * 3 + 8px * 2 + 10px);padding:10px 8px 0 0;scroll-snap-type:y proximity}
-.cash-order-modal #comandaQuickSearchResults>*{scroll-snap-align:start}
-.cash-order-modal .cash-order-main{overflow-y:auto!important}
-.cash-order-modal .cash-order-main .comanda-history-panel{min-height:220px!important;flex-shrink:0}
-.cash-order-modal .cash-order-main>.np-section,.cash-order-modal #draftTotalWrap,.cash-order-modal #comandaPartialWrap{flex-shrink:0}
-.cash-order-modal .cash-order-links{margin-top:6px!important}
-.cash-order-modal .cash-order-links button{padding:5px 6px!important}
+:is(.cash-order-modal,.comanda-inline) #comandaQuickSearchResults{max-height:calc(56px * 3 + 8px * 2 + 10px);padding:10px 8px 0 0;scroll-snap-type:y proximity}
+:is(.cash-order-modal,.comanda-inline) #comandaQuickSearchResults>*{scroll-snap-align:start}
+:is(.cash-order-modal,.comanda-inline) .cash-order-main{overflow-y:auto!important}
+:is(.cash-order-modal,.comanda-inline) .cash-order-main .comanda-history-panel{min-height:220px!important;flex-shrink:0}
+:is(.cash-order-modal,.comanda-inline) .cash-order-main>.np-section,:is(.cash-order-modal,.comanda-inline) #draftTotalWrap,:is(.cash-order-modal,.comanda-inline) #comandaPartialWrap{flex-shrink:0}
+:is(.cash-order-modal,.comanda-inline) .cash-order-links{margin-top:6px!important}
+:is(.cash-order-modal,.comanda-inline) .cash-order-links button{padding:5px 6px!important}
 /* Detalhe do pedido */
 .order-detail-items{max-height:min(40vh,420px)}
 .order-detail-items tr.canceled td{text-decoration:line-through;color:var(--c-text-3)}

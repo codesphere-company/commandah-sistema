@@ -130,7 +130,7 @@ function renderDraftItems(){
         <button ${i.sent?'disabled':''} onclick="changeDraftQty(${idx},1)">+</button>
         <span class="mono" style="min-width:70px;text-align:right">${fmt(i.price*i.qty)}</span>
       </div>
-    </div>`).join('') : `<p class="empty">${el.closest('.cash-order-modal')?'Nenhum item lançado.':'Nenhum item adicionado.'}</p>`;
+    </div>`).join('') : `<p class="empty">${el.closest('.cash-order-modal,.comanda-inline')?'Nenhum item lançado.':'Nenhum item adicionado.'}</p>`;
   }
   // Comanda aberta na tela cheia: o rodapé usa a mesma conta do pagamento (comandaDraftTotalsHtml).
   const comandaTotals = document.getElementById('draftTotalWrap');
