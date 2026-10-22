@@ -6,23 +6,37 @@ let gcRequester = null;
 // duplicar a venda nem mandar a ficha de novo para a cozinha.
 let gcChargeDraft = null;
 
+// Visual A, etapa 4 (22/10): topo claro com saudação, comandas em lista (cota, nome, local,
+// tempo, total) e "Cliente avulso" / "+ Abrir comanda" fixos embaixo. Antes: barra grafite,
+// comandas em blocos e os botões no meio da tela.
 function gcRenderHome(){
   gcFlow = { saleId:null, step:'home', category:null }; gcCart=[]; levarJunto.gc=false; gcRequester=null; gcChargeDraft=null;
   const screen = document.getElementById('gcScreen'); if(!screen) return;
+  // a atualização periódica redesenha a tela: mantém o que estava digitado na busca
+  const prev = document.getElementById('gcSearch'), prevQ = prev ? prev.value : '', searchFocused = document.activeElement===prev;
   const open = state.sales.filter(s=>s.status==='open');
   const isBar = (state.settings.operationMode||'clube')==='bar';
+  const nome = String(currentUser&&currentUser.name||'').trim(), inicial = (nome[0]||'?').toUpperCase();
   screen.innerHTML = `
-    <div class="gc-bar"><div class="gc-title">Comandas</div><button class="gc-menu-btn" onclick="gcToggleMenu()">${ICN.menu}</button><div class="gc-menu-panel" id="gcMenuPanel"><button onclick="gcToggleTheme()">${document.documentElement.getAttribute('data-theme')==='dark'?'Modo claro':'Modo escuro'}</button><button onclick="gcLogout()">Sair</button></div></div>
+    <div class="gc-bar gc-bar-home"><span class="gc-avatar" aria-hidden="true">${h(inicial)}</span><div class="gc-title">Olá, ${h(nome.split(' ')[0]||'garçom')}<small>${open.length} ${open.length===1?'comanda':'comandas'} em andamento</small></div><button class="gc-menu-btn" aria-label="Menu" onclick="gcToggleMenu()">${ICN.menu}</button><div class="gc-menu-panel" id="gcMenuPanel"><button onclick="gcToggleTheme()">${document.documentElement.getAttribute('data-theme')==='dark'?'Modo claro':'Modo escuro'}</button><button onclick="gcLogout()">Sair</button></div></div>
     <div class="gc-body">
-      ${isBar ? `<input id="gcSearch" placeholder="Número da mesa ou nome do cliente..." oninput="gcRenderHomeSearch(this.value)" autocomplete="off">
-      <button class="btn btn-primary btn-block" style="margin-top:10px" onclick="gcOpenBarComanda()">+ Abrir nova comanda</button>`
-      : `<input id="gcSearch" placeholder="Nome ou cota do sócio, ou nome/mesa do cliente avulso" oninput="gcRenderHomeSearch(this.value)" autocomplete="off">
-      <button class="btn btn-block" style="margin-top:10px" onclick="gcOpenAvulso()">+ Cliente avulso (não sócio) — paga na hora</button>`}
+      <input id="gcSearch" type="search" placeholder="${isBar?'Número da mesa ou nome do cliente':'Nome ou cota do sócio, ou avulso'}" oninput="gcRenderHomeSearch(this.value)" autocomplete="off">
       <div id="gcHomeResults"></div>
-      <div class="gc-section-label">Comandas em andamento (${open.length})</div>
-      <div class="gc-tile-grid" id="gcOpenTiles"></div>
-    </div>`;
+      <div class="gc-section-label">Em andamento</div>
+      <div class="gc-row-list" id="gcOpenTiles"></div>
+    </div>
+    <div class="gc-footer">${isBar
+      ? `<button class="gc-btn-review" onclick="gcOpenBarComanda()">+ Abrir comanda</button>`
+      : `<button class="gc-btn-back" onclick="gcOpenAvulso()">Cliente avulso</button><button class="gc-btn-review" onclick="gcStartComanda()">+ Abrir comanda</button>`}</div>`;
   gcRenderOpenTiles();
+  if(prevQ){ const q=document.getElementById('gcSearch'); q.value=prevQ; gcRenderHomeSearch(prevQ); }
+  if(searchFocused) document.getElementById('gcSearch').focus();
+}
+// "+ Abrir comanda" no clube: a comanda é aberta pelo sócio achado na busca (gcSelectMember).
+function gcStartComanda(){
+  const q = document.getElementById('gcSearch');
+  if(q && q.value.trim()){ gcRenderHomeSearch(q.value); return; }
+  toast('Digite o nome ou a cota do sócio na busca.'); if(q) q.focus();
 }
 async function gcOpenBarComanda(){
   const name = (document.getElementById('gcSearch')?.value||'').trim();
@@ -33,11 +47,12 @@ async function gcOpenBarComanda(){
 }
 function gcRenderOpenTiles(){
   const el = document.getElementById('gcOpenTiles'); if(!el) return;
-  const open = state.sales.filter(s=>s.status==='open');
+  const open = state.sales.filter(s=>s.status==='open').sort((a,b)=>new Date(a.openedAt||0)-new Date(b.openedAt||0));
   el.innerHTML = open.length ? open.map(s=>{
     const info = comandaPersonData(s);
-    const label = info.quota || (info.person||'?').slice(0,4).toUpperCase();
-    return `<button class="gc-tile ${s.locked?'gc-amber':'gc-green'}" onclick="gcOpenComanda(${jsArg(s.id)})">${s.locked?'<span class="gc-lock">🔒</span>':''}<div>${h(label)}</div><div class="gc-tile-cap">${h((info.person||'').split(' ')[0])}</div></button>`;
+    const label = info.quota || (s.orderNumber?'#'+s.orderNumber:(info.person||'?').slice(0,4).toUpperCase());
+    const meta = [s.local||'', fmtOpenDuration(kOrderAgeMin(s.openedAt))].filter(Boolean).join(' · ');
+    return `<button class="gc-row ${s.locked?'gc-row-locked':''}" onclick="gcOpenComanda(${jsArg(s.id)})"><span class="gc-row-num">${h(label)}</span><span class="gc-row-main"><b>${h(info.person||'')}</b><small>${h(meta)}${s.locked?' · <em>bloqueada</em>':''}</small></span><span class="gc-row-total mono">${fmt(gcComandaTotals(s).total)}</span></button>`;
   }).join('') : '<p class="gc-empty">Nenhuma comanda em andamento.</p>';
 }
 function gcRenderHomeSearch(q){
