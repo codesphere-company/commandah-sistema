@@ -21,6 +21,16 @@ function suggestProductFiscal(p){
   const zero = /\bZERO\b|\b0[,.]0\b|SEM ALCOOL/.test(t);
   const pack = /\bLATA\b|\b(269|350|473)\s?ML\b/.test(t) ? 'lata' : /LONG ?NECK|\b(275|330|355)\s?ML\b/.test(t) ? 'longneck' : /\b600\s?ML\b|\b1\s?L\b|\bLITRAO\b/.test(t) ? 'retornavel' : '';
   const st = { cfop:'5405', csosn:'500', origem:'0' };
+  // Chá pronto (Leão etc.): "GUARANÁ" no sabor fazia virar refrigerante. Antes do sorvete por causa
+  // de sabores como "guaraná com açaí".
+  if(/\bCHAS?\b/.test(t))
+    return { ...st, ncm:'22029900', cest:'', status:'conferir', nota:'Chá pronto para beber. CEST e CFOP a conferir na nota de compra.' };
+  // t207: sorvete, açaí, picolé e gelo não são bebida, mas o nome tem "GUARANÁ", "ICE", "ÁGUA DE COCO"
+  // ou "CERVEJA" (gelo para balde de cerveja) e caíam nas regras abaixo. Sem regra certa: em branco.
+  if(/\b(SORVETES?|PICOLES?|ACAI|GELO)\b/.test(t)) return null;
+  // Antes da cerveja: "SKOL BEATS" pegava a marca SKOL e virava cerveja (2203).
+  if(/SMIRNOFF|\bICE\b|DRINKS? PRONTOS?|\bBEATS\b|\bSKOL BEATS\b/.test(t))
+    return { ...st, ncm:'22089000', cest:'', status:'conferir', nota:'Bebida alcoólica mista: 2208.90.00 ou 2206.00.90 conforme a embalagem. Conferir na nota de compra.' };
   if(FISCAL_BEER.test(t) && !/\bH2OH\b|REFRIGERANTE|GUARANA|\bSODA\b|TONICA|\bAGUA\b/.test(t)){
     const cest = zero ? {lata:'0302203', longneck:'0302201', retornavel:'0302200'}[pack] : {lata:'0302103', longneck:'0302101', retornavel:'0302100'}[pack];
     return { ...st, ncm: zero?'22029100':'22030000', cest: cest||'', status:'conferir',
@@ -34,8 +44,6 @@ function suggestProductFiscal(p){
     return { cfop:'5102', csosn:'102', origem:'0', ncm:'20098990', cest:'', status:'conferir', nota:'Água de coco: 20.09 se for pura; com açúcar ou aditivos, 2202.99.00. Conferir na nota de compra.' };
   if(/\bAGUA\b/.test(t))
     return { ...st, ncm:'22011000', cest:'', status:'conferir', nota:'Água mineral. CEST e CFOP a conferir na nota de compra.' };
-  if(/SMIRNOFF|\bICE\b|DRINKS? PRONTOS?|\bBEATS\b|\bSKOL BEATS\b/.test(t))
-    return { ...st, ncm:'22089000', cest:'', status:'conferir', nota:'Bebida alcoólica mista: 2208.90.00 ou 2206.00.90 conforme a embalagem. Conferir na nota de compra.' };
   if(FISCAL_FOOD_CATS.test(t))
     return { ncm:'21069090', cest:'', cfop:'5101', csosn:'102', origem:'0', status:'ok', nota:'Feito no clube: igual ao Saipos (NCM 2106.90.90, CFOP 5101, CSOSN 102).' };
   // Só pela estação de preparo não dá para ter certeza de que é comida feita no clube.
