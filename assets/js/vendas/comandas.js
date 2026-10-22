@@ -116,7 +116,7 @@ function renderComandaDetail(id, keepRequester){
   const person=member&&member.name||s.customerName||'Avulso',who=member?(person+(member.code?' — Cota '+member.code:'')):person;
   const quotaNum = member&&member.code ? h(member.code) : '—';
   const locked = !!s.locked;
-  document.getElementById('view-comandas').innerHTML = `<div class="table-workspace comanda-inline-wrap"><div class="cash-order-modal comanda-inline" data-sale="${h(s.id)}">
+  document.getElementById('view-comandas').innerHTML = `<div class="table-workspace comanda-inline" data-sale="${h(s.id)}">
     <div class="record-body">
     <div class="cash-order-head">
       <div class="cash-order-ident"><button class="op-btn comanda-inline-back" onclick="closeComandaView()" title="Voltar para as comandas (Esc)">‹ &nbsp; Comandas</button><span class="cash-order-quota">${quotaNum}</span><span class="delivery-open-badge">Em Aberto</span><strong>${h(person)} &nbsp;·&nbsp; Pedido ${s.orderNumber?'#'+s.orderNumber:''}</strong></div>
@@ -168,7 +168,7 @@ function renderComandaDetail(id, keepRequester){
       <button class="op-btn" onclick="window.print()"><span class="icn">${ICN.printer}</span> Imprimir</button>
       <button class="op-btn primary" id="btnCloseComanda" ${locked?'disabled':''}>Pagamento</button>
     </div>
-  </div></div></div>`;
+  </div></div>`;
   renderDraftItems(); renderComandaAuditHistory(); renderComandaQuickCart(); renderComandaPartials(s.id);
   let closingComanda = false;
   document.getElementById('btnCloseComanda').onclick = async ()=>{
