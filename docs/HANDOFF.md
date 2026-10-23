@@ -42,6 +42,8 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - **Feito:** o dono colocou 3 em Configurações › NFC-e (23/10).
   - **Esperando a Brasil NFe:** se a numeração automática é segura com duas emissões ao mesmo tempo na mesma série. Se não for, serializar a emissão na função `nfce` antes da produção.
   - **A fazer:** avisar o contador que o Commandah usa só a 3.
+  - **Brasil NFe respondeu: "é bom ter uma série por computador".** Hoje o Saipos usa 2 séries para mais de 5 pontos (inclui as maquininhas Rede e Stone, que também tiram nota). Decisão do dono: **série 3 para todos e emissão uma por vez**. Migration `20261023010000_nfce_trava_emissao.sql` (tabela `nfce_trava` + `nfce_trava_pegar`/`nfce_trava_soltar`, só service_role) e a função `nfce` pega a trava antes de checar/emitir e solta no `finally`. Prazo de 120 s (vence sozinha se a função cair); quem acha ocupada espera até 25 s e depois recebe "Outra NFC-e está sendo emitida agora". Testado no Postgres 18 local. **Ordem para publicar: migration primeiro, depois o deploy da função** (sem a tabela, a função recusa emitir).
+  - **Maquininhas Rede e Stone:** conferir se a nota delas sai pelo app do Saipos (para no cancelamento) ou por app da operadora (risco de nota em dobro depois da virada).
 - **A planilha de dados fiscais voltou sem respostas:** as perguntas 2 a 12 e a coluna "Observação do contador" (504 produtos) estão vazias. 373 produtos seguem sem código. Mensagem para o contador redigida em 23/10 (o dono envia).
 
 ### 23/10 — painel do lançamento em dia (sem mudança no site)

@@ -9,6 +9,9 @@
 // Ambiente: homologação (2) por padrão. Produção (1) só se as DUAS travas estiverem ligadas:
 // settings.nfce.ambiente = 1 no Commandah E o secret NFCE_PRODUCAO = "liberada". Assim nenhum
 // clique no site, sozinho, emite nota de verdade.
+//
+// Série: uma só para todos os aparelhos (settings.nfce.serie). A emissão passa por uma trava
+// por estabelecimento (t215), então nunca há dois envios ao mesmo tempo na série.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildNfcePayload, type Product, type Sale } from "./payload.ts";
 
@@ -64,6 +67,27 @@ async function brasilNfe(path: string, body: unknown) {
   let parsed: Record<string, unknown> | null = null;
   try { parsed = JSON.parse(text); } catch { /* resposta não-JSON */ }
   return { ok: res.ok, status: res.status, body: parsed, text: text.slice(0, 500) };
+}
+
+// t215: trava de emissão (tabela nfce_trava). O prazo cobre a consulta e o envio (45 s cada) com
+// folga; se a função cair, a trava vence sozinha. Quem acha ocupada espera até TRAVA_ESPERA_MS.
+const TRAVA_PRAZO_S = 120, TRAVA_ESPERA_MS = 25000, TRAVA_INTERVALO_MS = 400;
+
+async function pegarTrava(tenantId: string) {
+  const token = crypto.randomUUID();
+  const limite = Date.now() + TRAVA_ESPERA_MS;
+  while (true) {
+    const { data, error } = await admin.rpc("nfce_trava_pegar", { p_tenant: tenantId, p_token: token, p_segundos: TRAVA_PRAZO_S });
+    if (error) { console.error("[nfce] falha ao pegar a trava:", error); return null; }
+    if (data === true) return token;
+    if (Date.now() + TRAVA_INTERVALO_MS > limite) return null;
+    await new Promise((r) => setTimeout(r, TRAVA_INTERVALO_MS));
+  }
+}
+
+async function soltarTrava(tenantId: string, token: string) {
+  const { error } = await admin.rpc("nfce_trava_soltar", { p_tenant: tenantId, p_token: token });
+  if (error) console.error("[nfce] falha ao soltar a trava (vence sozinha):", error);
 }
 
 function b64ToText(b64: unknown) {
@@ -131,69 +155,78 @@ Deno.serve(async (req) => {
   const serie = Number(cfg.serie) > 0 ? Number(cfg.serie) : undefined;
   const identificador = ambiente === 1 ? saleId : saleId + "-h";
 
-  // Já autorizada neste ambiente: devolve a mesma (clique duplo, nova tentativa depois de timeout).
-  const { data: jaTem } = await admin.from("nfce_notas").select("*").eq("tenant_id", who.tenantId).eq("sale_id", saleId)
-    .eq("ambiente", ambiente).eq("status", "autorizada").maybeSingle();
-  if (jaTem) return json({ nota: publicRow(jaTem), repetida: true });
-
-  const { data: saleRow } = await admin.from("sales").select("data").eq("tenant_id", who.tenantId).eq("id", saleId).is("deleted_at", null).maybeSingle();
-  if (!saleRow) return json({ error: "Comanda não encontrada." }, 404);
-  const products = ((await appData(who.tenantId, "cantina2:products")) || []) as Product[];
-  const built = buildNfcePayload(saleRow.data as Sale, Array.isArray(products) ? products : [], { ambiente, identificador, serie });
-  if (!built.payload) return json({ error: "A NFC-e não pode ser emitida ainda.", problemas: built.problems }, 422);
-
-  // Antes de emitir: a Brasil NFe já tem uma nota com este identificador? (resposta perdida numa tentativa anterior)
-  const prev = await brasilNfe("ConsultarNotaFiscal", { IdentificadorInterno: identificador, TipoAmbiente: ambiente, ModeloDocumento: 65, RetornarArquivos: true });
-  const prevNota = prev.body && prev.body.Encontrada ? (prev.body.Nota as Record<string, unknown> | undefined) : undefined;
-
-  let ret: Record<string, unknown> | null = null, xml: string | null = null, erroCom: string | null = null;
-  // A consulta usa nomes diferentes da emissão (Chave, CodStatusResposta, Emitida; XML dentro de Nota).
-  if (prevNota && (prevNota.Emitida === true || Number(prevNota.CodStatusResposta) === 100)) {
-    ret = {
-      Numero: prevNota.Numero, Serie: prevNota.Serie, ChaveNF: prevNota.Chave, NumeroProtocolo: prevNota.NumeroProtocolo,
-      CodStatusRespostaSefaz: Number(prevNota.CodStatusResposta) || 100, DsStatusRespostaSefaz: prevNota.DsStatusResposta, Ok: true,
-    };
-    xml = b64ToText(prevNota.Base64Xml);
-  } else {
-    const r = await brasilNfe("EnviarNotaFiscal", built.payload).catch((e) => ({ ok: false, status: 0, body: null, text: String(e) }));
-    if (r.body && r.body.ReturnNF) {
-      ret = r.body.ReturnNF as Record<string, unknown>;
-      xml = b64ToText(r.body.Base64Xml);
-      if (!ret.Ok && r.body.Error) ret = { ...ret, DsStatusRespostaSefaz: ret.DsStatusRespostaSefaz || r.body.Error };
-    } else {
-      erroCom = (r.body && (r.body.Error as string)) || `Falha ao falar com o emissor (HTTP ${r.status}).`;
-      console.error("[nfce] resposta inesperada:", r.status, r.text);
-    }
-  }
-
-  const cod = ret ? Number(ret.CodStatusRespostaSefaz) || null : null;
-  const row = {
-    tenant_id: who.tenantId, sale_id: saleId, ambiente, identificador,
-    status: cod === 100 ? "autorizada" : ret ? "rejeitada" : "erro",
-    numero: ret ? Number(ret.Numero) || null : null,
-    serie: ret ? Number(ret.Serie) || null : null,
-    chave: ret ? (ret.ChaveNF as string) || null : null,
-    protocolo: ret ? (ret.NumeroProtocolo as string) || null : null,
-    cod_status: cod,
-    motivo: ret ? String(ret.DsStatusRespostaSefaz || "").slice(0, 500) : String(erroCom).slice(0, 500),
-    valor: built.total,
-    xml: cod === 100 ? xml : null,
-    created_by: who.name,
-  };
-  const { data: saved, error } = await admin.from("nfce_notas").insert(row).select("*").single();
-  if (error) {
-    // Corrida com outro clique que já gravou a autorizada: devolve a que está no banco.
-    const { data: other } = await admin.from("nfce_notas").select("*").eq("tenant_id", who.tenantId).eq("sale_id", saleId)
+  // t215: uma emissão por vez no estabelecimento. Todos os aparelhos usam a mesma série e a
+  // Brasil NFe dá o número; dois envios ao mesmo tempo na série poderiam repetir o número.
+  // A trava também cobre a corrida de dois cliques na mesma comanda (a checagem abaixo fica dentro dela).
+  const trava = await pegarTrava(who.tenantId);
+  if (!trava) return json({ error: "Outra NFC-e está sendo emitida agora. Tente de novo em alguns segundos." }, 503);
+  try {
+    // Já autorizada neste ambiente: devolve a mesma (clique duplo, nova tentativa depois de timeout).
+    const { data: jaTem } = await admin.from("nfce_notas").select("*").eq("tenant_id", who.tenantId).eq("sale_id", saleId)
       .eq("ambiente", ambiente).eq("status", "autorizada").maybeSingle();
-    if (other) return json({ nota: publicRow(other), repetida: true });
-    console.error("[nfce] falha ao gravar:", error);
-    return json({ nota: publicRow(row), aviso: "A nota foi processada, mas não foi possível guardar o resultado no Commandah." });
+    if (jaTem) return json({ nota: publicRow(jaTem), repetida: true });
+
+    const { data: saleRow } = await admin.from("sales").select("data").eq("tenant_id", who.tenantId).eq("id", saleId).is("deleted_at", null).maybeSingle();
+    if (!saleRow) return json({ error: "Comanda não encontrada." }, 404);
+    const products = ((await appData(who.tenantId, "cantina2:products")) || []) as Product[];
+    const built = buildNfcePayload(saleRow.data as Sale, Array.isArray(products) ? products : [], { ambiente, identificador, serie });
+    if (!built.payload) return json({ error: "A NFC-e não pode ser emitida ainda.", problemas: built.problems }, 422);
+
+    // Antes de emitir: a Brasil NFe já tem uma nota com este identificador? (resposta perdida numa tentativa anterior)
+    const prev = await brasilNfe("ConsultarNotaFiscal", { IdentificadorInterno: identificador, TipoAmbiente: ambiente, ModeloDocumento: 65, RetornarArquivos: true });
+    const prevNota = prev.body && prev.body.Encontrada ? (prev.body.Nota as Record<string, unknown> | undefined) : undefined;
+
+    let ret: Record<string, unknown> | null = null, xml: string | null = null, erroCom: string | null = null;
+    // A consulta usa nomes diferentes da emissão (Chave, CodStatusResposta, Emitida; XML dentro de Nota).
+    if (prevNota && (prevNota.Emitida === true || Number(prevNota.CodStatusResposta) === 100)) {
+      ret = {
+        Numero: prevNota.Numero, Serie: prevNota.Serie, ChaveNF: prevNota.Chave, NumeroProtocolo: prevNota.NumeroProtocolo,
+        CodStatusRespostaSefaz: Number(prevNota.CodStatusResposta) || 100, DsStatusRespostaSefaz: prevNota.DsStatusResposta, Ok: true,
+      };
+      xml = b64ToText(prevNota.Base64Xml);
+    } else {
+      const r = await brasilNfe("EnviarNotaFiscal", built.payload).catch((e) => ({ ok: false, status: 0, body: null, text: String(e) }));
+      if (r.body && r.body.ReturnNF) {
+        ret = r.body.ReturnNF as Record<string, unknown>;
+        xml = b64ToText(r.body.Base64Xml);
+        if (!ret.Ok && r.body.Error) ret = { ...ret, DsStatusRespostaSefaz: ret.DsStatusRespostaSefaz || r.body.Error };
+      } else {
+        erroCom = (r.body && (r.body.Error as string)) || `Falha ao falar com o emissor (HTTP ${r.status}).`;
+        console.error("[nfce] resposta inesperada:", r.status, r.text);
+      }
+    }
+
+    const cod = ret ? Number(ret.CodStatusRespostaSefaz) || null : null;
+    const row = {
+      tenant_id: who.tenantId, sale_id: saleId, ambiente, identificador,
+      status: cod === 100 ? "autorizada" : ret ? "rejeitada" : "erro",
+      numero: ret ? Number(ret.Numero) || null : null,
+      serie: ret ? Number(ret.Serie) || null : null,
+      chave: ret ? (ret.ChaveNF as string) || null : null,
+      protocolo: ret ? (ret.NumeroProtocolo as string) || null : null,
+      cod_status: cod,
+      motivo: ret ? String(ret.DsStatusRespostaSefaz || "").slice(0, 500) : String(erroCom).slice(0, 500),
+      valor: built.total,
+      xml: cod === 100 ? xml : null,
+      created_by: who.name,
+    };
+    const { data: saved, error } = await admin.from("nfce_notas").insert(row).select("*").single();
+    if (error) {
+      // Corrida com outro clique que já gravou a autorizada: devolve a que está no banco.
+      const { data: other } = await admin.from("nfce_notas").select("*").eq("tenant_id", who.tenantId).eq("sale_id", saleId)
+        .eq("ambiente", ambiente).eq("status", "autorizada").maybeSingle();
+      if (other) return json({ nota: publicRow(other), repetida: true });
+      console.error("[nfce] falha ao gravar:", error);
+      return json({ nota: publicRow(row), aviso: "A nota foi processada, mas não foi possível guardar o resultado no Commandah." });
+    }
+    if (row.status === "autorizada") {
+      await admin.from("audit_log").insert({
+        tenant_id: who.tenantId, actor_name: who.name, entity: "sale", entity_id: saleId,
+        action: `NFC-e autorizada${ambiente === 2 ? " (homologação)" : ""}: nº ${row.numero} série ${row.serie}`, meta: { chave: row.chave },
+      });
+    }
+    return json({ nota: publicRow(saved) });
+  } finally {
+    await soltarTrava(who.tenantId, trava);
   }
-  if (row.status === "autorizada") {
-    await admin.from("audit_log").insert({
-      tenant_id: who.tenantId, actor_name: who.name, entity: "sale", entity_id: saleId,
-      action: `NFC-e autorizada${ambiente === 2 ? " (homologação)" : ""}: nº ${row.numero} série ${row.serie}`, meta: { chave: row.chave },
-    });
-  }
-  return json({ nota: publicRow(saved) });
 });
