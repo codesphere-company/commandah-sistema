@@ -583,3 +583,25 @@ body:not(.tv-mode) .kbtn-ready:hover{background:var(--c-success)!important}
 body:not(.tv-mode) #view-cozinha>.panel{background:transparent;border:0;padding:0;margin:0}
 body:not(.tv-mode) #view-cozinha>.panel>h2{font-size:20px;font-weight:600;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+/* S7 da auditoria de design (23/10): pagamento sem caixas dentro da janela, interruptor de um
+   tamanho só (40×22) e ajustes no celular (rodapé numa linha, categorias da Ficha numa faixa). */
+.pay-summary{background:transparent!important;border:0!important;border-bottom:1px solid var(--c-border)!important;border-radius:0!important;padding:0 0 12px!important}
+.pay-progress-panel{background:transparent!important;border:0!important;border-top:1px solid var(--c-border)!important;border-radius:0!important;padding:12px 0 0!important}
+.pay-col .row:has(>#applyCouponBtn,>#addPaymentBtn){display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;gap:8px;align-items:flex-end}
+.pay-col .row:has(>#applyCouponBtn,>#addPaymentBtn)>.field{flex:1;min-width:0;margin-bottom:0}
+#addPaymentBtn{height:40px;flex:none;min-width:130px}
+#applyCouponBtn{height:40px;min-width:96px;flex:none}
+.comp-switch span,.cash-order-side .comp-switch span{width:40px!important;height:22px!important;flex:none}
+.comp-switch span:after,.cash-order-side .comp-switch span:after{width:16px;height:16px;top:3px;left:3px}
+.comp-switch input:checked+span:after,.cash-order-side .comp-switch input:checked+span:after{left:21px}
+@media(max-width:760px){
+  .pay-cols{padding:12px 16px 16px;gap:18px}
+  .pay-modal .pay-total-row,.pay-summary .pay-total-row{font-size:22px!important}
+  .pay-summary .pay-total-row>span:last-child{white-space:nowrap}
+  .statusbar{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;gap:14px;padding:6px 12px;scrollbar-width:none}
+  .statusbar .st-metrics{flex-wrap:nowrap;gap:14px}
+  .balcao-cats{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none}
+  .balcao-cats>button{flex:none}
+  .settings-section:has(>.brand-preview){grid-template-columns:1fr!important}
+  .settings-section:has(>.brand-preview) div[style*="display:flex"]{flex-wrap:wrap}
+}
