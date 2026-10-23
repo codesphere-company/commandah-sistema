@@ -95,6 +95,7 @@ function deleteEstacao(id){
   state.estacoes = state.estacoes.filter(x=>x.id!==id);
   save('estacoes'); renderAll(); toast('Estação excluída.');
 }
+let lastAgentProbeAt = Date.now(); // o login já procura o agente (afterLogin)
 function renderImpressoras(){
   const el = document.getElementById('view-impressoras');
   const rows = state.impressoras.length ? state.impressoras.map(p=>`
@@ -120,6 +121,15 @@ function renderImpressoras(){
     </details>
     ${renderTicketConfigHtml()}
   </div>`;
+  // renderAll redesenha esta tela mesmo escondida (ao bloquear comanda, trocar de tela, sincronizar...).
+  // As checagens abaixo perguntam ao agente local (localhost:9123) e ao servidor: só com a tela aberta,
+  // senão todo computador sem agente enche o console de ERR_CONNECTION_REFUSED (23/10, relato do dono).
+  // Fora dela, o agente ligado depois do login ainda é achado: no máximo uma busca por minuto, e
+  // detectLocalPrintAgent() sem força só pergunta se existe caixa que imprime tudo.
+  if(activeView!=='impressoras'){
+    if(!localPrintAgent && Date.now()-lastAgentProbeAt>60000){ lastAgentProbeAt=Date.now(); detectLocalPrintAgent(); }
+    return;
+  }
   renderPrinterQueueStatus();
   checkPrintTokenStatus();
   if(supabaseClient){ renderPrintSetupAuto(); loadPrintSetup(); startPrintSetupPolling(); detectLocalPrintAgent(true).then(renderPrintSetupAuto); }
