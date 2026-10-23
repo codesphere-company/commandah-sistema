@@ -531,3 +531,24 @@ button.cash-open-row:hover{border-color:var(--c-primary)}
 :is(.op-grid,.finance-grid,.pdv-table,.cash-movement-table,.comp-recipe-grid) :is(th,td){border-right:0!important}
 :is(.cash-movement-table,.comp-recipe-grid) th{background:var(--c-surface-2)!important;border-bottom:1px solid var(--c-border)}
 b,strong{font-weight:600}
+/* S5 da auditoria de design (23/10): cor só em aviso. O estado normal fica neutro e a cor sobra
+   para o que pede atenção (comanda velha, pedido atrasado, estoque baixo, sem conexão, caixa fechado). */
+.tag-quiet{color:var(--c-text-2)}
+.comanda-card{border-left:1px solid var(--c-border);padding-left:18px}
+.comanda-card:is(.ctime-yellow,.ctime-red){border-left-width:5px;padding-left:14px}
+.comanda-card.ctime-green{border-left-color:var(--c-border)}
+.comanda-card.ctime-green .cc-dot{background:var(--c-text-3)}
+.comanda-card.ctime-green.selected{border-left-color:var(--c-primary)}
+@media(max-width:900px){.comanda-card.ctime-green.selected{border-left-color:var(--c-border)}}
+/* Cozinha fora do Modo TV (o TV fica como está: leitura de longe) */
+body:not(.tv-mode) .kcard{border-left:1px solid var(--c-border)!important}
+body:not(.tv-mode) .kcard.kage-yellow{border-left:6px solid var(--c-warning-solid)!important}
+body:not(.tv-mode) .kcard.kage-red{border-left:6px solid var(--c-danger)!important}
+body:not(.tv-mode) .kcard.kage-red{background:var(--c-surface)!important}
+body:not(.tv-mode) .kcard .klocal{color:var(--c-text-2)!important}
+body:not(.tv-mode) .kbtn-ready{background:var(--c-surface-2)!important}
+body:not(.tv-mode) .kbtn-ready:hover{background:var(--c-success)!important}
+/* Rodapé e Caixa: "Conectado" e "Aberto" em texto normal; o vermelho continua para o problema */
+.statusbar .st-metrics b.open{color:var(--c-text)}
+.cash-state.opened{background:var(--c-surface)!important;color:var(--c-text)!important;border-color:var(--c-border)}
+.cash-state.opened::before{color:var(--c-success)}
