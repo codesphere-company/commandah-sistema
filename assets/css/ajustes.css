@@ -552,3 +552,34 @@ body:not(.tv-mode) .kbtn-ready:hover{background:var(--c-success)!important}
 .statusbar .st-metrics b.open{color:var(--c-text)}
 .cash-state.opened{background:var(--c-surface)!important;color:var(--c-text)!important;border-color:var(--c-border)}
 .cash-state.opened::before{color:var(--c-success)}
+/* S6 da auditoria de design (23/10): Caixa, Configurações e Cozinha sem "janela" (moldura, barra de
+   título cinza e caixas dentro de caixas). Alturas fixas trocadas por altura da tela; no celular,
+   uma coluna só (o Caixa e as Configurações ficavam espremidos em 390 px). */
+.consumer-workspace:has(>.cash-window){background:var(--c-bg)}
+.cash-window{background:transparent;border:0;box-shadow:none;min-height:0}
+.cash-title{background:transparent;border:0;height:auto;padding:4px 2px 14px;font-size:20px;font-weight:600}
+.cash-movement-area>h2{display:none}
+.cash-open-layout{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--r-lg);overflow:hidden;min-height:calc(100dvh - 130px);grid-template-rows:minmax(0,1fr) auto}
+.cash-open-side,.cash-summary{background:var(--c-surface)!important}
+.cash-open-side,.cash-movement-area{border-right:1px solid var(--c-border)!important}
+.cash-movement-area{display:flex;flex-direction:column}
+.cash-section-title{border:0!important;padding:0 0 8px!important;font-size:13px}
+.cash-movement-filter{border:0;padding:0 0 10px}
+.cash-movement-table{flex:1;height:auto;min-height:220px;border:1px solid var(--c-border);border-radius:var(--r-md)}
+.cash-summary{padding:20px 18px}
+.cash-summary .cash-section-title{margin:0 0 4px}
+.cash-summary-total{border-top:1px solid var(--c-border)}
+.cash-window-actions{background:var(--c-surface);border-top:1px solid var(--c-border)}
+@media(max-width:760px){.cash-open-layout{grid-template-columns:1fr;min-height:0}.cash-open-side,.cash-movement-area{border-right:0!important;border-bottom:1px solid var(--c-border)}.cash-open-note{height:72px}.cash-open-date{margin-top:14px}.cash-movement-table{min-height:180px}}
+@media(max-width:1050px){.cash-open-layout{grid-template-rows:none}.cash-window-actions{flex-wrap:wrap}.cash-window-actions .op-btn{flex:1 1 140px}}
+.settings-window{background:var(--c-surface);border:0;min-height:0}
+.settings-layout{min-height:calc(100dvh - 150px)}
+.settings-nav{background:transparent;border-right:1px solid var(--c-border);padding:10px}
+.settings-nav button{border:0;border-radius:var(--r-md);padding:11px 12px;margin-bottom:2px}
+.settings-nav button:hover{background:var(--c-surface-2)}
+.settings-nav button.active{background:var(--c-primary-soft);border-left:0;color:var(--c-primary-text);font-weight:600}
+.settings-section,.settings-save{border-top-color:var(--c-border)}
+@media(max-width:760px){.settings-layout{grid-template-columns:1fr;min-height:0}.settings-nav{display:flex;overflow-x:auto;gap:4px;border-right:0;border-bottom:1px solid var(--c-border);padding:8px}.settings-nav button{width:auto;flex:none;white-space:nowrap;margin:0}.settings-content{padding:16px}}
+body:not(.tv-mode) #view-cozinha>.panel{background:transparent;border:0;padding:0;margin:0}
+body:not(.tv-mode) #view-cozinha>.panel>h2{font-size:20px;font-weight:600;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
