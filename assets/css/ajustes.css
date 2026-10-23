@@ -605,3 +605,7 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
   .settings-section:has(>.brand-preview){grid-template-columns:1fr!important}
   .settings-section:has(>.brand-preview) div[style*="display:flex"]{flex-wrap:wrap}
 }
+/* Barra dos cadastros (Produtos, Clientes, Locais...): botões com 40 px, como no celular (eram 46-47;
+   pedido do dono em 23/10, fecha a auditoria de design). Ícone menor para caber. */
+.op-toolbar .op-btn{height:40px}
+.op-toolbar .op-btn .op-ico{font-size:18px}
