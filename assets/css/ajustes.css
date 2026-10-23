@@ -609,3 +609,7 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
    pedido do dono em 23/10, fecha a auditoria de design). Ícone menor para caber. */
 .op-toolbar .op-btn{height:40px}
 .op-toolbar .op-btn .op-ico{font-size:18px}
+/* Barra dos cadastros numa linha só em 1366 px: botão do tamanho do texto (a largura mínima de 126 px
+   jogava o "Novo" para uma segunda linha e tirava duas linhas da lista). No celular continua o
+   min-width de 110 px com flex:1. */
+@media(min-width:761px){.op-toolbar .op-btn{min-width:0;padding:0 14px}.op-toolbar .op-search{min-width:200px}}
