@@ -36,6 +36,14 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
+### 23/10 — contador respondeu a série da NFC-e (sem mudança no site)
+- **Série do Commandah = 3.** O contador: "a série utilizada até agora foi a 1 e 2 (Saipos), a partir da 3 você pode testar. Cada computador que estiver emitindo deve ter uma série diferente pra não dar conflito de numerações."
+  - **Uma série só basta para o Commandah:** a regra de "uma por computador" é de sistema que numera em cada máquina (o Saipos, com 1 e 2). No Commandah toda nota sai pela função `nfce` e o número é dado pela Brasil NFe dentro da série; a série é uma só para o tenant (`settings.nfce.serie`). Não precisa de série por aparelho.
+  - **Feito:** o dono colocou 3 em Configurações › NFC-e (23/10).
+  - **Esperando a Brasil NFe:** se a numeração automática é segura com duas emissões ao mesmo tempo na mesma série. Se não for, serializar a emissão na função `nfce` antes da produção.
+  - **A fazer:** avisar o contador que o Commandah usa só a 3.
+- **A planilha de dados fiscais voltou sem respostas:** as perguntas 2 a 12 e a coluna "Observação do contador" (504 produtos) estão vazias. 373 produtos seguem sem código. Mensagem para o contador redigida em 23/10 (o dono envia).
+
 ### 23/10 — painel do lançamento em dia (sem mudança no site)
 - **Painel** (https://claude.ai/artifact/9ZiwkEfqYUeNnPd1T9y3Vm):
   - **t212** (auditoria de design S1 a S8 e botões dos cadastros, PRs #151 a #160): criada, feita. A nota da **t211** aponta para ela.
