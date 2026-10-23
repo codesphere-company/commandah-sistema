@@ -89,10 +89,20 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .cmd-entrega{width:170px}
 .comanda-levou{margin-top:4px;width:100%;height:34px;font-size:13px;padding:0 6px}
 .cmd-status{width:1%;white-space:nowrap}
-.cmd-actions{display:flex;gap:6px;margin-top:6px}
-.cmd-act{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;min-height:34px;font-size:13px}
+.cmd-actions{display:flex;gap:2px;margin-top:4px}
+/* S2 da auditoria de design (22/10): as ações da linha (Reimprimir, Repetir, Cancelar) eram botões
+   com contorno, três por linha; agora são "fantasma" — sem borda, texto e ícone em --c-text-2, fundo
+   só no hover. Cancelar fica só com o texto vermelho. Alvo de clique ≥ 36 px (44 em tela de toque). */
+.btn.cmd-act{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;min-height:36px;font-size:13px;font-weight:500;border-color:transparent!important;background:transparent!important;color:var(--c-text-2)!important}
+.btn.cmd-act:hover:not(:disabled){background:var(--c-surface-3)!important;border-color:transparent!important;color:var(--c-text)!important}
 .cmd-act svg{width:16px;height:16px;flex:none}
-.cmd-act-danger{color:var(--c-danger)!important}
+.btn.cmd-act.cmd-act-danger{color:var(--c-danger)!important}
+.btn.cmd-act.cmd-act-danger:hover:not(:disabled){background:var(--c-danger-soft)!important;color:var(--c-danger)!important}
+.btn.cmd-act:disabled{background:transparent!important;border-color:transparent!important;opacity:.5}
+@media (pointer:coarse){.btn.cmd-act{min-height:44px}}
+/* "Quem levou?" da linha: borda clara; a de campo volta no hover e no foco */
+.finance-grid td select.comanda-levou{border-color:var(--c-border-control)}
+.finance-grid td select.comanda-levou:hover,.finance-grid td select.comanda-levou:focus{border-color:var(--c-border-input)}
 .cmd-row.is-canceled{opacity:.6}
 .cmd-group{cursor:pointer;background:var(--c-surface-2)}
 .cmd-caret{display:inline-block;transition:transform .15s}
