@@ -52,12 +52,12 @@ function renderProdutos(){
   const el = document.getElementById('view-produtos');
   const list = state.products.filter(p=>productKind(p)===produtosTab).sort((a,b)=>(Number(a.sortOrder)||0)-(Number(b.sortOrder)||0)||a.name.localeCompare(b.name,'pt-BR'));
   const rows = list.length ? list.map(p=>{
-    const av = productAvailable(p); const cost = productCost(p); const min=Number(p.minStock)||0;
+    const av = productAvailable(p); const cost = productCost(p); const min=Number(p.minStock)||0; // S5 (auditoria de design): selo só nas exceções (Baixo, Pausado, Conferir, Sem código); o normal é texto.
     return `<tr data-search="${h(((p.code||'')+' '+(p.category||'')+' '+p.name).toLowerCase())}" class="${selectedProductId===p.id?'selected':''}" onclick="selectProductRow(${jsArg(p.id)})" ondblclick="editProduct(${jsArg(p.id)})">
       <td class="mono">${h(p.code||'—')}</td><td>${h(p.category||'—')}</td><td>${h(p.name)}</td><td class="mono">${fmt(cost)}</td><td class="mono">${fmt(p.price)}</td><td>${h(p.measure||'un')}</td>
-      <td class="mono">${av===Infinity?'—':av}</td><td class="mono">${min}</td><td>${av!==Infinity&&av<=min?'<span class="tag tag-red">Baixo</span>':'<span class="tag tag-green">Normal</span>'}</td>
-      <td>${(p.recipe||[]).length?'<span class="tag tag-blue">Configurada</span>':'—'}</td><td>${p.active===false?'<span class="tag tag-gray">Pausado</span>':'<span class="tag tag-green">À venda</span>'}</td><td class="mono">${h(p.pdvCode||'—')}</td>
-      <td>${{ok:'<span class="tag tag-green">OK</span>', conferir:'<span class="tag tag-gray">Conferir</span>', vazio:'<span class="tag tag-red">Sem código</span>'}[productFiscalStatus(p)]}</td>
+      <td class="mono">${av===Infinity?'—':av}</td><td class="mono">${min}</td><td>${av!==Infinity&&av<=min?'<span class="tag tag-red">Baixo</span>':'<span class="tag-quiet">Normal</span>'}</td>
+      <td>${(p.recipe||[]).length?'<span class="tag-quiet">Configurada</span>':'—'}</td><td>${p.active===false?'<span class="tag tag-gray">Pausado</span>':'<span class="tag-quiet">À venda</span>'}</td><td class="mono">${h(p.pdvCode||'—')}</td>
+      <td>${{ok:'<span class="tag-quiet">OK</span>', conferir:'<span class="tag tag-gray">Conferir</span>', vazio:'<span class="tag tag-red">Sem código</span>'}[productFiscalStatus(p)]}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="13" class="empty">Nenhum produto encontrado</td></tr>`;
   const avgCost=list.length?list.reduce((s,p)=>s+productCost(p),0)/list.length:0;
