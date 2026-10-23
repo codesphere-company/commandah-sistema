@@ -44,6 +44,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - O **passo p03** (primeira NFC-e de teste) agora depende da t207 e da t214; só fica concluído depois do teste pelo app.
   - Continuam com prazo vencido de propósito: **t202** e **t203** (agentes e impressoras, para o fim). **t201** (contador) vence em 25/10.
   - **t202** renomeada (pedido do dono): "Instalar o agente nos 3 computadores (2 caixas e cozinha, rede 110)"; antes falava só da cozinha, mas a nota já cobria os três.
+  - **t203** ganhou nota (23/10): com o PR #163 o agente é procurado no login, na tela de Impressoras e no máximo uma vez por minuto fora dela. No teste de impressão, se o agente for ligado com o sistema aberto, esperar 1 minuto ou abrir Impressoras antes de lançar, para o caixa reconhecer que imprime tudo.
 - **Console com ERR_CONNECTION_REFUSED ao bloquear pedido (PR #163, versão `20261023g`):** o bloqueio funcionava; o erro vinha de `renderAll` redesenhar a tela de Impressoras escondida, e `renderImpressoras` perguntava ao agente local (`localhost:9123/status`) e ao servidor (token, fila, computadores) a cada vez. Agora essas checagens só rodam com `activeView==='impressoras'`. Fora dela, `detectLocalPrintAgent()` sem força no máximo uma vez por minuto (`lastAgentProbeAt`), e ele só pergunta se existe caixa "imprimir tudo" configurado, para achar o agente ligado depois do login.
 
 ### 22/10, fim da noite — auditoria de design e primeiras etapas para "suavizar" (PRs #150 a #152, sem migration)
