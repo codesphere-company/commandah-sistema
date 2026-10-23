@@ -66,10 +66,10 @@ html[data-theme="dark"]{
   color-scheme:dark;
   --c-bg:#14171C; --c-surface:#1C2027; --c-surface-2:#222730; --c-surface-3:#2A2F38;
   --c-overlay:rgba(0,0,0,.55);
-  --c-text:#E6E8ED; --c-text-2:#B5BBC6; --c-text-3:#9AA2AF; --c-text-inverse:#08201A;
+  --c-text:#E6E8ED; --c-text-2:#B5BBC6; --c-text-3:#9AA2AF; --c-text-inverse:#0B201A;
   --c-border:#2E343E; --c-border-strong:#3B424E; --c-border-input:#6E7787; --c-border-control:#3A414C;
   --c-mark:#3DBE93; --c-mark-ink:#F5F6F8;
-  --c-brand:#3DBE93; --c-primary:#3DBE93; --c-primary-hover:#55CBA3; --c-primary-soft:#16352C; --c-primary-text:#6AD6AE; --c-focus:#3DBE93;
+  --c-brand:#2FA37E; --c-primary:#2FA37E; --c-primary-hover:#3DBE93; --c-primary-soft:#16352C; --c-primary-text:#56BBA1; --c-focus:#3DBE93;
   --c-success:#6CD39C; --c-success-soft:#17321F;
   --c-warning:#F2BC5B; --c-warning-solid:#D9952B; --c-warning-soft:#382B12;
   --c-danger:#F08A7E;  --c-danger-soft:#3B1E1B;
@@ -93,12 +93,14 @@ html[data-theme="dark"]{
     --c-primary-text:color-mix(in srgb,var(--amber) 62%,#000);
     --c-focus:var(--c-primary);
   }
+  /* S8 da auditoria de design (23/10): verde do escuro menos luminoso (88% da cor, era 80%):
+     #2AAA89 com a cor padrão, texto #0B201A por cima 5.8:1; preços e links em 70% (eram 58%). */
   html[data-theme="dark"]{
-    --c-brand:color-mix(in srgb,var(--amber) 80%,#fff);
-    --c-primary:color-mix(in srgb,var(--amber) 80%,#fff);
-    --c-primary-hover:color-mix(in srgb,var(--amber) 68%,#fff);
+    --c-brand:color-mix(in srgb,var(--amber) 88%,#fff);
+    --c-primary:color-mix(in srgb,var(--amber) 88%,#fff);
+    --c-primary-hover:color-mix(in srgb,var(--amber) 80%,#fff);
     --c-primary-soft:color-mix(in srgb,var(--amber) 22%,#1C2027);
-    --c-primary-text:color-mix(in srgb,var(--amber) 58%,#fff);
+    --c-primary-text:color-mix(in srgb,var(--amber) 70%,#fff);     /* era 58%; #56BBA1 no cartão 7:1 */
     --c-focus:var(--c-primary);
   }
 }
