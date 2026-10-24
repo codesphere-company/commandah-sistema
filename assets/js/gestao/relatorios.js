@@ -24,12 +24,12 @@ function accountantSheets(from, to){
   const sales=state.sales.filter(sl=>sl && sl.status==='closed' && !sl.canceled && sl.deliveryStatus!=='cancelado' && inP(saleRevenueDay(sl)));
   const canceled=state.sales.filter(sl=>sl && sl.canceled && inP(localDay(sl.canceledAt||sl.closedAt||sl.openedAt)));
   const buckets=['dinheiro','cartao','pix','fiado','outros'], bucketLabel={dinheiro:'Dinheiro',cartao:'Cartão',pix:'Pix',fiado:'Fiado (a prazo)',outros:'Outros'};
-  const byMethod=sl=>{ const b={dinheiro:0,cartao:0,pix:0,fiado:0,outros:0}; (sl.payments||[]).forEach(p=>{ b[methodBucket(p.method)]+=Number(p.amount)||0; }); return b; };
-  const tot={ fat:0, n:sales.length, desc:0, serv:0, m:{dinheiro:0,cartao:0,pix:0,fiado:0,outros:0} };
+  const byMethod=sl=>somaPorForma([sl]);
+  const tot={ fat:0, n:sales.length, desc:0, serv:0, m:totaisPorFormaVazio() };
   const days={};
   sales.forEach(sl=>{ const d=saleRevenueDay(sl), b=byMethod(sl); tot.fat+=Number(sl.total)||0; tot.desc+=Number(sl.discount)||0; tot.serv+=Number(sl.serviceCharge)||0;
     buckets.forEach(k=>tot.m[k]+=b[k]);
-    const x=days[d]=days[d]||{n:0,fat:0,desc:0,serv:0,m:{dinheiro:0,cartao:0,pix:0,fiado:0,outros:0}}; x.n++; x.fat+=Number(sl.total)||0; x.desc+=Number(sl.discount)||0; x.serv+=Number(sl.serviceCharge)||0; buckets.forEach(k=>x.m[k]+=b[k]); });
+    const x=days[d]=days[d]||{n:0,fat:0,desc:0,serv:0,m:totaisPorFormaVazio()}; x.n++; x.fat+=Number(sl.total)||0; x.desc+=Number(sl.discount)||0; x.serv+=Number(sl.serviceCharge)||0; buckets.forEach(k=>x.m[k]+=b[k]); });
   const debtRows=[]; let fiadoLanc=0, fiadoRec=0;
   state.members.forEach(m=>(m.debtHistory||[]).forEach(e=>{ if(!inP(localDay(e.at))) return; const v=Number(e.value)||0;
     if(!e.reversed){ if(e.type==='debt') fiadoLanc+=v; else if(e.type==='payment' && !/crédito de troco/i.test(e.reason||'')) fiadoRec+=v; }
@@ -129,8 +129,7 @@ function renderDailySummaryReport(){
   const closed=state.sales.filter(sl=>saleCountsAsRevenue(sl)&&saleRevenueDay(sl)===day);
   const open=state.sales.filter(sl=>sl.status==='open'&&!sl.canceled&&sl.type==='comanda'&&saleRevenueDay(sl)===day);
   const closedTotal=closed.reduce((a,sl)=>a+(Number(sl.total)||0),0), openTotal=open.reduce((a,sl)=>a+comandaDue(sl),0);
-  const byMethod={dinheiro:0,cartao:0,pix:0,fiado:0,outros:0};
-  closed.forEach(sl=>(sl.payments||[]).forEach(p=>{ byMethod[methodBucket(p.method)]+=Number(p.amount)||0; }));
+  const byMethod=somaPorForma(closed);
   const qty={}, rev={};
   [...closed,...open].forEach(sl=>(sl.items||[]).filter(i=>!i.canceled).forEach(i=>{ qty[i.name]=(qty[i.name]||0)+(Number(i.qty)||0); rev[i.name]=(rev[i.name]||0)+(Number(i.qty)||0)*(Number(i.price)||0); }));
   const top=Object.keys(qty).sort((a,b)=>rev[b]-rev[a]).slice(0,8);
@@ -167,8 +166,7 @@ function renderRelatoriosDashboard(){
   const el = document.getElementById('view-relatorios');
   const closedSales = state.sales.filter(saleCountsAsRevenue);
   const totalGeral = closedSales.reduce((a,s)=>a+s.total,0);
-  const byMethod = {dinheiro:0,cartao:0,pix:0,fiado:0,outros:0};
-  closedSales.forEach(s=>(s.payments||[]).forEach(p=>byMethod[methodBucket(p.method)]+=p.amount));
+  const byMethod = somaPorForma(closedSales);
 
   const productRevenue = {}, productQty = {};
   closedSales.forEach(s=>s.items.forEach(i=>{ productRevenue[i.name]=(productRevenue[i.name]||0)+i.price*i.qty; productQty[i.name]=(productQty[i.name]||0)+i.qty; }));
