@@ -1,6 +1,5 @@
 /* ============ AGENDAMENTO DE PEDIDOS ============ */
 function typeLabel(t){ return t==='balcao'?'Balcão':t==='comanda'?'Comanda':t==='agendamento'?'Agendamento':t==='totem'?'Totem':t; }
-function methodLabel(m){ return m==='dinheiro'?'Dinheiro':m==='credito'?'Crédito':m==='debito'?'Débito':m==='cartao'?'Cartão':m==='pix'?'Pix':m==='vale'?'Vale Refeição':m==='fiado'?'Fiado':m&&m.startsWith('outro:')?m.slice(6):m; }
 /* Pagamento de fiado recebido com o caixa aberto vira entrada no caixa. Antes ele
    só ia pro extrato do sócio: o dinheiro entrava na gaveta e o fechamento acusava
    sobra. Sem caixa aberto (ex.: lançamento retroativo) fica só no extrato. */
@@ -48,7 +47,6 @@ function recordChangeOutInCash(list, saleId){
   save('cashMovements');
   toast('Troco de '+fmt(total)+' lançado como saída de dinheiro do caixa.');
 }
-function methodBucket(m){ return (m==='dinheiro'||m==='pix'||m==='fiado') ? m : (m==='cartao'||m==='credito'||m==='debito') ? 'cartao' : 'outros'; }
 let scheduleMode='week';
 function setScheduleMode(mode){scheduleMode=mode;renderAgendamentos();}
 function renderAgendamentos(){

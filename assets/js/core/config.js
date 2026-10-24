@@ -369,6 +369,31 @@ function localDay(value){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function todayStr(){ return localDay(new Date()); }
+/* Formas de pagamento (codigo-limpo, PR A): o nome que aparece na tela e o grupo usado nos
+   totais (dinheiro, cartão, pix, fiado, outros) ficam só aqui. Forma nova = uma linha na tabela.
+   Fora da tabela: "outro:Nome" mostra o Nome; o resto aparece como veio e soma em "outros". */
+const FORMAS_PAGAMENTO = {
+  dinheiro: { label:'Dinheiro',      grupo:'dinheiro' },
+  credito:  { label:'Crédito',       grupo:'cartao' },
+  debito:   { label:'Débito',        grupo:'cartao' },
+  cartao:   { label:'Cartão',        grupo:'cartao' },
+  pix:      { label:'Pix',           grupo:'pix' },
+  vale:     { label:'Vale Refeição', grupo:'outros' },
+  fiado:    { label:'Fiado',         grupo:'fiado' },
+};
+function formaPagamento(m){ return Object.prototype.hasOwnProperty.call(FORMAS_PAGAMENTO, m) ? FORMAS_PAGAMENTO[m] : null; }
+function methodLabel(m){ const f = formaPagamento(m); return f ? f.label : typeof m==='string' && m.startsWith('outro:') ? m.slice(6) : m; }
+// Igual a methodLabel, mas sem forma informada mostra "Outro" (caixa e movimentos).
+function paymentMethodLabel(m){ return m ? methodLabel(m) : 'Outro'; }
+function methodBucket(m){ const f = formaPagamento(m); return f ? f.grupo : 'outros'; }
+function totaisPorFormaVazio(){ return { dinheiro:0, cartao:0, pix:0, fiado:0, outros:0 }; }
+// Soma os pagamentos das vendas por grupo. pularParcial: o fechamento do caixa não conta de
+// novo os parciais (OP-13), que já entraram no caixa como movimento.
+function somaPorForma(vendas, opcoes){
+  const pularParcial = !!(opcoes && opcoes.pularParcial), total = totaisPorFormaVazio();
+  (vendas||[]).forEach(v=>(v.payments||[]).forEach(p=>{ if(pularParcial && p.partial) return; total[methodBucket(p.method)] += Number(p.amount)||0; }));
+  return total;
+}
 function timeFmt(d){ return new Date(d).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
 function h(value){ return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 /* SEG-02 (auditoria 2026-10-07): valor que vai DENTRO de um onclick="..." montado em
