@@ -255,7 +255,6 @@ function openNewPdvSale(){
   document.getElementById('pdvPayBtn').onclick=()=>openPaymentModal('balcao');
   renderPdvProductLocator(); renderDraftItems();
 }
-function renderPdvProductLocator(){const el=document.getElementById('pdvProductGrid');if(!el)return;const list=state.products.filter(productEnabledForCurrentChannel);el.innerHTML=`<table><thead><tr><th>Categoria</th><th>Código</th><th>Nome do Produto</th><th>Preço de Venda</th></tr></thead><tbody>${list.map(p=>`<tr data-pdv-product-search="${h(((p.category||'')+' '+(p.code||'')+' '+p.name).toLowerCase())}" ondblclick="addPdvProductAndClose(${jsArg(p.id)})"><td>${h(p.category||'—')}</td><td>${h(p.code||'—')}</td><td>${h(p.name)}</td><td class="mono">${fmt(p.price)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Nenhum produto encontrado.</td></tr>'}</tbody></table>`;}
 function addPdvProductAndClose(id){addDraftItem(id);togglePdvCatalog(false);}
 function togglePdvCatalog(force){const el=document.getElementById('pdvProductSheet');if(!el)return;el.classList.toggle('visible',force===undefined?!el.classList.contains('visible'):!!force);if(el.classList.contains('visible')){document.getElementById('pdvLocatorSearch').focus();}}
 function filterPdvProducts(q){const value=String(q).toLowerCase();document.querySelectorAll('[data-pdv-product-search]').forEach(x=>x.style.display=x.dataset.pdvProductSearch.includes(value)?'':'none');}
