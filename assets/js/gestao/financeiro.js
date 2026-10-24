@@ -112,6 +112,5 @@ async function reverseFiadoEntry(memberId,entryId){if(!hasPerm('contas')){toast(
   logAction('Estorno de fiado: '+m.name+' — '+fmt(entry.value));renderAll();toast('Lançamento estornado.');}
 reverseFiadoEntry = singleFlight('reverseFiadoEntry', reverseFiadoEntry);
 async function toggleSelectedMemberArchived(){const m=state.members.find(x=>x.id===window.selectedFiadoMemberId);if(!m){toast('Selecione um cliente.');return;}await MembersStore.setArchived(m.id,!m.archived,currentUser.name);renderAll();toast(m.archived?'Cliente arquivado.':'Cliente desarquivado.');}
-function exportFiadoCsv(){const rows=[['Cliente','Saldo Atual','Situação'],...state.members.map(m=>[m.name,Number(m.debt||0).toFixed(2),Number(m.debt)>0?'Devedor':Number(m.debt)<0?'Crédito':'Regular'])];downloadCsv('conta-corrente-fiado.csv',rows);}
 function downloadCsv(filename,rows){const csv='\uFEFF'+rows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 
