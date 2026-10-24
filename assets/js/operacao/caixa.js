@@ -36,18 +36,22 @@ function renderCaixa(){
     return;
   }
   const salesInSession = state.sales.filter(sl=>saleCountsAsRevenue(sl) && new Date(sl.closedAt) >= new Date(s.openedAt));
-  const totals = somaPorForma(salesInSession);
   const movements = state.cashMovements.filter(m=>m.cashSessionId===s.id);
-  const suprimentos = movements.filter(m=>m.type==='suprimento').reduce((a,m)=>a+m.amount,0);
-  const sangrias = movements.filter(m=>m.type==='sangria').reduce((a,m)=>a+m.amount,0);
-  const suprimentosDinheiro=movements.filter(m=>m.type==='suprimento'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+m.amount,0);
-  const sangriasDinheiro=movements.filter(m=>m.type==='sangria'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+m.amount,0);
+  // Pagamento parcial (OP-13) conta uma vez só, como no fechamento: pelo movimento que entrou no
+  // caixa na hora, e não de novo pela linha partial:true da venda. Antes a tela somava os dois e o
+  // dinheiro esperado e o total geral ficavam maiores que o fechamento.
+  const totals = cashSessionTotals(salesInSession, movements);
+  const manual = movements.filter(m=>!isPartialMovement(m));
+  const suprimentos = manual.filter(m=>m.type==='suprimento').reduce((a,m)=>a+m.amount,0);
+  const sangrias = manual.filter(m=>m.type==='sangria').reduce((a,m)=>a+m.amount,0);
+  const suprimentosDinheiro=manual.filter(m=>m.type==='suprimento'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+m.amount,0);
+  const sangriasDinheiro=manual.filter(m=>m.type==='sangria'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+m.amount,0);
   // Fiado é venda a receber: não entra no caixa. Fica fora das entradas e do "TUDO"
   // e aparece separado no resumo; o recebimento entra quando o sócio paga.
   const totalVendido = Object.values(totals).reduce((a,b)=>a+b,0) - totals.fiado;
   const esperadoDinheiro = s.openingAmount + totals.dinheiro + suprimentosDinheiro - sangriasDinheiro;
   const saleRows=[];
-  salesInSession.forEach(sl=>(sl.payments||[]).forEach(p=>{ const fiado = methodBucket(p.method)==='fiado'; saleRows.push({at:sl.closedAt,description:'PEDIDO #'+(sl.orderNumber||'—')+(fiado?' — fiado, a receber '+fmt(p.amount):''),entry:fiado?0:p.amount,exit:0,method:paymentMethodLabel(p.method)}); }));
+  salesInSession.forEach(sl=>(sl.payments||[]).filter(p=>!p.partial).forEach(p=>{ const fiado = methodBucket(p.method)==='fiado'; saleRows.push({at:sl.closedAt,description:'PEDIDO #'+(sl.orderNumber||'—')+(fiado?' — fiado, a receber '+fmt(p.amount):''),entry:fiado?0:p.amount,exit:0,method:paymentMethodLabel(p.method)}); }));
   movements.forEach(m=>saleRows.push({id:m.id,at:m.at,description:(m.type==='suprimento'?'ENTRADA — ':'SAÍDA — ')+(m.description||m.reason||''),entry:m.type==='suprimento'?m.amount:0,exit:m.type==='sangria'?m.amount:0,method:paymentMethodLabel(m.method||'dinheiro')}));
   saleRows.sort((a,b)=>new Date(a.at)-new Date(b.at));
   const movementRows=[{at:s.openedAt,description:'SALDO INICIAL',entry:Number(s.openingAmount)||0,exit:0,method:'Dinheiro'},...saleRows];
@@ -62,11 +66,19 @@ function renderCaixa(){
 // caixa; ela conta no fechamento do dia em que abriu, como "a receber". Quando é paga num caixa
 // seguinte, o dinheiro entra na gaveta daquele caixa mas aparece separado, como recebimento de
 // dia anterior. Comanda avulsa (sem sócio) só paga à vista: o caixa não fecha com ela aberta.
+// Totais por forma do caixa: as vendas fechadas na sessão sem as linhas de parcial, mais os
+// parciais (e seus estornos) que entraram no caixa como movimento. Tela do caixa aberto e fechamento.
+function isPartialMovement(m){ return m.origin==='parcial' || m.origin==='parcial-estorno'; }
+function cashSessionTotals(sales, movements){
+  const totals = somaPorForma(sales, {pularParcial:true});
+  movements.filter(isPartialMovement).forEach(m=>{ totals[methodBucket(m.method||'dinheiro')] += (m.origin==='parcial-estorno'?-1:1)*(Number(m.amount)||0); });
+  return totals;
+}
 function cashOpenComandas(){ return state.sales.filter(sl=>sl.status==='open'&&!sl.canceled&&sl.type==='comanda'); }
 function comandaDue(sl){ return Math.max(0,(Number(sl.total)||0)-comandaPartialPaid(sl)); }
 function lastCashCloseBefore(session){ const opened=new Date(session.openedAt).getTime(); let last=null; (state.cashHistory||[]).forEach(c=>{ const t=new Date(c.closedAt).getTime(); if(Number.isFinite(t)&&t<=opened&&(last===null||t>last)) last=t; }); return last; }
 function saleOpenedBeforeClose(sl,lastClose){ return lastClose!==null && !!sl.openedAt && new Date(sl.openedAt).getTime()<lastClose; }
-function cashClosingSnapshot(){const s=state.cashSession;if(!s)return null;const sales=state.sales.filter(sl=>saleCountsAsRevenue(sl)&&new Date(sl.closedAt)>=new Date(s.openedAt));const totals=somaPorForma(sales,{pularParcial:true});const movements=state.cashMovements.filter(m=>m.cashSessionId===s.id),isPartial=m=>m.origin==='parcial'||m.origin==='parcial-estorno',manual=movements.filter(m=>!isPartial(m));movements.filter(isPartial).forEach(m=>{totals[methodBucket(m.method||'dinheiro')]+=(m.origin==='parcial-estorno'?-1:1)*(Number(m.amount)||0);});const suprimentos=manual.filter(m=>m.type==='suprimento').reduce((a,m)=>a+(Number(m.amount)||0),0),sangrias=manual.filter(m=>m.type==='sangria').reduce((a,m)=>a+(Number(m.amount)||0),0),cashIn=manual.filter(m=>m.type==='suprimento'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+(Number(m.amount)||0),0),cashOut=manual.filter(m=>m.type==='sangria'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+(Number(m.amount)||0),0),totalVendido=Object.values(totals).reduce((a,b)=>a+b,0),money=(Number(s.openingAmount)||0)+totals.dinheiro+cashIn-cashOut,final=(Number(s.openingAmount)||0)+totalVendido+suprimentos-sangrias;const lastClose=lastCashCloseBefore(s),earlier=sales.filter(sl=>saleOpenedBeforeClose(sl,lastClose)),earlierReceived=Math.round(earlier.reduce((a,sl)=>a+(sl.payments||[]).filter(p=>!p.partial&&methodBucket(p.method)!=='fiado').reduce((b,p)=>b+(Number(p.amount)||0),0),0)*100)/100,open=cashOpenComandas(),openToday=open.filter(sl=>!saleOpenedBeforeClose(sl,lastClose)),openEarlier=open.filter(sl=>saleOpenedBeforeClose(sl,lastClose)),openTotal=Math.round(openToday.reduce((a,sl)=>a+comandaDue(sl),0)*100)/100;return{s,totals,suprimentos,sangrias,totalVendido,money,final,earlierReceived,earlierCount:earlier.length,openToday,openEarlier,openTotal};}
+function cashClosingSnapshot(){const s=state.cashSession;if(!s)return null;const sales=state.sales.filter(sl=>saleCountsAsRevenue(sl)&&new Date(sl.closedAt)>=new Date(s.openedAt));const movements=state.cashMovements.filter(m=>m.cashSessionId===s.id),totals=cashSessionTotals(sales,movements),manual=movements.filter(m=>!isPartialMovement(m));const suprimentos=manual.filter(m=>m.type==='suprimento').reduce((a,m)=>a+(Number(m.amount)||0),0),sangrias=manual.filter(m=>m.type==='sangria').reduce((a,m)=>a+(Number(m.amount)||0),0),cashIn=manual.filter(m=>m.type==='suprimento'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+(Number(m.amount)||0),0),cashOut=manual.filter(m=>m.type==='sangria'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+(Number(m.amount)||0),0),totalVendido=Object.values(totals).reduce((a,b)=>a+b,0),money=(Number(s.openingAmount)||0)+totals.dinheiro+cashIn-cashOut,final=(Number(s.openingAmount)||0)+totalVendido+suprimentos-sangrias;const lastClose=lastCashCloseBefore(s),earlier=sales.filter(sl=>saleOpenedBeforeClose(sl,lastClose)),earlierReceived=Math.round(earlier.reduce((a,sl)=>a+(sl.payments||[]).filter(p=>!p.partial&&methodBucket(p.method)!=='fiado').reduce((b,p)=>b+(Number(p.amount)||0),0),0)*100)/100,open=cashOpenComandas(),openToday=open.filter(sl=>!saleOpenedBeforeClose(sl,lastClose)),openEarlier=open.filter(sl=>saleOpenedBeforeClose(sl,lastClose)),openTotal=Math.round(openToday.reduce((a,sl)=>a+comandaDue(sl),0)*100)/100;return{s,totals,suprimentos,sangrias,totalVendido,money,final,earlierReceived,earlierCount:earlier.length,openToday,openEarlier,openTotal};}
 // PROD-05 (decisão do dono: conferência às cegas obrigatória). Antes o "dinheiro esperado"
 // aparecia antes da contagem e o operador tendia a "achar" o valor esperado. Agora: 1) conta
 // a gaveta e informa o total da maquininha sem ver o esperado; 2) "Conferir" mostra esperado x
