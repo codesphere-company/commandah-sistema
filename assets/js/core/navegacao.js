@@ -325,7 +325,6 @@ function renderAll(){
 
 function enhanceOperationalControls(){document.querySelectorAll('.printer-window .op-controls').forEach(group=>{if(![...group.children].some(x=>['□','▢'].includes(x.textContent.trim()))){const maximize=document.createElement('span');maximize.textContent='□';group.insertBefore(maximize,group.firstChild);}});document.querySelectorAll('.op-controls span').forEach(control=>{const text=control.textContent.trim();if(!['×','□','▢'].includes(text))return;control.setAttribute('role','button');control.tabIndex=0;control.title=text==='×'?'Fechar janela':text==='□'?'Maximizar janela':'Restaurar janela';control.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();control.click();}};});}
 
-function renderStoredCardBrands(){const view=document.getElementById('view-pagamentos');if(!view||!Array.isArray(state.cardBrands)||!state.cardBrands.length)return;const bodies=view.querySelectorAll('.finance-grid tbody');if(bodies.length<3)return;state.cardBrands.forEach(b=>{bodies[1].insertAdjacentHTML('beforeend',`<tr ondblclick="openCardBrandModal(${jsArg(b.id)})"><td>${h(b.nome)}</td></tr>`);bodies[2].insertAdjacentHTML('beforeend',`<tr><td style="text-align:center"><input type="checkbox"></td><td>${h(b.nome)}</td><td><input type="number" value="0" style="width:100%;text-align:center"></td><td><input type="number" value="0" step="0.01" style="width:100%;text-align:center"></td></tr>`);});}
 function renderScoreboard(){
   const s = state.cashSession;
   updateConnectionLabel();

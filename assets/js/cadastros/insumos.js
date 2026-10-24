@@ -166,7 +166,6 @@ function openInsumoModal(id){
   };
   if(i)document.getElementById('iDeleteBtn').onclick=()=>deleteInsumo(i.id);
 }
-function editInsumo(id){ openInsumoModal(id); }
 function deleteInsumo(id){
   if(state.products.some(p=>(p.recipe||[]).some(r=>r.insumoId===id))){ toast('Este insumo está em uma ficha técnica. Remova o vínculo antes de excluí-lo.'); return; }
   if(!confirm('Excluir este insumo?')) return;

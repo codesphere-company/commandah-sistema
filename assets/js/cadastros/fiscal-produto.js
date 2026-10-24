@@ -191,12 +191,4 @@ function openProductModal(id){
 function selectProductImage(){const input=document.getElementById('productImageFile');if(!input)return;input.onchange=()=>{const file=input.files&&input.files[0];if(!file)return;if(file.size>500000){toast('Escolha uma imagem de até 500 KB.');return;}const reader=new FileReader();reader.onload=()=>{window.productImageDraft=reader.result;const preview=document.getElementById('productImagePreview');if(preview)preview.innerHTML=`<img src="${reader.result}" alt="Produto" style="width:100%;height:100%;object-fit:contain">`;};reader.readAsDataURL(file);};input.click();}
 function clearProductImage(){window.productImageDraft='';const preview=document.getElementById('productImagePreview');if(preview)preview.textContent='🍽';}
 function editProduct(id){ openProductModal(id); }
-function deleteProduct(id){
-  const product=state.products.find(p=>p.id===id);if(!product)return;
-  const activeUse=state.sales.some(s=>s.status==='open'&&(s.items||[]).some(i=>i.productId===id));
-  if(activeUse){toast('Este produto está em um pedido aberto. Finalize ou remova o item antes de excluir.');return;}
-  if(!confirm('Excluir este produto? O histórico de vendas será preservado.')) return;
-  state.products=state.products.filter(p=>p.id!==id);state.products.forEach(p=>p.comboProductIds=(p.comboProductIds||[]).filter(productId=>productId!==id));
-  save('products');renderAll();toast('Produto excluído.');logAction('Produto excluído: '+product.name);
-}
 

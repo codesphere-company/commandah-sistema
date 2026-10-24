@@ -70,7 +70,6 @@ function renderAgendamentos(){
   }).join('');
   el.innerHTML = `<div class="workspace-gray"><section class="op-window scheduled-window"><header class="op-titlebar">Pedidos Agendados <span class="op-controls"><span onclick="switchView('delivery')">×</span></span></header><div class="op-toolbar"><div class="op-search"><span>⌕</span><input id="scheduledSearch" placeholder="Pesquisar aqui..." oninput="filterScheduledRows(this.value)"></div><span class="op-toolbar-spacer"></span><button class="op-btn" onclick="printCurrentWindow()">▣ &nbsp; Imprimir</button><button class="op-btn" id="scheduledKitchen" onclick="scheduledSelectedAction('kitchen')">♨ &nbsp; Cozinha</button><button class="op-btn" id="scheduledCancel" onclick="scheduledSelectedAction('cancel')">✕ &nbsp; Cancelar</button><button class="op-btn" id="scheduledEdit" onclick="scheduledSelectedAction('edit')">✎ &nbsp; Editar</button><button class="op-btn primary" onclick="openNewAgendamentoModal()">＋ &nbsp; Novo</button></div><div class="op-grid"><table><thead><tr><th>Cód.</th><th>Cliente</th><th>Criado em</th><th>Agendado para</th><th>Qtd.</th><th>Total</th><th>Status</th><th>Itens</th></tr></thead><tbody id="scheduledRows">${rows||'<tr><td colspan="8" class="empty">Nenhum pedido agendado.</td></tr>'}</tbody></table></div><footer class="op-footer"><b>Registros: ${list.length}</b><b>Total=${fmt(list.reduce((a,s)=>a+(s.items||[]).reduce((q,i)=>q+Number(i.price||0)*Number(i.qty||0),0),0))}</b></footer></section></div>`;
 }
-function moveScheduleWeek(delta){const d=new Date(window.scheduleAnchor||Date.now());d.setDate(d.getDate()+delta*7);window.scheduleAnchor=d.toISOString();renderAgendamentos();}
 function moveSchedulePeriod(delta){const d=new Date(window.scheduleAnchor||Date.now());if(scheduleMode==='month')d.setMonth(d.getMonth()+delta);else d.setDate(d.getDate()+delta*(scheduleMode==='week'?7:1));window.scheduleAnchor=d.toISOString();renderAgendamentos();}
 function scheduleToday(){window.scheduleAnchor=new Date().toISOString();renderAgendamentos();}
 let selectedScheduledId=null;
@@ -121,10 +120,5 @@ async function cancelScheduled(id){
   if(!await askConfirm({title:'Cancelar este agendamento?',confirmLabel:'Cancelar agendamento',cancelLabel:'Manter agendamento'})) return;
   const s = state.scheduled.find(x=>x.id===id); if(!s) return;
   s.status='cancelado';s.statusAt=new Date().toISOString();s.statusHistory=s.statusHistory||[];s.statusHistory.push({status:'Cancelado',at:s.statusAt,user:currentUser.name}); save('scheduled');logAction('Pedido agendado #'+(s.orderNumber||'')+' cancelado');renderAll();
-}
-function closeScheduled(id){
-  const s = state.scheduled.find(x=>x.id===id); if(!s) return;
-  currentSaleDraft = { items: JSON.parse(JSON.stringify(s.items)), memberId:s.memberId, customerName:s.customerName, type:'agendamento' };
-  openPaymentModal('agendamento', s.id);
 }
 

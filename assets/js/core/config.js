@@ -323,7 +323,6 @@ function releaseMemberDebtBlock(memberId, reopenSaleId){
 }
 function memberAvailableCredit(member){ return member ? Math.max(0, -(Number(member.debt)||0)) : 0; }
 function memberDebtLabel(member){ const d=Number(member.debt)||0; if(d>0.009) return ' (deve '+fmt(d)+')'; if(d<-0.009) return ' (crédito '+fmt(-d)+')'; return ''; }
-function memberLimitSuffix(member){ return ''; } // limite de fiado não é usado no clube
 function todaysSalesForMember(memberId){
   const today = todayStr();
   return state.sales.filter(s=>s.memberId===memberId && localDay(s.closedAt||s.openedAt)===today);
