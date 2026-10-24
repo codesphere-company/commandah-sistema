@@ -140,17 +140,58 @@ function reportClientError(message, source, line, col, stack){
     const key = msg+'|'+src+'|'+(line||0);
     if(_clientErrSeen.has(key) || _clientErrCount >= 20) return;
     _clientErrSeen.add(key); _clientErrCount++;
-    const v = typeof appVersionDate==='function' ? appVersionDate() : null;
     supabaseClient.from('client_errors').insert({
       message: msg, source: src || null, line: Number(line)||null, col: Number(col)||null,
       stack: stack ? String(stack).slice(0,8000) : null,
-      page: String((activeView||'')+(activeRibbonAction?' / '+activeRibbonAction:'')).slice(0,500),
-      user_agent: String(navigator.userAgent||'').slice(0,500),
-      app_version: v ? v.toISOString().slice(0,16) : null,
-      actor_name: String(currentUser.name||'').slice(0,120)
+      ...clientErrorContext()
     }).then(()=>{}, ()=>{});
   }catch(e){}
 }
+// Onde e com quem o registro aconteceu: tela, aparelho, versão aberta e usuário.
+function clientErrorContext(){
+  const v = typeof appVersionDate==='function' ? appVersionDate() : null;
+  return {
+    page: String((activeView||'')+(activeRibbonAction?' / '+activeRibbonAction:'')).slice(0,500),
+    user_agent: String(navigator.userAgent||'').slice(0,500),
+    app_version: v ? v.toISOString().slice(0,16) : null,
+    actor_name: String((currentUser&&currentUser.name)||'').slice(0,120)
+  };
+}
+/* Diagnóstico (24/10, pedido do dono): um aviso aparece no topo e some rápido e ninguém
+   consegue ler. Cada aviso que entra em #saveFailRoot ou #localModeRoot é gravado em
+   client_errors com o texto, e de novo quando sai, com quanto tempo ficou na tela.
+   Fonte "aviso do topo" (aparece em Erros do Sistema). No máximo 40 registros por sessão. */
+const TOP_BANNER_LOG_MAX = 40;
+let _topBannerLogCount = 0;
+const _topBannerShownAt = new WeakMap();
+function reportTopBanner(message){
+  try{
+    if(!isCloudMode() || !supabaseClient || !currentUser || _topBannerLogCount >= TOP_BANNER_LOG_MAX) return;
+    _topBannerLogCount++;
+    supabaseClient.from('client_errors').insert({ message: String(message).slice(0,2000), source: 'aviso do topo', ...clientErrorContext() }).then(()=>{}, ()=>{});
+  }catch(e){}
+}
+function topBannerText(el){ return String(el.textContent||'').replace(/\s+/g,' ').trim().slice(0,300); }
+function watchTopBanners(){
+  if(typeof MutationObserver==='undefined') return;
+  const observer = new MutationObserver(records=>{
+    records.forEach(r=>{
+      r.addedNodes.forEach(el=>{
+        if(el.nodeType!==1) return;
+        _topBannerShownAt.set(el, { at: Date.now(), text: topBannerText(el) });
+        reportTopBanner('Aviso apareceu: '+topBannerText(el));
+      });
+      r.removedNodes.forEach(el=>{
+        const shown = el.nodeType===1 && _topBannerShownAt.get(el);
+        if(!shown) return;
+        const secs = Math.round((Date.now()-shown.at)/100)/10;
+        reportTopBanner('Aviso sumiu depois de '+String(secs).replace('.',',')+' s: '+shown.text);
+      });
+    });
+  });
+  ['saveFailRoot','localModeRoot'].forEach(id=>{ const root = document.getElementById(id); if(root) observer.observe(root, { childList:true }); });
+}
+if(typeof document!=='undefined') watchTopBanners();
 if(typeof window!=='undefined' && window.addEventListener){
   // SEG-12: o que a política de segurança bloquear também vira registro em Erros do Sistema.
   document.addEventListener('securitypolicyviolation', e=>reportClientError('CSP bloqueou '+e.effectiveDirective+': '+(e.blockedURI||'inline'), e.sourceFile||'', e.lineNumber||0, e.columnNumber||0, ''));
