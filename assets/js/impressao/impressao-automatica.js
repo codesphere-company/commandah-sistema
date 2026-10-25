@@ -184,11 +184,29 @@ function renderPrintSetupAuto(){
     : !found.length ? '<p class="sub" style="margin:0">Nenhuma impressora encontrada ainda. Se acabou de conectar, espere alguns segundos.</p>'
     : `<div class="ps-list">${real.map(psPrinterCard).join('') || '<p class="sub" style="margin:0">Só foram encontradas impressoras virtuais (PDF, Fax…).</p>'}</div>
        ${virt.length?`<details class="ps-more"><summary>Outras impressoras do Windows (PDF, Fax…) — ${virt.length}</summary><div class="ps-list">${virt.map(psPrinterCard).join('')}</div></details>`:''}`;
+  // Cadastradas que nenhum computador encontra (computador removido ou desligado, IP que sumiu, cadastro
+  // antigo). Antes só apareciam na seção "avançada": a tela parecia vazia, mas o aviso de agente
+  // desconectado continuava (25/10, relato do dono). Vale para qualquer estabelecimento.
+  const agentsById = Object.fromEntries(agents.map(a=>[a.id,a]));
+  const orphans = state.impressoras.filter(p=>{ const k = impKey(p); return !k || !psFound[k]; });
+  const orphanReason = p=>{
+    const a = p.agentId && agentsById[p.agentId];
+    if(p.agentId && !a) return 'o computador dela foi removido';
+    if(a) return a.name+(psAlive(a.last_seen_at) ? ' não está encontrando esta impressora' : ' está desligado');
+    if(p.ip) return agents.length ? 'nenhum computador está encontrando este IP na rede' : 'nenhum computador conectado para mandar as fichas';
+    return 'cadastro manual antigo, sem computador';
+  };
+  const orphansHtml = !orphans.length ? '' : `<div class="ps-block"><div class="ps-head"><h3>Cadastradas, mas sem computador que imprima</h3></div>
+      <p class="sub" style="margin:0 0 8px">As fichas dessas estações não saem enquanto nenhum computador encontrar a impressora. Remova as que não usa mais.</p>
+      <div class="ps-list">${orphans.map(p=>`<div class="ps-printer"><div class="ps-printer-top"><span class="ps-printer-name">${h(p.nome)}</span><span class="tag tag-gray">${h(printStationName(p.estacao))}</span></div>
+        <div class="ps-printer-where">${p.ip?'Rede '+h(p.ip)+' · ':''}${h(orphanReason(p))}</div>
+        <div><button type="button" class="btn btn-sm btn-danger" onclick="deleteImpressora(${jsArg(p.id)})">Remover</button></div></div>`).join('')}</div></div>`;
   box.innerHTML = `
     <div class="ps-block"><div class="ps-head"><h3>Computadores com o agente</h3><button type="button" class="btn btn-primary btn-sm" onclick="openPairAgentModal()">＋ Conectar computador</button></div>
       <div class="ps-list">${agentRows}${legacy}</div>${agents.length?'':steps}</div>
     <div class="ps-block"><div class="ps-head"><h3>Impressoras encontradas</h3>${agents.length?'<button type="button" class="btn btn-sm" onclick="requestPrinterRescan()">↻ Procurar de novo</button>':''}</div>
-      ${printersHtml}${printSetupError?`<p class="sub" style="margin:8px 0 0;color:var(--c-danger)">${h(printSetupError)}</p>`:''}</div>`;
+      ${printersHtml}${printSetupError?`<p class="sub" style="margin:8px 0 0;color:var(--c-danger)">${h(printSetupError)}</p>`:''}</div>
+    ${orphansHtml}`;
 }
 async function togglePrinterStation(key, st){
   const fp = psFound[key]; if(!fp) return;
@@ -476,7 +494,13 @@ function openImpressoraModal(id){
     save('impressoras'); closeModal(); renderAll(); toast('Impressora salva.');
   };
 }
-function deleteImpressora(id){ if(!confirm('Excluir esta impressora?')) return; state.impressoras=state.impressoras.filter(x=>x.id!==id); save('impressoras'); renderAll(); }
+async function deleteImpressora(id){
+  const p = state.impressoras.find(x=>x.id===id); if(!p) return;
+  const ok = await askConfirm({ title:'Remover "'+p.nome+'"?', message:'Ela sai da lista de impressoras e '+printStationName(p.estacao)+' deixa de imprimir nela.', confirmLabel:'Remover', cancelLabel:'Manter' });
+  if(!ok) return;
+  state.impressoras = state.impressoras.filter(x=>x.id!==id);
+  await save('impressoras'); logAction('Impressão: impressora "'+p.nome+'" removida'); renderAll();
+}
 function resolvePrinterFor(estacao, origem){
   // Sem preparo (água, refrigerante lacrado) não tem impressora própria: sai no bar, que entrega
   // (decisão de 12/10). No computador de caixa continua saindo no caixa (deviceCaixaPrinter).
