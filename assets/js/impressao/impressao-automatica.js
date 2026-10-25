@@ -491,3 +491,118 @@ function resolvePrinterFor(estacao, origem){
   return null;
 }
 
+/* ============ FICHAS DE PEDIDO E AVISO DE FICHA NÃO IMPRESSA (vieram de fiscal/nfce-cupom.js, codigo-limpo passo E) ============ */
+async function printSingleTicket(who, cota, local, estacao, printer, items, orderNumber){
+  // Computador de caixa: tudo que for lançado aqui sai na impressora dele (ver deviceCaixaPrinter).
+  // Exceção (12/10): estações com preparo (padrão: Cozinha) mandam a ficha para a impressora delas,
+  // não para a do caixa; o resto (bebida, lanche pronto, sem preparo) sai no caixa para o cliente retirar.
+  const devicePrinter = deviceCaixaPrinter();
+  if(devicePrinter && !(caixaKeepsStation(devicePrinter, estacao) && printer)) printer = devicePrinter.nome;
+  if(printer){
+    const imp = state.impressoras.find(p=>p.nome===printer);
+    const targetName = imp&&imp.osName ? imp.osName : printer;
+    const useEscPos = !!(imp && imp.ip);
+    const text = buildTicketText(who, cota, local, estacao, items, orderNumber, paperColumns(imp), useEscPos);
+    if(supabaseClient && getTenantId()){
+      try{
+        // agent_id: impressora USB escolhida na configuração automática vai para o computador dela.
+        const job = { tenant_id: getTenantId(), printer_name: targetName, printer_ip: imp&&imp.ip||null, content: text, status: 'pendente' };
+        if(imp && imp.agentId) job.agent_id = imp.agentId;
+        let { error } = await supabaseClient.from('print_jobs').insert(job);
+        // Computador removido (ou banco sem a coluna): manda sem computador definido, como antes.
+        if(error && job.agent_id){ delete job.agent_id; ({ error } = await supabaseClient.from('print_jobs').insert(job)); }
+        if(!error){ toast('Pedido enviado pra fila de impressão: '+printer); return; }
+      }catch(e){ /* cai pro modo antigo abaixo */ }
+    }
+    const base = printerAgentBase(imp);
+    try{
+      const ctrl = new AbortController();
+      const t = setTimeout(()=>ctrl.abort(), 4000);
+      const res = await fetch(base+'/print', {
+        method:'POST', signal:ctrl.signal,
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ printer: targetName, text, ip: imp&&imp.ip||'' }) // agente 2.0: impressora de rede pelo IP
+      });
+      clearTimeout(t);
+      if(res.ok){ toast('Impresso automaticamente: '+printer); return; }
+    }catch(e){ /* agente indisponível — cai no modo com caixa de diálogo abaixo */ }
+  }
+  // OP-19: nada de janela automática (no celular do garçom ela é bloqueada e a ficha
+  // sumia). O pedido fica num aviso vermelho fixo até alguém imprimir aqui ou resolver.
+  notePrintFailure({ who, cota, local, estacao, printer, items, orderNumber, at:new Date().toISOString() });
+}
+/* OP-19 (decisão do dono): ficha que não foi para a impressora vira um aviso vermelho e
+   fixo, em vez da janela de impressão do navegador. "Imprimir aqui" abre todas as fichas
+   pendentes numa janela só (é um toque do operador, o navegador não bloqueia). Estação
+   que também tem tela (Monitor de Cozinha) e não tem impressora só avisa: o pedido está
+   na tela. */
+let failedPrintTickets = [];
+function notePrintFailure(t){
+  if(!t.printer && saidaTemTela(t.estacao)){ toast('Sem impressora para '+(estacaoLabel(t.estacao)||t.estacao)+': o pedido está só no Monitor de Cozinha.'); return; }
+  failedPrintTickets.push(t);
+  renderPrintFailBanner();
+}
+function renderPrintFailBanner(){
+  const root = document.getElementById('localModeRoot'); if(!root) return;
+  let el = root.querySelector('.print-fail');
+  if(!failedPrintTickets.length){ if(el){ el.remove(); applyTopBannerOffset(); } return; }
+  if(!el){
+    el = document.createElement('div');
+    el.className = 'local-mode print-stuck print-fail';
+    el.setAttribute('role','alert');
+    el.innerHTML = '<div class="local-mode-ico" aria-hidden="true">&#128424;</div><div class="local-mode-txt"><span class="local-mode-title"></span><span class="local-mode-sub"></span></div>'
+      + '<div class="print-fail-actions"><button type="button" class="local-mode-btn" data-a="print">Imprimir aqui</button><button type="button" class="local-mode-btn print-fail-done" data-a="done">Já resolvi</button></div>';
+    el.querySelector('[data-a="print"]').addEventListener('click', printFailedTicketsHere);
+    el.querySelector('[data-a="done"]').addEventListener('click', ()=>{ logAction('Aviso de ficha não impressa dispensado ('+failedPrintTickets.length+' ficha(s))'); failedPrintTickets = []; renderPrintFailBanner(); });
+    root.appendChild(el);
+  }
+  const last = failedPrintTickets[failedPrintTickets.length-1], est = estacaoLabel(last.estacao)||last.estacao;
+  const n = failedPrintTickets.length;
+  el.querySelector('.local-mode-title').textContent = last.printer
+    ? (n===1 ? 'Ficha de '+est+' não foi para a impressora' : n+' fichas não foram para a impressora')
+    : (n===1 ? 'Estação '+est+' sem impressora: item não impresso' : n+' fichas sem impressora: itens não impressos');
+  const resumo = failedPrintTickets.slice(-3).map(t=>(t.orderNumber?'#'+t.orderNumber+' ':'')+(t.who||'')+' ('+(estacaoLabel(t.estacao)||t.estacao)+')').join(' · ');
+  el.querySelector('.local-mode-sub').textContent = resumo + '. Toque em "Imprimir aqui" para sair na impressora deste aparelho, ou leve o pedido até a estação.'
+    + (last.printer ? ' Confira se o agente de impressão está aberto no computador.' : ' Cadastre a impressora em Configurações › Impressoras.');
+  applyTopBannerOffset();
+}
+function ticketPopupHtml(t){
+  const { who, cota, local, estacao, printer, items, orderNumber } = t;
+  const total = items.reduce((a,i)=>a+i.price*i.qty,0);
+  return `<section class="ticket">
+    <div class="estacao">${h((estacaoLabel(estacao)||estacao).toUpperCase())}</div>
+    <h1>Pedido ${orderNumber?'#'+orderNumber:''}</h1>
+    <div class="muted">${dataHoraBR(t.at||Date.now())}</div>
+    <div><b>Solicitante:</b> ${h(who)}</div>
+    ${cota?`<div><b>Cota:</b> ${h(cota)}</div>`:''}
+    ${local?`<div class="local">ENTREGAR EM: ${h(local)}</div>`:''}
+    <table>${items.map(i=>`<tr><td>${i.qty}x ${h(i.name)}${i.copos!=null?' — <b>'+i.copos+' copo'+(i.copos===1?'':'s')+'</b>':''}</td><td style="text-align:right">${fmt(i.price*i.qty)}</td></tr>`).join('')}</table>
+    <div class="total">Total: ${fmt(total)}</div>
+    ${printer?`<div class="printer">Imprimir na: <b>${h(printer)}</b> (não recebeu a ficha; impressa neste aparelho)</div>`:`<div class="warn">Nenhuma impressora configurada para ${h(estacaoLabel(estacao)||estacao)} nesta origem — encaminhar manualmente.</div>`}
+  </section>`;
+}
+function printFailedTicketsHere(){
+  const list = failedPrintTickets.slice();
+  if(!list.length) return;
+  const win = window.open('', '_blank', 'width=380,height=600');
+  if(!win){ toast('O navegador bloqueou a janela de impressão. Libere as janelas deste site e toque de novo.', 'error'); return; }
+  win.document.write(`<html><head><title>Fichas não impressas</title><style>
+    body{font-family:Arial,sans-serif;padding:16px;font-size:13px;color:#111}
+    h1{font-size:16px;margin:0 0 4px}
+    .muted{color:#666;font-size:11px;margin-bottom:12px}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    td{padding:4px 0;border-bottom:1px dashed #ccc}
+    .total{font-weight:bold;font-size:15px;margin-top:12px;text-align:right}
+    .local{background:none;color:#000;border:2px solid #000;padding:6px 10px;font-weight:bold;font-size:16px;margin:8px 0}
+    .estacao{background:none;color:#000;border:2px solid #000;padding:6px 10px;font-weight:bold;font-size:16px;margin:8px 0 4px}
+    .printer{color:#666;font-size:11px;margin-top:8px}
+    .warn{color:#c1443c;font-size:11px;margin-top:8px;font-weight:bold}
+    .ticket{page-break-after:always;break-after:page}
+    .ticket:last-child{page-break-after:auto;break-after:auto}
+  </style></head><body>${list.map(ticketPopupHtml).join('')}</body></html>`);
+  win.document.close(); win.focus();
+  setTimeout(()=>{ win.print(); }, 300);
+  failedPrintTickets = failedPrintTickets.filter(t=>!list.includes(t));
+  logAction(list.length+' ficha(s) não impressa(s) enviada(s) para impressão neste aparelho');
+  renderPrintFailBanner();
+}
