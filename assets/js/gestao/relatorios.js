@@ -21,7 +21,7 @@ function setAccountantRange(offset){ const r=monthRange(offset); document.getEle
 function accountantSheets(from, to){
   const inP=d=>d>=from&&d<=to, round=v=>Math.round((Number(v)||0)*100)/100, fmtD=v=>v?new Date(v).toLocaleString('pt-BR'):'';
   const memberOf=id=>state.members.find(m=>m.id===id);
-  const sales=state.sales.filter(sl=>sl && sl.status==='closed' && !sl.canceled && sl.deliveryStatus!=='cancelado' && inP(saleRevenueDay(sl)));
+  const sales=state.sales.filter(sl=>saleCountsAsRevenue(sl) && inP(saleRevenueDay(sl)));
   const canceled=state.sales.filter(sl=>sl && sl.canceled && inP(localDay(sl.canceledAt||sl.closedAt||sl.openedAt)));
   const buckets=['dinheiro','cartao','pix','fiado','outros'], bucketLabel={dinheiro:'Dinheiro',cartao:'Cartão',pix:'Pix',fiado:'Fiado (a prazo)',outros:'Outros'};
   const byMethod=sl=>somaPorForma([sl]);
