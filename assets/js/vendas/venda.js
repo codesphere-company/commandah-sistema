@@ -175,9 +175,9 @@ function renderBalcao(){
     const statusAt=s.closedAt||s.openedAt;
     const duration=Math.max(0,Math.floor((new Date(statusAt)-new Date(s.openedAt))/60000));
     return `<tr data-search="${h((who+' '+(s.orderNumber||'')).toLowerCase())}" class="${selectedPdvSaleId===s.id?'selected':''}" onclick="selectPdvSale(${jsArg(s.id)})" ondblclick="editSelectedPdvSale()">
-      <td class="mono">#${s.orderNumber||'—'}</td><td>${new Date(s.openedAt).toLocaleString('pt-BR')}</td><td>${duration} min</td>
+      <td class="mono">#${s.orderNumber||'—'}</td><td>${dataHoraBR(s.openedAt)}</td><td>${duration} min</td>
       <td>${h(who)}</td><td>${s.status==='closed'?'<span class="tag tag-green">Finalizado</span>':'<span class="tag tag-amber">Em atendimento</span>'}</td>
-      <td>${new Date(statusAt).toLocaleString('pt-BR')}</td><td>Balcão</td><td>${h(s.operatorName||'—')}</td><td class="mono">${fmt(s.total)}</td></tr>`;
+      <td>${dataHoraBR(statusAt)}</td><td>Balcão</td><td>${h(s.operatorName||'—')}</td><td class="mono">${fmt(s.total)}</td></tr>`;
   }).join('');
   el.innerHTML = `<div class="pdv-shell">
     <div class="pdv-actions">

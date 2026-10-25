@@ -7,14 +7,14 @@ function recordFiadoPaymentInCash(member, value, methodLabel, debtEntryId){
   if(!state.cashSession) return;
   const method = ({'Dinheiro':'dinheiro','Pix':'pix','Cartão':'cartao'})[methodLabel] || methodLabel || 'dinheiro';
   const description = 'Recebimento de fiado — '+member.name;
-  state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'suprimento', amount:Math.round(Number(value)*100)/100, reason:description, description, method, note:'', origin:'fiado', debtEntryId:debtEntryId||null, operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
+  state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'suprimento', amount:arredondaCentavos(Number(value)), reason:description, description, method, note:'', origin:'fiado', debtEntryId:debtEntryId||null, operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
   save('cashMovements');
 }
 // OP-06: estornar um pagamento de fiado também tira o valor do caixa. Com o caixa
 // do recebimento ainda aberto, a entrada sai; se ele já fechou, entra uma saída de
 // mesmo valor no caixa aberto agora (sem caixa aberto, avisa).
 function reverseFiadoPaymentInCash(member, entry){
-  const value = Math.round(Number(entry.value)*100)/100;
+  const value = arredondaCentavos(Number(entry.value));
   const desc = 'Recebimento de fiado — '+member.name;
   let mv = state.cashMovements.find(x=>x.origin==='fiado' && x.debtEntryId===entry.id);
   // Lançamentos de antes deste vínculo: mesma descrição e valor, no caixa aberto, o mais próximo do horário.
@@ -39,7 +39,7 @@ function reverseFiadoPaymentInCash(member, entry){
 // permitir e lançar como saída do caixa, para o dinheiro esperado bater com a gaveta).
 function recordChangeOutInCash(list, saleId){
   const total = Math.round((list||[]).reduce((a,x)=>a+(Number(x.amount)||0),0)*100)/100;
-  if(total<=0.009) return;
+  if(total<=TOLERANCIA_CENTAVO) return;
   if(!state.cashSession){ toast('Troco de '+fmt(total)+' em dinheiro sem caixa aberto: não entrou em nenhum fechamento.'); return; }
   const methods = [...new Set(list.map(x=>paymentMethodLabel(x.method)))].join(', ');
   const description = 'Troco em dinheiro de excedente pago em '+methods;

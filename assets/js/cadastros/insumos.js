@@ -131,7 +131,7 @@ async function saveStockCount(){
   const costOf = id => Number((state.insumos.find(x=>x.id===id)||{}).costPerUnit)||0;
   const loss = moves.filter(x=>x.m.type==='saida').reduce((t,x)=>t+x.m.qty*costOf(x.m.insumoId),0);
   const surplus = moves.filter(x=>x.m.type==='entrada').reduce((t,x)=>t+x.m.qty*costOf(x.m.insumoId),0);
-  const summary = {id:uid(),type:'contagem',countId,name:'Contagem de estoque',operation:'Contagem de estoque',note,qty:counted,unit:'itens',countBase:Math.round(base*100)/100,countLoss:Math.round(loss*100)/100,countSurplus:Math.round(surplus*100)/100,user,at};
+  const summary = {id:uid(),type:'contagem',countId,name:'Contagem de estoque',operation:'Contagem de estoque',note,qty:counted,unit:'itens',countBase:arredondaCentavos(base),countLoss:arredondaCentavos(loss),countSurplus:arredondaCentavos(surplus),user,at};
   state.stockMovements.unshift(summary, ...moves.map(x=>x.m));
   save('stockMovements');
   logAction('Contagem de estoque: '+counted+' itens, '+stockCountSummaryText(summary));

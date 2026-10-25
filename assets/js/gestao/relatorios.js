@@ -19,7 +19,7 @@ function openAccountantExport(){
 }
 function setAccountantRange(offset){ const r=monthRange(offset); document.getElementById('accFrom').value=r.from; document.getElementById('accTo').value=r.to; }
 function accountantSheets(from, to){
-  const inP=d=>d>=from&&d<=to, round=v=>Math.round((Number(v)||0)*100)/100, fmtD=v=>v?new Date(v).toLocaleString('pt-BR'):'';
+  const inP=d=>d>=from&&d<=to, round=v=>arredondaCentavos(Number(v)||0), fmtD=v=>v?dataHoraBR(v):'';
   const memberOf=id=>state.members.find(m=>m.id===id);
   const sales=state.sales.filter(sl=>saleCountsAsRevenue(sl) && inP(saleRevenueDay(sl)));
   const canceled=state.sales.filter(sl=>sl && sl.canceled && inP(localDay(sl.canceledAt||sl.closedAt||sl.openedAt)));
@@ -136,11 +136,11 @@ function renderDailySummaryReport(){
   const canceled=state.sales.filter(sl=>sl.canceled&&localDay(sl.canceledAt||sl.closedAt)===day);
   const fiadoIn=[]; state.members.forEach(m=>(m.debtHistory||[]).forEach(e=>{ if(e.type==='payment'&&!e.reversed&&localDay(e.at)===day) fiadoIn.push({m,e}); }));
   const fiadoInTotal=fiadoIn.reduce((a,x)=>a+(Number(x.e.value)||0),0);
-  const debtors=state.members.filter(m=>!m.archived&&(Number(m.debt)||0)>0.009), blocked=debtors.filter(memberBlockedByDebt);
+  const debtors=state.members.filter(m=>!m.archived&&(Number(m.debt)||0)>TOLERANCIA_CENTAVO), blocked=debtors.filter(memberBlockedByDebt);
   const closings=(state.cashHistory||[]).filter(c=>localDay(c.closedAt)===day).sort((a,b)=>new Date(a.closedAt)-new Date(b.closedAt));
   const count=closed.length+open.length, ticket=count?(closedTotal+openTotal)/count:0;
   const label=new Date(day+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-  const methodRows=[['Dinheiro','dinheiro'],['Cartão','cartao'],['Pix','pix'],['Fiado (a receber)','fiado'],['Outros','outros']].filter(([,k])=>byMethod[k]>0.009).map(([l,k])=>`<tr><td>${l}</td><td class="mono">${fmt(byMethod[k])}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">Nenhuma venda fechada.</td></tr>';
+  const methodRows=[['Dinheiro','dinheiro'],['Cartão','cartao'],['Pix','pix'],['Fiado (a receber)','fiado'],['Outros','outros']].filter(([,k])=>byMethod[k]>TOLERANCIA_CENTAVO).map(([l,k])=>`<tr><td>${l}</td><td class="mono">${fmt(byMethod[k])}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">Nenhuma venda fechada.</td></tr>';
   const cashNone=state.cashSession&&day===todayStr()?'Caixa ainda aberto.':'Nenhum caixa fechado neste dia.';
   el.innerHTML=`<div class="daily-summary">
   <div class="daily-summary-head"><div><h2>Resumo do dia</h2><p class="sub">${h(label)}</p></div><div class="daily-summary-nav"><button class="op-btn" onclick="shiftDailySummary(-1)">‹ &nbsp; Dia anterior</button><input type="date" value="${day}" max="${todayStr()}" onchange="dailySummaryDay=this.value||null;renderDailySummaryReport()"><button class="op-btn" onclick="shiftDailySummary(1)" ${day>=todayStr()?'disabled':''}>Próximo dia &nbsp; ›</button><button class="op-btn" onclick="window.print()">▣ &nbsp; Imprimir</button></div></div>
@@ -212,13 +212,13 @@ function renderRelatoriosDashboard(){
       const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
       const who = member ? member.name : (s.customerName||'Avulso');
       const method = (s.payments&&s.payments[0])?methodLabel(s.payments[0].method):'—';
-      return `<tr ondblclick="openOrderHistoryDetail(${jsArg(s.id)})"><td>${new Date(s.closedAt).toLocaleString('pt-BR')}</td><td>${h(typeLabel(s.type))}</td><td>${h(who)}</td><td>${h(s.operatorName||'—')}</td><td>${h(method)}</td><td class="mono">${fmt(s.total)}</td></tr>`;
+      return `<tr ondblclick="openOrderHistoryDetail(${jsArg(s.id)})"><td>${dataHoraBR(s.closedAt)}</td><td>${h(typeLabel(s.type))}</td><td>${h(who)}</td><td>${h(s.operatorName||'—')}</td><td>${h(method)}</td><td class="mono">${fmt(s.total)}</td></tr>`;
     }).join('')}</table>` : `<p class="empty">Nenhuma venda registrada ainda.</p>`}</div>
     <div class="grid4" style="margin-top:18px"><div class="stat"><div class="lbl">Pedidos finalizados</div><div class="val">${closedSales.length}</div></div><div class="stat"><div class="lbl">Ticket médio</div><div class="val">${fmt(closedSales.length?totalGeral/closedSales.length:0)}</div></div><div class="stat"><div class="lbl">Itens vendidos</div><div class="val">${closedSales.reduce((s,v)=>s+(v.items||[]).reduce((q,i)=>q+Number(i.qty||0),0),0)}</div></div><div class="stat"><div class="lbl">Margem sobre venda</div><div class="val">${totalGeral?(margemTotal/totalGeral*100).toFixed(1):'0,0'}%</div></div></div>`;
 }
 
 function reportDate(value){return localDay(value);}
-function reportDateTime(value){return value?new Date(value).toLocaleString('pt-BR'):'—';}
+function reportDateTime(value){return value?dataHoraBR(value):'—';}
 function exportCurrentReport(){const table=document.querySelector('#view-relatorios table');if(!table){toast('Não há grade para exportar.');return;}const rows=[...table.rows].filter(r=>r.style.display!=='none').map(r=>[...r.cells].map(c=>c.innerText.trim()));const csv=rows.map(r=>r.map(v=>'"'+v.replace(/"/g,'""')+'"').join(';')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download='relatorio-'+todayStr()+'.csv';a.click();URL.revokeObjectURL(a.href);}
 function filterReportRows(){const from=document.getElementById('repFrom')?.value||'';const to=document.getElementById('repTo')?.value||'';const q=(document.getElementById('repSearch')?.value||'').toLowerCase();document.querySelectorAll('#reportRows tr').forEach(r=>{const d=r.dataset.date||'';r.style.display=(!from||!d||d>=from)&&(!to||!d||d<=to)&&(!q||r.textContent.toLowerCase().includes(q))?'':'none';});}
 function setReportPeriod(kind){const now=new Date(),from=new Date(now);if(kind==='today'){}else if(kind==='yesterday'){from.setDate(now.getDate()-1);now.setDate(now.getDate()-1);}else if(kind==='7'){from.setDate(now.getDate()-6);}else if(kind==='30'){from.setDate(now.getDate()-29);}else if(kind==='month'){from.setDate(1);}document.getElementById('repFrom').value=localDay(from);document.getElementById('repTo').value=localDay(now);filterReportRows();}

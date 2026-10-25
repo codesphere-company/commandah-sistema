@@ -75,7 +75,7 @@ function anonymizeMember(memberId){
   const m=state.members.find(x=>x.id===memberId); if(!m) return;
   if(!isAdminUser()){ toast('Só o administrador anonimiza cadastro.'); return; }
   if(m.anonymizedAt){ toast('Este cadastro já foi anonimizado.'); return; }
-  if(Math.abs(Number(m.debt)||0)>0.009){ toast('Zere o saldo (fiado ou crédito) antes de anonimizar.'); return; }
+  if(Math.abs(Number(m.debt)||0)>TOLERANCIA_CENTAVO){ toast('Zere o saldo (fiado ou crédito) antes de anonimizar.'); return; }
   if(state.sales.some(s=>s.memberId===memberId && s.status==='open' && !s.canceled)){ toast('Feche a comanda aberta deste sócio antes de anonimizar.'); return; }
   askStaffPin({ title:'Anonimizar '+m.name, message:'Apaga nome, documento, telefone, e-mail, endereço, observações e dependentes deste sócio, inclusive nas comandas e pedidos antigos. Os valores (vendas, fiado, pontos) continuam, sem identificar a pessoa. Não dá para desfazer.', whoLabel:'Quem está alterando', staff:[currentUser], lockWho:true, confirmLabel:'Anonimizar',
     onSubmit: async (staffId, pin)=>{

@@ -78,7 +78,7 @@ function gcSale(){
   if(gcFlow.avulso) return { id:null, memberId:null, customerName:gcFlow.avulso, notes:gcFlow.obs||'', items:[] };
   return state.sales.find(x=>x.id===gcFlow.saleId);
 }
-function gcCartTotal(){ return Math.round(gcCart.reduce((a,i)=>a+i.price*i.qty,0)*100)/100; }
+function gcCartTotal(){ return arredondaCentavos(gcCart.reduce((a,i)=>a+i.price*i.qty,0)); }
 // UX-11: no celular do garçom, sem escolha salva, o tema segue o do aparelho (e muda junto
 // se o celular mudar); o botão do menu ☰ grava a escolha, como a caixinha do computador.
 function setAppTheme(tema, persist){
@@ -125,24 +125,24 @@ function gcOpenComanda(saleId){
 // (decisão do dono, 18/10), serviço sobre o que sobra depois do crédito, parcial sai do total.
 function gcComandaTotals(s){
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
-  const subtotal = Math.round(saleTotal(s.items)*100)/100;
+  const subtotal = arredondaCentavos(saleTotal(s.items));
   const partialPaid = comandaPartialPaid(s);
   const available = memberAvailableCredit(member);
-  const creditApplied = available>0.009 ? Math.round(Math.min(available, Math.max(0, subtotal-partialPaid))*100)/100 : 0;
+  const creditApplied = available>TOLERANCIA_CENTAVO ? arredondaCentavos(Math.min(available, Math.max(0, subtotal-partialPaid))) : 0;
   const afterCredit = Math.max(0, subtotal-creditApplied);
-  const service = serviceRatePct()>0 ? Math.round(serviceChargeAmount(afterCredit)*100)/100 : 0;
+  const service = serviceRatePct()>0 ? arredondaCentavos(serviceChargeAmount(afterCredit)) : 0;
   // Pendência anterior (fiado de sócio liberado pelo administrador) vem junto: memberDebtDue.
   const debt = memberDebtDue(member);
-  const total = Math.round((Math.max(0, afterCredit+service-partialPaid)+debt)*100)/100;
+  const total = arredondaCentavos(Math.max(0, afterCredit+service-partialPaid)+debt);
   return { member, subtotal, partialPaid, available, creditApplied, service, debt, total };
 }
 function gcSummaryHtml(t){
   return `<div class="gc-summary">
     <div><span>Consumo</span><span class="mono">${fmt(t.subtotal)}</span></div>
-    ${t.creditApplied>0.009?`<div><span>Crédito do sócio${t.available-t.creditApplied>0.009?' (sobra '+fmt(t.available-t.creditApplied)+')':''}</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
+    ${t.creditApplied>TOLERANCIA_CENTAVO?`<div><span>Crédito do sócio${t.available-t.creditApplied>TOLERANCIA_CENTAVO?' (sobra '+fmt(t.available-t.creditApplied)+')':''}</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
     ${serviceRatePct()>0?`<div><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono">${fmt(t.service)}</span></div>`:''}
-    ${t.partialPaid>0.009?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(t.partialPaid)}</span></div>`:''}
-    ${t.debt>0.009?`<div><span>(+) Pendência anterior (fiado)</span><span class="mono">${fmt(t.debt)}</span></div>`:''}
+    ${t.partialPaid>TOLERANCIA_CENTAVO?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(t.partialPaid)}</span></div>`:''}
+    ${t.debt>TOLERANCIA_CENTAVO?`<div><span>(+) Pendência anterior (fiado)</span><span class="mono">${fmt(t.debt)}</span></div>`:''}
     <div class="gc-summary-total"><span>Total</span><span class="mono">${fmt(t.total)}</span></div>
   </div>`;
 }
@@ -324,7 +324,7 @@ function gcRenderCharge(){
     <div class="gc-body">
       ${t ? gcSummaryHtml(t) : ''}
       <div class="gc-charge-total" ${t?'style="margin-top:14px"':''}><span>Total a cobrar</span><b class="mono">${fmt(total)}</b></div>
-      ${total<=0.009 ? '<p class="sub" style="margin-top:12px">Nada a cobrar: confirme para fechar a comanda.</p>' : `
+      ${total<=TOLERANCIA_CENTAVO ? '<p class="sub" style="margin-top:12px">Nada a cobrar: confirme para fechar a comanda.</p>' : `
       <label class="np-label" style="display:block;margin:16px 0 8px">Forma de pagamento</label>
       <div class="gc-pay-grid">${methods.map(m=>`<button type="button" class="gc-pay-btn${gcFlow.payMethod===m.method?' active':''}" data-method="${h(m.method)}" onclick="gcSelectPay(${jsArg(m.method)})"><span class="gc-pay-icon">${m.icon}</span><span>${h(m.label)}</span></button>`).join('')}</div>
       <div id="gcCashBox" class="np-section" ${gcFlow.payMethod==='dinheiro'?'':'hidden'}>
@@ -350,7 +350,7 @@ function gcUpdateChange(){
   const el = document.getElementById('gcChange'); if(!el) return;
   const raw = document.getElementById('gcCashReceived')?.value||'';
   if(raw===''){ el.textContent=''; return; }
-  const diff = Math.round(((parseFloat(raw)||0)-gcChargeTotal())*100)/100;
+  const diff = arredondaCentavos((parseFloat(raw)||0)-gcChargeTotal());
   el.textContent = diff>=0 ? 'Troco: '+fmt(diff) : 'Faltam '+fmt(-diff);
   el.classList.toggle('falta', diff<0);
 }
@@ -394,10 +394,10 @@ function gcBuildPayment(method, total){
   const pay = { method, amount: total };
   if(method==='dinheiro'){
     const raw = document.getElementById('gcCashReceived')?.value||'';
-    const received = raw==='' ? total : Math.round((parseFloat(raw)||0)*100)/100;
-    if(received+0.009 < total){ toast('O valor recebido é menor que o total.'); return null; }
-    const change = Math.round((received-total)*100)/100;
-    if(change>0.009){ pay.received = received; pay.change = change; }
+    const received = raw==='' ? total : arredondaCentavos(parseFloat(raw)||0);
+    if(received+TOLERANCIA_CENTAVO < total){ toast('O valor recebido é menor que o total.'); return null; }
+    const change = arredondaCentavos(received-total);
+    if(change>TOLERANCIA_CENTAVO){ pay.received = received; pay.change = change; }
   }
   return pay;
 }
@@ -416,10 +416,10 @@ async function gcConfirmCloseComanda(){
   const t = gcComandaTotals(s);
   // Total diferente do que o garçom mostrou ao cliente (item lançado em outro aparelho, saldo do sócio
   // mudou): confere antes.
-  if(Math.abs(t.total-(gcFlow.shownTotal||0))>0.009){ gcRenderCharge(); toast('O total mudou (chegou item novo nesta comanda). Confira antes de cobrar.'); return; }
+  if(Math.abs(t.total-(gcFlow.shownTotal||0))>TOLERANCIA_CENTAVO){ gcRenderCharge(); toast('O total mudou (chegou item novo nesta comanda). Confira antes de cobrar.'); return; }
   const method = gcFlow.payMethod;
   let payments = [];
-  if(t.total>0.009){
+  if(t.total>TOLERANCIA_CENTAVO){
     if(!GC_PAY_METHODS.includes(method)){ toast('Escolha a forma de pagamento.'); return; }
     const pay = gcBuildPayment(method, t.total); if(!pay) return;
     payments = [pay];
@@ -427,8 +427,8 @@ async function gcConfirmCloseComanda(){
   currentSaleDraft = { id:s.id, items:JSON.parse(JSON.stringify(s.items||[])), memberId:s.memberId, customerName:s.customerName, notes:s.notes||'', type:'comanda' };
   const { salePayments, debtParts } = splitDebtFromPayments(payments, t.debt);
   const meta = { subtotal: t.subtotal, discount: 0, couponCode: null, creditApplied: t.creditApplied, serviceCharge: t.service, partialPaid: t.partialPaid };
-  if(t.debt>0.009) meta.debtPaid = t.debt;
-  const closedId = await finalizeSale('comanda', s.id, s.memberId||null, salePayments, Math.round((t.total-t.debt)*100)/100, t.creditApplied, 0, meta);
+  if(t.debt>TOLERANCIA_CENTAVO) meta.debtPaid = t.debt;
+  const closedId = await finalizeSale('comanda', s.id, s.memberId||null, salePayments, arredondaCentavos(t.total-t.debt), t.creditApplied, 0, meta);
   if(closedId && debtParts.length) await recordDebtPaidWithSale(t.member, debtParts, closedId);
   if(!closedId){
     const cur = state.sales.find(x=>x.id===saleId);

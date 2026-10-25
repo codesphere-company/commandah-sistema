@@ -37,7 +37,7 @@ function openPaymentModal(mode, comandaId){
       <div id="payDiscountRow" style="display:none"><span>Desconto</span><span class="mono" id="payDiscountLine">− R$ 0,00</span></div>
       <div id="payCreditRow" style="display:none"><span>Crédito do sócio (abatido)</span><span class="mono" id="payCreditLine">− R$ 0,00</span></div>
       ${applyService?`<div><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono" id="payServiceLine">R$ 0,00</span></div>`:''}
-      ${partialPaid>0.009?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(partialPaid)}</span></div>`:''}
+      ${partialPaid>TOLERANCIA_CENTAVO?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(partialPaid)}</span></div>`:''}
       <div id="payDebtRow" style="display:none"><span>(+) Pendência anterior (fiado)</span><span class="mono" id="payDebtLine">R$ 0,00</span></div>
       <div class="pay-total-row"><span>Total a pagar</span><span class="mono" id="payFinalTotal">${fmt(subtotal)}</span></div>
     </div>
@@ -86,22 +86,22 @@ function openPaymentModal(mode, comandaId){
     // Crédito do sócio é abatido sozinho (decisão do dono, 18/10). Antes (10/10) o caixa
     // precisava marcar "Usar crédito do sócio"; o garçom usa a mesma regra (gcComandaTotals).
     const available = memberAvailableCredit(member);
-    creditApplied = available>0.009 ? Math.min(available, Math.max(0, afterCoupon-partialPaid)) : 0;
+    creditApplied = available>TOLERANCIA_CENTAVO ? Math.min(available, Math.max(0, afterCoupon-partialPaid)) : 0;
     const afterDiscount = Math.max(0, afterCoupon-creditApplied);
     const service = applyService ? serviceChargeAmount(afterDiscount) : 0;
-    serviceAmount = Math.round(service*100)/100;
-    finalTotal = Math.max(0, Math.round((afterDiscount+service-partialPaid)*100)/100); // centavos exatos; parcial já pago sai do total
+    serviceAmount = arredondaCentavos(service);
+    finalTotal = Math.max(0, arredondaCentavos(afterDiscount+service-partialPaid)); // centavos exatos; parcial já pago sai do total
     const debtDue = memberDebtDue(member), debtBox = document.getElementById('payDebtBox');
-    debtBox.hidden = !(debtDue>0.009);
-    if(debtDue>0.009) document.getElementById('payDebtLabel').textContent = 'Cobrar a pendência anterior junto ('+fmt(debtDue)+')';
-    debtIncluded = debtDue>0.009 && document.getElementById('payChargeDebt').checked ? debtDue : 0;
-    document.getElementById('payDebtRow').style.display = debtIncluded>0.009 ? 'flex':'none';
-    if(debtIncluded>0.009) document.getElementById('payDebtLine').textContent = fmt(debtIncluded);
-    finalTotal = Math.round((finalTotal+debtIncluded)*100)/100;
+    debtBox.hidden = !(debtDue>TOLERANCIA_CENTAVO);
+    if(debtDue>TOLERANCIA_CENTAVO) document.getElementById('payDebtLabel').textContent = 'Cobrar a pendência anterior junto ('+fmt(debtDue)+')';
+    debtIncluded = debtDue>TOLERANCIA_CENTAVO && document.getElementById('payChargeDebt').checked ? debtDue : 0;
+    document.getElementById('payDebtRow').style.display = debtIncluded>TOLERANCIA_CENTAVO ? 'flex':'none';
+    if(debtIncluded>TOLERANCIA_CENTAVO) document.getElementById('payDebtLine').textContent = fmt(debtIncluded);
+    finalTotal = arredondaCentavos(finalTotal+debtIncluded);
     document.getElementById('payDiscountRow').style.display = discount>0 ? 'flex':'none';
     if(discount>0) document.getElementById('payDiscountLine').textContent = '− '+fmt(discount);
-    document.getElementById('payCreditRow').style.display = creditApplied>0.009 ? 'flex':'none';
-    if(creditApplied>0.009) document.getElementById('payCreditLine').textContent = '− '+fmt(creditApplied);
+    document.getElementById('payCreditRow').style.display = creditApplied>TOLERANCIA_CENTAVO ? 'flex':'none';
+    if(creditApplied>TOLERANCIA_CENTAVO) document.getElementById('payCreditLine').textContent = '− '+fmt(creditApplied);
     if(applyService) document.getElementById('payServiceLine').textContent = fmt(service);
     document.getElementById('payFinalTotal').textContent = fmt(finalTotal);
     updateSplitInfo(); renderPaymentParts();
@@ -141,15 +141,15 @@ function openPaymentModal(mode, comandaId){
     document.getElementById('payReceived').textContent = fmt(received);
     document.getElementById('payBalanceLabel').textContent = balance>=0 ? 'Falta pagar' : 'Troco';
     document.getElementById('payBalance').textContent = fmt(Math.abs(balance));
-    document.getElementById('payBalance').style.color = balance>0.009 ? 'var(--red)' : 'var(--green)';
+    document.getElementById('payBalance').style.color = balance>TOLERANCIA_CENTAVO ? 'var(--red)' : 'var(--green)';
     const pct = finalTotal>0 ? Math.min(100,(received/finalTotal)*100) : 0;
     document.getElementById('payProgressFill').style.width = pct+'%';
-    document.getElementById('payProgressFill').style.background = balance>0.009 ? 'var(--amber)':'var(--green)';
+    document.getElementById('payProgressFill').style.background = balance>TOLERANCIA_CENTAVO ? 'var(--amber)':'var(--green)';
     if(!splitActive()) document.getElementById('payPartAmount').value = Math.max(0,balance).toFixed(2);
     else updateSplitInfo();
     const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
     const choiceBox = document.getElementById('payChangeChoice');
-    if(balance<-0.009 && member){
+    if(balance<-TOLERANCIA_CENTAVO && member){
       choiceBox.style.display = 'flex';
       choiceBox.innerHTML = `
         <button type="button" class="btn btn-sm ${changeDecision==='troco'?'btn-primary':''}" onclick="setPayChangeDecision('troco')">💰 &nbsp; Devolver Troco</button>
@@ -165,7 +165,7 @@ function openPaymentModal(mode, comandaId){
     const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
     if(!amount || amount<=0){ toast('Informe o valor desta forma de pagamento.'); return; }
     if(method==='fiado' && (!member || memberBlockedByDebt(member))){ toast(!member?'Selecione um associado para usar fiado.':'Associado com pendência não pode usar fiado.'); return; }
-    if(method==='fiado' && debtIncluded>0.009){ toast('Para lançar no fiado, desmarque "Cobrar a pendência anterior junto".'); return; }
+    if(method==='fiado' && debtIncluded>TOLERANCIA_CENTAVO){ toast('Para lançar no fiado, desmarque "Cobrar a pendência anterior junto".'); return; }
     tempPayments.push({method,amount}); renderPaymentParts();
   };
   document.getElementById('payPartAmount').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('addPaymentBtn').click(); } });
@@ -196,16 +196,16 @@ function openPaymentModal(mode, comandaId){
     if(tempPayments.some(p=>p.method==='fiado')){
       if(!member){ toast('Selecione um associado para usar fiado.'); return; }
       if(memberBlockedByDebt(member)){ toast('Associado com pendência não pode usar fiado.'); return; }
-      if(debtIncluded>0.009){ toast('Para lançar no fiado, desmarque "Cobrar a pendência anterior junto".'); return; }
+      if(debtIncluded>TOLERANCIA_CENTAVO){ toast('Para lançar no fiado, desmarque "Cobrar a pendência anterior junto".'); return; }
     }
     const received = tempPayments.reduce((a,p)=>a+p.amount,0);
-    if(received+0.009<finalTotal){ toast('Ainda falta '+fmt(finalTotal-received)+'.'); return; }
+    if(received+TOLERANCIA_CENTAVO<finalTotal){ toast('Ainda falta '+fmt(finalTotal-received)+'.'); return; }
     const payments = tempPayments.map(p=>({...p}));
     const change = Math.max(0,received-finalTotal);
     let creditFromChange = 0;
     // Troco que sai da gaveta por excedente pago em Pix/cartão (OP-02).
     const cashChangeOut = [];
-    if(change>0.009){
+    if(change>TOLERANCIA_CENTAVO){
       if(member && changeDecision==='credito'){
         creditFromChange = change; // dinheiro fica todo registrado; excedente vira crédito do sócio
       } else {
@@ -215,11 +215,11 @@ function openPaymentModal(mode, comandaId){
         const order = payments.map((p,i)=>i).sort((a,b)=>((payments[b].method==='dinheiro')-(payments[a].method==='dinheiro')) || (b-a));
         let remaining = change;
         for(const i of order){
-          if(remaining<=0.009) break;
+          if(remaining<=TOLERANCIA_CENTAVO) break;
           const p = payments[i];
-          const take = Math.round(Math.min(p.amount, remaining)*100)/100;
+          const take = arredondaCentavos(Math.min(p.amount, remaining));
           if(take<=0) continue;
-          p.received = p.amount; p.change = Math.round(((p.change||0)+take)*100)/100; p.amount = Math.round((p.amount-take)*100)/100; remaining = Math.round((remaining-take)*100)/100;
+          p.received = p.amount; p.change = arredondaCentavos((p.change||0)+take); p.amount = arredondaCentavos(p.amount-take); remaining = arredondaCentavos(remaining-take);
           // Excedente em Pix/cartão devolvido em dinheiro: a gaveta perde esse valor.
           if(p.method!=='dinheiro' && p.method!=='fiado') cashChangeOut.push({method:p.method, amount:take});
         }
@@ -231,9 +231,9 @@ function openPaymentModal(mode, comandaId){
     // A pendência sai das formas de pagamento: a venda fica só com o consumo e a pendência
     // entra como recebimento de fiado (extrato do sócio e caixa), depois da venda gravada.
     const { salePayments, debtParts } = splitDebtFromPayments(payments, debtIncluded);
-    const meta = { subtotal: Math.round(subtotal*100)/100, discount: Math.round(discount*100)/100, couponCode: appliedCouponCode||null, creditApplied: Math.round((creditApplied||0)*100)/100, serviceCharge: serviceAmount, partialPaid };
-    if(debtIncluded>0.009) meta.debtPaid = debtIncluded;
-    const closedSaleId = await finalizeSale(mode, comandaId, memberId, salePayments, Math.round((finalTotal-debtIncluded)*100)/100, creditApplied, creditFromChange, meta);
+    const meta = { subtotal: arredondaCentavos(subtotal), discount: arredondaCentavos(discount), couponCode: appliedCouponCode||null, creditApplied: arredondaCentavos(creditApplied||0), serviceCharge: serviceAmount, partialPaid };
+    if(debtIncluded>TOLERANCIA_CENTAVO) meta.debtPaid = debtIncluded;
+    const closedSaleId = await finalizeSale(mode, comandaId, memberId, salePayments, arredondaCentavos(finalTotal-debtIncluded), creditApplied, creditFromChange, meta);
     if(closedSaleId){
       if(debtParts.length) await recordDebtPaidWithSale(member, debtParts, closedSaleId);
       recordChangeOutInCash(cashChangeOut, closedSaleId);
@@ -259,19 +259,19 @@ function showSalePendingWarning(){
 /* Pendência do sócio cobrada junto no fechamento (pedido do dono, 18/10): sócio liberado com a
    senha do administrador consome com fiado em aberto; ao fechar, o total traz consumo + pendência.
    No caixa dá para desmarcar ("Cobrar a pendência anterior junto"); o garçom cobra sempre. */
-function memberDebtDue(member){ return member ? Math.max(0, Math.round((Number(member.debt)||0)*100)/100) : 0; }
+function memberDebtDue(member){ return member ? Math.max(0, arredondaCentavos(Number(member.debt)||0)) : 0; }
 // Separa a pendência das formas de pagamento, tirando das últimas linhas lançadas.
 function splitDebtFromPayments(payments, debt){
   const salePayments = payments.map(p=>({...p})), debtParts = [];
-  let remaining = Math.round((Number(debt)||0)*100)/100;
-  for(let i=salePayments.length-1; i>=0 && remaining>0.009; i--){
+  let remaining = arredondaCentavos(Number(debt)||0);
+  for(let i=salePayments.length-1; i>=0 && remaining>TOLERANCIA_CENTAVO; i--){
     const p = salePayments[i];
-    const take = Math.round(Math.min(p.amount, remaining)*100)/100;
+    const take = arredondaCentavos(Math.min(p.amount, remaining));
     if(take<=0) continue;
     debtParts.unshift({ method:p.method, amount:take });
-    p.amount = Math.round((p.amount-take)*100)/100; remaining = Math.round((remaining-take)*100)/100;
+    p.amount = arredondaCentavos(p.amount-take); remaining = arredondaCentavos(remaining-take);
   }
-  return { salePayments: salePayments.filter(p=>p.amount>0.009 || p.change), debtParts };
+  return { salePayments: salePayments.filter(p=>p.amount>TOLERANCIA_CENTAVO || p.change), debtParts };
 }
 // Mesmo registro do "Registrar Pagamento" da conta corrente: extrato do sócio + entrada no caixa.
 async function recordDebtPaidWithSale(member, debtParts, saleId){
@@ -356,7 +356,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
       // OP-13: os parciais entram nas formas de pagamento da venda (marcados partial, já contados
       // no caixa quando foram recebidos) e o total da venda volta a ser o total cheio.
       const parts = (cur.partialPayments||[]).filter(p=>!p.reversed).map(p=>({method:p.method, amount:Number(p.amount)||0, partial:true, partialId:p.id, at:p.at, who:p.who||''}));
-      if(parts.length){ sale.payments=[...parts, ...sale.payments]; total=Math.round((total+parts.reduce((t,p)=>t+p.amount,0))*100)/100; sale.total=total; }
+      if(parts.length){ sale.payments=[...parts, ...sale.payments]; total=arredondaCentavos(total+parts.reduce((t,p)=>t+p.amount,0)); sale.total=total; }
     }
   }
   if(isCloudMode()){
@@ -406,11 +406,11 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
     const m = state.members.find(x=>x.id===memberId);
     if(m){ await MembersStore.recordDebtEntry(m.id, 'debt', fiadoTotal, { reason:'Venda #'+sale.id, saleId: sale.id }); fiadoMemberForPrompt = m; }
   }
-  if(Number(creditApplied)>0.009 && memberId){
+  if(Number(creditApplied)>TOLERANCIA_CENTAVO && memberId){
     const m = state.members.find(x=>x.id===memberId);
     if(m) await MembersStore.recordDebtEntry(m.id, 'debt', creditApplied, { reason:'Uso de crédito na venda #'+sale.id, saleId: sale.id });
   }
-  if(Number(creditFromChange)>0.009 && memberId){
+  if(Number(creditFromChange)>TOLERANCIA_CENTAVO && memberId){
     const m = state.members.find(x=>x.id===memberId);
     if(m) await MembersStore.recordDebtEntry(m.id, 'payment', creditFromChange, { reason:'Crédito de troco — Venda #'+sale.id, saleId: sale.id });
   }
