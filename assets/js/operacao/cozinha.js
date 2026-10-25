@@ -77,7 +77,6 @@ async function restoreInsumosForItems(items){
   save('insumos');save('stockMovements');
   return true;
 }
-function saleTotal(items){ return (items||[]).filter(i=>!i.canceled).reduce((a,i)=>a+i.price*i.qty,0); }
 // OP-10: pedido novo só entra em comanda aberta. Se o caixa fechou ou cancelou a
 // comanda enquanto o garçom montava o pedido, nada vai para a cozinha nem baixa
 // estoque numa conta que ninguém mais vai cobrar.
@@ -183,13 +182,6 @@ function comandaAcceptsOrders(s){
   toast((s&&s.canceled?'Esta comanda foi cancelada':'Esta comanda já foi fechada')+'. Nada foi enviado: abra uma nova comanda para este cliente.');
   return false;
 }
-/* Único lugar que decide se uma venda entra em relatório/faturamento: fechada, não cancelada
-   como delivery (deliveryStatus) e não cancelada como comanda inteira (s.canceled, ver
-   confirmCancelComanda). Todo relatório novo deve usar isto em vez de repetir a condição. */
-function saleCountsAsRevenue(s){ return !!s && s.status==='closed' && s.deliveryStatus!=='cancelado' && !s.canceled; }
-// OP-14: o faturamento de uma venda é do dia em que ela abriu (comanda aberta à noite e paga no dia
-// seguinte conta no dia da abertura). Recebimentos (formas de pagamento, caixa) seguem pela data do pagamento.
-function saleRevenueDay(s){ return localDay(s.openedAt||s.closedAt); }
 function saidaModoEstacao(estacao){
   const e = state.estacoes.find(x=>x.chave===estacao);
   return e ? e.saida : (estacao==='cozinha' ? 'ambos' : 'imprime');

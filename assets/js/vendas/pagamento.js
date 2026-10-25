@@ -81,23 +81,18 @@ function openPaymentModal(mode, comandaId){
   if(preselected) selMember.value = preselected;
   function currentMethod(){ return methods.find(m=>m.key===selectedMethodKey)||methods[0]; }
   function recomputeTotals(){
-    const afterCoupon = Math.max(0, subtotal-discount);
     const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
-    // Crédito do sócio é abatido sozinho (decisão do dono, 18/10). Antes (10/10) o caixa
-    // precisava marcar "Usar crédito do sócio"; o garçom usa a mesma regra (gcComandaTotals).
-    const available = memberAvailableCredit(member);
-    creditApplied = available>TOLERANCIA_CENTAVO ? Math.min(available, Math.max(0, afterCoupon-partialPaid)) : 0;
-    const afterDiscount = Math.max(0, afterCoupon-creditApplied);
-    const service = applyService ? serviceChargeAmount(afterDiscount) : 0;
-    serviceAmount = arredondaCentavos(service);
-    finalTotal = Math.max(0, arredondaCentavos(afterDiscount+service-partialPaid)); // centavos exatos; parcial já pago sai do total
+    // Crédito do sócio é abatido sozinho (decisão do dono, 18/10). A conta é a mesma do garçom
+    // e do painel da comanda: comandaTotals (core/calculos.js).
     const debtDue = memberDebtDue(member), debtBox = document.getElementById('payDebtBox');
+    const chargeDebt = debtDue>TOLERANCIA_CENTAVO && document.getElementById('payChargeDebt').checked;
+    const t = comandaTotals({ subtotal, discount, partialPaid, member, applyService, includeDebt: chargeDebt });
+    creditApplied = t.creditApplied; serviceAmount = t.service; debtIncluded = t.debt; finalTotal = t.total;
+    const service = t.service;
     debtBox.hidden = !(debtDue>TOLERANCIA_CENTAVO);
     if(debtDue>TOLERANCIA_CENTAVO) document.getElementById('payDebtLabel').textContent = 'Cobrar a pendência anterior junto ('+fmt(debtDue)+')';
-    debtIncluded = debtDue>TOLERANCIA_CENTAVO && document.getElementById('payChargeDebt').checked ? debtDue : 0;
     document.getElementById('payDebtRow').style.display = debtIncluded>TOLERANCIA_CENTAVO ? 'flex':'none';
     if(debtIncluded>TOLERANCIA_CENTAVO) document.getElementById('payDebtLine').textContent = fmt(debtIncluded);
-    finalTotal = arredondaCentavos(finalTotal+debtIncluded);
     document.getElementById('payDiscountRow').style.display = discount>0 ? 'flex':'none';
     if(discount>0) document.getElementById('payDiscountLine').textContent = '− '+fmt(discount);
     document.getElementById('payCreditRow').style.display = creditApplied>TOLERANCIA_CENTAVO ? 'flex':'none';

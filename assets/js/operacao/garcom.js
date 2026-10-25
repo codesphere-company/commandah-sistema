@@ -127,14 +127,9 @@ function gcComandaTotals(s){
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const subtotal = arredondaCentavos(saleTotal(s.items));
   const partialPaid = comandaPartialPaid(s);
-  const available = memberAvailableCredit(member);
-  const creditApplied = available>TOLERANCIA_CENTAVO ? arredondaCentavos(Math.min(available, Math.max(0, subtotal-partialPaid))) : 0;
-  const afterCredit = Math.max(0, subtotal-creditApplied);
-  const service = serviceRatePct()>0 ? arredondaCentavos(serviceChargeAmount(afterCredit)) : 0;
-  // Pendência anterior (fiado de sócio liberado pelo administrador) vem junto: memberDebtDue.
-  const debt = memberDebtDue(member);
-  const total = arredondaCentavos(Math.max(0, afterCredit+service-partialPaid)+debt);
-  return { member, subtotal, partialPaid, available, creditApplied, service, debt, total };
+  // Pendência anterior (fiado de sócio liberado pelo administrador) vem sempre junto no garçom.
+  const t = comandaTotals({ subtotal, partialPaid, member, applyService: serviceRatePct()>0, includeDebt: true });
+  return { member, subtotal, partialPaid, available: t.available, creditApplied: t.creditApplied, service: t.service, debt: t.debt, total: t.total };
 }
 function gcSummaryHtml(t){
   return `<div class="gc-summary">
