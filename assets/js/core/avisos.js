@@ -201,10 +201,10 @@ async function checkStuckPrintQueue(){
 
 function showPrintQueueBanner(qtd, mins, printer){
   const root = document.getElementById('localModeRoot'); if(!root) return;
-  let el = root.querySelector('.print-stuck');
+  let el = root.querySelector('.print-queue');
   if(!el){
     el = document.createElement('div');
-    el.className = 'local-mode print-stuck';
+    el.className = 'local-mode print-stuck print-queue';
     el.setAttribute('role','alert');
     el.innerHTML = '<div class="local-mode-ico" aria-hidden="true">&#128424;</div>'
       + '<div class="local-mode-txt">'
@@ -272,8 +272,11 @@ function setPrintAgentOffline(off, seen, names){
     + 'As fichas não estão saindo na impressora. Abra o agente no computador da impressão; até lá, leve os pedidos até a estação.';
   applyTopBannerOffset();
 }
+// Só o aviso da fila (.print-queue). Antes procurava .print-stuck, a classe de estilo que o aviso de
+// agente desconectado e o de ficha não impressa também usam: a checagem da fila, que roda logo depois
+// da do agente, apagava o aviso do agente 0,2 s depois de ele aparecer (registro de 25/10, t217).
 function hidePrintQueueBanner(){
-  const el = document.querySelector('#localModeRoot .print-stuck');
+  const el = document.querySelector('#localModeRoot .print-queue');
   if(el){ el.remove(); applyTopBannerOffset(); }
 }
 
