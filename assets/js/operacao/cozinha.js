@@ -122,8 +122,8 @@ function openPartialPayment(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
   if(!state.cashSession){ toast('Abra o caixa para receber pagamento.'); return; }
   const items = (currentSaleDraft && currentSaleDraft.id===saleId) ? currentSaleDraft.items : s.items;
-  const due = Math.max(0, Math.round((saleTotal(items) - comandaPartialPaid(s))*100)/100);
-  if(due<=0.009){ toast('Não há saldo a receber nesta comanda.'); return; }
+  const due = Math.max(0, arredondaCentavos(saleTotal(items) - comandaPartialPaid(s)));
+  if(due<=TOLERANCIA_CENTAVO){ toast('Não há saldo a receber nesta comanda.'); return; }
   const methods = methodConfig().filter(m=>m.method!=='fiado');
   openModal('Receber pagamento parcial', `<p class="sub">Para quando alguém paga a sua parte e a comanda continua aberta. Em aberto agora: <b class="mono">${fmt(due)}</b>.</p>
     <div class="field"><label>Valor recebido</label><input id="ppAmount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0,00"></div>
@@ -134,7 +134,7 @@ function openPartialPayment(saleId){
   setTimeout(()=>document.getElementById('ppAmount')?.focus(),50);
 }
 async function savePartialPayment(saleId){
-  const amount = Math.round(parseFloat(document.getElementById('ppAmount').value)*100)/100;
+  const amount = arredondaCentavos(parseFloat(document.getElementById('ppAmount').value));
   const method = document.getElementById('ppMethod').value, who = document.getElementById('ppWho').value.trim();
   if(!Number.isFinite(amount)||amount<=0){ toast('Informe o valor recebido.'); return; }
   if(!state.cashSession){ toast('Abra o caixa para receber pagamento.'); return; }
@@ -142,8 +142,8 @@ async function savePartialPayment(saleId){
   let refused = '';
   const cur = await commitSaleChange(saleId, c=>{
     if(c.status!=='open'||c.canceled){ refused='Esta comanda já foi fechada ou cancelada em outro aparelho.'; return false; }
-    const due = Math.round((saleTotal(c.items) - comandaPartialPaid(c))*100)/100;
-    if(amount > due+0.009){ refused='O valor passa do que está em aberto ('+fmt(due)+').'; return false; }
+    const due = arredondaCentavos(saleTotal(c.items) - comandaPartialPaid(c));
+    if(amount > due+TOLERANCIA_CENTAVO){ refused='O valor passa do que está em aberto ('+fmt(due)+').'; return false; }
     c.partialPayments = [...(c.partialPayments||[]), pay];
   });
   if(!cur) return;
@@ -174,7 +174,7 @@ function renderComandaPartials(saleId){
   const el = document.getElementById('comandaPartialWrap'); if(!el) return;
   const s = state.sales.find(x=>x.id===saleId); const list = (s&&s.partialPayments||[]).filter(p=>!p.reversed);
   if(!list.length){ el.innerHTML=''; return; }
-  const paid = comandaPartialPaid(s), due = Math.max(0, Math.round((saleTotal(currentSaleDraft.items)-paid)*100)/100);
+  const paid = comandaPartialPaid(s), due = Math.max(0, arredondaCentavos(saleTotal(currentSaleDraft.items)-paid));
   const admin = currentUser && (currentUser.role==='admin' || sessionIsOwner);
   el.innerHTML = `<div class="partial-box"><div class="partial-head"><span>Já pago (parcial): <b class="mono">${fmt(paid)}</b></span><span>Falta: <b class="mono">${fmt(due)}</b></span></div>${list.map(p=>`<div class="partial-line"><span>${comandaShortTime(p.at)} · ${h(paymentMethodLabel(p.method))}${p.who?' · '+h(p.who):''}</span><span class="mono">${fmt(p.amount)}${admin?` <button class="op-mini" title="Estornar este pagamento" onclick="reversePartialPayment(${jsArg(saleId)},${jsArg(p.id)})">↩</button>`:''}</span></div>`).join('')}</div>`;
 }

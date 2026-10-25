@@ -192,7 +192,7 @@ function ticketPopupHtml(t){
   return `<section class="ticket">
     <div class="estacao">${h((estacaoLabel(estacao)||estacao).toUpperCase())}</div>
     <h1>Pedido ${orderNumber?'#'+orderNumber:''}</h1>
-    <div class="muted">${new Date(t.at||Date.now()).toLocaleString('pt-BR')}</div>
+    <div class="muted">${dataHoraBR(t.at||Date.now())}</div>
     <div><b>Solicitante:</b> ${h(who)}</div>
     ${cota?`<div><b>Cota:</b> ${h(cota)}</div>`:''}
     ${local?`<div class="local">ENTREGAR EM: ${h(local)}</div>`:''}
@@ -392,7 +392,7 @@ async function openReopenComanda(saleId){
   const s=state.sales.find(x=>x.id===saleId); if(!s) return;
   if(!(currentUser && (currentUser.role==='admin' || sessionIsOwner))){ toast('Só o administrador reabre comanda fechada.'); return; }
   if(!canReopenSale(s)){ toast('Só comanda fechada (e não cancelada) pode ser reaberta.'); return; }
-  const paid=(s.payments||[]).filter(p=>!p.partial&&methodBucket(p.method)!=='fiado'&&(Number(p.amount)||0)>0.009);
+  const paid=(s.payments||[]).filter(p=>!p.partial&&methodBucket(p.method)!=='fiado'&&(Number(p.amount)||0)>TOLERANCIA_CENTAVO);
   const fiado=(s.payments||[]).filter(p=>methodBucket(p.method)==='fiado');
   const sameSession=!!(state.cashSession&&s.closedAt&&new Date(s.closedAt)>=new Date(state.cashSession.openedAt));
   if(paid.length && !state.cashSession){ toast('Abra o caixa para reabrir: o valor pago volta a sair do caixa.'); return; }
@@ -400,7 +400,7 @@ async function openReopenComanda(saleId){
   if(other){ toast('Este sócio já tem outra comanda aberta (#'+(other.orderNumber||'—')+'). Feche ou transfira antes de reabrir esta.'); return; }
   const lines=[];
   if(paid.length) lines.push(sameSession?'Os pagamentos ('+paid.map(p=>paymentMethodLabel(p.method)+' '+fmt(p.amount)).join(', ')+') deixam de contar neste caixa.':'Sai do caixa de agora: '+paid.map(p=>paymentMethodLabel(p.method)+' '+fmt(p.amount)).join(', ')+'.');
-  if(fiado.length || Number(s.creditApplied)>0.009) lines.push('O fiado/crédito desta venda no extrato do sócio é estornado.');
+  if(fiado.length || Number(s.creditApplied)>TOLERANCIA_CENTAVO) lines.push('O fiado/crédito desta venda no extrato do sócio é estornado.');
   // t303: NFC-e autorizada. Dentro do prazo é cancelada junto; fora do prazo não dá para reabrir.
   const nota = await nfceAutorizadaDaComanda(saleId);
   if(nota){
@@ -464,12 +464,12 @@ async function reopenClosedComanda(saleId, reason, sameSession){
       // Troco de excedente em Pix/cartão devolvido em dinheiro (OP-02): a venda guarda o líquido em
       // amount e o troco em change. Desfazer = devolver o que entrou naquela forma (received) e o
       // dinheiro do troco volta para a gaveta.
-      const mv=(type,amount,method,description,origin)=>state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type, amount:Math.round(Number(amount)*100)/100, reason:description, description, method, note:reason, origin, saleId, operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
-      (before.payments||[]).filter(p=>!p.partial&&methodBucket(p.method)!=='fiado'&&(Number(p.amount)||0)>0.009).forEach(p=>{
+      const mv=(type,amount,method,description,origin)=>state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type, amount:arredondaCentavos(Number(amount)), reason:description, description, method, note:reason, origin, saleId, operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
+      (before.payments||[]).filter(p=>!p.partial&&methodBucket(p.method)!=='fiado'&&(Number(p.amount)||0)>TOLERANCIA_CENTAVO).forEach(p=>{
         const change=p.method!=='dinheiro'?Number(p.change)||0:0, out=(Number(p.amount)||0)+change;
         mv('sangria', out, p.method, 'Estorno — reabertura do pedido '+num+' ('+paymentMethodLabel(p.method)+')', 'reabertura');
         done.push(paymentMethodLabel(p.method)+' '+fmt(out)+' saiu do caixa');
-        if(change>0.009){ mv('suprimento', change, 'dinheiro', 'Troco devolvido — reabertura do pedido '+num, 'reabertura'); done.push('troco de '+fmt(change)+' volta para a gaveta'); }
+        if(change>TOLERANCIA_CENTAVO){ mv('suprimento', change, 'dinheiro', 'Troco devolvido — reabertura do pedido '+num, 'reabertura'); done.push('troco de '+fmt(change)+' volta para a gaveta'); }
       });
       await save('cashMovements');
     } else if(sameSession){
@@ -552,7 +552,7 @@ function openCancelComanda(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
   if(s.locked){ toast('Este pedido está bloqueado. Desbloqueie antes de cancelar.'); return; }
   if(s.status!=='open'){ toast('Este pedido já está fechado.'); return; }
-  if(comandaPartialPaid(s)>0.009){ toast('Esta comanda tem pagamento parcial de '+fmt(comandaPartialPaid(s))+'. Estorne os pagamentos parciais antes de cancelar.'); return; }
+  if(comandaPartialPaid(s)>TOLERANCIA_CENTAVO){ toast('Esta comanda tem pagamento parcial de '+fmt(comandaPartialPaid(s))+'. Estorne os pagamentos parciais antes de cancelar.'); return; }
   cancelComandaSaleId = saleId;
   const activeItems = (currentSaleDraft.items||[]).filter(i=>!i.canceled);
   openModal('Cancelar comanda inteira', `

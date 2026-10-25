@@ -152,7 +152,7 @@ async function confirmComandaItemTransfer(saleId){
   if(mode==='copy' && picked.some(i=>i.sent)){ toast('Copiar só vale para itens ainda não enviados à cozinha. Para item já enviado, use Transferir.'); return; }
   if(mode==='move'){
     const rest=saleTotal(currentSaleDraft.items.filter(i=>!picked.includes(i)));
-    if(comandaPartialPaid(src)>rest+0.009){ toast('Esta comanda já recebeu '+fmt(comandaPartialPaid(src))+' em pagamento parcial; sem esses itens o total fica menor que isso. Estorne o parcial antes.'); return; }
+    if(comandaPartialPaid(src)>rest+TOLERANCIA_CENTAVO){ toast('Esta comanda já recebeu '+fmt(comandaPartialPaid(src))+' em pagamento parcial; sem esses itens o total fica menor que isso. Estorne o parcial antes.'); return; }
   }
   let targetId=document.getElementById('transferTargetSale').value, target=null, created=false;
   if(targetId==='__new'){

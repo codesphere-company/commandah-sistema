@@ -1,4 +1,9 @@
 /* ============ CONFIG ============ */
+// Dinheiro e datas (codigo-limpo, passo C): os mesmos cálculos que antes estavam escritos à mão
+// em cada arquivo. TOLERANCIA_CENTAVO: abaixo disso o valor é sobra de arredondamento, não dinheiro.
+const TOLERANCIA_CENTAVO = 0.009;
+function arredondaCentavos(v){ return Math.round(v*100)/100; }
+function dataHoraBR(d){ return new Date(d).toLocaleString('pt-BR'); }
 const STORE = {
   users:'cantina2:users', insumos:'cantina2:insumos', products:'cantina2:products',
   members:'cantina2:members', sales:'cantina2:sales', orders:'cantina2:orders',
@@ -208,9 +213,9 @@ function fmt(n){ return 'R$ ' + (Number(n)||0).toLocaleString('pt-BR',{minimumFr
 // liberado, então um fiado novo bloqueia de novo. credit_limit continua sem uso (decisão de 03/10).
 function memberBlockedByDebt(member){
   const debt=Number(member&&member.debt)||0;
-  if(debt<=0.009) return false;
+  if(debt<=TOLERANCIA_CENTAVO) return false;
   const rel=member.debtRelease;
-  return !(rel && debt<=(Number(rel.amount)||0)+0.009);
+  return !(rel && debt<=(Number(rel.amount)||0)+TOLERANCIA_CENTAVO);
 }
 // OP-14 (pedido do dono, 10/10): ao abrir comanda para sócio bloqueado, aviso com Cancelar ou
 // Pagar; pagando a dívida toda, a comanda abre e segue para o pedido. Liberar sem pagar exige a
@@ -243,7 +248,7 @@ function payDebtAndContinue(memberId){
   afterFiadoPaid = { memberId, fn: blockedContinue && blockedContinue.memberId===memberId ? blockedContinue.fn : null, at: Date.now() };
   window.selectedFiadoMemberId = memberId;
   openFiadoEntry('payment');
-  const v = document.getElementById('fiadoValue'); if(v){ v.value = (Math.round((Number(m.debt)||0)*100)/100).toFixed(2); v.select(); }
+  const v = document.getElementById('fiadoValue'); if(v){ v.value = (arredondaCentavos(Number(m.debt)||0)).toFixed(2); v.select(); }
 }
 async function runAfterFiadoPaid(m, type){
   const c = afterFiadoPaid;
@@ -309,7 +314,7 @@ function releaseMemberDebtBlock(memberId, reopenSaleId){
         member.debtRelease = r.data.release;
       } else {
         if(String(admin.pin||'')!==String(pin)) return 'PIN incorreto.';
-        member.debtRelease = { amount: Math.round((Number(member.debt)||0)*100)/100, at: new Date().toISOString(), by: admin.name };
+        member.debtRelease = { amount: arredondaCentavos(Number(member.debt)||0), at: new Date().toISOString(), by: admin.name };
         await save('members');
         logAction('Sócio liberado com pendência de '+fmt(member.debtRelease.amount)+' por '+admin.name+': '+member.name);
       }
@@ -322,7 +327,7 @@ function releaseMemberDebtBlock(memberId, reopenSaleId){
   });
 }
 function memberAvailableCredit(member){ return member ? Math.max(0, -(Number(member.debt)||0)) : 0; }
-function memberDebtLabel(member){ const d=Number(member.debt)||0; if(d>0.009) return ' (deve '+fmt(d)+')'; if(d<-0.009) return ' (crédito '+fmt(-d)+')'; return ''; }
+function memberDebtLabel(member){ const d=Number(member.debt)||0; if(d>TOLERANCIA_CENTAVO) return ' (deve '+fmt(d)+')'; if(d<-TOLERANCIA_CENTAVO) return ' (crédito '+fmt(-d)+')'; return ''; }
 function todaysSalesForMember(memberId){
   const today = todayStr();
   return state.sales.filter(s=>s.memberId===memberId && localDay(s.closedAt||s.openedAt)===today);

@@ -69,10 +69,10 @@ function comandaDraftTotalsHtml(){
   const t = gcComandaTotals({ ...sale, items: currentSaleDraft.items });
   return `<div class="cash-order-total-breakdown">
     <div class="cash-order-subtotal-line"><span>Subtotal</span><span class="mono">${fmt(t.subtotal)}</span></div>
-    ${t.creditApplied>0.009?`<div class="cash-order-subtotal-line"><span>(−) Crédito do sócio (abatido)</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
-    ${t.service>0.009?`<div class="cash-order-service-line"><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono">${fmt(t.service)}</span></div>`:''}
-    ${t.partialPaid>0.009?`<div class="cash-order-subtotal-line"><span>(−) Já pago (parcial)</span><span class="mono">− ${fmt(t.partialPaid)}</span></div>`:''}
-    ${t.debt>0.009?`<div class="cash-order-subtotal-line"><span>(+) Pendência anterior (fiado)</span><span class="mono">${fmt(t.debt)}</span></div>`:''}
+    ${t.creditApplied>TOLERANCIA_CENTAVO?`<div class="cash-order-subtotal-line"><span>(−) Crédito do sócio (abatido)</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
+    ${t.service>TOLERANCIA_CENTAVO?`<div class="cash-order-service-line"><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono">${fmt(t.service)}</span></div>`:''}
+    ${t.partialPaid>TOLERANCIA_CENTAVO?`<div class="cash-order-subtotal-line"><span>(−) Já pago (parcial)</span><span class="mono">− ${fmt(t.partialPaid)}</span></div>`:''}
+    ${t.debt>TOLERANCIA_CENTAVO?`<div class="cash-order-subtotal-line"><span>(+) Pendência anterior (fiado)</span><span class="mono">${fmt(t.debt)}</span></div>`:''}
     <div class="cash-order-total"><span>Total</span><span class="mono" id="draftTotal">${fmt(t.total)}</span></div>
   </div>`;
 }
@@ -94,10 +94,10 @@ function comandaPanelHtml(s){
     <div class="cp-items">${grouped.length?grouped.map(g=>`<div class="cp-item"><span class="cp-qty">${g.qty}×</span><span class="cp-iname">${h(g.name)}</span><span class="mono">${fmt(g.price*g.qty)}</span></div>`).join(''):'<p class="cp-empty">Nenhum item lançado ainda.</p>'}</div>
     <div class="cp-totals">
       <div><span>Consumo</span><span class="mono">${fmt(t.subtotal)}</span></div>
-      ${t.creditApplied>0.009?`<div><span>Crédito do sócio (abatido)</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
-      ${t.service>0.009?`<div><span>Serviço ${serviceRatePct()}%</span><span class="mono">${fmt(t.service)}</span></div>`:''}
-      ${t.partialPaid>0.009?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(t.partialPaid)}</span></div>`:''}
-      ${t.debt>0.009?`<div class="cp-debt"><span>Pendência anterior (fiado)</span><span class="mono">+ ${fmt(t.debt)}</span></div>`:''}
+      ${t.creditApplied>TOLERANCIA_CENTAVO?`<div><span>Crédito do sócio (abatido)</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
+      ${t.service>TOLERANCIA_CENTAVO?`<div><span>Serviço ${serviceRatePct()}%</span><span class="mono">${fmt(t.service)}</span></div>`:''}
+      ${t.partialPaid>TOLERANCIA_CENTAVO?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(t.partialPaid)}</span></div>`:''}
+      ${t.debt>TOLERANCIA_CENTAVO?`<div class="cp-debt"><span>Pendência anterior (fiado)</span><span class="mono">+ ${fmt(t.debt)}</span></div>`:''}
       <div class="cp-total"><span>Total</span><span class="mono">${fmt(t.total)}</span></div>
     </div>
     <div class="cp-actions">
@@ -120,7 +120,7 @@ function renderComandaDetail(id, keepRequester){
     <div class="record-body">
     <div class="cash-order-head">
       <div class="cash-order-ident"><button class="op-btn comanda-inline-back" onclick="closeComandaView()" title="Voltar para as comandas (Esc)">‹ &nbsp; Comandas</button><span class="cash-order-quota">${quotaNum}</span><span class="delivery-open-badge">Em Aberto</span><strong>${h(person)} &nbsp;·&nbsp; Pedido ${s.orderNumber?'#'+s.orderNumber:''}</strong></div>
-      ${member&&Number(member.debt)<-0.009?`<div class="cash-order-balance"><span class="tag tag-green cash-order-balance-tag" title="Abatido automaticamente no pagamento desta comanda">✓ Crédito: ${fmt(-Number(member.debt))}</span></div>`:member&&Number(member.debt)>0.009?`<div class="cash-order-balance"><span class="tag tag-red cash-order-balance-tag" title="Saldo devedor deste sócio">Deve: ${fmt(Number(member.debt))}</span></div>`:''}
+      ${member&&Number(member.debt)<-TOLERANCIA_CENTAVO?`<div class="cash-order-balance"><span class="tag tag-green cash-order-balance-tag" title="Abatido automaticamente no pagamento desta comanda">✓ Crédito: ${fmt(-Number(member.debt))}</span></div>`:member&&Number(member.debt)>TOLERANCIA_CENTAVO?`<div class="cash-order-balance"><span class="tag tag-red cash-order-balance-tag" title="Saldo devedor deste sócio">Deve: ${fmt(Number(member.debt))}</span></div>`:''}
     </div>
     <div class="cash-order-layout">
       <aside class="cash-order-side">
@@ -501,8 +501,8 @@ function receiptPrinterFor(user){
 function receiptPayLines(payments, total){
   const pays = (payments||[]).filter(p=>!p.reversed && Number(p.amount)>0);
   const lines = pays.map(p=>(p.partial?'Pago antes: ':'')+paymentMethodLabel(p.method)+': '+fmt(p.amount));
-  const troco = Math.round((pays.reduce((a,p)=>a+Number(p.amount||0),0)-Number(total||0))*100)/100;
-  if(troco>0.009 && pays.some(p=>p.method==='dinheiro')) lines.push('Troco: '+fmt(troco));
+  const troco = arredondaCentavos(pays.reduce((a,p)=>a+Number(p.amount||0),0)-Number(total||0));
+  if(troco>TOLERANCIA_CENTAVO && pays.some(p=>p.method==='dinheiro')) lines.push('Troco: '+fmt(troco));
   return lines;
 }
 // Comprovante pedido pelo cliente, de uma comanda já paga (botão no detalhe da comanda).

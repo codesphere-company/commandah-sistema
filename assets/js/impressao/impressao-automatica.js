@@ -427,7 +427,7 @@ async function checkPrintTokenStatus(){
   try{
     const { data, error } = await supabaseClient.from('print_agent_tokens').select('rotated_at').maybeSingle();
     if(error) throw error;
-    box.textContent = data ? ('Token ativo, gerado/renovado em '+new Date(data.rotated_at).toLocaleString('pt-BR')+'.') : 'Nenhum token gerado ainda — clique em "Gerar/Regenerar token".';
+    box.textContent = data ? ('Token ativo, gerado/renovado em '+dataHoraBR(data.rotated_at)+'.') : 'Nenhum token gerado ainda — clique em "Gerar/Regenerar token".';
   }catch(e){ box.textContent = 'Não foi possível checar o status do token.'; }
 }
 async function regeneratePrintAgentToken(){
