@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
   const cfg = (settings && (settings.nfce as Record<string, unknown>)) || {};
   const ambiente: 1 | 2 = Number(cfg.ambiente) === 1 && PRODUCAO_LIBERADA ? 1 : 2;
   const serie = Number(cfg.serie) > 0 ? Number(cfg.serie) : undefined;
-  const identificador = ambiente === 1 ? saleId : saleId + "-h";
+  const baseId = ambiente === 1 ? saleId : saleId + "-h";
 
   // t215: uma emissão por vez no estabelecimento. Todos os aparelhos usam a mesma série e a
   // Brasil NFe dá o número; dois envios ao mesmo tempo na série poderiam repetir o número.
@@ -166,6 +166,14 @@ Deno.serve(async (req) => {
       .eq("ambiente", ambiente).eq("status", "autorizada").maybeSingle();
     if (jaTem) return json({ nota: publicRow(jaTem), repetida: true });
 
+    // t214: depois de um cancelamento a Brasil NFe continua achando a nota antiga pelo identificador
+    // (e diz que foi emitida). Com o mesmo identificador, a consulta abaixo regravava a nota cancelada
+    // como autorizada, sem emitir. Cada cancelamento da comanda pede um identificador novo.
+    const { data: canceladas } = await admin.from("nfce_notas").select("chave").eq("tenant_id", who.tenantId).eq("sale_id", saleId)
+      .eq("ambiente", ambiente).eq("status", "cancelada");
+    const chavesCanceladas = new Set((canceladas || []).map((c) => c.chave).filter(Boolean));
+    const identificador = chavesCanceladas.size ? baseId + "-" + (chavesCanceladas.size + 1) : baseId;
+
     const { data: saleRow } = await admin.from("sales").select("data").eq("tenant_id", who.tenantId).eq("id", saleId).is("deleted_at", null).maybeSingle();
     if (!saleRow) return json({ error: "Comanda não encontrada." }, 404);
     const products = ((await appData(who.tenantId, "cantina2:products")) || []) as Product[];
@@ -174,7 +182,8 @@ Deno.serve(async (req) => {
 
     // Antes de emitir: a Brasil NFe já tem uma nota com este identificador? (resposta perdida numa tentativa anterior)
     const prev = await brasilNfe("ConsultarNotaFiscal", { IdentificadorInterno: identificador, TipoAmbiente: ambiente, ModeloDocumento: 65, RetornarArquivos: true });
-    const prevNota = prev.body && prev.body.Encontrada ? (prev.body.Nota as Record<string, unknown> | undefined) : undefined;
+    let prevNota = prev.body && prev.body.Encontrada ? (prev.body.Nota as Record<string, unknown> | undefined) : undefined;
+    if (prevNota && chavesCanceladas.has(String(prevNota.Chave || ""))) prevNota = undefined;
 
     let ret: Record<string, unknown> | null = null, xml: string | null = null, erroCom: string | null = null;
     // A consulta usa nomes diferentes da emissão (Chave, CodStatusResposta, Emitida; XML dentro de Nota).
