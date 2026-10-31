@@ -433,7 +433,7 @@ function stripAccentsForPrint(s){ const lo=String.fromCharCode(0x0300), hi=Strin
 // fora do banco) troca pelo byte nulo de verdade. Ver printRawTcp no agente.
 const NUL_PLACEHOLDER = String.fromCharCode(0x01);
 function paperColumns(imp){ return imp && Number(imp.larguraPapel)===58 ? 32 : 48; }
-function buildTicketText(who, cota, local, estacao, items, orderNumber, columns, escPos, payLines){
+function buildTicketText(who, cota, local, estacao, items, orderNumber, columns, escPos, payLines, footer){
   const cfg = state.settings.ticketConfig || {};
   const nameSizeByte = {normal:NUL_PLACEHOLDER, grande:'\x11', extra:'\x22'}[cfg.nomeProdutoTamanho] || '\x11';
   const entregaDestaque = cfg.entregaDestaque!==false;
@@ -482,6 +482,9 @@ function buildTicketText(who, cota, local, estacao, items, orderNumber, columns,
   if(showPrices) out += 'TOTAL: '+fmt(total)+'\n';
   // Comprovante de pagamento: formas de pagamento e troco (ver printCaixaReceipt).
   if(payLines && payLines.length) out += line('-')+'\n'+payLines.map(l=>wrap(l)).join('\n')+'\n';
+  // Texto de rodapé (Configurações › Ajustes do Cupom): só o comprovante passa (printCaixaReceipt).
+  const rodape = String(footer||'').trim();
+  if(rodape) out += line('-')+'\n'+rodape.split('\n').map(wrapWords).filter(Boolean).join('\n')+'\n';
   out += line('=')+'\n\n\n';
   if(!escPos) return out;
   // Modo ESC/POS (impressora de rede, via socket cru): sem driver do Windows no meio,
@@ -516,7 +519,7 @@ async function printSaleReceipt(saleId){
 }
 async function printCaixaReceipt(who, cota, items, orderNumber, imp, payLines){
   const printerOsName = imp.osName || imp.nome;
-  const text = buildTicketText(who, cota, '', 'caixa', (items||[]).filter(i=>!i.canceled), orderNumber, paperColumns(imp), !!imp.ip, payLines).replace('CAIXA','COMPROVANTE DE VENDA');
+  const text = buildTicketText(who, cota, '', 'caixa', (items||[]).filter(i=>!i.canceled), orderNumber, paperColumns(imp), !!imp.ip, payLines, state.settings.receiptFooter).replace('CAIXA','COMPROVANTE DE VENDA');
   if(supabaseClient && getTenantId()){
     try{
       const job = { tenant_id: getTenantId(), printer_name: printerOsName, printer_ip: imp.ip||null, content: text, status: 'pendente' };
