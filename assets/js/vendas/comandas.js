@@ -53,8 +53,19 @@ function closeComandaView(){
 let comandaSelecionadaId = null;
 function selectComanda(id){
   if(matchMedia('(max-width: 900px)').matches){ openComanda(id); return; }
-  comandaSelecionadaId = id; renderComandas();
+  // O painel abre no 1º clique e a lista se reorganiza: o 2º clique de um clique duplo pode cair em
+  // outro cartão. Ele é ignorado aqui, e o clique duplo abre a comanda do 1º clique.
+  const agora = Date.now();
+  if(ultimoCliqueComanda && agora-ultimoCliqueComanda.t < 450) return;
+  ultimoCliqueComanda = { id, t: agora };
+  comandaSelecionadaId = comandaSelecionadaId===id ? null : id; renderComandas(); // clicar de novo recolhe
 }
+let ultimoCliqueComanda = null;
+function abrirComandaDoClique(id){
+  const alvo = ultimoCliqueComanda && Date.now()-ultimoCliqueComanda.t < 800 ? ultimoCliqueComanda.id : id;
+  ultimoCliqueComanda = null; openComanda(alvo);
+}
+function fecharResumoComanda(){ comandaSelecionadaId = null; renderComandas(); }
 // Fechar conta pelo painel: abre a comanda e segue o mesmo caminho do botão Pagamento dela
 // (manda o que faltar para a cozinha, junta os itens do garçom e abre o pagamento).
 function comandaPanelPay(id){
@@ -77,7 +88,7 @@ function comandaDraftTotalsHtml(){
   </div>`;
 }
 function comandaPanelHtml(s){
-  if(!s) return `<aside class="comanda-panel comanda-panel-empty" aria-label="Comanda selecionada"><p>Nenhuma comanda aberta.</p><button class="op-btn primary" onclick="openNewComandaModal()">＋ Abrir comanda</button></aside>`;
+  if(!s) return ''; // sem comanda escolhida, sem painel (31/10)
   const info = comandaPersonData(s);
   const items = (s.items||[]).filter(i=>!i.canceled && Number(i.qty)>0);
   const grouped = [];
@@ -88,7 +99,7 @@ function comandaPanelHtml(s){
   const t = gcComandaTotals(s);
   const meta = [s.orderNumber?'Pedido #'+s.orderNumber:'', 'aberta há '+fmtOpenDuration(kOrderAgeMin(s.openedAt)), s.operatorName||'', s.local||''].filter(Boolean);
   return `<aside class="comanda-panel" aria-label="Comanda selecionada" data-sale="${h(s.id)}">
-    <div class="cp-head"><span class="cp-num">${h(info.quota||(s.orderNumber?'#'+s.orderNumber:''))}</span><span class="cp-name">${h(info.person)}</span></div>
+    <div class="cp-head"><span class="cp-num">${h(info.quota||(s.orderNumber?'#'+s.orderNumber:''))}</span><span class="cp-name">${h(info.person)}</span><button class="cp-close" type="button" onclick="fecharResumoComanda()" title="Fechar resumo" aria-label="Fechar resumo">×</button></div>
     <div class="cp-meta">${meta.map(h).join(' · ')}</div>
     ${s.locked?`<span class="tag tag-red">Pedido bloqueado</span>`:''}
     <div class="cp-items">${grouped.length?grouped.map(g=>`<div class="cp-item"><span class="cp-qty">${g.qty}×</span><span class="cp-iname">${h(g.name)}</span><span class="mono">${fmt(g.price*g.qty)}</span></div>`).join(''):'<p class="cp-empty">Nenhum item lançado ainda.</p>'}</div>

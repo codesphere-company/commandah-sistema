@@ -215,12 +215,14 @@ function renderComandas(){
     : new Date(a.openedAt||0)-new Date(b.openedAt||0));
   const totalAberto = open.reduce((t,s)=>t+(Number(s.total)||0),0);
   // Visual A, etapa 2: a comanda escolhida aparece no painel à direita (comandaPanelHtml).
-  if(!sorted.some(s=>s.id===comandaSelecionadaId)) comandaSelecionadaId = sorted.length ? sorted[0].id : null;
+  // Pedido do dono (31/10): nada vem escolhido de saída; o painel só aparece depois do clique
+  // numa comanda, e a lista ocupa a largura toda enquanto isso.
+  if(!sorted.some(s=>s.id===comandaSelecionadaId)) comandaSelecionadaId = null;
   const prevSearch = document.getElementById('comandaSearch'), prevQ = prevSearch ? prevSearch.value : '', searchFocused = document.activeElement===prevSearch;
   const cards=sorted.map(s=>{const info=comandaPersonData(s);const ageMin=kOrderAgeMin(s.openedAt);const age=comandaAgeClass(ageMin);
     const meta=[info.quota?'Cota '+info.quota:(info.member&&info.person!==info.member.name?info.member.name:''), s.local||''].filter(Boolean);
     const sel = s.id===comandaSelecionadaId;
-    return `<button class="comanda-card ${age} ${sel?'selected':''}" aria-pressed="${sel}" title="Dois cliques abrem a comanda completa" data-search="${h(([info.person,info.quota,info.member&&info.member.name,s.orderNumber,s.local].filter(Boolean).join(' ')).toLowerCase())}" onclick="selectComanda(${jsArg(s.id)})" ondblclick="openComanda(${jsArg(s.id)})">
+    return `<button class="comanda-card ${age} ${sel?'selected':''}" aria-pressed="${sel}" title="Dois cliques abrem a comanda completa" data-search="${h(([info.person,info.quota,info.member&&info.member.name,s.orderNumber,s.local].filter(Boolean).join(' ')).toLowerCase())}" onclick="selectComanda(${jsArg(s.id)})" ondblclick="abrirComandaDoClique(${jsArg(s.id)})">
       <span class="cc-name">${h(info.person)}</span><span class="cc-total mono">${fmt(s.total)}</span>
       <span class="cc-meta">${meta.length?meta.map(h).join(' · '):'Sem cota ou local'}</span>
       <span class="cc-time" title="Tempo em aberto"><i class="cc-dot"></i>${fmtOpenDuration(ageMin)}</span>
