@@ -21,7 +21,17 @@ function renderLogin(){
   document.getElementById('app').classList.remove('show');
 }
 function shadeColor(hex,amount){const clean=/^#[0-9a-f]{6}$/i.test(hex)?hex:'#3568b0',n=parseInt(clean.slice(1),16),r=Math.max(0,Math.min(255,(n>>16)+amount)),g=Math.max(0,Math.min(255,((n>>8)&255)+amount)),b=Math.max(0,Math.min(255,(n&255)+amount));return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');}
-function applyBranding(){const s=state.settings||{},savedPrimary=/^#141b33$/i.test(s.brandPrimary)?'':s.brandPrimary,savedAccent=/^#0ea57e$/i.test(s.brandAccent)?'':s.brandAccent,primary=/^#[0-9a-f]{6}$/i.test(savedPrimary)?savedPrimary:'#1D2433',accent=/^#[0-9a-f]{6}$/i.test(savedAccent)?savedAccent:'#0D9E79',root=document.documentElement;root.style.setProperty('--navy',primary);root.style.setProperty('--navy2',shadeColor(primary,14));root.style.setProperty('--navy3',shadeColor(primary,28));root.style.setProperty('--amber',accent);root.style.setProperty('--amber-dark',shadeColor(accent,-22));root.style.setProperty('--gc-blue',primary);document.title=(s.clubName||'Commandah')+' — Sistema de Gestão';const logo=document.querySelector('.wb-logo');if(logo){logo.innerHTML=s.brandLogo?`<img src="${s.brandLogo}" alt="" style="width:100%;height:100%;object-fit:cover">`:ICN.brandmark(undefined,undefined,26);logo.style.background='transparent';}const sub=document.getElementById('wbTitle');if(sub)sub.textContent=s.clubName||'Sistema de gestão';}
+function applyBranding(){const s=state.settings||{},savedPrimary=/^#141b33$/i.test(s.brandPrimary)?'':s.brandPrimary,savedAccent=/^#0ea57e$/i.test(s.brandAccent)?'':s.brandAccent,primary=/^#[0-9a-f]{6}$/i.test(savedPrimary)?savedPrimary:'#1D2433',accent=/^#[0-9a-f]{6}$/i.test(savedAccent)?savedAccent:'#0D9E79',root=document.documentElement;root.style.setProperty('--navy',primary);root.style.setProperty('--navy2',shadeColor(primary,14));root.style.setProperty('--navy3',shadeColor(primary,28));root.style.setProperty('--amber',accent);root.style.setProperty('--amber-dark',shadeColor(accent,-22));root.style.setProperty('--gc-blue',primary);document.title=(s.clubName||'Commandah')+' — Sistema de Gestão';const logo=document.querySelector('.wb-logo');if(logo){logo.innerHTML=s.brandLogo?`<img src="${s.brandLogo}" alt="">`:ICN.brandmark(undefined,undefined,26);logo.style.background='transparent';}const sub=document.getElementById('wbTitle');if(sub)sub.textContent=s.clubName||'Sistema de gestão';
+  // Pedido do dono (31/10): logado num estabelecimento, o topo do menu mostra o logo e o nome dele
+  // no lugar da marca Commandah (que volta se o nome estiver vazio).
+  const club=document.getElementById('wbClub'),wrap=document.getElementById('wbTitleWrap'),nome=String(s.clubName||'').trim();
+  if(club){club.textContent=nome;club.title=nome;}if(wrap)wrap.classList.toggle('has-club',!!nome);
+  document.querySelector('.winbar')?.classList.toggle('has-club-logo',!!s.brandLogo);}
+// Tela de descanso das TVs (monitor da cozinha em Modo TV e Painel de Senhas) quando não há pedido:
+// logo e nome do estabelecimento; sem logo, a marca Commandah.
+function telaDescansoHtml(msg){const s=state.settings||{},nome=String(s.clubName||'').trim();
+  const logo=s.brandLogo?`<img class="tela-descanso-logo" src="${h(s.brandLogo)}" alt="">`:`<span class="tela-descanso-logo">${ICN.brandmark(undefined,undefined,140)}</span>`;
+  return `<div class="tela-descanso">${logo}${nome?`<div class="tela-descanso-nome">${h(nome)}</div>`:''}${msg?`<p class="tela-descanso-msg">${h(msg)}</p>`:''}</div>`;}
 function roleLabel(r){ return r==='admin'?'Administrador':r==='caixa'?'Operador de caixa':'Cozinha'; }
 function startPin(userId){
   pinTargetUser = state.users.find(u=>u.id===userId);

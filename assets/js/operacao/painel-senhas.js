@@ -6,10 +6,10 @@ function renderPainelSenhas(){
   const preparando = state.orders.filter(o=>o.status==='pendente'||o.status==='preparo');
   el.innerHTML = `<div class="panel score-panel"><div style="display:flex;justify-content:space-between;align-items:center"><div><h2>${h(cfg.title||'Painel de senhas — pedidos prontos')}</h2><p class="sub">Tela para exibir num monitor da cantina, mostrando quem pode retirar o pedido.</p></div><div><button class="op-btn" onclick="toggleScoreboardFullscreen()">⛶ Tela cheia</button><button class="op-btn" onclick="openScoreboardSettings()">⚙ Configurar</button></div></div>
     <div class="tile-grid score-grid" style="margin-top:16px">
-      ${prontos.length ? prontos.map(o=>`<div class="tile score-tile ready"><div class="tile-cap">Pronto</div><div class="tile-num">${h(o.who)}</div></div>`).join('') : '<p class="empty">Nenhum pedido pronto no momento.</p>'}
+      ${prontos.length ? prontos.map(o=>`<div class="tile score-tile ready"><div class="tile-cap">Pronto</div><div class="tile-num">${h(o.who)}</div></div>`).join('') : telaDescansoHtml(preparando.length?'Nenhum pedido pronto no momento':'')}
     </div>
   </div>
-  ${cfg.showPreparing===false?'':`<div class="panel"><h2>Em preparo</h2>
+  ${cfg.showPreparing===false||(!prontos.length&&!preparando.length)?'':`<div class="panel"><h2>Em preparo</h2>
     <div class="tile-grid score-grid">
       ${preparando.length ? preparando.map(o=>`<div class="tile score-tile"><div class="tile-cap">Aguarde</div><div class="tile-num">${h(o.who)}</div></div>`).join('') : '<p class="empty">Nada em preparo.</p>'}
     </div>

@@ -618,3 +618,17 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
 .rb-icons button.em-construcao:hover,.ribbon-tabs .sb-link.em-construcao:hover{opacity:.85}
 .selo-obra{display:inline-block;font-size:10px;line-height:1.4;font-weight:700;padding:0 6px;border-radius:999px;background:var(--c-warning-soft);color:var(--c-warning);white-space:nowrap}
 .ribbon-tabs .sb-link .selo-obra{margin-left:auto}
+
+/* Marca do estabelecimento (31/10): com nome cadastrado, o topo do menu mostra logo + nome no lugar
+   da marca Commandah; as TVs sem pedido mostram a mesma marca, grande. */
+.wb-club{display:none}
+.wb-title.has-club .wb-wordmark,.wb-title.has-club .wb-wordmark-dk{display:none!important}
+.wb-title.has-club .wb-club{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:700;font-size:15px;line-height:1.2;color:var(--c-text);max-width:170px}
+@media(min-width:761px){.winbar.has-club-logo{flex-direction:column;align-items:flex-start;gap:8px}.winbar.has-club-logo .wb-title.has-club .wb-club{max-width:none}}
+.winbar.has-club-logo .wb-logo{width:auto;height:38px;max-width:120px}
+.winbar.has-club-logo .wb-logo img{display:block;height:100%;width:auto;max-width:120px;object-fit:contain}
+.tela-descanso{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-height:52vh;padding:32px 16px;text-align:center}
+.tela-descanso-logo{display:block;max-width:min(420px,70vw);max-height:30vh;object-fit:contain}
+.tela-descanso-logo svg{width:140px;height:140px}
+.tela-descanso-nome{font-size:clamp(28px,4.5vw,64px);font-weight:800;line-height:1.1;color:var(--c-text);letter-spacing:-.01em}
+.tela-descanso-msg{margin:0;font-size:clamp(15px,1.6vw,22px);color:var(--c-text-3)}
