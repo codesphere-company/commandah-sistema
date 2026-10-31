@@ -335,7 +335,7 @@ function renderKitchenActiveFeed(){
       </div>
       <button class="kbtn-ready" onclick="event.stopPropagation();finalizeKitchenItems(${jsArg(o.id)})" title="Marcar pronto">${ICN.ticket}<span>Pronto</span></button>
     </div>`;
-  }).join('') : `<p class="empty">Nenhum pedido em preparo.</p>`}</div>`;
+  }).join('') : (document.body.classList.contains('tv-mode') ? telaDescansoHtml('Nenhum pedido em preparo') : `<p class="empty">Nenhum pedido em preparo.</p>`)}</div>`;
 }
 function renderKitchenReadyFeed(){
   const ordersRaw = state.orders.filter(o=>o.status==='pronto').sort((a,b)=>new Date(kitchenReadyAt(b))-new Date(kitchenReadyAt(a)));
@@ -360,7 +360,7 @@ function renderKitchenReadyFeed(){
         }).join('')}</ul>
         <div class="kdone-badge">✓ Pronto às ${timeFmt(kitchenReadyAt(o))}</div>
       </div>
-    </div>`).join('') : `<p class="empty">Nenhum pedido pronto.</p>`}</div>`;
+    </div>`).join('') : (document.body.classList.contains('tv-mode') ? telaDescansoHtml('Nenhum pedido pronto') : `<p class="empty">Nenhum pedido pronto.</p>`)}</div>`;
 }
 async function finalizeKitchenItems(orderId){
   const o = state.orders.find(x=>x.id===orderId); if(!o) return;
