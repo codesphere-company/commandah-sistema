@@ -123,12 +123,17 @@ function diagnosticIntegrityRows(){
   allCollections.forEach(k=>state[k].forEach(x=>{if(x&&x.id!=null)allIds.push(k+':'+x.id);}));
   const duplicateIds=allIds.filter((x,i,a)=>a.indexOf(x)!==i),productIds=new Set(state.products.map(x=>x.id)),insumoIds=new Set(state.insumos.map(x=>x.id)),memberIds=new Set(state.members.map(x=>x.id));
   const badRecipes=state.products.reduce((n,p)=>n+(p.recipe||[]).filter(r=>!insumoIds.has(r.insumoId)).length,0);
-  const badSaleItems=state.sales.reduce((n,s)=>n+(s.items||[]).filter(i=>i.productId&&!productIds.has(i.productId)).length,0);
+  // Item de produto que saiu do cadastro (ex.: "Espetinho de Carne", excluído de propósito em
+  // 22/10 na limpeza da importação do Saipos) guarda nome e preço: é histórico, não erro.
+  // Só conta como inconsistência o item órfão sem nome ou sem preço.
+  const orphanItems=state.sales.flatMap(s=>(s.items||[]).filter(i=>i.productId&&!productIds.has(i.productId)));
+  const isHistoricItem=i=>String(i.name||'').trim()&&Number.isFinite(Number(i.price));
+  const badSaleItems=orphanItems.filter(i=>!isHistoricItem(i)).length,historicItems=orphanItems.filter(isHistoricItem),historicProducts=new Set(historicItems.map(i=>i.productId)).size;
   const badMembers=state.sales.filter(s=>s.memberId&&!memberIds.has(s.memberId)).length;
   const invalidStock=state.insumos.filter(i=>!Number.isFinite(Number(i.stock))||Number(i.stock)<0).length;
   const orphanOrders=state.orders.filter(o=>o.saleId&&!state.sales.some(s=>s.id===o.saleId)).length;
   const add=(name,count,okMessage)=>rows.push([count?'✕':'✓',name,count?`${count} inconsistência(s) encontrada(s)`:okMessage,count?'Revise os registros indicados pelo módulo':'—',count?'ATENÇÃO':'OK']);
-  add('Identificadores',duplicateIds.length,'Identificadores únicos nas coleções');add('Fichas técnicas',badRecipes,'Todos os insumos vinculados existem');add('Itens vendidos',badSaleItems,'Todos os produtos históricos estão vinculados');add('Clientes em pedidos',badMembers,'Todos os clientes vinculados existem');add('Estoque',invalidStock,'Saldos numéricos e não negativos');add('Pedidos da cozinha',orphanOrders,'Todos os pedidos possuem venda de origem');
+  add('Identificadores',duplicateIds.length,'Identificadores únicos nas coleções');add('Fichas técnicas',badRecipes,'Todos os insumos vinculados existem');if(badSaleItems||!historicItems.length)add('Itens vendidos',badSaleItems,'Todos os produtos históricos estão vinculados');else rows.push(['!','Itens vendidos',`${historicItems.length} item(ns) de ${historicProducts} produto(s) que saíram do cadastro`,'O histórico guarda nome e preço; vendas e totais não mudam','Informativo']);add('Clientes em pedidos',badMembers,'Todos os clientes vinculados existem');add('Estoque',invalidStock,'Saldos numéricos e não negativos');add('Pedidos da cozinha',orphanOrders,'Todos os pedidos possuem venda de origem');
   const last=state.settings.lastBackupAt?Date.now()-new Date(state.settings.lastBackupAt).getTime():Infinity,days=Math.floor(last/86400000);rows.push([days<=7?'✓':'!', 'Backup',days<=7?'Backup realizado nos últimos 7 dias':state.settings.lastBackupAt?`Último backup há ${days} dia(s)`:'Nenhum backup registrado','—',days<=7?'OK':'RECOMENDADO']);
   return rows;
 }
