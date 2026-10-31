@@ -396,7 +396,13 @@ function toggleTvMode(){
   renderCozinha();
   if(on) toast('Modo TV ativado.');
 }
-try{ if(localStorage.getItem('cantina2:tvmode')==='1') document.body.classList.add('tv-mode'); }catch(e){}
+// Modo TV só vale na tela do monitor de preparo (31/10): antes a preferência guardada no navegador
+// ligava o Modo TV já no carregamento, em qualquer tela, e o próximo login (até do admin, no caixa)
+// caía numa tela sem menu. renderAll chama isto a cada troca de tela.
+function aplicarModoTv(){
+  let pref=false; try{ pref=localStorage.getItem('cantina2:tvmode')==='1'; }catch(e){}
+  document.body.classList.toggle('tv-mode', pref && activeView==='cozinha');
+}
 function openKitchenOrder(id){const o=state.orders.find(x=>x.id===id);if(!o)return;const flow={pendente:['preparo','Iniciar preparo'],preparo:['pronto','Marcar pronto'],pronto:['entregue','Marcar entregue'],entregue:[null,'Entregue']}[o.status]||[null,'Concluído'];openModal('Pedido na Cozinha',`<div class="consumer-form-frame"><div class="app-status"><b>${h(o.who)}</b><span class="tag tag-blue">${h(o.status)}</span></div><p>${reportDateTime(o.createdAt)} · ${h(typeLabel(o.source))}</p><div class="finance-grid" style="height:260px"><table><thead><tr><th>Qtd.</th><th>Item</th><th>Observação</th></tr></thead><tbody>${(o.items||[]).map(i=>`<tr><td>${Number(i.qty)||0}</td><td>${h(i.name)}</td><td>${h(i.notes||'—')}</td></tr>`).join('')}</tbody></table></div><div class="field"><label>Observação da cozinha</label><textarea id="kitchenNote">${h(o.kitchenNote||'')}</textarea></div></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button><button class="op-btn" onclick="returnKitchenOrder(${jsArg(id)})" ${o.status==='pendente'?'disabled':''}>↶ Retornar etapa</button><button class="consumer-save" onclick="saveKitchenOrder(${jsArg(id)},${jsArg(flow[0]||'')})" ${flow[0]?'':'disabled'}>✓ ${flow[1]}</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
 async function saveKitchenOrder(id,next){const o=state.orders.find(x=>x.id===id);if(!o)return;await OrdersStore.saveNote(id,document.getElementById('kitchenNote').value.trim());closeModal();if(next)await advanceOrder(id,next);}
 async function returnKitchenOrder(id){const o=state.orders.find(x=>x.id===id);if(!o)return;if(!confirm('Retornar o pedido para a etapa anterior?'))return;await OrdersStore.returnStep(id);closeModal();renderAll();}

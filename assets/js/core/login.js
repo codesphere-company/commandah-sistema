@@ -131,10 +131,10 @@ function updatePinDots(){
 function afterLogin(){
   document.getElementById('loginOverlay').classList.add('hide');
   detectLocalPrintAgent();
-  if(currentUser.role==='cozinha' && !document.body.classList.contains('tv-mode')){
+  if(currentUser.role==='cozinha'){
     // Cozinha sempre entra em Modo TV (letra grande) — ambiente real não permite ficar
     // lendo texto pequeno de longe; quem quiser sair, o botão manual continua ali.
-    document.body.classList.add('tv-mode');
+    // Só guarda a preferência: quem liga a tela é aplicarModoTv (cozinha.js), e só no monitor.
     try{ localStorage.setItem('cantina2:tvmode','1'); }catch(e){}
   }
   if(currentUser.origem==='app' && currentUser.role!=='admin'){
