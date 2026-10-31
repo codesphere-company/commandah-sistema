@@ -112,7 +112,7 @@ function switchView(viewId){
 function closeOperationalWindow(){
   const modalRoot=document.getElementById('modalRoot');
   if(modalRoot&&modalRoot.innerHTML.trim()){closeModal();return;}
-  if(activeView==='config-sistema'&&(settingsPane==='impressora'||settingsPane==='numeracao')){settingsPane='geral';activeRibbonAction='Configurações do Sistema';renderRibbonToolbar();renderConfigSistema();updateTitle();return;}
+  if(activeView==='config-sistema'&&settingsPane==='numeracao'){settingsPane='geral';activeRibbonAction='Configurações do Sistema';renderRibbonToolbar();renderConfigSistema();updateTitle();return;}
   let previous=null;while(viewHistory.length&&!previous){const candidate=viewHistory.pop();if(candidate&&candidate.view!==activeView&&document.getElementById('view-'+candidate.view))previous=candidate;}
   if(previous){activeView=previous.view;activeRibbonTab=previous.tab;activeViewRibbonTab=previous.tab;activeRibbonAction=previous.action||'';renderRibbonTabs();document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById('view-'+activeView).classList.add('active');renderRibbonToolbar();updateTitle();renderAll();return;}
   const home=currentUser&&currentUser.role==='cozinha'?'cozinha':'comandas';activeRibbonTab=currentUser&&currentUser.role==='cozinha'?'cozinha_tab':'principal';activeRibbonAction='';activeView=home;activeViewRibbonTab=activeRibbonTab;renderRibbonTabs();document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById('view-'+home).classList.add('active');renderRibbonToolbar();updateTitle();renderAll();
