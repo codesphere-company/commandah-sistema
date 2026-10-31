@@ -366,7 +366,7 @@ function renderAll(){
   applyBackgroundImage();
 }
 
-function enhanceOperationalControls(){document.querySelectorAll('.printer-window .op-controls').forEach(group=>{if(![...group.children].some(x=>['□','▢'].includes(x.textContent.trim()))){const maximize=document.createElement('span');maximize.textContent='□';group.insertBefore(maximize,group.firstChild);}});document.querySelectorAll('.op-controls span').forEach(control=>{const text=control.textContent.trim();if(!['×','□','▢'].includes(text))return;control.setAttribute('role','button');control.tabIndex=0;control.title=text==='×'?'Fechar janela':text==='□'?'Maximizar janela':'Restaurar janela';control.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();control.click();}};});}
+function enhanceOperationalControls(){document.querySelectorAll('.op-controls span').forEach(control=>{const text=control.textContent.trim();if(!['×','□','▢'].includes(text))return;control.setAttribute('role','button');control.tabIndex=0;control.title=text==='×'?'Fechar janela':text==='□'?'Maximizar janela':'Restaurar janela';control.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();control.click();}};});}
 
 function renderScoreboard(){
   const s = state.cashSession;
