@@ -323,6 +323,7 @@ function openForcedPinModal(){
 }
 
 function renderAll(){
+  if(typeof aplicarModoTv==='function') aplicarModoTv(); // Modo TV só no monitor de preparo
   if(document.getElementById('garcomApp') && document.getElementById('garcomApp').classList.contains('show')){ if(!gcFlow||gcFlow.step==='home') gcRenderHome(); return; }
   renderScoreboard();
   const allowed = rolePermissions(currentUser.role);
