@@ -635,3 +635,21 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
 /* Resumo da comanda (31/10): só com uma comanda escolhida; o × recolhe. */
 .cp-close{margin-left:auto;flex:0 0 auto;width:32px;height:32px;border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-surface);color:var(--c-text-2);font-size:20px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .cp-close:hover{background:var(--c-surface-3);color:var(--c-text)}
+
+/* Monitor de preparo (31/10, pedido do dono): 5 cartões por linha a partir de 1200 px, dentro e
+   fora do Modo TV; letras e botão "Pronto" um pouco menores para caber. Abaixo disso, a grade
+   automática de antes. */
+@media(min-width:1200px){
+  #view-cozinha .kfeed,body.tv-mode #view-cozinha .kfeed{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:14px}
+  body.tv-mode #view-cozinha .kcard .kbody{padding:14px}
+  body.tv-mode #view-cozinha .kcard .kwho{font-size:24px!important}
+  body.tv-mode #view-cozinha .kcard ul{font-size:20px!important}
+  body.tv-mode #view-cozinha .kcard .ktime,body.tv-mode #view-cozinha .kcard .klocal,body.tv-mode #view-cozinha .kcard .kagebadge{font-size:16px!important}
+  body.tv-mode #view-cozinha .kcard .kobs{font-size:16px}
+  /* com 5 por linha, o "Pronto" sai da lateral e vira uma faixa embaixo: o texto ganha a largura toda */
+  #view-cozinha .kcard{flex-direction:column}
+  #view-cozinha .kbtn-ready,body.tv-mode #view-cozinha .kbtn-ready{width:auto!important;min-height:46px;flex-direction:row;gap:8px;border-left:0!important;border-top:1px solid var(--c-border)!important}
+  body.tv-mode #view-cozinha .kbtn-ready{min-height:54px;font-size:18px!important}
+  #view-cozinha .kcard{min-width:0}
+  #view-cozinha .kcard .kwho,#view-cozinha .kcard li{overflow-wrap:break-word;hyphens:auto}
+}
