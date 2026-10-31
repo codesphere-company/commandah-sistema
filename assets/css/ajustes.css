@@ -602,8 +602,8 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
   .statusbar .st-metrics{flex-wrap:nowrap;gap:14px}
   .balcao-cats{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none}
   .balcao-cats>button{flex:none}
-  .settings-section:has(>.brand-preview){grid-template-columns:1fr!important}
-  .settings-section:has(>.brand-preview) div[style*="display:flex"]{flex-wrap:wrap}
+  .settings-section:has(>.brand-previews){grid-template-columns:1fr!important}
+  .settings-section:has(>.brand-previews) div[style*="display:flex"]{flex-wrap:wrap}
 }
 /* Barra dos cadastros (Produtos, Clientes, Locais...): botões com 40 px, como no celular (eram 46-47;
    pedido do dono em 23/10, fecha a auditoria de design). Ícone menor para caber. */
@@ -653,3 +653,9 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
   #view-cozinha .kcard{min-width:0}
   #view-cozinha .kcard .kwho,#view-cozinha .kcard li{overflow-wrap:break-word;hyphens:auto}
 }
+/* Logotipos do modo claro e do modo escuro (31/10). */
+.brand-previews{display:flex;gap:12px}
+.brand-previews figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.brand-previews figcaption{font-size:12px;color:var(--c-text-3)}
+.brand-previews .brand-preview{background:#ffffff;color:#6b7280;border-color:#d6dbe1}
+.brand-previews .brand-preview.brand-preview-escuro{background:#111418;color:#9aa3ad;border-color:#2a3038}
