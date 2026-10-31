@@ -19,6 +19,8 @@ export const TPAG: Record<string, string> = {
 };
 
 const UNIDADE: Record<string, string> = { un: "UN", kg: "KG", l: "L", g: "G", ml: "ML" };
+// CSOSN com ICMS-ST (Simples Nacional): exigem CEST no item.
+const CSOSN_ST = ["201", "202", "203", "500"];
 const digits = (v: unknown) => String(v ?? "").replace(/\D/g, "");
 const cents = (v: number) => Math.round(v * 100) / 100;
 
@@ -44,6 +46,8 @@ export function buildNfcePayload(sale: Sale, products: Product[], opts: { ambien
     if (!p) problems.push(`"${nome}": o produto não existe mais no cadastro.`);
     else if (ncm.length !== 8 || cfop.length !== 4 || !csosn) problems.push(`"${nome}": faltam os dados fiscais (Produtos › Editar › aba Fiscal).`);
     if (cest && cest.length !== 7) problems.push(`"${nome}": o CEST precisa ter 7 números.`);
+    // t214: produto com ICMS-ST sem CEST a SEFAZ recusa (Rejeição 806); avisa antes de enviar.
+    else if (!cest && CSOSN_ST.includes(csosn)) problems.push(`"${nome}": tem substituição tributária (CSOSN ${csosn}) e está sem CEST; a SEFAZ recusa. Preencha o CEST em Produtos › Editar › aba Fiscal.`);
     const qtd = Number(i.qty) || 0, unit = cents(Number(i.price) || 0);
     const item: Record<string, unknown> = {
       NmProduto: nome.slice(0, 120),

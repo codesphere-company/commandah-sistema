@@ -54,7 +54,7 @@ function renderProdutos(){
       <td class="mono">${h(p.code||'—')}</td><td>${h(p.category||'—')}</td><td>${h(p.name)}</td><td class="mono">${fmt(cost)}</td><td class="mono">${fmt(p.price)}</td><td>${h(p.measure||'un')}</td>
       <td class="mono">${av===Infinity?'—':av}</td><td class="mono">${min}</td><td>${av!==Infinity&&av<=min?'<span class="tag tag-red">Baixo</span>':'<span class="tag-quiet">Normal</span>'}</td>
       <td>${(p.recipe||[]).length?'<span class="tag-quiet">Configurada</span>':'—'}</td><td>${p.active===false?'<span class="tag tag-gray">Pausado</span>':'<span class="tag-quiet">À venda</span>'}</td><td class="mono">${h(p.pdvCode||'—')}</td>
-      <td>${{ok:'<span class="tag-quiet">OK</span>', conferir:'<span class="tag tag-gray">Conferir</span>', vazio:'<span class="tag tag-red">Sem código</span>'}[productFiscalStatus(p)]}</td>
+      <td>${{ok:'<span class="tag-quiet">OK</span>', conferir:'<span class="tag tag-gray">Conferir</span>', vazio:'<span class="tag tag-red">Sem código</span>', semCest:'<span class="tag tag-red">ST sem CEST</span>'}[productFiscalStatus(p)]}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="13" class="empty">Nenhum produto encontrado</td></tr>`;
   const avgCost=list.length?list.reduce((s,p)=>s+productCost(p),0)/list.length:0;
@@ -87,7 +87,7 @@ function exportProductsXlsx(){
   const cols=['Cód. Sistema','Categoria','Nome','Preço Custo','Preço Venda','Medida','Estoque Mín','Status Venda','Cód. PDV','NCM','CEST','CFOP','CSOSN','Origem','Fiscal conferido'];
   const rows=state.products.map(p=>{ const f=p.fiscal||{};
     return [p.code||'',p.category||'',p.name,Number(productCost(p))||0,Number(p.price)||0,p.measure||'un',Number(p.minStock)||0,p.active===false?'Pausado':'Ativo',p.pdvCode||'',
-      fiscalFmtNcm(f.ncm),fiscalFmtCest(f.cest),f.cfop||'',f.csosn||'',f.ncm?(f.origem||'0'):'',{ok:'Sim',conferir:'Não',vazio:''}[productFiscalStatus(p)]]; });
+      fiscalFmtNcm(f.ncm),fiscalFmtCest(f.cest),f.cfop||'',f.csosn||'',f.ncm?(f.origem||'0'):'',{ok:'Sim',conferir:'Não',vazio:'',semCest:'Não'}[productFiscalStatus(p)]]; });
   const ws=XLSX.utils.aoa_to_sheet([cols,...rows]);
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Produtos');
