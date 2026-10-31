@@ -119,7 +119,7 @@ const RIBBON_TABS = [
       { label:'Estoque', items:[ {label:'Alterar em Lote', icon:ICN.editlist, perm:'produtos', action:'openBulkPriceModal'}, {label:'Alterar com NFe', icon:ICN.fileIn, perm:'insumos', action:'openNfeStockWindow'} ] }
   ]},
   { id:'marketing', label:'Marketing', groups:[
-      { label:'Benefícios', items:[ {label:'Promoções', icon:ICN.percent, perm:'cupons', action:"openMarketingView", actionArg:'promocoes'}, {label:'Fidelidade', icon:ICN.heart, perm:'cupons', action:'toggleMarketingRibbonMenu', actionArg:'fidelidade'}, {label:'Cupons', icon:ICN.ticket, perm:'cupons', action:"openMarketingView", actionArg:'cupons'} ] },
+      { label:'Benefícios', items:[ {label:'Promoções', icon:ICN.percent, perm:'cupons', action:"openMarketingView", actionArg:'promocoes'}, {label:'Fidelidade', icon:ICN.heart, perm:'cupons', action:"openMarketingView", actionArg:'fidelidade'}, {label:'Cupons', icon:ICN.ticket, perm:'cupons', action:"openMarketingView", actionArg:'cupons'} ] },
       { label:'Divulgação', items:[ {label:'SMS', icon:ICN.chat, perm:'cupons', action:'openSmsWindow'} ] },
       { label:'Relacionamento', items:[ {label:'Disparador Inteligente', icon:ICN.megaphone, perm:'cupons', action:'toggleMarketingRibbonMenu', actionArg:'disparador'} ] }
   ]},
