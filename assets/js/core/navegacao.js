@@ -33,6 +33,7 @@ function ribbonItemAction(it, allowed){
   const permitted = it.perm ? allowed.includes(it.perm)
                   : hasView ? allowed.includes(it.view)
                   : !hasAction;
+  if(permitted && MODULOS_EM_CONSTRUCAO.has(it.label)) return { enabled:true, emConstrucao:true, reason:'Em construção', onclick:`avisoEmConstrucao(${jsArg(h(it.label))})` };
   const reason = !hasAction && !hasView ? 'Abrir detalhes e requisitos do módulo'
     : (!permitted ? 'Sem permissão para o seu perfil' : '');
   const onclick = permitted ? (hasAction ? `${it.action}(${it.actionArg?`${jsArg(it.actionArg)}`:''})` : hasView ? `openRibbonView(${jsArg(it.view)},${jsArg(h(it.label))})` : `openReferenceModule(${jsArg(h(it.label))})`) : `toast(${jsArg(reason)})`;
@@ -62,7 +63,7 @@ function renderRibbonTabs(){
   const links = homeItems.map(it=>{
     const a = ribbonItemAction(it, allowed);
     const active = activeRibbonTab===home.id && it.view && it.view===activeView;
-    return `<button class="sb-link ${a.enabled?'':'disabled'} ${active?'active':''}" title="${a.reason}" onclick="activeRibbonTab=${jsArg(home.id)};${a.onclick}"><span class="ic">${it.icon||''}</span>${SIDEBAR_LABELS[it.view]||it.label}</button>`;
+    return `<button class="sb-link ${a.enabled?'':'disabled'} ${a.emConstrucao?'em-construcao':''} ${active?'active':''}" title="${a.reason}" onclick="activeRibbonTab=${jsArg(home.id)};${a.onclick}"><span class="ic">${it.icon||''}</span>${SIDEBAR_LABELS[it.view]||it.label}${a.emConstrucao?'<span class="selo-obra">Em construção</span>':''}</button>`;
   }).join('');
   const areaLinks = areas.map(t=>{
     const first = t.groups[0] && t.groups[0].items[0];
@@ -89,10 +90,10 @@ function renderRibbonToolbar(){
         const a = ribbonItemAction(it, allowed);
         // data-abre: item que abre uma tela (liberado; não conta menu suspenso, módulo de referência nem
         // "Alterar Minha Senha", que abre janela: é o primeiro liberado do caixa em Configurações).
-        const abre = a.enabled && (it.view || (it.action && !/^toggle|^openChangePinModal$/.test(it.action)));
-        return `<button class="${a.enabled?'':'disabled'} ${(it.view && it.view===activeView)||it.label===activeRibbonAction?'active':''}" title="${a.reason}"${abre?' data-abre':''}
+        const abre = a.enabled && !a.emConstrucao && (it.view || (it.action && !/^toggle|^openChangePinModal$/.test(it.action)));
+        return `<button class="${a.enabled?'':'disabled'} ${a.emConstrucao?'em-construcao':''} ${(it.view && it.view===activeView)||it.label===activeRibbonAction?'active':''}" title="${a.reason}"${abre?' data-abre':''}
           onclick="${a.onclick}">
-          <span class="ic">${it.icon}</span><span class="lb">${it.label}</span></button>`;
+          <span class="ic">${it.icon}</span><span class="lb">${it.label}</span>${a.emConstrucao?'<span class="selo-obra">Em construção</span>':''}</button>`;
       }).join('')}</div>
       <div class="rb-caption">${g.label}</div>
     </div>`).join('');

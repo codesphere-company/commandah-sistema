@@ -97,7 +97,12 @@ const ICN = {
 // PROD-02 (decisão do dono, auditoria 07/10): módulos que só gravam configuração e não fazem
 // nada ficam fora do menu, para ninguém achar que nota fiscal, Pix ou SMS estão funcionando.
 // O código continua; para voltar um módulo, tire o nome daqui.
-const HIDDEN_MODULES = new Set(['Connect','Emissão Fiscal','TEF','SMS','Disparador Inteligente','Fidelidade','Bot WhatsApp','Pix Online','Bina','Mapas','Balança','Minha Assinatura','Meu Delivery','Delivery']);
+const HIDDEN_MODULES = new Set(['Emissão Fiscal']); // a NFC-e de verdade fica em Configurações › NFC-e
+// Decisão do dono (31/10): em vez de esconder, esses módulos aparecem no menu com o selo
+// "Em construção" e, no clique, só avisam (não abrem a tela que finge funcionar). A Fidelidade
+// voltou normal: funciona (cupons.js). Para liberar um módulo quando ficar pronto, tire o nome daqui.
+const MODULOS_EM_CONSTRUCAO = new Set(['Connect','TEF','SMS','Disparador Inteligente','Bot WhatsApp','Pix Online','Bina','Mapas','Balança','Minha Assinatura','Meu Delivery','Delivery']);
+function avisoEmConstrucao(label){ toast(label+' está em construção. Em breve vai funcionar.'); }
 const RIBBON_TABS = [
   { id:'principal', label:'Principal', groups:[
       { label:'Caixa', items:[ {label:'Abrir/Fechar', icon:ICN.lock, view:'caixa'} ] },
