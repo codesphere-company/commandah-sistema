@@ -32,7 +32,18 @@ function openNfceSettings(){
   };
 }
 // Depois do pagamento (t207): emite sozinha se estiver ligado, e imprime o cupom no caixa.
+// t214: as configurações só são lidas quando o app abre. O garçom aberto antes de ligarem a emissão
+// automática no caixa continuava achando que era manual (teste de 30/10). Relê só a parte da NFC-e.
+async function refreshNfceSettings(){
+  if(!isCloudMode()) return;
+  try{
+    const r = await storageApi.get(STORE.settings);
+    const s = r && JSON.parse(r.value);
+    if(s && typeof s==='object') state.settings.nfce = s.nfce || {};
+  }catch(e){}
+}
 async function autoEmitNfce(saleId){
+  await refreshNfceSettings();
   const c = nfceSettings(); if(!c.autoEmitir) return;
   const sale = state.sales.find(x=>x.id===saleId); if(!nfceCanUse(sale)) return;
   const r = await nfceCall('emitir', saleId);
