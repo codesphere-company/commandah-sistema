@@ -29,13 +29,15 @@ function applyBranding(){const s=state.settings||{},savedPrimary=/^#141b33$/i.te
   // Pedido do dono (31/10): logado num estabelecimento, o topo do menu mostra o logo e o nome dele
   // no lugar da marca Commandah (que volta se o nome estiver vazio).
   const club=document.getElementById('wbClub'),wrap=document.getElementById('wbTitleWrap'),nome=String(s.clubName||'').trim();
-  if(club){club.textContent=nome;club.title=nome;}if(wrap)wrap.classList.toggle('has-club',!!nome);
+  // Com logo, o nome não se repete (pedido do dono, 31/10): o logo já traz o nome; o bloco de texto some.
+  const comLogo=!!logoDoEstabelecimento();
+  if(club){club.textContent=nome;club.title=nome;}if(wrap){wrap.classList.toggle('has-club',!!nome);wrap.classList.toggle('so-logo',comLogo);}
   document.querySelector('.winbar')?.classList.toggle('has-club-logo',!!logoDoEstabelecimento());}
 // Tela de descanso das TVs (monitor da cozinha em Modo TV e Painel de Senhas) quando não há pedido:
 // logo e nome do estabelecimento; sem logo, a marca Commandah.
 function telaDescansoHtml(msg){const s=state.settings||{},nome=String(s.clubName||'').trim();
   const logo=logoDoEstabelecimento()?`<img class="tela-descanso-logo" src="${h(logoDoEstabelecimento())}" alt="">`:`<span class="tela-descanso-logo">${ICN.brandmark(undefined,undefined,140)}</span>`;
-  return `<div class="tela-descanso">${logo}${nome?`<div class="tela-descanso-nome">${h(nome)}</div>`:''}${msg?`<p class="tela-descanso-msg">${h(msg)}</p>`:''}</div>`;}
+  return `<div class="tela-descanso">${logo}${nome&&!logoDoEstabelecimento()?`<div class="tela-descanso-nome">${h(nome)}</div>`:''}${msg?`<p class="tela-descanso-msg">${h(msg)}</p>`:''}</div>`;}
 function roleLabel(r){ return r==='admin'?'Administrador':r==='caixa'?'Operador de caixa':'Cozinha'; }
 function startPin(userId){
   pinTargetUser = state.users.find(u=>u.id===userId);
