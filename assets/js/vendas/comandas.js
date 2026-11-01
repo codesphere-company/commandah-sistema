@@ -444,6 +444,20 @@ function stripAccentsForPrint(s){ const lo=String.fromCharCode(0x0300), hi=Strin
 // fora do banco) troca pelo byte nulo de verdade. Ver printRawTcp no agente.
 const NUL_PLACEHOLDER = String.fromCharCode(0x01);
 function paperColumns(imp){ return imp && Number(imp.larguraPapel)===58 ? 32 : 48; }
+// t216 (01/11, pedido do dono): toda ficha traz cota, nome, quem lançou, data/hora, pra onde
+// vai e o produto. Sem sócio (ficha no caixa, avulso) sai "Cota: FICHA" e, sem nome digitado,
+// "Consumidor não identificado". Sem local escolhido, "Retirar no balcão".
+const TICKET_ANON_NAMES = ['', 'cliente avulso', 'cliente', 'avulso', 'consumidor'];
+function ticketFields(who, cota, local, items){
+  const name = String(who||'').trim();
+  const lancou = ((items||[]).map(i=>i.addedBy).find(Boolean)) || (currentUser&&currentUser.name) || '';
+  return {
+    cota: String(cota||'').trim() || 'FICHA',
+    nome: TICKET_ANON_NAMES.includes(name.toLowerCase()) ? 'Consumidor não identificado' : name,
+    lancadoPor: lancou,
+    praOnde: String(local||'').trim() || 'Retirar no balcão'
+  };
+}
 function buildTicketText(who, cota, local, estacao, items, orderNumber, columns, escPos, payLines, footer){
   const cfg = state.settings.ticketConfig || {};
   const nameSizeByte = {normal:NUL_PLACEHOLDER, grande:'\x11', extra:'\x22'}[cfg.nomeProdutoTamanho] || '\x11';
@@ -451,28 +465,30 @@ function buildTicketText(who, cota, local, estacao, items, orderNumber, columns,
   const W = columns || 48;
   const line = ch=>ch.repeat(W);
   const wrap = t => t.length>W ? t.slice(0,W) : t;
+  const wrapWords = t => { const lines=[]; let cur=''; String(t).split(/\s+/).forEach(w=>{ if((cur+' '+w).trim().length>W){ if(cur) lines.push(cur); cur=w.slice(0,W); } else cur=(cur+' '+w).trim(); }); if(cur) lines.push(cur); return lines.join('\n'); };
   let out = '';
   out += line('=')+'\n';
   out += wrap((estacaoLabel(estacao)||estacao||'').toUpperCase())+'\n';
   out += line('=')+'\n';
-  out += 'Pedido '+(orderNumber?'#'+orderNumber:'')+'\n';
-  out += new Date().toLocaleString('pt-BR')+'\n';
+  // Pedido e data/hora na mesma linha (data alinhada à direita).
+  const pedido = 'Pedido '+(orderNumber?'#'+orderNumber:''), quando = new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).replace(',','');
+  out += (pedido.length+1+quando.length<=W ? pedido+' '.repeat(W-pedido.length-quando.length)+quando : pedido+'\n'+quando)+'\n';
   out += line('-')+'\n';
-  out += wrap('Solicitante: '+who)+'\n';
-  if(cota) out += wrap('Cota: '+cota)+'\n';
-  out += line('-')+'\n';
-  if(local){
-    const localLabel = 'ENTREGAR EM: ';
-    const localValueW = Math.max(1, W-localLabel.length);
-    const localValue = local.length>localValueW ? local.slice(0,localValueW) : local;
-    // Só o nome do local fica em negrito (label continua no tamanho normal) — configurável
-    // em Impressoras > Formatação dos tickets.
+  const f = ticketFields(who, cota, local, items);
+  out += wrapWords('Cota: '+f.cota)+'\n';
+  out += wrapWords('Nome: '+f.nome)+'\n';
+  // Comprovante do caixa não leva "lançado por" nem "pra onde" (é do cliente, não da estação).
+  if(estacao!=='caixa'){
+    if(f.lancadoPor) out += wrapWords('Lançado por: '+f.lancadoPor)+'\n';
+    const localLabel = 'Pra onde: ';
+    const localValue = f.praOnde.toUpperCase().slice(0, Math.max(1, W-localLabel.length));
+    // Só o destino fica em negrito (configurável em Impressoras > Formatação dos tickets).
     // ESC E '1'/'0' (0x31/0x30): com 0x01 o agente trocava por 0x00 e o negrito nunca ligava.
     const boldOn = entregaDestaque ? '\x1B\x451' : '';
     const boldOff = entregaDestaque ? '\x1B\x450' : '';
-    out += (escPos ? localLabel+boldOn+localValue+boldOff : wrap(localLabel+local)) + '\n';
-    out += line('-')+'\n';
+    out += (escPos ? localLabel+boldOn+localValue+boldOff : localLabel+localValue) + '\n';
   }
+  out += line('-')+'\n';
   const showPrices = estacao==='caixa' || !!cfg.mostrarPrecoProducao; // comprovante do caixa sempre mostra; estação é configurável
   let total = 0;
   items.forEach(i=>{
@@ -485,7 +501,6 @@ function buildTicketText(who, cota, local, estacao, items, orderNumber, columns,
     if(showPrices) out += fmt(i.price*i.qty)+'\n';
   });
   const segurar = items.some(i=>i.levarJunto), juntoCom = [...new Set(items.map(i=>i.levarJuntoCom).filter(Boolean))].join(', ');
-  const wrapWords = t => { const lines=[]; let cur=''; String(t).split(/\s+/).forEach(w=>{ if((cur+' '+w).trim().length>W){ if(cur) lines.push(cur); cur=w.slice(0,W); } else cur=(cur+' '+w).trim(); }); if(cur) lines.push(cur); return lines.join('\n'); };
   const big = t => escPos ? '\x1D\x21\x11'+t+'\x1D\x21'+NUL_PLACEHOLDER : t;
   if(segurar) out += line('*')+'\n'+big('*** SEGURAR ***')+'\n'+big('LEVAR JUNTO')+'\n'+big('COM A COMIDA')+'\n'+line('*')+'\n';
   if(juntoCom) out += line('*')+'\n'+big('LEVAR JUNTO:')+'\n'+wrapWords(juntoCom)+'\n(bebida no bar)\n'+line('*')+'\n';
