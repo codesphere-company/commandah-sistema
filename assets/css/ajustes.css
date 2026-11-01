@@ -671,3 +671,6 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
 @media(max-width:600px){.kh-dia{grid-template-columns:1fr 1fr;}.kh-dia span{display:none}}
 .kfechada-faixa{margin:0 0 14px;padding:12px 16px;border-radius:var(--r-md);background:var(--c-warning-soft);color:var(--c-warning);font-weight:700}
 body.tv-mode .kfechada-faixa{font-size:22px}
+.kh-estado{margin:8px 0 4px;font-size:14px;color:var(--c-text-2);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.kh-ligar{display:inline-flex;align-items:center;gap:10px;padding:10px 14px;margin-top:6px;border:1px solid var(--c-border-strong);border-radius:var(--r-md);background:var(--c-surface);cursor:pointer;font-size:15px}
+.kh-ligar input{width:22px;height:22px;accent-color:var(--c-primary)}
