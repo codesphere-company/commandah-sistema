@@ -597,9 +597,10 @@ function ticketPopupHtml(t){
     <div class="estacao">${h((estacaoLabel(estacao)||estacao).toUpperCase())}</div>
     <h1>Pedido ${orderNumber?'#'+orderNumber:''}</h1>
     <div class="muted">${dataHoraBR(t.at||Date.now())}</div>
-    <div><b>Solicitante:</b> ${h(who)}</div>
-    ${cota?`<div><b>Cota:</b> ${h(cota)}</div>`:''}
-    ${local?`<div class="local">ENTREGAR EM: ${h(local)}</div>`:''}
+    ${(f=>`<div><b>Cota:</b> ${h(f.cota)}</div>
+    <div><b>Nome:</b> ${h(f.nome)}</div>
+    ${f.lancadoPor?`<div><b>Lançado por:</b> ${h(f.lancadoPor)}</div>`:''}
+    <div class="local">PRA ONDE: ${h(f.praOnde.toUpperCase())}</div>`)(ticketFields(who, cota, local, items))}
     <table>${items.map(i=>`<tr><td>${i.qty}x ${h(i.name)}${i.copos!=null?' — <b>'+i.copos+' copo'+(i.copos===1?'':'s')+'</b>':''}</td><td style="text-align:right">${fmt(i.price*i.qty)}</td></tr>`).join('')}</table>
     <div class="total">Total: ${fmt(total)}</div>
     ${printer?`<div class="printer">Imprimir na: <b>${h(printer)}</b> (não recebeu a ficha; impressa neste aparelho)</div>`:`<div class="warn">Nenhuma impressora configurada para ${h(estacaoLabel(estacao)||estacao)} nesta origem — encaminhar manualmente.</div>`}
