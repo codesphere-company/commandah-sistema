@@ -13,6 +13,8 @@ function fiscalFmtCest(v){ const d=fiscalDigits(v); return d.length===7 ? d.slic
 function productFiscalStatus(p){
   const f = p && p.fiscal;
   if(!f || !fiscalDigits(f.ncm)) return 'vazio';
+  // t214: com ICMS-ST e sem CEST a SEFAZ recusa a nota (Rejeição 806), mesmo marcado como conferido.
+  if(['201','202','203','500'].includes(String(f.csosn||'')) && !fiscalDigits(f.cest)) return 'semCest';
   return f.status==='ok' ? 'ok' : 'conferir';
 }
 // Sugestão pelos dados do produto. null = não sei sugerir (fica em branco para alguém preencher).
@@ -98,7 +100,7 @@ function openFiscalBulkModal(){
   const count = k=>all.filter(p=>productFiscalStatus(p)===k).length;
   const rows = can.map(({p,s})=>`<tr><td>${h(p.category||'—')}</td><td>${h(p.name)}</td><td class="mono">${h(fiscalFmtNcm(s.ncm))}</td><td class="mono">${h(fiscalFmtCest(s.cest)||'—')}</td><td class="mono">${h(s.cfop)}</td><td class="mono">${h(s.csosn)}</td><td>${s.status==='ok'?'<span class="tag tag-green">igual ao Saipos</span>':'<span class="tag tag-gray">conferir</span>'}</td></tr>`).join('');
   openModal('Dados fiscais dos produtos (NFC-e)', `
-    <p class="sub" style="margin-top:0">${count('ok')} conferidos · ${count('conferir')} a conferir · ${empty.length} sem dados fiscais.${empty.length?' Abaixo, a sugestão para os que estão sem dados. Nada é gravado até você clicar em "Preencher".':''}</p>
+    <p class="sub" style="margin-top:0">${count('ok')} conferidos · ${count('conferir')} a conferir · ${count('semCest')?count('semCest')+' com ST sem CEST (a SEFAZ recusa) · ':''}${empty.length} sem dados fiscais.${empty.length?' Abaixo, a sugestão para os que estão sem dados. Nada é gravado até você clicar em "Preencher".':''}</p>
     ${can.length?`<div class="finance-grid" style="max-height:340px;overflow:auto"><table><thead><tr><th>Categoria</th><th>Produto</th><th>NCM</th><th>CEST</th><th>CFOP</th><th>CSOSN</th><th>Situação</th></tr></thead><tbody>${rows}</tbody></table></div>`:''}
     ${cannot.length?`<p class="sub">Sem sugestão (preencher no cadastro do produto, aba Fiscal): ${cannot.map(x=>h(x.p.name)).join(', ')}.</p>`:''}
     <p class="sub">Comida segue o cadastro do Saipos. Bebidas ficam "a conferir": o contador confirma o CEST e o CFOP, e a Coca-Cola vai com o NCM de refrigerante (no Saipos está com o de cerveja).</p>
