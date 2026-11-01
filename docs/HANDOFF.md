@@ -36,6 +36,11 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
+### 01/11 — impressoras do clube pelo IP (configurado pelo Claude com o dono)
+- **Mapa (dono):** cozinha `192.168.110.111` (Bematech MP-4200), churrasqueira `.112`, bar `.113`, caixa `.114` (App-tech Q851L). Todas adicionadas pelo IP no agente **Caixa 2** (busca na rede ligada por 1 min para achar a `.113` e desligada de novo); `.112` saiu do Pc Fabricio.
+- Antes cozinha, bar e churrasqueira iam para as filas do Windows `COZINHA`/`BAR`/`CHURRASQUEIRA` do PC Caixa 2, instaladas pelo Saipos: ficha com acento, de lado (churrasqueira) ou minúscula com "www.saipos.com" (cozinha). Ficha certa pelo IP sai **sem acento**.
+- Regra do Caixa 2 ("imprimir tudo lançado aqui") apontava para a `.111` (cozinha); agora `.114`. Exceção só Cozinha, **confirmado pelo dono** (bar e churrasqueira lançados no caixa 2 saem no caixa).
+
 ### 01/11 — Modelo da ficha configurável (t217)
 - **Configurações › Impressoras › Modelo da ficha** (`impressao/ficha.js`, só quem tem `config-sistema`): cada campo (estação, pedido, data/hora, cota, nome, quem lançou, pra onde, origem, produtos, total) liga/desliga, muda de ordem e pode sair grande/negrito; produtos com tamanho, adicionais, observação do item e preço. Prévia ao vivo (80/58 mm; ficha sem identificação, com sócio, comprovante). Grava em `settings.ticketConfig.campos` + opções; os campos antigos (`nomeProdutoTamanho`, `entregaDestaque`, `mostrarPrecoProducao`) continuam valendo.
 - A ficha virou lista de linhas → ESC/POS, texto simples (Windows) e HTML (prévia e "Imprimir aqui"), com a mesma quebra. `buildTicketText` saiu de `vendas/comandas.js` e mora em `ficha.js` (mesma assinatura).
