@@ -674,3 +674,20 @@ body.tv-mode .kfechada-faixa{font-size:22px}
 .kh-estado{margin:8px 0 4px;font-size:14px;color:var(--c-text-2);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .kh-ligar{display:inline-flex;align-items:center;gap:10px;padding:10px 14px;margin-top:6px;border:1px solid var(--c-border-strong);border-radius:var(--r-md);background:var(--c-surface);cursor:pointer;font-size:15px}
 .kh-ligar input{width:22px;height:22px;accent-color:var(--c-primary)}
+/* t217: Modelo da ficha (Configurações › Impressoras) */
+.fc-grid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:980px){.fc-grid{grid-template-columns:minmax(0,1fr) auto}.fc-preview{position:sticky;top:12px;align-self:start}}
+.fc-list{display:grid;gap:6px;align-content:start}
+.fc-row{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;padding:8px 10px;border-radius:var(--r-md);background:var(--c-surface-2)}
+.fc-row.off .fc-main b{color:var(--c-text-3)}
+.fc-main{flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.fc-main label,.fc-opts label,.fc-compat label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.fc-row input[type=checkbox],.fc-compat input[type=checkbox]{width:auto;min-height:0;margin:0}
+.fc-hint{font-size:12px;margin:0}
+.fc-opts{display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center;font-size:13px}
+.fc-opts select{width:auto;min-height:30px;padding:3px 8px;font-size:13px}
+.fc-move{display:flex;gap:4px;margin-left:auto}
+.fc-move .btn{min-width:32px;padding:4px 8px}
+.fc-compat{display:grid;gap:6px;margin-top:8px;padding:10px;border:1px dashed var(--c-border-strong);border-radius:var(--r-md);font-size:13px}
+.fc-preview{min-width:0}
+.fc-paper{background:#fff;color:#111;border:1px solid var(--c-border);border-radius:var(--r-sm,6px);padding:12px 10px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow-x:auto;width:max-content;max-width:100%}
