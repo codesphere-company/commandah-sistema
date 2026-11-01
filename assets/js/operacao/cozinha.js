@@ -200,6 +200,16 @@ function cozinhaAberta(d=new Date()){
   if(hoje && (hoje.f>hoje.a ? agora>=hoje.a&&agora<hoje.f : agora>=hoje.a)) return true;
   return !!(ontem && ontem.f<=ontem.a && agora<ontem.f);   // resto do turno de ontem, depois da meia-noite
 }
+// Minutos até a cozinha fechar, se está aberta pelo horário agora (null: fechada ou sem horário).
+function minutosAteFecharCozinha(d=new Date()){
+  const k=horarioCozinha(); if(!k) return null;
+  const agora=d.getHours()*60+d.getMinutes(), hoje=turnoCozinha(k,d.getDay()), ontem=turnoCozinha(k,(d.getDay()+6)%7);
+  if(hoje && hoje.f>hoje.a && agora>=hoje.a && agora<hoje.f) return hoje.f-agora;
+  if(hoje && hoje.f<=hoje.a && agora>=hoje.a) return 1440-agora+hoje.f;     // fecha depois da meia-noite
+  if(ontem && ontem.f<=ontem.a && agora<ontem.f) return ontem.f-agora;      // resto do turno de ontem
+  return null;
+}
+const AVISO_FECHAMENTO_MIN = 15;
 function proximaAberturaCozinha(d=new Date()){
   const k=horarioCozinha(); if(!k) return '';
   const agora=d.getHours()*60+d.getMinutes();
@@ -221,6 +231,10 @@ async function sendItemsToKitchen(saleId, items, who, source, local){
     const prox=proximaAberturaCozinha();
     if(source==='cardapio'||source==='totem'){ toast('A cozinha está fechada'+(prox?' (abre '+prox+')':'')+'. Os itens da cozinha não estão disponíveis agora.'); return false; }
     if(!confirm('A cozinha está fechada'+(prox?' (abre '+prox+')':'')+'.\n\nEnviar o pedido para a cozinha mesmo assim?')) return false;
+  } else if(monitorItems.length){
+    // Últimos 15 min do horário (pedido do dono, 31/10): aviso a quem lança, sem travar o pedido.
+    const resta=minutosAteFecharCozinha();
+    if(resta!=null && resta<=AVISO_FECHAMENTO_MIN) toast('Atenção: a cozinha fecha em '+resta+' min. Avise o cliente.', 'erro');
   }
   if(!await consumeInsumosForItems(items)){ toast('Estoque insuficiente para enviar todos os itens. Revise as quantidades.'); return false; }
   if(!monitorItems.length) return true;
