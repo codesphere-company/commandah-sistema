@@ -186,14 +186,43 @@ function saidaModoEstacao(estacao){
   const e = state.estacoes.find(x=>x.chave===estacao);
   return e ? e.saida : (estacao==='cozinha' ? 'ambos' : 'imprime');
 }
+/* Horário da cozinha (pedido do dono, 31/10): um horário só, por dia da semana, em
+   settings.kitchenHours = { ativo, dias: { 0..6: { fechado, abre:'HH:MM', fecha:'HH:MM' } } }.
+   Fechamento menor que a abertura = passa da meia-noite (ex.: 18:00 às 02:00). Sem horário
+   ligado, a cozinha conta como sempre aberta. */
+const DIAS_SEMANA = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+function horarioCozinha(){ const k=(state.settings||{}).kitchenHours; return k&&k.ativo?k:null; }
+function minutosDoDia(hhmm){ const m=/^(\d{1,2}):(\d{2})$/.exec(String(hhmm||'')); return m?Number(m[1])*60+Number(m[2]):null; }
+function turnoCozinha(k, dia){ const c=(k.dias||{})[dia]; if(!c||c.fechado) return null; const a=minutosDoDia(c.abre), f=minutosDoDia(c.fecha); return a==null||f==null?null:{a,f}; }
+function cozinhaAberta(d=new Date()){
+  const k=horarioCozinha(); if(!k) return true;
+  const agora=d.getHours()*60+d.getMinutes(), hoje=turnoCozinha(k,d.getDay()), ontem=turnoCozinha(k,(d.getDay()+6)%7);
+  if(hoje && (hoje.f>hoje.a ? agora>=hoje.a&&agora<hoje.f : agora>=hoje.a)) return true;
+  return !!(ontem && ontem.f<=ontem.a && agora<ontem.f);   // resto do turno de ontem, depois da meia-noite
+}
+function proximaAberturaCozinha(d=new Date()){
+  const k=horarioCozinha(); if(!k) return '';
+  const agora=d.getHours()*60+d.getMinutes();
+  for(let n=0;n<8;n++){ const dia=(d.getDay()+n)%7, t=turnoCozinha(k,dia); if(!t||(n===0&&t.a<=agora)) continue;
+    return (n===0?'hoje':n===1?'amanhã':DIAS_SEMANA[dia].toLowerCase())+' às '+k.dias[dia].abre; }
+  return '';
+}
 function saidaTemTela(estacao){ const m=saidaModoEstacao(estacao); return m==='ambos'||m==='tela'; }
 function saidaTemImpressao(estacao){ const m=saidaModoEstacao(estacao); return m==='ambos'||m==='imprime'; }
 async function sendItemsToKitchen(saleId, items, who, source, local){
   if(!items.length) return false;
   const batchId = uid();
   items.forEach(i=>{ if(!i.batchId) i.batchId = batchId; });
-  if(!await consumeInsumosForItems(items)){ toast('Estoque insuficiente para enviar todos os itens. Revise as quantidades.'); return false; }
   const monitorItems=items.filter(i=>{const product=state.products.find(p=>p.id===i.productId);const estacao=product&&product.estacao?product.estacao:'cozinha';return saidaTemTela(estacao);});
+  // Cozinha fora do horário: caixa e garçom recebem um aviso e podem confirmar; cardápio digital
+  // e totem (o próprio cliente pedindo) não enviam. Vem antes de baixar o estoque: cancelar não
+  // deixa nada lançado.
+  if(monitorItems.length && !cozinhaAberta()){
+    const prox=proximaAberturaCozinha();
+    if(source==='cardapio'||source==='totem'){ toast('A cozinha está fechada'+(prox?' (abre '+prox+')':'')+'. Os itens da cozinha não estão disponíveis agora.'); return false; }
+    if(!confirm('A cozinha está fechada'+(prox?' (abre '+prox+')':'')+'.\n\nEnviar o pedido para a cozinha mesmo assim?')) return false;
+  }
+  if(!await consumeInsumosForItems(items)){ toast('Estoque insuficiente para enviar todos os itens. Revise as quantidades.'); return false; }
   if(!monitorItems.length) return true;
   const order = { id:uid(), saleId, who, local: local||'', items: monitorItems.map(i=>({productId:i.productId,batchId:i.batchId||null,name:i.name,qty:i.qty,price:i.price,notes:i.notes||'',copos:i.copos,levarJunto:!!i.levarJunto,levarJuntoCom:i.levarJuntoCom||'',customization:i.customization?JSON.parse(JSON.stringify(i.customization)):null})),
     status:'pendente', statusHistory:[], createdAt:new Date().toISOString(), source };
@@ -297,7 +326,15 @@ function renderCozinha(){
     <button class="${kitchenViewTab==='ativos'?'active':''}" onclick="setKitchenViewTab('ativos')">Em preparo</button>
     <button class="${kitchenViewTab==='prontos'?'active':''}" onclick="setKitchenViewTab('prontos')">Prontos</button>
   </div>`;
-  const feedHtml = kitchenViewTab==='prontos' ? renderKitchenReadyFeed() : renderKitchenActiveFeed();
+  // Horário da cozinha (31/10): fechada e sem pedido pendente = tela "Cozinha fechada"; fechada
+  // com pedido ainda em preparo = os pedidos continuam, com uma faixa de aviso (nada some).
+  const fechada = !cozinhaAberta();
+  const temAtivos = fechada && state.orders.some(o=>(o.status==='pendente'||o.status==='preparo') && (o.items||[]).some(i=>!i.ready && (kitchenStationFilter==='todas'||itemStation(i)===kitchenStationFilter)));
+  const prox = fechada ? proximaAberturaCozinha() : '';
+  const feedHtml = fechada && kitchenViewTab==='ativos' && !temAtivos
+    ? `<div class="kfeed">${telaDescansoHtml(prox?'Abre '+prox:'', 'Cozinha fechada')}</div>`
+    : (fechada && temAtivos ? `<div class="kfechada-faixa">Cozinha fechada${prox?' · abre '+h(prox):''}. Termine os pedidos que faltam.</div>` : '')
+      + (kitchenViewTab==='prontos' ? renderKitchenReadyFeed() : renderKitchenActiveFeed());
   el.innerHTML = `<div class="panel"><h2>${titulo} ${tvBtn}</h2>
     ${subtabsHtml}
     ${filterHtml}

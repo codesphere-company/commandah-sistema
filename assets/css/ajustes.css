@@ -663,3 +663,11 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
 .wb-title.so-logo{display:none}
 @media(min-width:761px){.winbar.has-club-logo .wb-logo{height:96px;max-width:190px}.winbar.has-club-logo .wb-logo img{max-width:190px}}
 .tela-descanso-logo{max-height:42vh}
+/* Horário da cozinha (31/10): grade de dias na configuração e faixa de aviso no monitor. */
+.kh-grid{display:grid;gap:8px;margin:12px 0}
+.kh-dia{display:grid;grid-template-columns:90px 90px 120px 24px 120px;justify-content:start;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-surface)}
+.kh-dia .kh-aberta{display:flex;align-items:center;gap:6px;font-size:13px}
+.kh-dia:has(.kh-on:not(:checked)) input[type=time],.kh-dia:has(.kh-on:not(:checked)) span{opacity:.35}
+@media(max-width:600px){.kh-dia{grid-template-columns:1fr 1fr;}.kh-dia span{display:none}}
+.kfechada-faixa{margin:0 0 14px;padding:12px 16px;border-radius:var(--r-md);background:var(--c-warning-soft);color:var(--c-warning);font-weight:700}
+body.tv-mode .kfechada-faixa{font-size:22px}
