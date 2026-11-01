@@ -35,9 +35,10 @@ function applyBranding(){const s=state.settings||{},savedPrimary=/^#141b33$/i.te
   document.querySelector('.winbar')?.classList.toggle('has-club-logo',!!logoDoEstabelecimento());}
 // Tela de descanso das TVs (monitor da cozinha em Modo TV e Painel de Senhas) quando não há pedido:
 // logo e nome do estabelecimento; sem logo, a marca Commandah.
-function telaDescansoHtml(msg){const s=state.settings||{},nome=String(s.clubName||'').trim();
+function telaDescansoHtml(msg,titulo){const s=state.settings||{},nome=String(s.clubName||'').trim();
   const logo=logoDoEstabelecimento()?`<img class="tela-descanso-logo" src="${h(logoDoEstabelecimento())}" alt="">`:`<span class="tela-descanso-logo">${ICN.brandmark(undefined,undefined,140)}</span>`;
-  return `<div class="tela-descanso">${logo}${nome&&!logoDoEstabelecimento()?`<div class="tela-descanso-nome">${h(nome)}</div>`:''}${msg?`<p class="tela-descanso-msg">${h(msg)}</p>`:''}</div>`;}
+  const texto=titulo||(nome&&!logoDoEstabelecimento()?nome:''); // título (ex.: "Cozinha fechada") vale mais que o nome
+  return `<div class="tela-descanso">${logo}${texto?`<div class="tela-descanso-nome">${h(texto)}</div>`:''}${msg?`<p class="tela-descanso-msg">${h(msg)}</p>`:''}</div>`;}
 function roleLabel(r){ return r==='admin'?'Administrador':r==='caixa'?'Operador de caixa':'Cozinha'; }
 function startPin(userId){
   pinTargetUser = state.users.find(u=>u.id===userId);
