@@ -211,8 +211,10 @@ function showPrintQueueBanner(qtd, mins, printer){
       +   '<span class="local-mode-title"></span>'
       +   '<span class="local-mode-sub"></span>'
       + '</div>'
-      + '<button type="button" class="local-mode-btn">Entendi</button>';
-    el.querySelector('.local-mode-btn').addEventListener('click', ()=>{
+      + '<div class="print-fail-actions"><button type="button" class="local-mode-btn" data-a="fila">Ver fila</button>' // t215
+      + '<button type="button" class="local-mode-btn print-fail-done" data-a="ok">Entendi</button></div>';
+    el.querySelector('[data-a="fila"]').addEventListener('click', ()=>{ if(typeof openPrintQueue==='function') openPrintQueue(); });
+    el.querySelector('[data-a="ok"]').addEventListener('click', ()=>{
       printQueueSnoozedUntil = Date.now() + PRINT_QUEUE_SNOOZE_MIN*60*1000;
       hidePrintQueueBanner();
     });
