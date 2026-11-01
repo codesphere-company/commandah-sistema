@@ -21,11 +21,14 @@ const FICHA_CAMPOS = [
   { k:'cota',       n:'Cota',                 def:{ on:true } },
   { k:'nome',       n:'Nome do cliente',      def:{ on:true } },
   { k:'lancadoPor', n:'Quem lançou',          def:{ on:true } },
-  { k:'praOnde',    n:'Pra onde vai',         def:{ on:true, negrito:true } },
   { k:'origem',     n:'Origem do pedido',     def:{ on:false } },
+  // Dono (01/11): "pra onde vai" é a última linha antes dos produtos e um pouco maior.
+  { k:'praOnde',    n:'Pra onde vai',         def:{ on:true, negrito:true, tamanho:'alto' } },
   { k:'produtos',   n:'Produtos',             def:{ on:true }, fixed:true },
   { k:'total',      n:'Total',                def:{ on:true } }
 ];
+// alto = altura dupla e largura normal (ESC ! 0x10): cabe a mesma quantidade de letras na linha.
+const FICHA_TAMANHOS = { normal:'Normal', alto:'Um pouco maior', grande:'Grande (2x)' };
 const FICHA_HINT = {
   cota:'Sem sócio sai "FICHA".', nome:'Sem nome sai "Consumidor não identificado".',
   praOnde:'Sem local sai "RETIRAR NO BALCÃO". Não sai no comprovante do caixa.',
@@ -50,11 +53,11 @@ function fichaConfig(raw){
   const campos = [];
   (Array.isArray(c.campos) ? c.campos : []).forEach(s=>{
     const d = FICHA_CAMPOS.find(f=>f.k===(s&&s.k));
-    if(d && !campos.some(x=>x.k===d.k)) campos.push({ k:d.k, on: d.fixed ? true : s.on!==false, grande:!!s.grande, negrito:!!s.negrito });
+    if(d && !campos.some(x=>x.k===d.k)) campos.push({ k:d.k, on: d.fixed ? true : s.on!==false, tamanho: FICHA_TAMANHOS[s.tamanho] ? s.tamanho : (s.grande ? 'grande' : 'normal'), negrito:!!s.negrito });
   });
   FICHA_CAMPOS.forEach((d, idx)=>{
     if(campos.some(x=>x.k===d.k)) return;
-    const v = { k:d.k, on: d.fixed ? true : !!d.def.on, grande:!!d.def.grande, negrito:!!d.def.negrito };
+    const v = { k:d.k, on: d.fixed ? true : !!d.def.on, tamanho: d.def.tamanho || 'normal', negrito:!!d.def.negrito };
     if(d.k==='praOnde' && c.entregaDestaque===false) v.negrito = false; // opção antiga
     campos.splice(Math.min(idx, campos.length), 0, v);
   });
@@ -74,7 +77,7 @@ function buildTicketLines(who, cota, local, estacao, items, orderNumber, payLine
   const L = [];
   // Separadores seguidos viram um só (o mais forte).
   const sep = ch=>{ const last = L[L.length-1]; if(last && last.sep){ if(ch==='='||ch==='*') last.sep = ch; return; } L.push({ sep:ch }); };
-  const txt = (label, value, o, extra)=>L.push(Object.assign({ label, value:String(value==null?'':value), size:o&&o.grande?2:1, bold:!!(o&&o.negrito) }, extra||{}));
+  const txt = (label, value, o, extra)=>L.push(Object.assign({ label, value:String(value==null?'':value), size:o&&o.tamanho==='grande'?2:1, tall:!!(o&&o.tamanho==='alto'), bold:!!(o&&o.negrito) }, extra||{}));
   const quando = new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).replace(',','');
   const total = (items||[]).reduce((a,i)=>a+(Number(i.price)||0)*(Number(i.qty)||0), 0);
   const prodSize = { normal:1, grande:2, extra:3 }[c.nomeProdutoTamanho] || 2;
@@ -85,7 +88,7 @@ function buildTicketLines(who, cota, local, estacao, items, orderNumber, payLine
     if(x.k==='estacao'){ txt('', isCaixa ? 'COMPROVANTE DE VENDA' : String(estacaoLabel(estacao)||estacao||'').toUpperCase(), x); sep('='); }
     else if(x.k==='pedido'){
       const p = 'Pedido'+(orderNumber ? ' #'+orderNumber : ''), next = on[i+1];
-      if(next && next.k==='datahora' && !x.grande && !next.grande){ txt('', p, { negrito: x.negrito||next.negrito }, { right:quando }); i++; }
+      if(next && next.k==='datahora' && (x.tamanho||'normal')==='normal' && (next.tamanho||'normal')==='normal'){ txt('', p, { negrito: x.negrito||next.negrito }, { right:quando }); i++; }
       else txt('', p, x);
     }
     else if(x.k==='datahora') txt('', quando, x);
@@ -156,7 +159,8 @@ function ticketLinesToEscPos(L, W, cfg){
   let out = '\x1B@' + (c.fonteA ? '\x1BM0' : '');
   L.forEach(l=>{
     if(l.sep){ out += l.sep.repeat(W) + '\n'; return; }
-    out += sizeOn(l.size) + (l.bold ? '\x1BE1' : '') + fichaRows(l, W).join('\n') + (l.bold ? '\x1BE0' : '') + sizeOff(l.size) + '\n';
+    const tallOn = l.tall && l.size<2 ? '\x1B!\x10' : '', tallOff = tallOn ? '\x1B!'+Z : ''; // ESC ! 0x10: só altura dupla
+    out += sizeOn(l.size) + tallOn + (l.bold ? '\x1BE1' : '') + fichaRows(l, W).join('\n') + (l.bold ? '\x1BE0' : '') + tallOff + sizeOff(l.size) + '\n';
   });
   // Sem driver no meio: texto sem acento (o code page da térmica é incerto) e corte no fim.
   return stripAccentsForPrint(out) + '\n\n\n\x1D\x56\x01';
@@ -166,6 +170,7 @@ function ticketLinesToHtml(L, W){
   const rows = L.map(l=>{
     if(l.sep) return `<div style="white-space:pre;overflow:hidden">${h(l.sep.repeat(W))}</div>`;
     const st = 'white-space:pre;line-height:1.15;'+(l.size>1 ? 'font-size:'+(l.size*100)+'%;' : '')+(l.bold ? 'font-weight:700;' : '');
+    if(l.tall && l.size<2) return fichaRows(l, W).map(r=>`<div style="${st}height:2.3em"><span style="display:inline-block;white-space:pre;transform:scaleY(2);transform-origin:0 0">${h(r)||'&nbsp;'}</span></div>`).join('');
     return fichaRows(l, W).map(r=>`<div style="${st}">${h(r)||'&nbsp;'}</div>`).join('');
   }).join('');
   return `<div style="font-family:Consolas,'Courier New',monospace;font-size:12px;width:${W}ch;max-width:100%;color:#111">${rows}</div>`;
@@ -209,7 +214,7 @@ function fichaConfigInner(){
       </div>${move}</div>`;
     return `<div class="fc-row${x.on?'':' off'}">
       <div class="fc-main"><label><input type="checkbox" ${x.on?'checked':''} onchange="fichaCampo(${i},'on',this.checked)"> <b>${h(def.n)}</b></label>${hint?`<span class="sub fc-hint">${h(hint)}</span>`:''}</div>
-      <div class="fc-opts"><label><input type="checkbox" ${x.grande?'checked':''} ${x.on?'':'disabled'} onchange="fichaCampo(${i},'grande',this.checked)"> Grande</label>
+      <div class="fc-opts"><label>Tamanho <select ${x.on?'':'disabled'} onchange="fichaCampo(${i},'tamanho',this.value)">${Object.entries(FICHA_TAMANHOS).map(([v,t])=>`<option value="${v}" ${x.tamanho===v?'selected':''}>${t}</option>`).join('')}</select></label>
       <label><input type="checkbox" ${x.negrito?'checked':''} ${x.on?'':'disabled'} onchange="fichaCampo(${i},'negrito',this.checked)"> Negrito</label></div>${move}</div>`;
   }).join('');
   const W = fichaPreviewPaper===58 ? 32 : 48;
@@ -218,7 +223,7 @@ function fichaConfigInner(){
       <div class="ps-actions">${fichaDirty?'<span class="tag tag-amber">Alterações não salvas</span>':''}
       <button type="button" class="btn btn-sm" onclick="fichaReset()">Voltar ao padrão</button>
       <button type="button" class="btn btn-sm btn-primary" ${fichaDirty?'':'disabled'} onclick="saveTicketConfig()">Salvar modelo</button></div></div>
-    <p class="sub" style="margin:0 0 10px">Escolha o que sai na ficha das estações e no comprovante do caixa, e em que ordem. "Grande" e "Negrito" valem nas impressoras de rede (IP). Na impressora ligada no Windows a ficha sai em texto simples, na mesma ordem.</p>
+    <p class="sub" style="margin:0 0 10px">Escolha o que sai na ficha das estações e no comprovante do caixa, e em que ordem. Tamanho e negrito valem nas impressoras de rede (IP). Na impressora ligada no Windows a ficha sai em texto simples, na mesma ordem.</p>
     <div class="fc-grid">
       <div class="fc-list">${rows}
         <div class="fc-compat"><b>Compatibilidade das impressoras</b>
