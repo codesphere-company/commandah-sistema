@@ -34,6 +34,8 @@ Commandah é o sistema de comanda/PDV do **Clube Olímpico** (Maringá — negó
 
 O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são aplicadas pelo CLI desta máquina** (logado na conta do Commandah): `npx supabase db query --linked -f supabase/migrations/<arquivo>.sql < /dev/null` (sem o `< /dev/null` o comando fica preso esperando entrada) e depois `npx supabase migration repair --status applied <versão> --linked`. Leituras de conferência do mesmo jeito, com um `.sql` de `select`. Teste de migration antes de produção: Postgres 18 local (`C:/Program Files/PostgreSQL/18/bin`, cluster temporário com stubs de `current_tenant_id`/`current_staff_role`). Deploy de Edge Function é feito pela Supabase CLI local (`supabase functions deploy <nome> --project-ref ezfoymdesmarpunmixbs --use-api`), sem precisar de Docker nem `supabase link`.
 
+**Desde 01/11 o Claude roda esses comandos sozinho** (bloco `autoMode` em `.claude/settings.local.json`, aplicado pelo dono): leitura do banco sempre; escrita, `migration repair` e deploy de função só depois do "sim" do dono no chat. Antes de escrever: cópia em `app_data` (chave `backup:...`), teste no Postgres 18 local e conferência depois. O `autoMode` do `~/.claude/settings.json` global é do Meu Patrão e continua proibindo produção lá; sem o bloco do Commandah, o modo automático barra até leitura aqui.
+
 ## Estado atual (o que já está pronto)
 
 ### 01/11, 23h — produtos x Saipos; função `nfce` publicada; acesso do Claude ao banco
@@ -51,7 +53,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - Cozinha: Lanches, Porções, Prato Feito, Prato Kids, Refeições, Mistos, Pastéis, Massas, Ovos, Acompanhamento Pratos, Buffet, Salgado Assado, Adicional Molho. Churrasqueira: Espetos. Bar: Drinks, Doses, Chopp, Cafeteria, Promoção, cervejas (long neck, lata, 600 ml, 1 L), Vinhos, Espumantes, Destilados, Drinks Prontos, Água, Refrigerante, Isotônicos, Energéticos, Chá, Copos. Sem preparo (ficha sai no bar, `impressao-automatica.js`): Sorvete, Doces, Conveniência, Chips, Açougue, Petiscos, Consignados.
   - **Cópia de antes:** `app_data` chave `backup:cantina2:products:20261101` (desfazer = copiar o `value` de volta). Telas abertas antes da mudança precisam de Ctrl+Shift+R antes de editar produto (o app grava a lista inteira).
   - Categoria nova ou produto novo continua nascendo sem estação; "Alterar Produtos em Lote" ainda não tem o campo Estação.
-- **PR #190 mergeado:** produto com CSOSN 201/202/203/500 sem CEST ganha a etiqueta "ST sem CEST" na lista e na contagem de Dados fiscais. O bloqueio antes de enviar (`nfce/payload.ts`) **só vale depois do deploy da função `nfce`** (dono roda: `npx supabase functions deploy nfce --project-ref ezfoymdesmarpunmixbs --use-api`).
+- **PR #190 mergeado:** produto com CSOSN 201/202/203/500 sem CEST ganha a etiqueta "ST sem CEST" na lista e na contagem de Dados fiscais. O bloqueio antes de enviar (`nfce/payload.ts`) vale desde o deploy da função `nfce`, feito pelo dono em 01/11 (ver "01/11, 23h").
 
 ### 01/11 — impressoras do clube pelo IP (configurado pelo Claude com o dono)
 - **Testado pelo dono no fim do dia:** pedido lançado no PC Fabricio saiu em cozinha, bar e churrasqueira, cada um na sua impressora, em pé e no modelo novo. Fica valendo o modelo de fábrica da ficha (nada salvo em `settings.ticketConfig`).
@@ -436,7 +438,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 - Prefere mudança segura e escopada a mudança arriscada de uma vez só — já reforçou positivamente quando eu recusei fazer algo arriscado (ex. fundir telas de Totem/Cardápio, renomear `--amber` globalmente) e escolhi a correção mais pontual.
 - Quer ser consultado antes de ações consequentes/irreversíveis: credenciais, `git push`, mudança de schema, qualquer operação destrutiva.
-- Como minha conexão com o Supabase é read-only, ele roda o SQL que eu preparo e confirma ("rodei o sql, testa de novo") — esse ciclo é normal e esperado.
+- Desde 01/11 eu leio o banco e, com o "sim" dele, rodo o SQL e o deploy de função (ver "Limitação importante da minha conexão"). Antes disso ele rodava o SQL que eu preparava; se o modo automático voltar a barrar, esse continua sendo o caminho.
 - Testa tudo no mundo real (impressora física, fotos de recibo impresso) e dá feedback visual iterativo — leva a sério a aparência do ticket impresso.
 - Prefere que eu explique quando desvio da sugestão literal de um relatório de auditoria por uma correção mais segura, em vez de simplesmente aplicar por conta própria.
 
