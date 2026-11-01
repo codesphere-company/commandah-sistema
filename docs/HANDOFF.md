@@ -36,9 +36,15 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
+### 01/11 — Modelo da ficha configurável (t217)
+- **Configurações › Impressoras › Modelo da ficha** (`impressao/ficha.js`, só quem tem `config-sistema`): cada campo (estação, pedido, data/hora, cota, nome, quem lançou, pra onde, origem, produtos, total) liga/desliga, muda de ordem e pode sair grande/negrito; produtos com tamanho, adicionais, observação do item e preço. Prévia ao vivo (80/58 mm; ficha sem identificação, com sócio, comprovante). Grava em `settings.ticketConfig.campos` + opções; os campos antigos (`nomeProdutoTamanho`, `entregaDestaque`, `mostrarPrecoProducao`) continuam valendo.
+- A ficha virou lista de linhas → ESC/POS, texto simples (Windows) e HTML (prévia e "Imprimir aqui"), com a mesma quebra. `buildTicketText` saiu de `vendas/comandas.js` e mora em `ficha.js` (mesma assinatura).
+- **Adicionais e observação do item ("sem cebola") passaram a sair na ficha impressa** (antes só no monitor da cozinha).
+- **Impressoras do clube (dono, 01/11):** churrasqueira, bar e caixa = **App-tech Q851L**; cozinha = **Bematech MP-4200**. Foto de 01/11: a Bematech saía com letra pequena (fonte de fábrica) e a App-tech ignorava a letra grande do GS !. Por padrão a ficha agora manda `ESC M 0` (fonte A) e a letra grande por `ESC !` + `GS !` (opções em "Compatibilidade das impressoras"). **Falta conferir no papel** nas duas marcas. A diferença de largura entre as fichas da foto é do rolo; conferir o "Papel" de cada impressora.
+
 ### 01/11 — ficha de estação com todos os campos (t216)
 - Modelo aprovado pelo dono: `Pedido #N` + data/hora na mesma linha, **Cota** (sem sócio: `FICHA`), **Nome** (sem nome: `Consumidor não identificado`), **Lançado por** (`addedBy` do item ou o usuário logado), **Pra onde** (sem local: `RETIRAR NO BALCÃO`, em negrito no ESC/POS) e os produtos. Helper `ticketFields` em `vendas/comandas.js`, usado por `buildTicketText` e pela janela "Imprimir aqui" (`ticketPopupHtml`). O comprovante do caixa ganhou Cota/Nome no mesmo padrão, sem "Lançado por" e "Pra onde".
-- **Pendente:** fichas da churrasqueira saindo em paisagem. Ficha de rede vai em ESC/POS cru e não gira; se a da churrasqueira estiver indo pelo driver do Windows (Fila de impressão mostra "USB no <PC>"), o agente desenha na orientação padrão do driver (`Printing.PrintWindows` não força retrato).
+- O "paisagem" da churrasqueira era o rolo mais largo e a letra normal da App-tech, não orientação (ver t217).
 
 ### 01/11 — caixa 2 imprimindo; tela "Fila de impressão" (t215)
 - **Caixa 2 instalado pelo dono:** agente 2.3, busca na rede desligada, impressora do caixa pelo IP `192.168.110.114`, regra "Caixa: imprimir tudo lançado aqui" com exceção Cozinha. Teste com lanche + bebida saiu em duas fichas depois de trocar a **Estação de preparo** da bebida (estava vazia, e vazio = Cozinha). Outros produtos importados podem estar sem estação. Próximo passo do dono: cadastrar as impressoras do bar e da churrasqueira pelo IP e marcar Churrasqueira nas exceções do caixa.

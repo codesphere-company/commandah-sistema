@@ -444,82 +444,7 @@ function stripAccentsForPrint(s){ const lo=String.fromCharCode(0x0300), hi=Strin
 // fora do banco) troca pelo byte nulo de verdade. Ver printRawTcp no agente.
 const NUL_PLACEHOLDER = String.fromCharCode(0x01);
 function paperColumns(imp){ return imp && Number(imp.larguraPapel)===58 ? 32 : 48; }
-// t216 (01/11, pedido do dono): toda ficha traz cota, nome, quem lançou, data/hora, pra onde
-// vai e o produto. Sem sócio (ficha no caixa, avulso) sai "Cota: FICHA" e, sem nome digitado,
-// "Consumidor não identificado". Sem local escolhido, "Retirar no balcão".
-const TICKET_ANON_NAMES = ['', 'cliente avulso', 'cliente', 'avulso', 'consumidor'];
-function ticketFields(who, cota, local, items){
-  const name = String(who||'').trim();
-  const lancou = ((items||[]).map(i=>i.addedBy).find(Boolean)) || (currentUser&&currentUser.name) || '';
-  return {
-    cota: String(cota||'').trim() || 'FICHA',
-    nome: TICKET_ANON_NAMES.includes(name.toLowerCase()) ? 'Consumidor não identificado' : name,
-    lancadoPor: lancou,
-    praOnde: String(local||'').trim() || 'Retirar no balcão'
-  };
-}
-function buildTicketText(who, cota, local, estacao, items, orderNumber, columns, escPos, payLines, footer){
-  const cfg = state.settings.ticketConfig || {};
-  const nameSizeByte = {normal:NUL_PLACEHOLDER, grande:'\x11', extra:'\x22'}[cfg.nomeProdutoTamanho] || '\x11';
-  const entregaDestaque = cfg.entregaDestaque!==false;
-  const W = columns || 48;
-  const line = ch=>ch.repeat(W);
-  const wrap = t => t.length>W ? t.slice(0,W) : t;
-  const wrapWords = t => { const lines=[]; let cur=''; String(t).split(/\s+/).forEach(w=>{ if((cur+' '+w).trim().length>W){ if(cur) lines.push(cur); cur=w.slice(0,W); } else cur=(cur+' '+w).trim(); }); if(cur) lines.push(cur); return lines.join('\n'); };
-  let out = '';
-  out += line('=')+'\n';
-  out += wrap((estacaoLabel(estacao)||estacao||'').toUpperCase())+'\n';
-  out += line('=')+'\n';
-  // Pedido e data/hora na mesma linha (data alinhada à direita).
-  const pedido = 'Pedido '+(orderNumber?'#'+orderNumber:''), quando = new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).replace(',','');
-  out += (pedido.length+1+quando.length<=W ? pedido+' '.repeat(W-pedido.length-quando.length)+quando : pedido+'\n'+quando)+'\n';
-  out += line('-')+'\n';
-  const f = ticketFields(who, cota, local, items);
-  out += wrapWords('Cota: '+f.cota)+'\n';
-  out += wrapWords('Nome: '+f.nome)+'\n';
-  // Comprovante do caixa não leva "lançado por" nem "pra onde" (é do cliente, não da estação).
-  if(estacao!=='caixa'){
-    if(f.lancadoPor) out += wrapWords('Lançado por: '+f.lancadoPor)+'\n';
-    const localLabel = 'Pra onde: ';
-    const localValue = f.praOnde.toUpperCase().slice(0, Math.max(1, W-localLabel.length));
-    // Só o destino fica em negrito (configurável em Impressoras > Formatação dos tickets).
-    // ESC E '1'/'0' (0x31/0x30): com 0x01 o agente trocava por 0x00 e o negrito nunca ligava.
-    const boldOn = entregaDestaque ? '\x1B\x451' : '';
-    const boldOff = entregaDestaque ? '\x1B\x450' : '';
-    out += (escPos ? localLabel+boldOn+localValue+boldOff : localLabel+localValue) + '\n';
-  }
-  out += line('-')+'\n';
-  const showPrices = estacao==='caixa' || !!cfg.mostrarPrecoProducao; // comprovante do caixa sempre mostra; estação é configurável
-  let total = 0;
-  items.forEach(i=>{
-    total += i.price*i.qty;
-    const nameLine = i.qty+'x '+i.name + (i.copos!=null ? ' — '+i.copos+' copo'+(i.copos===1?'':'s') : '');
-    // GS ! (tamanho da letra) — configurável em Impressoras > Formatação dos tickets.
-    // Só no modo ESC/POS, senão o driver do Windows mostraria os bytes de controle como
-    // texto (impressora local não é ESC/POS puro).
-    out += (escPos ? '\x1D\x21'+nameSizeByte+nameLine+'\x1D\x21'+NUL_PLACEHOLDER : nameLine) + '\n';
-    if(showPrices) out += fmt(i.price*i.qty)+'\n';
-  });
-  const segurar = items.some(i=>i.levarJunto), juntoCom = [...new Set(items.map(i=>i.levarJuntoCom).filter(Boolean))].join(', ');
-  const big = t => escPos ? '\x1D\x21\x11'+t+'\x1D\x21'+NUL_PLACEHOLDER : t;
-  if(segurar) out += line('*')+'\n'+big('*** SEGURAR ***')+'\n'+big('LEVAR JUNTO')+'\n'+big('COM A COMIDA')+'\n'+line('*')+'\n';
-  if(juntoCom) out += line('*')+'\n'+big('LEVAR JUNTO:')+'\n'+wrapWords(juntoCom)+'\n(bebida no bar)\n'+line('*')+'\n';
-  out += line('-')+'\n';
-  if(showPrices) out += 'TOTAL: '+fmt(total)+'\n';
-  // Comprovante de pagamento: formas de pagamento e troco (ver printCaixaReceipt).
-  if(payLines && payLines.length) out += line('-')+'\n'+payLines.map(l=>wrap(l)).join('\n')+'\n';
-  // Texto de rodapé (Configurações › Ajustes do Cupom): só o comprovante passa (printCaixaReceipt).
-  const rodape = String(footer||'').trim();
-  if(rodape) out += line('-')+'\n'+rodape.split('\n').map(wrapWords).filter(Boolean).join('\n')+'\n';
-  out += line('=')+'\n\n\n';
-  if(!escPos) return out;
-  // Modo ESC/POS (impressora de rede, via socket cru): sem driver do Windows no meio,
-  // então a gente mesmo controla início/corte do papel — e evita acentuação (o code
-  // page da impressora térmica é incerto; texto puro ASCII imprime certo em qualquer uma).
-  // GS V usa corte PARCIAL (parâmetro 1), não total (parâmetro 0) — Postgres não aceita
-  // byte nulo (\x00) em coluna de texto, quebraria o insert do print_jobs.
-  return '\x1B\x40' + stripAccentsForPrint(out) + '\n\n\n\x1D\x56\x01';
-}
+// A ficha (buildTicketText, ticketFields e o modelo configurável) fica em impressao/ficha.js (t217).
 // Impressora do comprovante: a do cadastro do usuário (modo antigo, nome no Windows) ou a
 // escolhida como "Comprovante do caixa" na configuração automática (estacao 'caixa').
 function receiptPrinterFor(user){
@@ -545,7 +470,7 @@ async function printSaleReceipt(saleId){
 }
 async function printCaixaReceipt(who, cota, items, orderNumber, imp, payLines){
   const printerOsName = imp.osName || imp.nome;
-  const text = buildTicketText(who, cota, '', 'caixa', (items||[]).filter(i=>!i.canceled), orderNumber, paperColumns(imp), !!imp.ip, payLines, state.settings.receiptFooter).replace('CAIXA','COMPROVANTE DE VENDA');
+  const text = buildTicketText(who, cota, '', 'caixa', (items||[]).filter(i=>!i.canceled), orderNumber, paperColumns(imp), !!imp.ip, payLines, state.settings.receiptFooter);
   if(supabaseClient && getTenantId()){
     try{
       const job = { tenant_id: getTenantId(), printer_name: printerOsName, printer_ip: imp.ip||null, content: text, status: 'pendente' };

@@ -21,10 +21,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script>try{if(localStorage.getItem('cantina2:theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 <!-- Estilos: a ORDEM importa (cascata). Ao mudar qualquer CSS/JS de assets/, troque o ?v= em TODAS as tags (ver CLAUDE.md). -->
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261101b">
-<link rel="stylesheet" href="assets/css/estrutura.css?v=20261101b">
-<link rel="stylesheet" href="assets/css/componentes.css?v=20261101b">
-<link rel="stylesheet" href="assets/css/ajustes.css?v=20261101b">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261101c">
+<link rel="stylesheet" href="assets/css/estrutura.css?v=20261101c">
+<link rel="stylesheet" href="assets/css/componentes.css?v=20261101c">
+<link rel="stylesheet" href="assets/css/ajustes.css?v=20261101c">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
 <!-- Versão exata + integridade (SEG-05): "@2" puxava a última 2.x a cada carregamento, sem conferência. Ao atualizar, troque a versão aqui, em SUPABASE_SDK_URLS e o hash nos dois lugares. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.0/dist/umd/supabase.js" integrity="sha384-xPW3QHswsICVC2mW6BFNwMbhpLkbZ133fKOhxNx3QGGgAOJfL3O9t8r2aWn1aez6" crossorigin="anonymous" defer></script>
@@ -122,54 +122,55 @@
 
 <!-- Aplicativo: scripts clássicos (não module), síncronos e nesta ORDEM: todos compartilham o escopo global
      e os onclick="..." do HTML gerado chamam funções globais. core/travas.js e core/boot.js são sempre os últimos. -->
-<script src="assets/js/core/config.js?v=20261101b"></script>
-<script src="assets/js/core/calculos.js?v=20261101b"></script>
-<script src="assets/js/core/dados.js?v=20261101b"></script>
-<script src="assets/js/core/caixa-multiaparelho.js?v=20261101b"></script>
-<script src="assets/js/core/avisos.js?v=20261101b"></script>
-<script src="assets/js/core/dados-socios.js?v=20261101b"></script>
-<script src="assets/js/core/dados-pedidos.js?v=20261101b"></script>
-<script src="assets/js/core/login.js?v=20261101b"></script>
-<script src="assets/js/core/navegacao.js?v=20261101b"></script>
-<script src="assets/js/core/janelas.js?v=20261101b"></script>
-<script src="assets/js/cadastros/insumos.js?v=20261101b"></script>
-<script src="assets/js/cadastros/produtos.js?v=20261101b"></script>
-<script src="assets/js/cadastros/fiscal-produto.js?v=20261101b"></script>
-<script src="assets/js/cadastros/associados.js?v=20261101b"></script>
-<script src="assets/js/sistema/lgpd.js?v=20261101b"></script>
-<script src="assets/js/fiscal/nfce-config.js?v=20261101b"></script>
-<script src="assets/js/cadastros/usuarios.js?v=20261101b"></script>
-<script src="assets/js/operacao/cozinha.js?v=20261101b"></script>
-<script src="assets/js/vendas/venda.js?v=20261101b"></script>
-<script src="assets/js/vendas/pagamento.js?v=20261101b"></script>
-<script src="assets/js/vendas/delivery.js?v=20261101b"></script>
-<script src="assets/js/vendas/comandas.js?v=20261101b"></script>
-<script src="assets/js/fiscal/nfce-cupom.js?v=20261101b"></script>
-<script src="assets/js/vendas/localizar-produto.js?v=20261101b"></script>
-<script src="assets/js/operacao/garcom.js?v=20261101b"></script>
-<script src="assets/js/vendas/agendamento.js?v=20261101b"></script>
-<script src="assets/js/vendas/fila-atendimento.js?v=20261101b"></script>
-<script src="assets/js/operacao/cardapio.js?v=20261101b"></script>
-<script src="assets/js/operacao/caixa.js?v=20261101b"></script>
-<script src="assets/js/gestao/relatorios.js?v=20261101b"></script>
-<script src="assets/js/fiscal/nfce-comanda.js?v=20261101b"></script>
-<script src="assets/js/gestao/logs.js?v=20261101b"></script>
-<script src="assets/js/core/crud.js?v=20261101b"></script>
-<script src="assets/js/impressao/impressoras.js?v=20261101b"></script>
-<script src="assets/js/impressao/impressao-automatica.js?v=20261101b"></script>
-<script src="assets/js/impressao/fila-impressao.js?v=20261101b"></script>
-<script src="assets/js/gestao/contas.js?v=20261101b"></script>
-<script src="assets/js/sistema/configuracoes.js?v=20261101b"></script>
-<script src="assets/js/sistema/backup.js?v=20261101b"></script>
-<script src="assets/js/operacao/painel-senhas.js?v=20261101b"></script>
-<script src="assets/js/sistema/ajuda.js?v=20261101b"></script>
-<script src="assets/js/operacao/totem.js?v=20261101b"></script>
-<script src="assets/js/sistema/modulos.js?v=20261101b"></script>
-<script src="assets/js/gestao/cupons.js?v=20261101b"></script>
-<script src="assets/js/gestao/financeiro.js?v=20261101b"></script>
-<script src="assets/js/gestao/alterar-em-lote.js?v=20261101b"></script>
-<script src="assets/js/core/estabelecimento.js?v=20261101b"></script>
-<script src="assets/js/core/travas.js?v=20261101b"></script>
-<script src="assets/js/core/boot.js?v=20261101b"></script>
+<script src="assets/js/core/config.js?v=20261101c"></script>
+<script src="assets/js/core/calculos.js?v=20261101c"></script>
+<script src="assets/js/core/dados.js?v=20261101c"></script>
+<script src="assets/js/core/caixa-multiaparelho.js?v=20261101c"></script>
+<script src="assets/js/core/avisos.js?v=20261101c"></script>
+<script src="assets/js/core/dados-socios.js?v=20261101c"></script>
+<script src="assets/js/core/dados-pedidos.js?v=20261101c"></script>
+<script src="assets/js/core/login.js?v=20261101c"></script>
+<script src="assets/js/core/navegacao.js?v=20261101c"></script>
+<script src="assets/js/core/janelas.js?v=20261101c"></script>
+<script src="assets/js/cadastros/insumos.js?v=20261101c"></script>
+<script src="assets/js/cadastros/produtos.js?v=20261101c"></script>
+<script src="assets/js/cadastros/fiscal-produto.js?v=20261101c"></script>
+<script src="assets/js/cadastros/associados.js?v=20261101c"></script>
+<script src="assets/js/sistema/lgpd.js?v=20261101c"></script>
+<script src="assets/js/fiscal/nfce-config.js?v=20261101c"></script>
+<script src="assets/js/cadastros/usuarios.js?v=20261101c"></script>
+<script src="assets/js/operacao/cozinha.js?v=20261101c"></script>
+<script src="assets/js/vendas/venda.js?v=20261101c"></script>
+<script src="assets/js/vendas/pagamento.js?v=20261101c"></script>
+<script src="assets/js/vendas/delivery.js?v=20261101c"></script>
+<script src="assets/js/vendas/comandas.js?v=20261101c"></script>
+<script src="assets/js/fiscal/nfce-cupom.js?v=20261101c"></script>
+<script src="assets/js/vendas/localizar-produto.js?v=20261101c"></script>
+<script src="assets/js/operacao/garcom.js?v=20261101c"></script>
+<script src="assets/js/vendas/agendamento.js?v=20261101c"></script>
+<script src="assets/js/vendas/fila-atendimento.js?v=20261101c"></script>
+<script src="assets/js/operacao/cardapio.js?v=20261101c"></script>
+<script src="assets/js/operacao/caixa.js?v=20261101c"></script>
+<script src="assets/js/gestao/relatorios.js?v=20261101c"></script>
+<script src="assets/js/fiscal/nfce-comanda.js?v=20261101c"></script>
+<script src="assets/js/gestao/logs.js?v=20261101c"></script>
+<script src="assets/js/core/crud.js?v=20261101c"></script>
+<script src="assets/js/impressao/impressoras.js?v=20261101c"></script>
+<script src="assets/js/impressao/impressao-automatica.js?v=20261101c"></script>
+<script src="assets/js/impressao/fila-impressao.js?v=20261101c"></script>
+<script src="assets/js/impressao/ficha.js?v=20261101c"></script>
+<script src="assets/js/gestao/contas.js?v=20261101c"></script>
+<script src="assets/js/sistema/configuracoes.js?v=20261101c"></script>
+<script src="assets/js/sistema/backup.js?v=20261101c"></script>
+<script src="assets/js/operacao/painel-senhas.js?v=20261101c"></script>
+<script src="assets/js/sistema/ajuda.js?v=20261101c"></script>
+<script src="assets/js/operacao/totem.js?v=20261101c"></script>
+<script src="assets/js/sistema/modulos.js?v=20261101c"></script>
+<script src="assets/js/gestao/cupons.js?v=20261101c"></script>
+<script src="assets/js/gestao/financeiro.js?v=20261101c"></script>
+<script src="assets/js/gestao/alterar-em-lote.js?v=20261101c"></script>
+<script src="assets/js/core/estabelecimento.js?v=20261101c"></script>
+<script src="assets/js/core/travas.js?v=20261101c"></script>
+<script src="assets/js/core/boot.js?v=20261101c"></script>
 </body>
 </html>
