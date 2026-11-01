@@ -602,8 +602,8 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
   .statusbar .st-metrics{flex-wrap:nowrap;gap:14px}
   .balcao-cats{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none}
   .balcao-cats>button{flex:none}
-  .settings-section:has(>.brand-preview){grid-template-columns:1fr!important}
-  .settings-section:has(>.brand-preview) div[style*="display:flex"]{flex-wrap:wrap}
+  .settings-section:has(>.brand-previews){grid-template-columns:1fr!important}
+  .settings-section:has(>.brand-previews) div[style*="display:flex"]{flex-wrap:wrap}
 }
 /* Barra dos cadastros (Produtos, Clientes, Locais...): botões com 40 px, como no celular (eram 46-47;
    pedido do dono em 23/10, fecha a auditoria de design). Ícone menor para caber. */
@@ -613,3 +613,81 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
    jogava o "Novo" para uma segunda linha e tirava duas linhas da lista). No celular continua o
    min-width de 110 px com flex:1. */
 @media(min-width:761px){.op-toolbar .op-btn{min-width:0;padding:0 14px}.op-toolbar .op-search{min-width:200px}}
+/* Módulos em construção (31/10): aparecem no menu, mas apagados e com selo; o clique só avisa. */
+.rb-icons button.em-construcao,.ribbon-tabs .sb-link.em-construcao{opacity:.62}
+.rb-icons button.em-construcao:hover,.ribbon-tabs .sb-link.em-construcao:hover{opacity:.85}
+.selo-obra{display:inline-block;font-size:10px;line-height:1.4;font-weight:700;padding:0 6px;border-radius:999px;background:var(--c-warning-soft);color:var(--c-warning);white-space:nowrap}
+.ribbon-tabs .sb-link .selo-obra{margin-left:auto}
+
+/* Marca do estabelecimento (31/10): com nome cadastrado, o topo do menu mostra logo + nome no lugar
+   da marca Commandah; as TVs sem pedido mostram a mesma marca, grande. */
+.wb-club{display:none}
+.wb-title.has-club .wb-wordmark,.wb-title.has-club .wb-wordmark-dk{display:none!important}
+.wb-title.has-club .wb-club{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:700;font-size:15px;line-height:1.2;color:var(--c-text);max-width:170px}
+.winbar.has-club-logo .wb-logo{width:auto;height:38px;max-width:120px}
+.winbar.has-club-logo .wb-logo img{display:block;height:100%;width:auto;max-width:120px;object-fit:contain}
+@media(min-width:761px){.winbar.has-club-logo{flex-direction:column;align-items:center;gap:10px;text-align:center}.winbar.has-club-logo .wb-title{width:100%}.winbar.has-club-logo .wb-title.has-club .wb-club{max-width:none}.winbar.has-club-logo .wb-logo{height:60px;max-width:170px}.winbar.has-club-logo .wb-logo img{max-width:170px}}
+.tela-descanso{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-height:52vh;padding:32px 16px;text-align:center}
+.tela-descanso-logo{display:block;max-width:min(420px,70vw);max-height:30vh;object-fit:contain}
+.tela-descanso-logo svg{width:140px;height:140px}
+.tela-descanso-nome{font-size:clamp(28px,4.5vw,64px);font-weight:800;line-height:1.1;color:var(--c-text);letter-spacing:-.01em}
+.tela-descanso-msg{margin:0;font-size:clamp(15px,1.6vw,22px);color:var(--c-text-3)}
+/* Resumo da comanda (31/10): só com uma comanda escolhida; o × recolhe. */
+.cp-close{margin-left:auto;flex:0 0 auto;width:32px;height:32px;border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-surface);color:var(--c-text-2);font-size:20px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.cp-close:hover{background:var(--c-surface-3);color:var(--c-text)}
+
+/* Monitor de preparo (31/10, pedido do dono): 5 cartões por linha a partir de 1200 px, dentro e
+   fora do Modo TV; letras e botão "Pronto" um pouco menores para caber. Abaixo disso, a grade
+   automática de antes. */
+@media(min-width:1200px){
+  #view-cozinha .kfeed,body.tv-mode #view-cozinha .kfeed{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:14px}
+  body.tv-mode #view-cozinha .kcard .kbody{padding:14px}
+  body.tv-mode #view-cozinha .kcard .kwho{font-size:24px!important}
+  body.tv-mode #view-cozinha .kcard ul{font-size:20px!important}
+  body.tv-mode #view-cozinha .kcard .ktime,body.tv-mode #view-cozinha .kcard .klocal,body.tv-mode #view-cozinha .kcard .kagebadge{font-size:16px!important}
+  body.tv-mode #view-cozinha .kcard .kobs{font-size:16px}
+  /* com 5 por linha, o "Pronto" sai da lateral e vira uma faixa embaixo: o texto ganha a largura toda */
+  #view-cozinha .kcard{flex-direction:column}
+  #view-cozinha .kbtn-ready,body.tv-mode #view-cozinha .kbtn-ready{width:auto!important;min-height:46px;flex-direction:row;gap:8px;border-left:0!important;border-top:1px solid var(--c-border)!important}
+  body.tv-mode #view-cozinha .kbtn-ready{min-height:54px;font-size:18px!important}
+  #view-cozinha .kcard{min-width:0}
+  #view-cozinha .kcard .kwho,#view-cozinha .kcard li{overflow-wrap:break-word;hyphens:auto}
+}
+/* Logotipos do modo claro e do modo escuro (31/10). */
+.brand-previews{display:flex;gap:12px}
+.brand-previews figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.brand-previews figcaption{font-size:12px;color:var(--c-text-3)}
+.brand-previews .brand-preview{background:#ffffff;color:#6b7280;border-color:#d6dbe1}
+.brand-previews .brand-preview.brand-preview-escuro{background:#111418;color:#9aa3ad;border-color:#2a3038}
+/* Com logo do estabelecimento, sem o nome repetido ao lado (31/10): o logo aparece sozinho e maior. */
+.wb-title.so-logo{display:none}
+@media(min-width:761px){.winbar.has-club-logo .wb-logo{height:96px;max-width:190px}.winbar.has-club-logo .wb-logo img{max-width:190px}}
+.tela-descanso-logo{max-height:42vh}
+/* Horário da cozinha (31/10): grade de dias na configuração e faixa de aviso no monitor. */
+.kh-grid{display:grid;gap:8px;margin:12px 0}
+.kh-dia{display:grid;grid-template-columns:90px 90px 120px 24px 120px;justify-content:start;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-surface)}
+.kh-dia .kh-aberta{display:flex;align-items:center;gap:6px;font-size:13px}
+.kh-dia:has(.kh-on:not(:checked)) input[type=time],.kh-dia:has(.kh-on:not(:checked)) span{opacity:.35}
+@media(max-width:600px){.kh-dia{grid-template-columns:1fr 1fr;}.kh-dia span{display:none}}
+.kfechada-faixa{margin:0 0 14px;padding:12px 16px;border-radius:var(--r-md);background:var(--c-warning-soft);color:var(--c-warning);font-weight:700}
+body.tv-mode .kfechada-faixa{font-size:22px}
+.kh-estado{margin:8px 0 4px;font-size:14px;color:var(--c-text-2);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.kh-ligar{display:inline-flex;align-items:center;gap:10px;padding:10px 14px;margin-top:6px;border:1px solid var(--c-border-strong);border-radius:var(--r-md);background:var(--c-surface);cursor:pointer;font-size:15px}
+.kh-ligar input{width:22px;height:22px;accent-color:var(--c-primary)}
+/* t217: Modelo da ficha (Configurações › Impressoras) */
+.fc-grid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:980px){.fc-grid{grid-template-columns:minmax(0,1fr) auto}.fc-preview{position:sticky;top:12px;align-self:start}}
+.fc-list{display:grid;gap:6px;align-content:start}
+.fc-row{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;padding:8px 10px;border-radius:var(--r-md);background:var(--c-surface-2)}
+.fc-row.off .fc-main b{color:var(--c-text-3)}
+.fc-main{flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.fc-main label,.fc-opts label,.fc-compat label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.fc-row input[type=checkbox],.fc-compat input[type=checkbox]{width:auto;min-height:0;margin:0}
+.fc-hint{font-size:12px;margin:0}
+.fc-opts{display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center;font-size:13px}
+.fc-opts select{width:auto;min-height:30px;padding:3px 8px;font-size:13px}
+.fc-move{display:flex;gap:4px;margin-left:auto}
+.fc-move .btn{min-width:32px;padding:4px 8px}
+.fc-compat{display:grid;gap:6px;margin-top:8px;padding:10px;border:1px dashed var(--c-border-strong);border-radius:var(--r-md);font-size:13px}
+.fc-preview{min-width:0}
+.fc-paper{background:#fff;color:#111;border:1px solid var(--c-border);border-radius:var(--r-sm,6px);padding:12px 10px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow-x:auto;width:max-content;max-width:100%}

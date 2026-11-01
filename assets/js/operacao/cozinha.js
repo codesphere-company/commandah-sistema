@@ -186,14 +186,57 @@ function saidaModoEstacao(estacao){
   const e = state.estacoes.find(x=>x.chave===estacao);
   return e ? e.saida : (estacao==='cozinha' ? 'ambos' : 'imprime');
 }
+/* Horário da cozinha (pedido do dono, 31/10): um horário só, por dia da semana, em
+   settings.kitchenHours = { ativo, dias: { 0..6: { fechado, abre:'HH:MM', fecha:'HH:MM' } } }.
+   Fechamento menor que a abertura = passa da meia-noite (ex.: 18:00 às 02:00). Sem horário
+   ligado, a cozinha conta como sempre aberta. */
+const DIAS_SEMANA = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+function horarioCozinha(){ const k=(state.settings||{}).kitchenHours; return k&&k.ativo?k:null; }
+function minutosDoDia(hhmm){ const m=/^(\d{1,2}):(\d{2})$/.exec(String(hhmm||'')); return m?Number(m[1])*60+Number(m[2]):null; }
+function turnoCozinha(k, dia){ const c=(k.dias||{})[dia]; if(!c||c.fechado) return null; const a=minutosDoDia(c.abre), f=minutosDoDia(c.fecha); return a==null||f==null?null:{a,f}; }
+function cozinhaAberta(d=new Date()){
+  const k=horarioCozinha(); if(!k) return true;
+  const agora=d.getHours()*60+d.getMinutes(), hoje=turnoCozinha(k,d.getDay()), ontem=turnoCozinha(k,(d.getDay()+6)%7);
+  if(hoje && (hoje.f>hoje.a ? agora>=hoje.a&&agora<hoje.f : agora>=hoje.a)) return true;
+  return !!(ontem && ontem.f<=ontem.a && agora<ontem.f);   // resto do turno de ontem, depois da meia-noite
+}
+// Minutos até a cozinha fechar, se está aberta pelo horário agora (null: fechada ou sem horário).
+function minutosAteFecharCozinha(d=new Date()){
+  const k=horarioCozinha(); if(!k) return null;
+  const agora=d.getHours()*60+d.getMinutes(), hoje=turnoCozinha(k,d.getDay()), ontem=turnoCozinha(k,(d.getDay()+6)%7);
+  if(hoje && hoje.f>hoje.a && agora>=hoje.a && agora<hoje.f) return hoje.f-agora;
+  if(hoje && hoje.f<=hoje.a && agora>=hoje.a) return 1440-agora+hoje.f;     // fecha depois da meia-noite
+  if(ontem && ontem.f<=ontem.a && agora<ontem.f) return ontem.f-agora;      // resto do turno de ontem
+  return null;
+}
+const AVISO_FECHAMENTO_MIN = 15;
+function proximaAberturaCozinha(d=new Date()){
+  const k=horarioCozinha(); if(!k) return '';
+  const agora=d.getHours()*60+d.getMinutes();
+  for(let n=0;n<8;n++){ const dia=(d.getDay()+n)%7, t=turnoCozinha(k,dia); if(!t||(n===0&&t.a<=agora)) continue;
+    return (n===0?'hoje':n===1?'amanhã':DIAS_SEMANA[dia].toLowerCase())+' às '+k.dias[dia].abre; }
+  return '';
+}
 function saidaTemTela(estacao){ const m=saidaModoEstacao(estacao); return m==='ambos'||m==='tela'; }
 function saidaTemImpressao(estacao){ const m=saidaModoEstacao(estacao); return m==='ambos'||m==='imprime'; }
 async function sendItemsToKitchen(saleId, items, who, source, local){
   if(!items.length) return false;
   const batchId = uid();
   items.forEach(i=>{ if(!i.batchId) i.batchId = batchId; });
-  if(!await consumeInsumosForItems(items)){ toast('Estoque insuficiente para enviar todos os itens. Revise as quantidades.'); return false; }
   const monitorItems=items.filter(i=>{const product=state.products.find(p=>p.id===i.productId);const estacao=product&&product.estacao?product.estacao:'cozinha';return saidaTemTela(estacao);});
+  // Cozinha fora do horário: caixa e garçom recebem um aviso e podem confirmar; cardápio digital
+  // e totem (o próprio cliente pedindo) não enviam. Vem antes de baixar o estoque: cancelar não
+  // deixa nada lançado.
+  if(monitorItems.length && !cozinhaAberta()){
+    const prox=proximaAberturaCozinha();
+    if(source==='cardapio'||source==='totem'){ toast('A cozinha está fechada'+(prox?' (abre '+prox+')':'')+'. Os itens da cozinha não estão disponíveis agora.'); return false; }
+    if(!confirm('A cozinha está fechada'+(prox?' (abre '+prox+')':'')+'.\n\nEnviar o pedido para a cozinha mesmo assim?')) return false;
+  } else if(monitorItems.length){
+    // Últimos 15 min do horário (pedido do dono, 31/10): aviso a quem lança, sem travar o pedido.
+    const resta=minutosAteFecharCozinha();
+    if(resta!=null && resta<=AVISO_FECHAMENTO_MIN) toast('Atenção: a cozinha fecha em '+resta+' min. Avise o cliente.', 'erro');
+  }
+  if(!await consumeInsumosForItems(items)){ toast('Estoque insuficiente para enviar todos os itens. Revise as quantidades.'); return false; }
   if(!monitorItems.length) return true;
   const order = { id:uid(), saleId, who, local: local||'', items: monitorItems.map(i=>({productId:i.productId,batchId:i.batchId||null,name:i.name,qty:i.qty,price:i.price,notes:i.notes||'',copos:i.copos,levarJunto:!!i.levarJunto,levarJuntoCom:i.levarJuntoCom||'',customization:i.customization?JSON.parse(JSON.stringify(i.customization)):null})),
     status:'pendente', statusHistory:[], createdAt:new Date().toISOString(), source };
@@ -297,7 +340,15 @@ function renderCozinha(){
     <button class="${kitchenViewTab==='ativos'?'active':''}" onclick="setKitchenViewTab('ativos')">Em preparo</button>
     <button class="${kitchenViewTab==='prontos'?'active':''}" onclick="setKitchenViewTab('prontos')">Prontos</button>
   </div>`;
-  const feedHtml = kitchenViewTab==='prontos' ? renderKitchenReadyFeed() : renderKitchenActiveFeed();
+  // Horário da cozinha (31/10): fechada e sem pedido pendente = tela "Cozinha fechada"; fechada
+  // com pedido ainda em preparo = os pedidos continuam, com uma faixa de aviso (nada some).
+  const fechada = !cozinhaAberta();
+  const temAtivos = fechada && state.orders.some(o=>(o.status==='pendente'||o.status==='preparo') && (o.items||[]).some(i=>!i.ready && (kitchenStationFilter==='todas'||itemStation(i)===kitchenStationFilter)));
+  const prox = fechada ? proximaAberturaCozinha() : '';
+  const feedHtml = fechada && kitchenViewTab==='ativos' && !temAtivos
+    ? `<div class="kfeed">${telaDescansoHtml(prox?'Abre '+prox:'', 'Cozinha fechada')}</div>`
+    : (fechada && temAtivos ? `<div class="kfechada-faixa">Cozinha fechada${prox?' · abre '+h(prox):''}. Termine os pedidos que faltam.</div>` : '')
+      + (kitchenViewTab==='prontos' ? renderKitchenReadyFeed() : renderKitchenActiveFeed());
   el.innerHTML = `<div class="panel"><h2>${titulo} ${tvBtn}</h2>
     ${subtabsHtml}
     ${filterHtml}
@@ -335,7 +386,7 @@ function renderKitchenActiveFeed(){
       </div>
       <button class="kbtn-ready" onclick="event.stopPropagation();finalizeKitchenItems(${jsArg(o.id)})" title="Marcar pronto">${ICN.ticket}<span>Pronto</span></button>
     </div>`;
-  }).join('') : `<p class="empty">Nenhum pedido em preparo.</p>`}</div>`;
+  }).join('') : (document.body.classList.contains('tv-mode') ? telaDescansoHtml('Nenhum pedido em preparo') : `<p class="empty">Nenhum pedido em preparo.</p>`)}</div>`;
 }
 function renderKitchenReadyFeed(){
   const ordersRaw = state.orders.filter(o=>o.status==='pronto').sort((a,b)=>new Date(kitchenReadyAt(b))-new Date(kitchenReadyAt(a)));
@@ -360,7 +411,7 @@ function renderKitchenReadyFeed(){
         }).join('')}</ul>
         <div class="kdone-badge">✓ Pronto às ${timeFmt(kitchenReadyAt(o))}</div>
       </div>
-    </div>`).join('') : `<p class="empty">Nenhum pedido pronto.</p>`}</div>`;
+    </div>`).join('') : (document.body.classList.contains('tv-mode') ? telaDescansoHtml('Nenhum pedido pronto') : `<p class="empty">Nenhum pedido pronto.</p>`)}</div>`;
 }
 async function finalizeKitchenItems(orderId){
   const o = state.orders.find(x=>x.id===orderId); if(!o) return;
@@ -396,7 +447,13 @@ function toggleTvMode(){
   renderCozinha();
   if(on) toast('Modo TV ativado.');
 }
-try{ if(localStorage.getItem('cantina2:tvmode')==='1') document.body.classList.add('tv-mode'); }catch(e){}
+// Modo TV só vale na tela do monitor de preparo (31/10): antes a preferência guardada no navegador
+// ligava o Modo TV já no carregamento, em qualquer tela, e o próximo login (até do admin, no caixa)
+// caía numa tela sem menu. renderAll chama isto a cada troca de tela.
+function aplicarModoTv(){
+  let pref=false; try{ pref=localStorage.getItem('cantina2:tvmode')==='1'; }catch(e){}
+  document.body.classList.toggle('tv-mode', pref && activeView==='cozinha');
+}
 function openKitchenOrder(id){const o=state.orders.find(x=>x.id===id);if(!o)return;const flow={pendente:['preparo','Iniciar preparo'],preparo:['pronto','Marcar pronto'],pronto:['entregue','Marcar entregue'],entregue:[null,'Entregue']}[o.status]||[null,'Concluído'];openModal('Pedido na Cozinha',`<div class="consumer-form-frame"><div class="app-status"><b>${h(o.who)}</b><span class="tag tag-blue">${h(o.status)}</span></div><p>${reportDateTime(o.createdAt)} · ${h(typeLabel(o.source))}</p><div class="finance-grid" style="height:260px"><table><thead><tr><th>Qtd.</th><th>Item</th><th>Observação</th></tr></thead><tbody>${(o.items||[]).map(i=>`<tr><td>${Number(i.qty)||0}</td><td>${h(i.name)}</td><td>${h(i.notes||'—')}</td></tr>`).join('')}</tbody></table></div><div class="field"><label>Observação da cozinha</label><textarea id="kitchenNote">${h(o.kitchenNote||'')}</textarea></div></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button><button class="op-btn" onclick="returnKitchenOrder(${jsArg(id)})" ${o.status==='pendente'?'disabled':''}>↶ Retornar etapa</button><button class="consumer-save" onclick="saveKitchenOrder(${jsArg(id)},${jsArg(flow[0]||'')})" ${flow[0]?'':'disabled'}>✓ ${flow[1]}</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
 async function saveKitchenOrder(id,next){const o=state.orders.find(x=>x.id===id);if(!o)return;await OrdersStore.saveNote(id,document.getElementById('kitchenNote').value.trim());closeModal();if(next)await advanceOrder(id,next);}
 async function returnKitchenOrder(id){const o=state.orders.find(x=>x.id===id);if(!o)return;if(!confirm('Retornar o pedido para a etapa anterior?'))return;await OrdersStore.returnStep(id);closeModal();renderAll();}

@@ -53,8 +53,19 @@ function closeComandaView(){
 let comandaSelecionadaId = null;
 function selectComanda(id){
   if(matchMedia('(max-width: 900px)').matches){ openComanda(id); return; }
-  comandaSelecionadaId = id; renderComandas();
+  // O painel abre no 1º clique e a lista se reorganiza: o 2º clique de um clique duplo pode cair em
+  // outro cartão. Ele é ignorado aqui, e o clique duplo abre a comanda do 1º clique.
+  const agora = Date.now();
+  if(ultimoCliqueComanda && agora-ultimoCliqueComanda.t < 450) return;
+  ultimoCliqueComanda = { id, t: agora };
+  comandaSelecionadaId = comandaSelecionadaId===id ? null : id; renderComandas(); // clicar de novo recolhe
 }
+let ultimoCliqueComanda = null;
+function abrirComandaDoClique(id){
+  const alvo = ultimoCliqueComanda && Date.now()-ultimoCliqueComanda.t < 800 ? ultimoCliqueComanda.id : id;
+  ultimoCliqueComanda = null; openComanda(alvo);
+}
+function fecharResumoComanda(){ comandaSelecionadaId = null; renderComandas(); }
 // Fechar conta pelo painel: abre a comanda e segue o mesmo caminho do botão Pagamento dela
 // (manda o que faltar para a cozinha, junta os itens do garçom e abre o pagamento).
 function comandaPanelPay(id){
@@ -77,7 +88,7 @@ function comandaDraftTotalsHtml(){
   </div>`;
 }
 function comandaPanelHtml(s){
-  if(!s) return `<aside class="comanda-panel comanda-panel-empty" aria-label="Comanda selecionada"><p>Nenhuma comanda aberta.</p><button class="op-btn primary" onclick="openNewComandaModal()">＋ Abrir comanda</button></aside>`;
+  if(!s) return ''; // sem comanda escolhida, sem painel (31/10)
   const info = comandaPersonData(s);
   const items = (s.items||[]).filter(i=>!i.canceled && Number(i.qty)>0);
   const grouped = [];
@@ -88,7 +99,7 @@ function comandaPanelHtml(s){
   const t = gcComandaTotals(s);
   const meta = [s.orderNumber?'Pedido #'+s.orderNumber:'', 'aberta há '+fmtOpenDuration(kOrderAgeMin(s.openedAt)), s.operatorName||'', s.local||''].filter(Boolean);
   return `<aside class="comanda-panel" aria-label="Comanda selecionada" data-sale="${h(s.id)}">
-    <div class="cp-head"><span class="cp-num">${h(info.quota||(s.orderNumber?'#'+s.orderNumber:''))}</span><span class="cp-name">${h(info.person)}</span></div>
+    <div class="cp-head"><span class="cp-num">${h(info.quota||(s.orderNumber?'#'+s.orderNumber:''))}</span><span class="cp-name">${h(info.person)}</span><button class="cp-close" type="button" onclick="fecharResumoComanda()" title="Fechar resumo" aria-label="Fechar resumo">×</button></div>
     <div class="cp-meta">${meta.map(h).join(' · ')}</div>
     ${s.locked?`<span class="tag tag-red">Pedido bloqueado</span>`:''}
     <div class="cp-items">${grouped.length?grouped.map(g=>`<div class="cp-item"><span class="cp-qty">${g.qty}×</span><span class="cp-iname">${h(g.name)}</span><span class="mono">${fmt(g.price*g.qty)}</span></div>`).join(''):'<p class="cp-empty">Nenhum item lançado ainda.</p>'}</div>
@@ -433,64 +444,7 @@ function stripAccentsForPrint(s){ const lo=String.fromCharCode(0x0300), hi=Strin
 // fora do banco) troca pelo byte nulo de verdade. Ver printRawTcp no agente.
 const NUL_PLACEHOLDER = String.fromCharCode(0x01);
 function paperColumns(imp){ return imp && Number(imp.larguraPapel)===58 ? 32 : 48; }
-function buildTicketText(who, cota, local, estacao, items, orderNumber, columns, escPos, payLines){
-  const cfg = state.settings.ticketConfig || {};
-  const nameSizeByte = {normal:NUL_PLACEHOLDER, grande:'\x11', extra:'\x22'}[cfg.nomeProdutoTamanho] || '\x11';
-  const entregaDestaque = cfg.entregaDestaque!==false;
-  const W = columns || 48;
-  const line = ch=>ch.repeat(W);
-  const wrap = t => t.length>W ? t.slice(0,W) : t;
-  let out = '';
-  out += line('=')+'\n';
-  out += wrap((estacaoLabel(estacao)||estacao||'').toUpperCase())+'\n';
-  out += line('=')+'\n';
-  out += 'Pedido '+(orderNumber?'#'+orderNumber:'')+'\n';
-  out += new Date().toLocaleString('pt-BR')+'\n';
-  out += line('-')+'\n';
-  out += wrap('Solicitante: '+who)+'\n';
-  if(cota) out += wrap('Cota: '+cota)+'\n';
-  out += line('-')+'\n';
-  if(local){
-    const localLabel = 'ENTREGAR EM: ';
-    const localValueW = Math.max(1, W-localLabel.length);
-    const localValue = local.length>localValueW ? local.slice(0,localValueW) : local;
-    // Só o nome do local fica em negrito (label continua no tamanho normal) — configurável
-    // em Impressoras > Formatação dos tickets.
-    // ESC E '1'/'0' (0x31/0x30): com 0x01 o agente trocava por 0x00 e o negrito nunca ligava.
-    const boldOn = entregaDestaque ? '\x1B\x451' : '';
-    const boldOff = entregaDestaque ? '\x1B\x450' : '';
-    out += (escPos ? localLabel+boldOn+localValue+boldOff : wrap(localLabel+local)) + '\n';
-    out += line('-')+'\n';
-  }
-  const showPrices = estacao==='caixa' || !!cfg.mostrarPrecoProducao; // comprovante do caixa sempre mostra; estação é configurável
-  let total = 0;
-  items.forEach(i=>{
-    total += i.price*i.qty;
-    const nameLine = i.qty+'x '+i.name + (i.copos!=null ? ' — '+i.copos+' copo'+(i.copos===1?'':'s') : '');
-    // GS ! (tamanho da letra) — configurável em Impressoras > Formatação dos tickets.
-    // Só no modo ESC/POS, senão o driver do Windows mostraria os bytes de controle como
-    // texto (impressora local não é ESC/POS puro).
-    out += (escPos ? '\x1D\x21'+nameSizeByte+nameLine+'\x1D\x21'+NUL_PLACEHOLDER : nameLine) + '\n';
-    if(showPrices) out += fmt(i.price*i.qty)+'\n';
-  });
-  const segurar = items.some(i=>i.levarJunto), juntoCom = [...new Set(items.map(i=>i.levarJuntoCom).filter(Boolean))].join(', ');
-  const wrapWords = t => { const lines=[]; let cur=''; String(t).split(/\s+/).forEach(w=>{ if((cur+' '+w).trim().length>W){ if(cur) lines.push(cur); cur=w.slice(0,W); } else cur=(cur+' '+w).trim(); }); if(cur) lines.push(cur); return lines.join('\n'); };
-  const big = t => escPos ? '\x1D\x21\x11'+t+'\x1D\x21'+NUL_PLACEHOLDER : t;
-  if(segurar) out += line('*')+'\n'+big('*** SEGURAR ***')+'\n'+big('LEVAR JUNTO')+'\n'+big('COM A COMIDA')+'\n'+line('*')+'\n';
-  if(juntoCom) out += line('*')+'\n'+big('LEVAR JUNTO:')+'\n'+wrapWords(juntoCom)+'\n(bebida no bar)\n'+line('*')+'\n';
-  out += line('-')+'\n';
-  if(showPrices) out += 'TOTAL: '+fmt(total)+'\n';
-  // Comprovante de pagamento: formas de pagamento e troco (ver printCaixaReceipt).
-  if(payLines && payLines.length) out += line('-')+'\n'+payLines.map(l=>wrap(l)).join('\n')+'\n';
-  out += line('=')+'\n\n\n';
-  if(!escPos) return out;
-  // Modo ESC/POS (impressora de rede, via socket cru): sem driver do Windows no meio,
-  // então a gente mesmo controla início/corte do papel — e evita acentuação (o code
-  // page da impressora térmica é incerto; texto puro ASCII imprime certo em qualquer uma).
-  // GS V usa corte PARCIAL (parâmetro 1), não total (parâmetro 0) — Postgres não aceita
-  // byte nulo (\x00) em coluna de texto, quebraria o insert do print_jobs.
-  return '\x1B\x40' + stripAccentsForPrint(out) + '\n\n\n\x1D\x56\x01';
-}
+// A ficha (buildTicketText, ticketFields e o modelo configurável) fica em impressao/ficha.js (t217).
 // Impressora do comprovante: a do cadastro do usuário (modo antigo, nome no Windows) ou a
 // escolhida como "Comprovante do caixa" na configuração automática (estacao 'caixa').
 function receiptPrinterFor(user){
@@ -516,7 +470,7 @@ async function printSaleReceipt(saleId){
 }
 async function printCaixaReceipt(who, cota, items, orderNumber, imp, payLines){
   const printerOsName = imp.osName || imp.nome;
-  const text = buildTicketText(who, cota, '', 'caixa', (items||[]).filter(i=>!i.canceled), orderNumber, paperColumns(imp), !!imp.ip, payLines).replace('CAIXA','COMPROVANTE DE VENDA');
+  const text = buildTicketText(who, cota, '', 'caixa', (items||[]).filter(i=>!i.canceled), orderNumber, paperColumns(imp), !!imp.ip, payLines, state.settings.receiptFooter);
   if(supabaseClient && getTenantId()){
     try{
       const job = { tenant_id: getTenantId(), printer_name: printerOsName, printer_ip: imp.ip||null, content: text, status: 'pendente' };

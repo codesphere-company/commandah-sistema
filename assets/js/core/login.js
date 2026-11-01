@@ -1,10 +1,14 @@
 /* ============ LOGIN ============ */
+// Logo do estabelecimento conforme o tema (31/10): no modo escuro usa o logotipo para fundo escuro,
+// se houver; senão, o de sempre.
+function temaEscuro(){ return document.documentElement.getAttribute('data-theme')==='dark'; }
+function logoDoEstabelecimento(){ const s=state.settings||{}; return (temaEscuro()&&s.brandLogoDark)||s.brandLogo||''; }
 function renderLogin(){
   const overlay = document.getElementById('loginOverlay');
   const isDefaultOnly = state.users.length<=2 && state.users.some(u=>u.username==='admin'&&u.pin==='1234');
-  const clubLogo = !!state.settings.brandLogo;
+  const clubLogo = !!logoDoEstabelecimento();
   const brandBadge = clubLogo
-    ? `<img src="${state.settings.brandLogo}" alt="${h(state.settings.clubName||'Estabelecimento')}">`
+    ? `<img class="logo-estabelecimento" src="${logoDoEstabelecimento()}" alt="${h(state.settings.clubName||'Estabelecimento')}">`
     : `<img class="login-mark" src="assets/marca/horizontal-cor.svg" alt="Commandah"><img class="login-mark-dk" src="assets/marca/horizontal-cor-escuro.svg" alt="">`;
   overlay.innerHTML = `
   <div class="login-box">
@@ -21,7 +25,20 @@ function renderLogin(){
   document.getElementById('app').classList.remove('show');
 }
 function shadeColor(hex,amount){const clean=/^#[0-9a-f]{6}$/i.test(hex)?hex:'#3568b0',n=parseInt(clean.slice(1),16),r=Math.max(0,Math.min(255,(n>>16)+amount)),g=Math.max(0,Math.min(255,((n>>8)&255)+amount)),b=Math.max(0,Math.min(255,(n&255)+amount));return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');}
-function applyBranding(){const s=state.settings||{},savedPrimary=/^#141b33$/i.test(s.brandPrimary)?'':s.brandPrimary,savedAccent=/^#0ea57e$/i.test(s.brandAccent)?'':s.brandAccent,primary=/^#[0-9a-f]{6}$/i.test(savedPrimary)?savedPrimary:'#1D2433',accent=/^#[0-9a-f]{6}$/i.test(savedAccent)?savedAccent:'#0D9E79',root=document.documentElement;root.style.setProperty('--navy',primary);root.style.setProperty('--navy2',shadeColor(primary,14));root.style.setProperty('--navy3',shadeColor(primary,28));root.style.setProperty('--amber',accent);root.style.setProperty('--amber-dark',shadeColor(accent,-22));root.style.setProperty('--gc-blue',primary);document.title=(s.clubName||'Commandah')+' — Sistema de Gestão';const logo=document.querySelector('.wb-logo');if(logo){logo.innerHTML=s.brandLogo?`<img src="${s.brandLogo}" alt="" style="width:100%;height:100%;object-fit:cover">`:ICN.brandmark(undefined,undefined,26);logo.style.background='transparent';}const sub=document.getElementById('wbTitle');if(sub)sub.textContent=s.clubName||'Sistema de gestão';}
+function applyBranding(){const s=state.settings||{},savedPrimary=/^#141b33$/i.test(s.brandPrimary)?'':s.brandPrimary,savedAccent=/^#0ea57e$/i.test(s.brandAccent)?'':s.brandAccent,primary=/^#[0-9a-f]{6}$/i.test(savedPrimary)?savedPrimary:'#1D2433',accent=/^#[0-9a-f]{6}$/i.test(savedAccent)?savedAccent:'#0D9E79',root=document.documentElement;root.style.setProperty('--navy',primary);root.style.setProperty('--navy2',shadeColor(primary,14));root.style.setProperty('--navy3',shadeColor(primary,28));root.style.setProperty('--amber',accent);root.style.setProperty('--amber-dark',shadeColor(accent,-22));root.style.setProperty('--gc-blue',primary);document.title=(s.clubName||'Commandah')+' — Sistema de Gestão';const logo=document.querySelector('.wb-logo');if(logo){logo.innerHTML=logoDoEstabelecimento()?`<img src="${logoDoEstabelecimento()}" alt="">`:ICN.brandmark(undefined,undefined,26);logo.style.background='transparent';}const sub=document.getElementById('wbTitle');if(sub)sub.textContent=s.clubName||'Sistema de gestão';
+  // Pedido do dono (31/10): logado num estabelecimento, o topo do menu mostra o logo e o nome dele
+  // no lugar da marca Commandah (que volta se o nome estiver vazio).
+  const club=document.getElementById('wbClub'),wrap=document.getElementById('wbTitleWrap'),nome=String(s.clubName||'').trim();
+  // Com logo, o nome não se repete (pedido do dono, 31/10): o logo já traz o nome; o bloco de texto some.
+  const comLogo=!!logoDoEstabelecimento();
+  if(club){club.textContent=nome;club.title=nome;}if(wrap){wrap.classList.toggle('has-club',!!nome);wrap.classList.toggle('so-logo',comLogo);}
+  document.querySelector('.winbar')?.classList.toggle('has-club-logo',!!logoDoEstabelecimento());}
+// Tela de descanso das TVs (monitor da cozinha em Modo TV e Painel de Senhas) quando não há pedido:
+// logo e nome do estabelecimento; sem logo, a marca Commandah.
+function telaDescansoHtml(msg,titulo){const s=state.settings||{},nome=String(s.clubName||'').trim();
+  const logo=logoDoEstabelecimento()?`<img class="tela-descanso-logo" src="${h(logoDoEstabelecimento())}" alt="">`:`<span class="tela-descanso-logo">${ICN.brandmark(undefined,undefined,140)}</span>`;
+  const texto=titulo||(nome&&!logoDoEstabelecimento()?nome:''); // título (ex.: "Cozinha fechada") vale mais que o nome
+  return `<div class="tela-descanso">${logo}${texto?`<div class="tela-descanso-nome">${h(texto)}</div>`:''}${msg?`<p class="tela-descanso-msg">${h(msg)}</p>`:''}</div>`;}
 function roleLabel(r){ return r==='admin'?'Administrador':r==='caixa'?'Operador de caixa':'Cozinha'; }
 function startPin(userId){
   pinTargetUser = state.users.find(u=>u.id===userId);
@@ -121,10 +138,10 @@ function updatePinDots(){
 function afterLogin(){
   document.getElementById('loginOverlay').classList.add('hide');
   detectLocalPrintAgent();
-  if(currentUser.role==='cozinha' && !document.body.classList.contains('tv-mode')){
+  if(currentUser.role==='cozinha'){
     // Cozinha sempre entra em Modo TV (letra grande) — ambiente real não permite ficar
     // lendo texto pequeno de longe; quem quiser sair, o botão manual continua ali.
-    document.body.classList.add('tv-mode');
+    // Só guarda a preferência: quem liga a tela é aplicarModoTv (cozinha.js), e só no monitor.
     try{ localStorage.setItem('cantina2:tvmode','1'); }catch(e){}
   }
   if(currentUser.origem==='app' && currentUser.role!=='admin'){
@@ -159,4 +176,6 @@ document.getElementById('btnLogout').onclick = async ()=>{
 };
 document.getElementById('darkToggle').onchange = (e)=>{ const tema=e.target.checked?'dark':'light'; document.documentElement.setAttribute('data-theme', tema); try{ localStorage.setItem('cantina2:theme', tema); }catch(err){} };
 try{ if(localStorage.getItem('cantina2:theme')==='dark'){ document.documentElement.setAttribute('data-theme','dark'); document.getElementById('darkToggle').checked=true; } }catch(e){}
-
+// Tema trocado: atualiza o logo do menu, da tela de login e das TVs sem redesenhar as telas.
+new MutationObserver(()=>{ if(typeof state==='undefined'||!state.settings) return; applyBranding(); const src=logoDoEstabelecimento();
+  document.querySelectorAll('img.logo-estabelecimento,img.tela-descanso-logo').forEach(img=>{ if(src) img.src=src; }); }).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});

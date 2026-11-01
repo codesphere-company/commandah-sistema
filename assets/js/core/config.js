@@ -97,7 +97,12 @@ const ICN = {
 // PROD-02 (decisão do dono, auditoria 07/10): módulos que só gravam configuração e não fazem
 // nada ficam fora do menu, para ninguém achar que nota fiscal, Pix ou SMS estão funcionando.
 // O código continua; para voltar um módulo, tire o nome daqui.
-const HIDDEN_MODULES = new Set(['Connect','Emissão Fiscal','TEF','SMS','Disparador Inteligente','Fidelidade','Bot WhatsApp','Pix Online','Bina','Mapas','Balança','Minha Assinatura','Meu Delivery','Delivery']);
+const HIDDEN_MODULES = new Set(['Emissão Fiscal']); // a NFC-e de verdade fica em Configurações › NFC-e
+// Decisão do dono (31/10): em vez de esconder, esses módulos aparecem no menu com o selo
+// "Em construção" e, no clique, só avisam (não abrem a tela que finge funcionar). A Fidelidade
+// voltou normal: funciona (cupons.js). Para liberar um módulo quando ficar pronto, tire o nome daqui.
+const MODULOS_EM_CONSTRUCAO = new Set(['Connect','TEF','SMS','Disparador Inteligente','Bot WhatsApp','Pix Online','Bina','Mapas','Balança','Minha Assinatura','Meu Delivery','Delivery']);
+function avisoEmConstrucao(label){ toast(label+' está em construção. Em breve vai funcionar.'); }
 const RIBBON_TABS = [
   { id:'principal', label:'Principal', groups:[
       { label:'Caixa', items:[ {label:'Abrir/Fechar', icon:ICN.lock, view:'caixa'} ] },
@@ -119,7 +124,7 @@ const RIBBON_TABS = [
       { label:'Estoque', items:[ {label:'Alterar em Lote', icon:ICN.editlist, perm:'produtos', action:'openBulkPriceModal'}, {label:'Alterar com NFe', icon:ICN.fileIn, perm:'insumos', action:'openNfeStockWindow'} ] }
   ]},
   { id:'marketing', label:'Marketing', groups:[
-      { label:'Benefícios', items:[ {label:'Promoções', icon:ICN.percent, perm:'cupons', action:"openMarketingView", actionArg:'promocoes'}, {label:'Fidelidade', icon:ICN.heart, perm:'cupons', action:'toggleMarketingRibbonMenu', actionArg:'fidelidade'}, {label:'Cupons', icon:ICN.ticket, perm:'cupons', action:"openMarketingView", actionArg:'cupons'} ] },
+      { label:'Benefícios', items:[ {label:'Promoções', icon:ICN.percent, perm:'cupons', action:"openMarketingView", actionArg:'promocoes'}, {label:'Fidelidade', icon:ICN.heart, perm:'cupons', action:"openMarketingView", actionArg:'fidelidade'}, {label:'Cupons', icon:ICN.ticket, perm:'cupons', action:"openMarketingView", actionArg:'cupons'} ] },
       { label:'Divulgação', items:[ {label:'SMS', icon:ICN.chat, perm:'cupons', action:'openSmsWindow'} ] },
       { label:'Relacionamento', items:[ {label:'Disparador Inteligente', icon:ICN.megaphone, perm:'cupons', action:'toggleMarketingRibbonMenu', actionArg:'disparador'} ] }
   ]},
@@ -140,11 +145,11 @@ const RIBBON_TABS = [
       { label:'Outros atendimentos', items:[ {label:'Fila de Atendimento', icon:ICN.queue, view:'fila-atendimento'}, {label:'Agendados', icon:ICN.calendar, view:'agendamentos'}, {label:'Cardápio Digital', icon:ICN.menuBook, view:'cardapio'} ] },
       { label:'Atendimento', items:[ {label:'Bot WhatsApp', icon:ICN.bot, perm:'config-sistema', action:'openWhatsAppBotConfig'} ] },
       { label:'Ferramentas', items:[ {label:'Bina', icon:ICN.user, perm:'config-sistema', action:'toggleAppRibbonMenu', actionArg:'bina'}, {label:'Mapas', icon:ICN.map, perm:'config-sistema', action:'toggleAppRibbonMenu', actionArg:'maps'}, {label:'Painel de Senhas', icon:ICN.grid, view:'painel-senhas'}, {label:'Balança', icon:ICN.scale, perm:'config-sistema', action:'openScaleConfig'} ] },
-      { label:'Módulos (Recursos Premium)', items:[ {label:'Mobile', icon:ICN.phone, view:'mobile-qr'}, {label:'Pedidos Online', icon:ICN.globe, view:'cardapio'}, {label:'Connect', icon:ICN.link, perm:'modulos', action:'openAppModuleConfig', actionArg:'Connect'}, {label:'Emissão Fiscal', icon:ICN.stamp, perm:'modulos', action:'openAppModuleConfig', actionArg:'Emissão Fiscal'}, {label:'TEF', icon:ICN.plug, perm:'modulos', action:'openAppModuleConfig', actionArg:'TEF'} ] }
+      { label:'Módulos (Recursos Premium)', items:[ {label:'Mobile', icon:ICN.phone, view:'mobile-qr'}, {label:'Connect', icon:ICN.link, perm:'modulos', action:'openAppModuleConfig', actionArg:'Connect'}, {label:'Emissão Fiscal', icon:ICN.stamp, perm:'modulos', action:'openAppModuleConfig', actionArg:'Emissão Fiscal'}, {label:'TEF', icon:ICN.plug, perm:'modulos', action:'openAppModuleConfig', actionArg:'TEF'} ] }
   ]},
   { id:'config', label:'Configurações', groups:[
       { label:'Configurações', items:[
-          {label:'Configurações do Sistema', icon:ICN.gear, perm:'config-sistema', action:'openSystemSettings'}, {label:'Numeração de Pedidos', icon:ICN.hash, perm:'config-sistema', action:'openNumberingSettings'}, {label:'Impressora', icon:ICN.sliders, perm:'config-sistema', action:'openPrinterSettings'},
+          {label:'Configurações do Sistema', icon:ICN.gear, perm:'config-sistema', action:'openSystemSettings'}, {label:'Numeração de Pedidos', icon:ICN.hash, perm:'config-sistema', action:'openNumberingSettings'},
           {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios'}, {label:'Alterar Minha Senha', icon:ICN.key, perm:'senha-propria', action:'openChangePinModal'}, {label:'Backup', icon:ICN.save, view:'backup'}, {label:'Privacidade (LGPD)', icon:ICN.key, perm:'config-sistema', action:'openPrivacySettings'}, {label:'NFC-e (nota fiscal)', icon:ICN.receipt, perm:'config-sistema', action:'openNfceSettings'}
       ]},
       { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Quem Levou', icon:ICN.handoff, view:'quemlevou'}, {label:'Estações', icon:ICN.station, view:'estacoes'}, {label:'Origens de Pedido', icon:ICN.route, view:'origens'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },

@@ -107,7 +107,8 @@ function renderImpressoras(){
     : `<tr><td colspan="6" class="empty">Nenhuma impressora cadastrada.</td></tr>`;
   el.innerHTML = `<div class="panel"><h2>Impressoras</h2>
     ${supabaseClient?`<p class="sub">Abra o agente de impressão em cada computador que tem impressora ligada no USB e conecte com o código que aparece nele. As impressoras de rede (cabo de rede ou Wi-Fi, sem computador) são encontradas pelos computadores conectados na mesma rede. Depois é só escolher aqui o que cada impressora imprime e fazer o teste.</p>
-    <div id="printSetupAuto"><div class="ps-block"><p class="sub" style="margin:0">Carregando…</p></div></div>`:''}
+    <div id="printSetupAuto"><div class="ps-block"><p class="sub" style="margin:0">Carregando…</p></div></div>
+    <div id="printQueueBox" class="ps-block"><p class="sub" style="margin:0">Carregando a fila de impressão…</p></div>`:''}
     <details class="ps-advanced" ${!supabaseClient||psAdvancedOpen?'open':''} ontoggle="psAdvancedOpen=this.open"><summary>Configuração manual e token antigo (avançado)</summary>
     <p class="sub">Cada impressora atende uma estação. Gerencie quais estações existem e o modo de saída (imprimir/tela) de cada uma em <a href="#" onclick="switchView('estacoes');return false" style="color:var(--c-primary-text);font-weight:600">Configurações → Áreas do Clube → Estações</a>.</p>
     <div id="agentStatusBox" class="tag tag-gray" style="margin-bottom:14px">Verificando agentes de impressão...</div>
@@ -132,6 +133,7 @@ function renderImpressoras(){
   }
   renderPrinterQueueStatus();
   checkPrintTokenStatus();
-  if(supabaseClient){ renderPrintSetupAuto(); loadPrintSetup(); startPrintSetupPolling(); detectLocalPrintAgent(true).then(renderPrintSetupAuto); }
+  if(supabaseClient){ renderPrintSetupAuto(); loadPrintSetup(); startPrintSetupPolling(); detectLocalPrintAgent(true).then(renderPrintSetupAuto);
+    renderPrintQueue(); loadPrintQueue(); startPrintQueuePolling(); } // t215: fila de impressão
 }
 

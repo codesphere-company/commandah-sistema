@@ -411,35 +411,7 @@ async function removeNetworkPrinter(ip){
   toast('Impressora '+ip+' removida.'); logAction('Impressão: impressora de rede '+ip+' removida');
   renderImpressoras();
 }
-function renderTicketConfigHtml(){
-  // Bloco só aparece pra quem pode gravar settings — não adianta mostrar um
-  // "Salvar formatação" que o banco vai recusar.
-  if(!hasPerm('config-sistema')) return '';
-  const cfg = state.settings.ticketConfig || {};
-  const tamanho = cfg.nomeProdutoTamanho || 'grande';
-  return `<div class="field" style="margin-bottom:14px;border:1px solid var(--border,#ddd);border-radius:8px;padding:12px">
-    <label style="font-weight:600">Formatação dos tickets (impressora de rede)</label>
-    <p class="sub" style="margin-top:2px">Só afeta impressoras com IP cadastrado (ESC/POS direto) — impressora local via Windows continua em texto simples.</p>
-    <div class="field"><label>Tamanho do nome do produto</label><select id="cfgNomeProdutoTamanho">
-      <option value="normal" ${tamanho==='normal'?'selected':''}>Normal</option>
-      <option value="grande" ${tamanho==='grande'?'selected':''}>Grande (2x)</option>
-      <option value="extra" ${tamanho==='extra'?'selected':''}>Extra grande (3x)</option>
-    </select></div>
-    <label class="row" style="align-items:center;gap:6px"><input type="checkbox" id="cfgEntregaDestaque" ${cfg.entregaDestaque!==false?'checked':''}> Destacar nome do local de entrega em negrito</label>
-    <label class="row" style="align-items:center;gap:6px"><input type="checkbox" id="cfgMostrarPrecoProducao" ${cfg.mostrarPrecoProducao?'checked':''}> Mostrar preço no ticket de produção (cozinha/bar/churrasqueira) — o comprovante do caixa sempre mostra</label>
-    <button class="btn btn-sm" onclick="saveTicketConfig()">Salvar formatação</button>
-  </div>`;
-}
-function saveTicketConfig(){
-  if(!requirePerm('config-sistema')) return;
-  state.settings.ticketConfig = {
-    nomeProdutoTamanho: document.getElementById('cfgNomeProdutoTamanho').value,
-    entregaDestaque: document.getElementById('cfgEntregaDestaque').checked,
-    mostrarPrecoProducao: document.getElementById('cfgMostrarPrecoProducao').checked
-  };
-  save('settings');
-  toast('Formatação dos tickets salva.');
-}
+// Modelo da ficha (renderTicketConfigHtml, saveTicketConfig): impressao/ficha.js (t217).
 async function checkPrintTokenStatus(){
   const box = document.getElementById('printTokenStatus'); if(!box || !supabaseClient) return;
   try{
@@ -591,17 +563,10 @@ function renderPrintFailBanner(){
   applyTopBannerOffset();
 }
 function ticketPopupHtml(t){
+  // t217: mesma ficha do modelo configurado (impressao/ficha.js), desenhada em HTML.
   const { who, cota, local, estacao, printer, items, orderNumber } = t;
-  const total = items.reduce((a,i)=>a+i.price*i.qty,0);
   return `<section class="ticket">
-    <div class="estacao">${h((estacaoLabel(estacao)||estacao).toUpperCase())}</div>
-    <h1>Pedido ${orderNumber?'#'+orderNumber:''}</h1>
-    <div class="muted">${dataHoraBR(t.at||Date.now())}</div>
-    <div><b>Solicitante:</b> ${h(who)}</div>
-    ${cota?`<div><b>Cota:</b> ${h(cota)}</div>`:''}
-    ${local?`<div class="local">ENTREGAR EM: ${h(local)}</div>`:''}
-    <table>${items.map(i=>`<tr><td>${i.qty}x ${h(i.name)}${i.copos!=null?' — <b>'+i.copos+' copo'+(i.copos===1?'':'s')+'</b>':''}</td><td style="text-align:right">${fmt(i.price*i.qty)}</td></tr>`).join('')}</table>
-    <div class="total">Total: ${fmt(total)}</div>
+    ${ticketLinesToHtml(buildTicketLines(who, cota, local, estacao, items, orderNumber), 48)}
     ${printer?`<div class="printer">Imprimir na: <b>${h(printer)}</b> (não recebeu a ficha; impressa neste aparelho)</div>`:`<div class="warn">Nenhuma impressora configurada para ${h(estacaoLabel(estacao)||estacao)} nesta origem — encaminhar manualmente.</div>`}
   </section>`;
 }
