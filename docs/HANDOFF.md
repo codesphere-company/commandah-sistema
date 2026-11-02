@@ -38,6 +38,15 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
+### 02/11 — catálogo por tamanhos e grupos de opções (branch `tamanhos-opcoes`, sem migration)
+- **Cadastros:** entraram "Grades de tamanho" e "Grupos de opções". Saíram do menu "Tipos e Tamanhos", "Complementos" e "Perguntas". Os registros antigos continuam em `cantina2:complementos`, mas são ignorados.
+- **Produto:** ganhou grade de tamanhos, com preço, canais e receita por tamanho, e regras de opções (abas Tamanhos e Opções).
+- **Venda:** a janela de escolha (`assets/js/vendas/escolha-item.js`) vale no PDV, delivery, comandas e app do garçom. A escolha vai para a ficha e o KDS, baixa estoque pela receita do tamanho/opção e aparece nos relatórios por tamanho.
+- **Regras puras:** `assets/js/core/opcoes.js`. Testes: `node scripts/test-opcoes.js` (também roda no CI).
+- **Fase 2 (não feita):** produtos com grade ficam escondidos do cardápio digital e do totem até esses dois entenderem tamanhos e opções.
+- **Dado pendente:** recadastrar os 31 produtos do Consumer com os preços do dono (pedido separado, depois do merge). Relaciona com a t224 do painel.
+- Conferir na prévia do Netlify só em produto de teste ou no estabelecimento demo `clube-demo-mdqz` (a prévia usa o banco de produção).
+
 ### 01/11, 23h30 — painel do lançamento em dia (sem mudança no site)
 - **Painel** (https://claude.ai/artifact/9ZiwkEfqYUeNnPd1T9y3Vm) estava parado em 31/10, tarde. Agora: **34 de 56 tarefas feitas**, virada mantida em 23/11.
 - **t203 feita** (cozinha, bar e churrasqueira testadas no papel em 01/11). **t202 em andamento**: caixa 2 instalado; faltam caixa 1 e o PC da cozinha (reserva).
