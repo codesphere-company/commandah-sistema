@@ -1,0 +1,104 @@
+<h2>Produto com tamanhos e grupos de opções</h2>
+<p class="subtitle">Rascunho. Esquerda: cadastro do produto (aba Tamanhos). Direita: o que o operador vê na hora de vender.</p>
+
+<style>
+  .w{font-size:13px;line-height:1.35}
+  .w .row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+  .w .f{display:flex;flex-direction:column;gap:3px}
+  .w .f label{font-size:11px;opacity:.7}
+  .w .f input{width:90px;padding:5px 7px;border:1px solid #9aa4b2;border-radius:4px;background:#fff;color:#111}
+  .w .f input.wide{width:170px}
+  .w .tabs{display:flex;gap:16px;border-bottom:1px solid #c9d0d9;margin-bottom:10px}
+  .w .tabs span{padding:6px 0;opacity:.6}
+  .w .tabs span.on{opacity:1;border-bottom:2px solid #2f6fd6;font-weight:600}
+  .w .sizes{display:flex;flex-direction:column;gap:8px;width:150px;flex:none}
+  .w .size{border:1px solid #c9d0d9;border-radius:6px;padding:8px 10px;background:#fff;color:#111}
+  .w .size.on{border:2px solid #2f6fd6}
+  .w .size b{font-size:18px;color:#2f6fd6}
+  .w .size .p{display:flex;justify-content:space-between;margin-top:4px}
+  .w .add{border:1px dashed #9aa4b2;border-radius:6px;padding:8px;text-align:center;opacity:.75}
+  .w .grp{border:1px solid #c9d0d9;border-radius:6px;padding:10px;background:#f7f9fb;color:#111;margin-top:10px}
+  .w .grp h4{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between}
+  .w .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .w .chip{border:1px solid #c9d0d9;border-radius:14px;padding:3px 9px;background:#fff}
+  .w .chip small{opacity:.6}
+  .w .hint{font-size:11px;opacity:.7;margin-top:6px}
+  .w .btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .w .btn{border:1px solid #9aa4b2;border-radius:4px;padding:5px 10px;background:#fff;color:#111}
+  .w .btn.pri{background:#2f6fd6;color:#fff;border-color:#2f6fd6}
+  .w .sale .opt{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #e3e7ec}
+  .w .qty{display:flex;gap:6px;align-items:center}
+  .w .qty span{display:inline-block;width:24px;height:24px;line-height:22px;text-align:center;border:1px solid #9aa4b2;border-radius:4px;background:#fff;color:#111}
+  .w .pill{display:inline-block;border:1px solid #9aa4b2;border-radius:16px;padding:5px 12px;margin-right:6px;background:#fff;color:#111}
+  .w .pill.on{background:#2f6fd6;color:#fff;border-color:#2f6fd6}
+  .w .counter{font-size:12px;font-weight:600;color:#2f6fd6}
+</style>
+
+<div class="split w">
+  <div class="mockup">
+    <div class="mockup-header">Cadastro: AÇAÍ NO COPO, aba Tamanhos</div>
+    <div class="mockup-body">
+      <div class="tabs"><span>Principal</span><span class="on">Tamanhos (2)</span><span>Fiscal</span></div>
+      <div style="display:flex;gap:14px">
+        <div class="sizes">
+          <div class="size on"><b>P</b><div class="p"><span>300ml</span><span>R$ 18,00</span></div></div>
+          <div class="size"><b>G</b><div class="p"><span>500ml</span><span>R$ 28,00</span></div></div>
+          <div class="add">+ Tamanho</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="row">
+            <div class="f"><label>Nome</label><input class="wide" value="300ml"></div>
+            <div class="f"><label>Sigla</label><input value="P" style="width:50px"></div>
+            <div class="f"><label>Preço de venda</label><input value="18,00"></div>
+            <div class="f"><label>Custo</label><input value="0,00"></div>
+          </div>
+
+          <div class="grp">
+            <h4><span>Acompanhamentos</span><span style="font-weight:400;opacity:.6">✎ editar lista · ✕</span></h4>
+            <div class="row">
+              <div class="f"><label>Mínimo</label><input value="0" style="width:50px"></div>
+              <div class="f"><label>Máximo</label><input value="2" style="width:50px"></div>
+              <div class="f"><label>Inclusos no preço</label><input value="2" style="width:50px"></div>
+              <label style="align-self:center"><input type="checkbox" checked> Pode repetir</label>
+            </div>
+            <div class="chips">
+              <span class="chip">Confete</span><span class="chip">Creme de avelã</span><span class="chip">Granola</span>
+              <span class="chip">Kit Kat</span><span class="chip">Leite condensado</span><span class="chip">Leite em pó</span>
+              <span class="chip">Paçoca</span><span class="chip">Sonho de valsa</span>
+            </div>
+            <div class="hint">Cliente escolhe de 0 a 2. Os 2 primeiros já estão no preço. Opção com preço só cobra o que passar dos inclusos.</div>
+          </div>
+
+          <div class="btns">
+            <span class="btn pri">+ Grupo de opções</span>
+            <span class="btn">Usar grupo já cadastrado</span>
+            <span class="btn">Copiar para o tamanho G</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Venda: operador tocou em AÇAÍ NO COPO</div>
+    <div class="mockup-body sale">
+      <div style="font-weight:600;margin-bottom:6px">Tamanho</div>
+      <span class="pill on">P · 300ml · R$ 18,00</span><span class="pill">G · 500ml · R$ 28,00</span>
+
+      <div style="display:flex;justify-content:space-between;margin:14px 0 4px">
+        <b>Acompanhamentos</b><span class="counter">2 de 2</span>
+      </div>
+      <div class="opt"><span>Confete</span><span class="qty"><span>−</span>0<span>+</span></span></div>
+      <div class="opt"><span>Granola</span><span class="qty"><span>−</span>2<span>+</span></span></div>
+      <div class="opt"><span>Kit Kat</span><span class="qty"><span>−</span>0<span>+</span></span></div>
+      <div class="opt"><span>Leite condensado</span><span class="qty"><span>−</span>0<span>+</span></span></div>
+      <div class="opt" style="opacity:.6"><span>… demais opções</span><span></span></div>
+      <div class="hint">Chegou no máximo: os botões “+” travam.</div>
+
+      <div style="display:flex;justify-content:space-between;margin-top:14px;font-weight:600">
+        <span>Total do item</span><span>R$ 18,00</span>
+      </div>
+      <div class="btns"><span class="btn">Voltar</span><span class="btn pri">Adicionar</span></div>
+    </div>
+  </div>
+</div>
