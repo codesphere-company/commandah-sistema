@@ -14,8 +14,9 @@ const crudSelected={};
 const crudOptions={};
 let typesSizesMode=false;
 let selectedTypeSizeId=null;
-function openComplementsView(){typesSizesMode=false;activeRibbonAction='Complementos';switchView('complementos');}
-function openTypesSizesView(){typesSizesMode=true;activeRibbonAction='Tipos e Tamanhos';switchView('complementos');}
+// Atalhos antigos abrem as telas novas (cadastros/grades-opcoes.js).
+function openComplementsView(){openOptionGroupsView();}
+function openTypesSizesView(){openGradesView();}
 function openTypeSizeModal(kind,id){
   const types=state.complementos.filter(x=>x.recordKind==='type');
   const item=id?state.complementos.find(x=>x.id===id&&x.recordKind===kind):null;
@@ -117,8 +118,7 @@ renderQuestions=function(el){renderQuestionsBase(el);if(!crudOptions.perguntas)r
 function renderCrudView(elId, entityKey){
   const cfg = CRUD_CONFIGS[entityKey];
   const el = document.getElementById(elId);
-  if(entityKey==='complementos'&&typesSizesMode){renderTypesSizes(el);return;}
-  if(entityKey==='complementos'){renderComplements(el);return;}
+  if(entityKey==='complementos'){if(complementosTela==='grades')renderGrades(el);else renderOptionGroups(el);return;}
   if(entityKey==='paymentMethods'){renderPaymentMethods(el);return;}
   if(entityKey==='contaCategorias'){renderAccountCategories(el);return;}
   if(entityKey==='fornecedores'){renderSuppliers(el);return;}

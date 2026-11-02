@@ -43,7 +43,7 @@ function renderComandaLocatorGrid(){
   if(q) list = list.filter(p=>((p.category||'')+' '+(p.code||'')+' '+p.name).toLowerCase().includes(q));
   const countEl=document.getElementById('clCount'); if(countEl) countEl.textContent = list.length+' Produto'+(list.length===1?'':'s')+' encontrado'+(list.length===1?'':'s')+'.';
   const head = `<thead><tr><th>Categoria</th><th>Código</th><th>Nome do Produto</th><th>Preço de Venda</th><th>Adicionar (F11)</th><th>Personalizar (Enter)</th></tr></thead>`;
-  const row = p => `<tr><td>${h(p.category||'—')}</td><td>${h(p.code||'—')}</td><td>${h(p.name)}</td><td class="mono">${fmt(p.price)}</td>
+  const row = p => `<tr><td>${h(p.category||'—')}</td><td>${h(p.code||'—')}</td><td>${h(p.name)}</td><td class="mono">${productSalePriceLabel(p,currentDraftChannel())}</td>
     <td style="text-align:center"><button class="op-mini" onclick="addComandaLocatorProduct(${jsArg(p.id)})" title="Adicionar">✓</button></td>
     <td style="text-align:center"><button class="op-mini" onclick="addComandaLocatorProduct(${jsArg(p.id)})" title="Personalizar">✎</button></td></tr>`;
   if(!list.length){ el.innerHTML = `<table>${head}</table><p class="empty">Nenhum produto encontrado.</p>`; return; }
@@ -56,16 +56,8 @@ function renderComandaLocatorGrid(){
   }
 }
 function addComandaLocatorProduct(productId){
-  const before = currentSaleDraft.items.reduce((n,i)=>n+i.qty,0);
+  // addDraftItem já grava a comanda e avisa "Item adicionado." quando o item entra (com ou sem tela de escolha).
   addDraftItem(productId);
-  if(document.getElementById('clGrid')){
-    const after = currentSaleDraft.items.reduce((n,i)=>n+i.qty,0);
-    if(after>before){
-      toast('Item adicionado.');
-      const sale = state.sales.find(x=>x.id===window.comandaLocatorSaleId);
-      if(sale){ sale.items = currentSaleDraft.items; sale.total = draftTotal(); save('sales'); }
-    }
-  }
 }
 
 /* "Mais opções" da comanda: o painel abria dentro da coluna da esquerda, que rola e corta

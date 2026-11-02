@@ -224,8 +224,8 @@ function gcSearchAllProducts(q){
   if(catGrid) catGrid.style.display='none';
   const list = state.products.filter(p=>p.active!==false && p.name.toLowerCase().includes(q.toLowerCase()));
   results.innerHTML = `<div class="gc-prod-grid" style="margin-top:10px">${list.length?list.map(p=>{
-    const inCart = gcCart.find(i=>i.productId===p.id);
-    return `<button class="gc-prod-tile${inCart?' in-cart':''}" onclick="gcAddToCart(${jsArg(p.id)});gcSearchAllProducts(document.getElementById('gcProdSearch').value)"><span>${h(p.name)}</span>${inCart?`<span class="gc-qty-badge">x${inCart.qty}</span>`:''}<span class="gc-price-badge">${fmt(p.price)}</span></button>`;
+    const inCart = cartProductQty(gcCart,p.id);
+    return `<button class="gc-prod-tile${inCart?' in-cart':''}" onclick="gcAddToCart(${jsArg(p.id)});gcSearchAllProducts(document.getElementById('gcProdSearch').value)"><span>${h(p.name)}</span>${inCart?`<span class="gc-qty-badge">x${inCart}</span>`:''}<span class="gc-price-badge">${productSalePriceLabel(p,'mobile')}</span></button>`;
   }).join(''):'<p class="gc-empty">Nada encontrado.</p>'}</div>`;
 }
 function gcSelectCategory(cat){
@@ -249,20 +249,18 @@ function gcRenderProducts(q){
       <div class="gc-prod-grid" id="gcProdGrid">
         ${list.length ? list.map(p=>{
           const av = productAvailable(p); const out = av!==Infinity && av<=0;
-          const inCart = gcCart.find(i=>i.productId===p.id);
-          return `<button class="gc-prod-tile${inCart?' in-cart':''}" ${out?'disabled style="opacity:.5"':''} onclick="gcAddToCart(${jsArg(p.id)})"><span>${h(p.name)}</span>${inCart?`<span class="gc-qty-badge">x${inCart.qty}</span>`:''}<span class="gc-price-badge">${fmt(p.price)}</span></button>`;
+          const inCart = cartProductQty(gcCart,p.id);
+          return `<button class="gc-prod-tile${inCart?' in-cart':''}" ${out?'disabled style="opacity:.5"':''} onclick="gcAddToCart(${jsArg(p.id)})"><span>${h(p.name)}</span>${inCart?`<span class="gc-qty-badge">x${inCart}</span>`:''}<span class="gc-price-badge">${productSalePriceLabel(p,'mobile')}</span></button>`;
         }).join('') : '<p class="gc-empty">Nenhum produto encontrado.</p>'}
       </div>
     </div>` + gcFooterHtml("gcFlow.step='categories';gcRenderCategories()");
 }
 function gcAddToCart(productId){
   if(!gcRequester){ toast('Selecione quem está pedindo antes.'); gcRenderCategories(); return; }
-  const p = state.products.find(x=>x.id===productId); if(!p) return;
-  if(productAvailable(p)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
-  const existing = gcCart.find(i=>i.productId===productId);
-  if(existing) existing.qty+=1; else gcCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha', copos:productAsksCopos(p)?0:undefined});
-  const searchEl = document.getElementById('gcProdSearch2');
-  gcRenderProducts(searchEl?searchEl.value:'');
+  cartAddProduct(gcCart, productId, ()=>{
+    const searchEl = document.getElementById('gcProdSearch2');
+    gcRenderProducts(searchEl?searchEl.value:'');
+  });
 }
 function gcRenderReview(){
   if(!gcRequester){ toast('Selecione quem está pedindo.'); gcRenderCategories(); return; }
@@ -443,7 +441,7 @@ async function gcDiscardOrder(){
 function gcRenderReviewList(){
   const el = document.getElementById('gcReviewList'); if(!el) return;
   el.innerHTML = gcCart.length ? gcCart.map((i,idx)=>`
-    <div class="gc-review-item"><span>${h(i.name)}</span>
+    <div class="gc-review-item"><span>${h(i.name)}${cartLineOptionsHtml(i,'display:block;color:var(--c-text-3)')}</span>
     <div class="gc-qty"><button onclick="gcCartQty(${idx},-1)">−</button><span class="mono">${i.qty}</span><button onclick="gcCartQty(${idx},1)">+</button>
     <span class="mono" style="min-width:60px;text-align:right">${fmt(i.price*i.qty)}</span></div>
     ${i.copos!=null?`<div class="gc-qty gc-copos-row"><span class="gc-copos-label">Quantidade de copos:</span><button onclick="gcCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="gcCartChangeCopos(${idx},1)">+</button></div>`:''}</div>`).join('') + levarJuntoBox(gcCart,'gc') : '<p class="gc-empty">Nenhum item.</p>';

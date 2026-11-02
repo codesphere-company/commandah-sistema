@@ -58,7 +58,7 @@ function rejectRequest(id){const r=state.requests.find(x=>x.id===id);if(!r)retur
 function renderCardapioCliente(){
   if(!cardapioDraft) cardapioDraft = { items:[], memberId:null, customerName:'' };
   const el = document.getElementById('cardapioBody');
-  const available=state.products.filter(p=>p.active!==false&&(!p.channels||p.channels.qr!==false)).sort((a,b)=>(Number(a.sortOrder)||0)-(Number(b.sortOrder)||0)),categories=[...new Set(available.map(p=>p.category||'Sem categoria'))];
+  const available=state.products.filter(p=>p.active!==false&&!hiddenInSelfService(p,state.complementos)&&(!p.channels||p.channels.qr!==false)).sort((a,b)=>(Number(a.sortOrder)||0)-(Number(b.sortOrder)||0)),categories=[...new Set(available.map(p=>p.category||'Sem categoria'))];
   const memberOptions = state.members.filter(m=>m.active!==false&&!m.archived).map(m=>`<option value="${m.id}" ${cardapioDraft.memberId===m.id?'selected':''}>${h((m.code?m.code+' — ':'')+m.name)}</option>`).join('');
   el.innerHTML = `
     <div class="grid2">
@@ -88,6 +88,7 @@ function renderCardapioCliente(){
 function filterDigitalMenu(){const q=(document.getElementById('digitalMenuSearch')?.value||'').trim().toLowerCase(),category=document.getElementById('digitalMenuCategory')?.value||'';document.querySelectorAll('#digitalMenuProducts [data-product]').forEach(row=>{row.style.display=(!q||row.textContent.toLowerCase().includes(q))&&(!category||row.dataset.category===category)?'':'none';});}
 function addCardapioItem(productId){
   const p = state.products.find(x=>x.id===productId); if(!p) return;
+  if(hiddenInSelfService(p,state.complementos)){toast('Este produto não está disponível neste canal.');return;}
   const channel=document.getElementById('view-totem')?.classList.contains('active')?'online':'qr';
   if(p.channels&&p.channels[channel]===false){toast('Este produto não está disponível neste canal.');return;}
   const existing = cardapioDraft.items.find(i=>i.productId===productId);

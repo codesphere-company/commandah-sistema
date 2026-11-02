@@ -1,0 +1,56 @@
+<h2>Grade de tamanhos reaproveitável</h2>
+<p class="subtitle">Rascunho. A grade (lista de tamanhos) é cadastrada uma vez. Cada produto que usa a grade tem o seu preço por tamanho.</p>
+
+<style>
+  .w{font-size:13px;line-height:1.35}
+  .w table{width:100%;border-collapse:collapse;background:#fff;color:#111}
+  .w th,.w td{border-bottom:1px solid #e3e7ec;padding:6px 8px;text-align:left}
+  .w th{font-size:11px;opacity:.7;font-weight:600}
+  .w .f{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+  .w .f label{font-size:11px;opacity:.7}
+  .w .inp{padding:5px 7px;border:1px solid #9aa4b2;border-radius:4px;background:#fff;color:#111;display:inline-block;min-width:60px}
+  .w .grp{border:1px solid #c9d0d9;border-radius:6px;padding:8px 10px;background:#f7f9fb;color:#111;margin-top:8px}
+  .w .tag{display:inline-block;border-radius:10px;padding:1px 8px;font-size:11px;background:#e6efff;color:#2f6fd6}
+  .w .btn{border:1px solid #9aa4b2;border-radius:4px;padding:4px 9px;background:#fff;color:#111;display:inline-block;margin-top:8px}
+  .w .hint{font-size:11px;opacity:.7;margin-top:6px}
+</style>
+
+<div class="split w">
+  <div class="mockup">
+    <div class="mockup-header">1. Cadastros → Grades de tamanho</div>
+    <div class="mockup-body">
+      <table>
+        <tr><th>Grade</th><th>Tamanhos</th><th>Produtos</th></tr>
+        <tr><td><b>Talharim</b></td><td>Individual · Família</td><td>2</td></tr>
+        <tr><td><b>Porção 400/800</b></td><td>400g · 800g</td><td>5</td></tr>
+        <tr><td><b>Porção 200/400/800</b></td><td>200g · 400g · 800g</td><td>1</td></tr>
+        <tr><td><b>Porção 300/600</b></td><td>300g · 600g</td><td>1</td></tr>
+        <tr><td><b>Mini pastel</b></td><td>6 un · 12 un</td><td>4</td></tr>
+        <tr><td><b>Açaí no copo</b></td><td>300ml · 500ml</td><td>1</td></tr>
+      </table>
+      <div class="hint">A grade só tem os nomes dos tamanhos. Preço fica no produto.</div>
+      <span class="btn">+ Nova grade</span>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">2. Produto TALHARIM BOLONHESA → aba Tamanhos</div>
+    <div class="mockup-body">
+      <div class="f"><label>Grade de tamanhos</label><span class="inp">Talharim ▾</span></div>
+      <table>
+        <tr><th>Tamanho</th><th>Preço</th><th>Custo</th><th>Vende</th><th>Opções</th></tr>
+        <tr><td>Individual</td><td><span class="inp">25,00</span></td><td><span class="inp">0,00</span></td><td>☑</td><td>—</td></tr>
+        <tr><td>Família</td><td><span class="inp">80,00</span></td><td><span class="inp">0,00</span></td><td>☑</td><td>—</td></tr>
+      </table>
+
+      <div class="mockup-header" style="margin-top:14px">BATATA FRITA (grade Porção 200/400/800)</div>
+      <table>
+        <tr><th>Tamanho</th><th>Preço</th><th>Vende</th><th>Opções</th></tr>
+        <tr><td>200g</td><td><span class="inp">15,00</span></td><td>☑</td><td><span class="tag">Molho extra</span></td></tr>
+        <tr><td>400g</td><td><span class="inp">?</span></td><td>☑</td><td><span class="tag">Molho extra</span></td></tr>
+        <tr><td>800g</td><td><span class="inp">40,00</span></td><td>☑</td><td><span class="tag">Molho extra</span></td></tr>
+      </table>
+      <div class="grp">Clicar num tamanho abre o painel daquele tamanho (o mesmo da tela anterior): canais, ficha técnica e grupos de opções.</div>
+    </div>
+  </div>
+</div>

@@ -1,10 +1,15 @@
 /* ============ VENDA — lógica compartilhada Balcão/Comandas ============ */
 function newDraft(type){ currentSaleDraft = { items:[], memberId:null, customerName:'', type }; }
+// Canal da venda em andamento (chaves iguais às do produto): delivery = 'online', comanda = 'mobile', resto = 'pdv'.
+function currentDraftChannel(){ return currentSaleDraft&&currentSaleDraft.type==='delivery'?'online':currentSaleDraft&&currentSaleDraft.type==='comanda'?'mobile':'pdv'; }
 function productEnabledForCurrentChannel(product){
   if(!product||product.active===false)return false;
   const channels=product.channels||{};
-  const channel=currentSaleDraft&&currentSaleDraft.type==='delivery'?'online':currentSaleDraft&&currentSaleDraft.type==='comanda'?'mobile':'pdv';
-  return channels[channel]!==false;
+  const channel=currentDraftChannel();
+  if(channels[channel]===false)return false;
+  // Produto com grade: some da lista se nenhum tamanho pode ser vendido neste canal (ou a grade foi pausada/apagada).
+  if(product.gradeId&&!itemChoiceSizes(product,channel).length)return false;
+  return true;
 }
 function renderProductPicker(containerId){
   const el = document.getElementById(containerId);
@@ -12,7 +17,7 @@ function renderProductPicker(containerId){
   el.innerHTML = `<div class="grid3">` + state.products.filter(productEnabledForCurrentChannel).sort((a,b)=>(Number(a.sortOrder)||0)-(Number(b.sortOrder)||0)).map(p=>{
     const av = productAvailable(p); const out = av!==Infinity && av<=0;
     return `<button class="btn" style="text-align:left;display:flex;align-items:center;gap:8px;justify-content:space-between" data-search="${h(p.name.toLowerCase())}" ${out?'disabled':''} onclick="addDraftItem(${jsArg(p.id)})">
-      <span style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">${p.image?`<img src="${h(p.image)}" alt="" style="width:28px;height:28px;border-radius:4px;object-fit:cover;flex-shrink:0">`:''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h(p.name)}</span></span><span class="mono" style="flex-shrink:0">${fmt(p.price)}</span></button>`;
+      <span style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">${p.image?`<img src="${h(p.image)}" alt="" style="width:28px;height:28px;border-radius:4px;object-fit:cover;flex-shrink:0">`:''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h(p.name)}</span></span><span class="mono" style="flex-shrink:0">${productSalePriceLabel(p,currentDraftChannel())}</span></button>`;
   }).join('') + `</div>`;
 }
 function addDraftItem(productId){
@@ -20,73 +25,45 @@ function addDraftItem(productId){
   if(currentSaleDraft&&currentSaleDraft.type==='comanda'&&window.currentComandaRequester&&window.currentComandaRequester.canOrder===false){toast('Esta pessoa está bloqueada para consumir nesta cota.');return;}
   const p = state.products.find(x=>x.id===productId);
   if(!p) return;
-  const questions=(p.questionIds||[]).map(id=>state.perguntas.find(q=>q.id===id)).filter(q=>q&&q.active!==false);
-  const complements=(p.complementIds||[]).map(id=>state.complementos.find(c=>c.id===id)).filter(c=>c&&c.active!==false);
-  const observations=(p.observationIds||[]).map(id=>state.observacoes.find(o=>o.id===id)).filter(Boolean);
-  const sizes=(p.sizeIds||[]).map(id=>state.complementos.find(s=>s.id===id)).filter(s=>s&&s.recordKind==='size'&&s.active!==false);
-  if(questions.length||complements.length||observations.length||sizes.length){ openProductCustomization(productId,questions,complements,observations,sizes); return; }
-  commitDraftItem(productId,null);
+  // Tamanhos e opções (escolha-item.js). Os campos antigos questionIds/complementIds/sizeIds não são
+  // mais lidos pela venda (nenhum em uso); observações rápidas continuam na tela de escolha.
+  if(!productOpensItemChoice(p)){ if(commitDraftItem(productId,null)) comandaLocatorPersist(); return; }
+  openItemChoice(productId,currentDraftChannel(),choice=>{
+    if(!currentSaleDraft) return;
+    if(!commitDraftItem(productId,choice)) return;
+    comandaLocatorPersist();
+  });
 }
-function commitDraftItem(productId,customization){
-  const p=state.products.find(x=>x.id===productId);if(!p)return;
+// "Localizar produto" da comanda fica aberto (e a escolha abre por cima): ao entrar um item, grava a comanda e avisa uma vez só.
+function comandaLocatorPersist(){
+  if(!(currentSaleDraft&&currentSaleDraft.type==='comanda'&&window.comandaLocatorSaleId&&document.getElementById('clGrid'))) return;
+  const sale=state.sales.find(x=>x.id===window.comandaLocatorSaleId);
+  if(sale){ sale.items=currentSaleDraft.items; sale.total=draftTotal(); save('sales'); }
+  toast('Item adicionado.');
+}
+// choice: null (produto sem escolha) ou o resultado do buildCustomization ({name,basePrice,price,customization}).
+// Devolve true quando o item entrou no pedido.
+function commitDraftItem(productId,choice){
+  const p=state.products.find(x=>x.id===productId);if(!p)return false;
+  // Produto com grade/grupos sem escolha: product.price (menor tamanho) nunca vira preço de venda.
+  if(!choice&&productNeedsChoice(p,state.complementos)){ toast('Escolha o tamanho e as opções do produto.','erro'); return false; }
+  let customization=choice?choice.customization:null;
   const comboItems=(p.comboProductIds||[]).map(id=>state.products.find(x=>x.id===id)).filter(Boolean).map(x=>({productId:x.id,name:x.name,qty:1}));
   if(comboItems.length){customization=customization?{...customization}:{answers:[],complementIds:[],observationIds:[],notes:'',extra:0};const comboText='Combo: '+comboItems.map(x=>x.name).join(', ');customization.comboItems=comboItems;customization.summary=[comboText,customization.summary].filter(Boolean).join(' · ');}
   const extra=customization?Number(customization.extra)||0:0;
   const requester=currentSaleDraft.type==='comanda'?window.currentComandaRequester:null,requesterKey=requester&&requester.key||'';
-  const signature=(customization?JSON.stringify({sizeId:customization.sizeId||null,answers:customization.answers,complementIds:customization.complementIds,observationIds:customization.observationIds,notes:customization.notes}):'')+'|'+requesterKey;
+  // Itens iguais se somam só com a mesma assinatura (tamanho, opções e observações) e o mesmo solicitante.
+  const signature=(choice?customizationSignature(choice.customization):customization?JSON.stringify({sizeId:customization.sizeId||null,answers:customization.answers,complementIds:customization.complementIds,observationIds:customization.observationIds,notes:customization.notes}):'')+'|'+requesterKey;
   const existing = currentSaleDraft.items.find(i=>i.productId===productId && !i.sent && (i.customizationSignature||'')===signature);
-  const candidate={lineId:uid(),productId,name:p.name,basePrice:Number(p.price)||0,price:(Number(p.price)||0)+extra,qty:1,sent:false,isCombo:productKind(p)==='combo',comboItems,customization:customization||null,customizationSignature:signature,notes:customization&&customization.summary||'',addedAt:new Date().toISOString(),addedById:currentUser&&currentUser.id||null,addedBy:currentUser&&currentUser.name||'—',requesterId:requester&&requester.id||null,requesterName:requester&&requester.name||'',requesterType:requester&&requester.type||''};
+  const name=choice?choice.name:p.name,basePrice=choice?Number(choice.basePrice)||0:Number(p.price)||0,price=choice?Number(choice.price)||0:(Number(p.price)||0)+extra;
+  const candidate={lineId:uid(),productId,name,basePrice,price,qty:1,sent:false,isCombo:productKind(p)==='combo',comboItems,customization:customization||null,customizationSignature:signature,notes:customization&&customization.summary||'',addedAt:new Date().toISOString(),addedById:currentUser&&currentUser.id||null,addedBy:currentUser&&currentUser.name||'—',requesterId:requester&&requester.id||null,requesterName:requester&&requester.name||'',requesterType:requester&&requester.type||''};
   const unsent=currentSaleDraft.items.filter(i=>!i.sent).map(i=>({...i}));
   const proposed=unsent.find(i=>i.productId===productId&&(i.customizationSignature||'')===signature);
   if(proposed) proposed.qty+=1; else unsent.push(candidate);
-  if(!canFulfillItems(unsent)){ toast('Estoque insuficiente para aumentar este item.'); return; }
+  if(!canFulfillItems(unsent)){ toast('Estoque insuficiente para aumentar este item.'); return false; }
   if(existing) existing.qty+=1; else currentSaleDraft.items.push(candidate);
   renderDraftItems();renderComandaAuditHistory();
-}
-function openProductCustomization(productId,questions,complements,observations,sizes){
-  const p=state.products.find(x=>x.id===productId);if(!p)return;
-  const questionHtml=questions.map(q=>{
-    const answers=Array.isArray(q.answers)?q.answers:[];
-    if(q.type==='text')return `<div class="field product-question" data-question="${q.id}" data-type="text" data-required="${q.required?'1':'0'}"><label>${h(q.texto)}${q.required?' *':''}</label><textarea class="custom-text" rows="2"></textarea></div>`;
-    if(q.type==='quantity')return `<div class="field product-question" data-question="${q.id}" data-type="quantity" data-required="${q.required?'1':'0'}"><label>${h(q.texto)}${q.required?' *':''}</label><input class="custom-quantity" type="number" min="${q.required?'1':'0'}" value="${q.required?'1':'0'}"></div>`;
-    const inputType=q.type==='multiple'?'checkbox':'radio';
-    return `<fieldset class="product-question" data-question="${q.id}" data-type="${q.type||'single'}" data-required="${q.required?'1':'0'}" data-max="${Number(q.maxChoices)||1}"><legend>${h(q.texto)}${q.required?' *':''}</legend>${answers.map(a=>`<label class="item-line"><span>${h(a.text)} ${Number(a.price)?`<small>+ ${fmt(a.price)}</small>`:''}</span><input class="custom-answer" type="${inputType}" name="question_${q.id}" value="${a.id}" data-text="${h(a.text)}" data-price="${Number(a.price)||0}"></label>`).join('')}</fieldset>`;
-  }).join('');
-  const complementHtml=complements.length?`<fieldset><legend>Complementos</legend>${complements.map(c=>`<label class="item-line"><span>${h(c.nome)} ${Number(c.preco)?`<small>+ ${fmt(c.preco)}</small>`:''}</span><input class="custom-complement" type="checkbox" value="${c.id}" data-name="${h(c.nome)}" data-price="${Number(c.preco)||0}"></label>`).join('')}</fieldset>`:'';
-  const sizeHtml=(sizes||[]).length?`<fieldset class="product-size-group"><legend>Tamanho *</legend>${sizes.map(s=>`<label class="item-line"><span>${h(s.nome)} ${Number(s.preco)?`<small>+ ${fmt(s.preco)}</small>`:''}</span><input class="custom-size" type="radio" name="custom_product_size" value="${s.id}" data-name="${h(s.nome)}" data-price="${Number(s.preco)||0}"></label>`).join('')}</fieldset>`:'';
-  const observationHtml=(observations||[]).length?`<fieldset><legend>Observações rápidas</legend>${observations.map(o=>`<label class="item-line"><span>${h(o.texto)}</span><input class="custom-observation" type="checkbox" value="${o.id}" data-text="${h(o.texto)}"></label>`).join('')}</fieldset>`:'';
-  openModal('Personalizar item',`<div class="consumer-form-frame"><div class="app-status"><b>${h(p.name)}</b><span id="customItemPrice" class="mono">${fmt(p.price)}</span></div><div class="customization-scroll">${sizeHtml}${questionHtml}${complementHtml}${observationHtml}<div class="field"><label>Observações para o preparo</label><textarea id="customItemNotes" rows="3" placeholder="Ex.: retirar ingrediente, ponto de preparo..."></textarea></div></div></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="consumer-save" onclick="saveProductCustomization(${jsArg(productId)})">✓ Adicionar</button></div>`,true);
-  document.querySelector('#modalRoot .modal').classList.add('record-modal');
-  document.querySelectorAll('#modalRoot .custom-answer,#modalRoot .custom-complement,#modalRoot .custom-size').forEach(el=>el.addEventListener('change',()=>{const group=el.closest('.product-question');if(group&&group.dataset.type==='multiple'){const checked=group.querySelectorAll('.custom-answer:checked');const max=Number(group.dataset.max)||1;if(checked.length>max){el.checked=false;toast('Escolha no máximo '+max+' opção(ões).');}}updateCustomizationPrice(productId);}));
-}
-function updateCustomizationPrice(productId){const p=state.products.find(x=>x.id===productId);const extras=[...document.querySelectorAll('#modalRoot .custom-answer:checked,#modalRoot .custom-complement:checked,#modalRoot .custom-size:checked')].reduce((sum,x)=>sum+(Number(x.dataset.price)||0),0);const el=document.getElementById('customItemPrice');if(el)el.textContent=fmt((Number(p&&p.price)||0)+extras);}
-function saveProductCustomization(productId){
-  const answers=[];let invalid='';
-  document.querySelectorAll('#modalRoot .product-question').forEach(group=>{if(invalid)return;const q=state.perguntas.find(x=>x.id===group.dataset.question);if(!q)return;let values=[];
-    if(group.dataset.type==='text'){const value=group.querySelector('.custom-text').value.trim();if(value)values=[{text:value,price:0}];}
-    else if(group.dataset.type==='quantity'){const value=Number(group.querySelector('.custom-quantity').value)||0;if(value>0)values=[{text:String(value),value,price:0}];}
-    else values=[...group.querySelectorAll('.custom-answer:checked')].map(x=>({id:x.value,text:x.dataset.text,price:Number(x.dataset.price)||0}));
-    if(group.dataset.required==='1'&&!values.length){invalid='Responda: '+q.texto;return;}if(values.length)answers.push({questionId:q.id,question:q.texto,type:q.type,values});
-  });
-  if(invalid){toast(invalid);return;}
-  const sizeInput=document.querySelector('#modalRoot .custom-size:checked'),hasSizes=!!document.querySelector('#modalRoot .product-size-group');
-  if(hasSizes&&!sizeInput){toast('Escolha o tamanho do produto.');return;}
-  const selectedSize=sizeInput?{id:sizeInput.value,name:sizeInput.dataset.name,price:Number(sizeInput.dataset.price)||0}:null;
-  const selectedComplements=[...document.querySelectorAll('#modalRoot .custom-complement:checked')].map(x=>({id:x.value,name:x.dataset.name,price:Number(x.dataset.price)||0}));
-  const selectedObservations=[...document.querySelectorAll('#modalRoot .custom-observation:checked')].map(x=>({id:x.value,text:x.dataset.text}));
-  const typedNotes=document.getElementById('customItemNotes').value.trim(),notes=[...selectedObservations.map(o=>o.text),typedNotes].filter(Boolean).join(' · ');
-  const extra=answers.flatMap(a=>a.values).reduce((s,a)=>s+(Number(a.price)||0),0)+selectedComplements.reduce((s,c)=>s+c.price,0)+(selectedSize?selectedSize.price:0);
-  const parts=[];if(selectedSize)parts.push('Tamanho: '+selectedSize.name);answers.forEach(a=>parts.push(a.question+': '+a.values.map(v=>v.text).join(', ')));if(selectedComplements.length)parts.push('Complementos: '+selectedComplements.map(c=>c.name).join(', '));if(notes)parts.push('Obs.: '+notes);
-  commitDraftItem(productId,{sizeId:selectedSize&&selectedSize.id,size:selectedSize,answers,complementIds:selectedComplements.map(c=>c.id),complements:selectedComplements,observationIds:selectedObservations.map(o=>o.id),observations:selectedObservations,notes,extra,summary:parts.join(' · ')});
-  const locatorSaleId = window.comandaLocatorSaleId;
-  if(currentSaleDraft.type==='comanda' && locatorSaleId){
-    const sale = state.sales.find(x=>x.id===locatorSaleId);
-    if(sale){ sale.items = currentSaleDraft.items; sale.total = draftTotal(); save('sales'); }
-    closeModal();
-    openComandaProductLocator(locatorSaleId);
-  } else {
-    closeModal();
-  }
+  return true;
 }
 function changeDraftQty(idx, delta){
   const it = currentSaleDraft.items[idx]; if(!it) return;
@@ -209,7 +186,7 @@ function renderBalcaoPdv(el){
   if(balcaoCategory && !categories.includes(balcaoCategory)) balcaoCategory = '';
   const member = currentSaleDraft.memberId ? state.members.find(m=>m.id===currentSaleDraft.memberId) : null;
   const cards = products.map(p=>{ const av = productAvailable(p), out = av!==Infinity && av<=0;
-    return `<button class="balcao-prod" data-category="${h(p.category||'')}" data-search="${h(((p.category||'')+' '+(p.code||'')+' '+(p.pdvCode||'')+' '+p.name).toLowerCase())}" ${out?'disabled title="Sem estoque"':''} onclick="addDraftItem(${jsArg(p.id)})"><span class="bp-cat">${h(p.category||'Sem categoria')}</span><span class="bp-name">${h(p.name)}</span><span class="bp-price mono">${out?'Sem estoque':fmt(p.price)}</span></button>`; }).join('');
+    return `<button class="balcao-prod" data-category="${h(p.category||'')}" data-search="${h(((p.category||'')+' '+(p.code||'')+' '+(p.pdvCode||'')+' '+p.name).toLowerCase())}" ${out?'disabled title="Sem estoque"':''} onclick="addDraftItem(${jsArg(p.id)})"><span class="bp-cat">${h(p.category||'Sem categoria')}</span><span class="bp-name">${h(p.name)}</span><span class="bp-price mono">${out?'Sem estoque':productSalePriceLabel(p,currentDraftChannel())}</span></button>`; }).join('');
   el.innerHTML = `<div class="table-workspace balcao-split">
     <div class="balcao-main">
       <div class="table-toolbar"><div class="op-search"><input type="search" id="balcaoSearch" placeholder="Buscar produto ou código" value="${h(balcaoQuery)}" oninput="filterBalcaoProducts(this.value)"></div></div>
@@ -265,8 +242,8 @@ function renderPdvCategoryTabs(){const tabs=document.querySelector('#pdvProductS
 function setPdvProductView(mode){pdvProductView=mode==='cards'?'cards':'list';renderPdvProductLocator();document.querySelectorAll('#pdvProductSheet .pdv-sheet-new').forEach(button=>button.classList.toggle('active',(pdvProductView==='list'&&button.title.includes('lista'))||(pdvProductView==='cards'&&button.title.includes('cartões'))));const query=document.getElementById('pdvLocatorSearch')?.value||document.getElementById('pdvProductSearch')?.value||'';filterPdvProducts(query);}
 function renderPdvProductLocator(){
   const el=document.getElementById('pdvProductGrid');if(!el)return;const list=state.products.filter(productEnabledForCurrentChannel).filter(p=>!pdvCategoryFilter||p.category===pdvCategoryFilter);renderPdvCategoryTabs();
-  if(pdvProductView==='cards'){el.innerHTML=`<div class="pdv-product-cards">${list.map(p=>`<button class="pdv-product-card" data-pdv-product-search="${h(((p.category||'')+' '+(p.code||'')+' '+p.name).toLowerCase())}" onclick="addPdvProductAndClose(${jsArg(p.id)})"><small>${h(p.category||'Sem categoria')} · ${h(p.code||'—')}</small><strong>${h(p.name)}</strong><strong>${fmt(p.price)}</strong></button>`).join('')||'<p class="empty">Nenhum produto encontrado.</p>'}</div>`;return;}
-  el.innerHTML=`<table><thead><tr><th>Categoria</th><th>Código</th><th>Nome do Produto</th><th>Preço de Venda</th></tr></thead><tbody>${list.map(p=>`<tr data-pdv-product-search="${h(((p.category||'')+' '+(p.code||'')+' '+p.name).toLowerCase())}" ondblclick="addPdvProductAndClose(${jsArg(p.id)})"><td>${h(p.category||'—')}</td><td>${h(p.code||'—')}</td><td>${h(p.name)}</td><td class="mono">${fmt(p.price)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Nenhum produto encontrado.</td></tr>'}</tbody></table>`;
+  if(pdvProductView==='cards'){el.innerHTML=`<div class="pdv-product-cards">${list.map(p=>`<button class="pdv-product-card" data-pdv-product-search="${h(((p.category||'')+' '+(p.code||'')+' '+p.name).toLowerCase())}" onclick="addPdvProductAndClose(${jsArg(p.id)})"><small>${h(p.category||'Sem categoria')} · ${h(p.code||'—')}</small><strong>${h(p.name)}</strong><strong>${productSalePriceLabel(p,currentDraftChannel())}</strong></button>`).join('')||'<p class="empty">Nenhum produto encontrado.</p>'}</div>`;return;}
+  el.innerHTML=`<table><thead><tr><th>Categoria</th><th>Código</th><th>Nome do Produto</th><th>Preço de Venda</th></tr></thead><tbody>${list.map(p=>`<tr data-pdv-product-search="${h(((p.category||'')+' '+(p.code||'')+' '+p.name).toLowerCase())}" ondblclick="addPdvProductAndClose(${jsArg(p.id)})"><td>${h(p.category||'—')}</td><td>${h(p.code||'—')}</td><td>${h(p.name)}</td><td class="mono">${productSalePriceLabel(p,currentDraftChannel())}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Nenhum produto encontrado.</td></tr>'}</tbody></table>`;
 }
 if(typeof document.addEventListener==='function')document.addEventListener('click',event=>{const button=event.target.closest&&event.target.closest('#pdvProductSheet .pdv-sheet-new');if(!button)return;if(button.title.includes('lista'))setPdvProductView('list');if(button.title.includes('cartões'))setPdvProductView('cards');});
 function showPdvClientFields(){const el=document.getElementById('pdvClientSheet');if(!el)return;el.classList.add('visible');document.getElementById('pdvClientSearch').focus();filterPdvClients('');}

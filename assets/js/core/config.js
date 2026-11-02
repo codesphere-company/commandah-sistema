@@ -117,8 +117,8 @@ const RIBBON_TABS = [
   { id:'produtos', label:'Produtos', groups:[
       { label:'Produtos', items:[ {label:'Produtos', icon:ICN.burger, view:'produtos'} ] },
       { label:'Organização de Produtos', items:[
-          {label:'Complementos', icon:ICN.plus, perm:'complementos', action:'openComplementsView'}, {label:'Observações', icon:ICN.doc, view:'observacoes'},
-          {label:'Categorias', icon:ICN.tag, view:'categorias'}, {label:'Tipos e Tamanhos', icon:ICN.resize, perm:'complementos', action:'openTypesSizesView'}, {label:'Perguntas', icon:ICN.question, view:'perguntas'}
+          {label:'Grupos de opções', icon:ICN.plus, perm:'complementos', action:'openOptionGroupsView'}, {label:'Observações', icon:ICN.doc, view:'observacoes'},
+          {label:'Categorias', icon:ICN.tag, view:'categorias'}, {label:'Grades de tamanho', icon:ICN.resize, perm:'complementos', action:'openGradesView'}
       ]},
       { label:'Insumos', items:[ {label:'Insumos', icon:ICN.box, view:'insumos'} ] },
       { label:'Estoque', items:[ {label:'Alterar em Lote', icon:ICN.editlist, perm:'produtos', action:'openBulkPriceModal'}, {label:'Alterar com NFe', icon:ICN.fileIn, perm:'insumos', action:'openNfeStockWindow'} ] }

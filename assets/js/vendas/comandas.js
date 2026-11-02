@@ -278,18 +278,56 @@ function renderNpProductGrid(q){
   const countEl = document.getElementById('npResultCount'); if(countEl) countEl.textContent = list.length+' produto'+(list.length===1?'':'s');
   el.innerHTML = list.length ? list.map(p=>{
     const av = productAvailable(p); const out = av!==Infinity && av<=0;
-    const inCart = npCart.find(i=>i.productId===p.id);
-    return `<button class="btn np-prod-btn ${inCart?'has-qty':''}" ${out?'disabled':''} title="${h(p.name)}" onclick="npCartAdd(${jsArg(p.id)})">${inCart?`<span class="np-qty-badge">${inCart.qty}</span>`:''}<span class="np-prod-name">${h(p.name)}</span>${p.category?`<span class="np-prod-cat">${h(p.category)}</span>`:''}<span class="mono np-prod-price">${fmt(p.price)}</span></button>`;
+    const inCart = cartProductQty(npCart,p.id);
+    return `<button class="btn np-prod-btn ${inCart?'has-qty':''}" ${out?'disabled':''} title="${h(p.name)}" onclick="npCartAdd(${jsArg(p.id)})">${inCart?`<span class="np-qty-badge">${inCart}</span>`:''}<span class="np-prod-name">${h(p.name)}</span>${p.category?`<span class="np-prod-cat">${h(p.category)}</span>`:''}<span class="mono np-prod-price">${productSalePriceLabel(p,'mobile')}</span></button>`;
   }).join('') : '<p class="np-empty">Nenhum produto encontrado.</p>';
 }
-function npCartAdd(productId){
+/* Carrinhos de comanda (npCart, comandaQuickCart) e do garçom (gcCart): linha de produto com tamanho/opções
+   leva name/price/basePrice/customization/customizationSignature; só soma com linha do mesmo produto E da
+   mesma assinatura. Produto sem escolha segue como antes (assinatura ''). choice = resultado do buildCustomization. */
+function cartLineSignature(line){ return (line&&line.customizationSignature)||''; }
+function cartAddLine(cart, product, choice, qty, copos){
+  const n = qty||1, sig = choice ? customizationSignature(choice.customization) : '';
+  const existing = cart.find(i=>i.productId===product.id && cartLineSignature(i)===sig);
+  if(existing){ existing.qty += n; return existing; }
+  const line = choice
+    ? {productId:product.id, name:choice.name, price:Number(choice.price)||0, basePrice:Number(choice.basePrice)||0, customization:choice.customization, customizationSignature:sig, notes:choice.customization.summary||'', qty:n, estacao:product.estacao||'cozinha', copos:productAsksCopos(product)?(copos||0):undefined}
+    : {productId:product.id, name:product.name, price:product.price, qty:n, estacao:product.estacao||'cozinha', copos:productAsksCopos(product)?(copos||0):undefined};
+  cart.push(line);
+  return line;
+}
+// Selo de quantidade do botão do produto: soma todas as linhas dele (tamanhos/opções diferentes).
+function cartProductQty(cart, productId){ return cart.filter(i=>i.productId===productId).reduce((a,i)=>a+i.qty,0); }
+// Linhas de opção sob o nome do item no carrinho (já escapadas).
+function cartLineOptionsHtml(line, style){
+  const ls = customizationLines(line);
+  return ls.length ? `<small style="${style}">${ls.map(h).join('<br>')}</small>` : '';
+}
+// Adiciona ao carrinho: abre a escolha (canal 'mobile') se o produto pede tamanho/opções; senão soma direto.
+function cartAddProduct(cart, productId, afterAdd){
   const p = state.products.find(x=>x.id===productId); if(!p) return;
   if(productAvailable(p)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
-  const existing = npCart.find(i=>i.productId===productId);
-  if(existing) existing.qty+=1; else npCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha', copos:productAsksCopos(p)?0:undefined});
-  renderNpCart();
-  renderNpProductGrid(document.getElementById('npProductSearch')?.value||'');
-  renderNpHistoryGrid();
+  if(!productOpensItemChoice(p)){ cartAddLine(cart, p, null); afterAdd(); return; }
+  openItemChoice(productId, 'mobile', choice=>{ cartAddLine(cart, p, choice); afterAdd(); });
+}
+// Refaz as escolhas de um item antigo com o preço atual. Devolve {choice} (choice null = produto sem escolha)
+// ou null quando o item não pode ser repetido (tamanho/opção sumiu ou pausou, produto agora exige escolha).
+function rebuildRepeatChoice(item, product){
+  const c = item && item.customization;
+  if(c && c.v===2){
+    const r = rebuildCustomization({product, complementos:state.complementos, oldCustomization:c, channel:'mobile'});
+    return r ? {choice:r} : null;
+  }
+  // Produto de grade nunca cai no product.price (menor tamanho).
+  if(productNeedsChoice(product, state.complementos)) return null;
+  return {choice:null};
+}
+function npCartAdd(productId){
+  cartAddProduct(npCart, productId, ()=>{
+    renderNpCart();
+    renderNpProductGrid(document.getElementById('npProductSearch')?.value||'');
+    renderNpHistoryGrid();
+  });
 }
 function npCartChangeQty(idx,delta){
   const it = npCart[idx]; if(!it) return;
@@ -322,15 +360,15 @@ function renderNpHistoryGrid(){
   section.style.display = list.length ? '' : 'none';
   el.innerHTML = list.map(p=>{
     const av = productAvailable(p); const out = av!==Infinity && av<=0;
-    const inCart = npCart.find(i=>i.productId===p.id);
-    return `<button class="btn np-prod-btn ${inCart?'has-qty':''}" ${out?'disabled':''} onclick="npCartAdd(${jsArg(p.id)})">${inCart?`<span class="np-qty-badge">${inCart.qty}</span>`:''}<span class="np-prod-name">${h(p.name)}</span><span class="mono np-prod-price">${fmt(p.price)}</span></button>`;
+    const inCart = cartProductQty(npCart,p.id);
+    return `<button class="btn np-prod-btn ${inCart?'has-qty':''}" ${out?'disabled':''} onclick="npCartAdd(${jsArg(p.id)})">${inCart?`<span class="np-qty-badge">${inCart}</span>`:''}<span class="np-prod-name">${h(p.name)}</span><span class="mono np-prod-price">${productSalePriceLabel(p,'mobile')}</span></button>`;
   }).join('');
 }
 function renderNpCart(){
   const el = document.getElementById('npCartList'); if(!el) return;
   el.innerHTML = npCart.length ? npCart.map((i,idx)=>`
     <div class="np-line">
-      <div class="np-line-top"><span class="np-line-name">${h(i.name)}</span><span class="mono np-line-sub">${fmt(i.price*i.qty)}</span></div>
+      <div class="np-line-top"><span class="np-line-name">${h(i.name)}${cartLineOptionsHtml(i,'display:block;font-weight:400;color:var(--c-text-3)')}</span><span class="mono np-line-sub">${fmt(i.price*i.qty)}</span></div>
       <div class="np-line-ctrl"><span class="sub mono">${fmt(i.price)} cada</span><div class="qty-ctrl"><button onclick="npCartChangeQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${i.qty}</span><button onclick="npCartChangeQty(${idx},1)" aria-label="Aumentar">+</button></div></div>
       ${i.copos!=null?`<div class="np-line-ctrl"><span class="sub">Copos</span><div class="qty-ctrl"><button onclick="npCartChangeCopos(${idx},-1)" aria-label="Menos copos">−</button><span class="mono">${i.copos||0}</span><button onclick="npCartChangeCopos(${idx},1)" aria-label="Mais copos">+</button></div></div>`:''}
     </div>`).join('') + levarJuntoBox(npCart,'np') : '<p class="np-empty">Toque nos produtos à esquerda para adicionar.</p>';
@@ -587,9 +625,12 @@ function openReorderComandaItem(idx){
   const item = (currentSaleDraft&&currentSaleDraft.items||[])[idx]; if(!item) return;
   const product = state.products.find(p=>p.id===item.productId);
   if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
+  const rb = rebuildRepeatChoice(item, product);
+  if(!rb){ toast('Este item mudou no cadastro (tamanho ou opção) e não pode ser repetido.'); return; }
   reorderQty = 1; reorderItemIdx = idx; reorderCopos = productAsksCopos(product) ? (item.copos!=null?item.copos:0) : 0;
+  const reorderName = rb.choice ? rb.choice.name : product.name, reorderPrice = rb.choice ? rb.choice.price : product.price;
   openModal('Pedir novamente', `
-    <p class="sub">${h(product.name)} · <span class="mono">${fmt(product.price)}</span></p>
+    <p class="sub">${h(reorderName)} · <span class="mono">${fmt(reorderPrice)}</span>${rb.choice?cartLineOptionsHtml({customization:rb.choice.customization},'display:block'):''}</p>
     <div class="field" style="text-align:center">
       <label class="np-label">Quantidade</label>
       <div class="qty-ctrl" style="justify-content:center;margin-top:6px">
@@ -628,8 +669,11 @@ async function confirmReorderComandaItem(){
   if(!comandaAcceptsOrders(s)) return;
   const product = state.products.find(p=>p.id===item.productId);
   if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
+  const rb = rebuildRepeatChoice(item, product);
+  if(!rb){ toast('Este item mudou no cadastro (tamanho ou opção) e não pode ser repetido.'); return; }
   const who = item.requesterName || s.customerName || 'Cliente';
-  const newItem = {lineId:uid(), productId:product.id, name:product.name, price:product.price, qty:reorderQty, estacao:product.estacao||'cozinha', copos:productAsksCopos(product)?reorderCopos:undefined, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
+  const base = cartAddLine([], product, rb.choice, reorderQty, reorderCopos);
+  const newItem = {lineId:uid(), ...base, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
   if(!await sendItemsToKitchen(saleId, [newItem], who, 'comanda', s.local)) return;
   newItem.sent = true;
   await commitSaleChange(s.id, cur=>{ cur.items=[...(cur.items||[]), newItem]; cur.total=saleTotal(cur.items); });
@@ -639,7 +683,7 @@ async function confirmReorderComandaItem(){
     const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
     printSingleTicket(who, member?member.code:'', s.local||'', newItem.estacao, printer?printer.nome:null, [newItem], s.orderNumber);
   }
-  logAction('Pedido repetido do histórico: '+product.name+' x'+reorderQty+' para '+who+' — pedido #'+(s.orderNumber||saleId));
+  logAction('Pedido repetido do histórico: '+newItem.name+' x'+reorderQty+' para '+who+' — pedido #'+(s.orderNumber||saleId));
   toast('Adicionado e enviado para a cozinha.');
   reorderItemIdx = null;
   closeModal(); openComanda(saleId, true); renderComandas();
@@ -857,8 +901,8 @@ function renderComandaQuickSearch(q){
   el.style.display = '';
   el.innerHTML = list.length ? list.map(p=>{
     const av = productAvailable(p); const out = av!==Infinity && av<=0;
-    const inCart = comandaQuickCart.find(i=>i.productId===p.id);
-    return `<button class="btn np-prod-btn ${inCart?'has-qty':''}" ${out?'disabled':''} onclick="quickCartAdd(${jsArg(p.id)})">${inCart?`<span class="np-qty-badge">${inCart.qty}</span>`:''}<span class="np-prod-name">${h(p.name)}</span><span class="mono np-prod-price">${fmt(p.price)}</span></button>`;
+    const inCart = cartProductQty(comandaQuickCart,p.id);
+    return `<button class="btn np-prod-btn ${inCart?'has-qty':''}" ${out?'disabled':''} onclick="quickCartAdd(${jsArg(p.id)})">${inCart?`<span class="np-qty-badge">${inCart}</span>`:''}<span class="np-prod-name">${h(p.name)}</span><span class="mono np-prod-price">${productSalePriceLabel(p,'mobile')}</span></button>`;
   }).join('') : '<p class="np-empty">Nenhum produto encontrado.</p>';
 }
 let comandaQuickCart = [];
@@ -868,11 +912,10 @@ function quickCartAdd(productId){
   if(s.locked){ toast('Este pedido está bloqueado.'); return; }
   const p = state.products.find(x=>x.id===productId);
   if(!p || p.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
-  if(productAvailable(p)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
-  const existing = comandaQuickCart.find(i=>i.productId===productId);
-  if(existing) existing.qty+=1; else comandaQuickCart.push({productId, name:p.name, price:p.price, qty:1, estacao:p.estacao||'cozinha', copos:productAsksCopos(p)?0:undefined});
-  renderComandaQuickSearch(document.getElementById('comandaQuickSearch')?.value||'');
-  renderComandaQuickCart();
+  cartAddProduct(comandaQuickCart, productId, ()=>{
+    renderComandaQuickSearch(document.getElementById('comandaQuickSearch')?.value||'');
+    renderComandaQuickCart();
+  });
 }
 function quickCartChangeQty(idx,delta){
   const it = comandaQuickCart[idx]; if(!it) return;
@@ -894,7 +937,7 @@ function renderComandaQuickCart(){
   wrap.innerHTML = `<div class="np-cart" style="border-top:1px solid var(--c-border);padding-top:10px">
     ${comandaQuickCart.map((i,idx)=>`
       <div class="item-line" style="flex-wrap:wrap">
-        <span>${h(i.name)}</span>
+        <span>${h(i.name)}${cartLineOptionsHtml(i,'display:block;color:var(--c-text-3)')}</span>
         <div class="qty-ctrl"><button onclick="quickCartChangeQty(${idx},-1)">−</button><span class="mono">${i.qty}</span>
         <button onclick="quickCartChangeQty(${idx},1)">+</button>
         <span class="mono" style="min-width:70px;text-align:right">${fmt(i.price*i.qty)}</span></div>
@@ -975,16 +1018,18 @@ function openReorderComandaBatch(batchKey){
   const batchItems = (currentSaleDraft.items||[]).filter((it,idx)=>!it.canceled && comandaItemBatchKey(it,idx)===batchKey);
   if(!batchItems.length){ toast('Nenhum item ativo neste pedido para repetir.'); return; }
   comandaQuickCart = []; levarJunto.quick=false;
-  let skipped = 0;
+  let skipped = 0, changed = 0;
   batchItems.forEach(item=>{
     const product = state.products.find(p=>p.id===item.productId);
     if(!product || product.active===false){ skipped++; return; }
-    const existing = comandaQuickCart.find(i=>i.productId===product.id);
-    if(existing) existing.qty += item.qty;
-    else comandaQuickCart.push({productId:product.id, name:product.name, price:product.price, qty:item.qty, estacao:product.estacao||'cozinha', copos:productAsksCopos(product)?(item.copos||0):undefined});
+    // Tamanho/opções: refaz com o preço atual; se algo sumiu ou foi pausado, o item é pulado.
+    const rb = rebuildRepeatChoice(item, product);
+    if(!rb){ changed++; return; }
+    cartAddLine(comandaQuickCart, product, rb.choice, item.qty, item.copos);
   });
-  if(!comandaQuickCart.length){ toast('Nenhum destes produtos está mais disponível no catálogo.'); return; }
+  if(!comandaQuickCart.length){ toast(changed&&!skipped ? changed+' item(ns) mudaram no cadastro e foram ignorados.' : 'Nenhum destes produtos está mais disponível no catálogo.'); return; }
   if(skipped) toast(skipped+' item(ns) deste pedido não está(ão) mais disponível(is) e foi(ram) ignorado(s).');
+  if(changed) toast(changed+' item(ns) mudaram no cadastro e foram ignorados.');
   renderComandaQuickCart();
   openComandaQuickAddConfirm();
 }
