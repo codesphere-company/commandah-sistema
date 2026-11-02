@@ -27,17 +27,19 @@ function addDraftItem(productId){
   if(!p) return;
   // Tamanhos e opções (escolha-item.js). Os campos antigos questionIds/complementIds/sizeIds não são
   // mais lidos pela venda (nenhum em uso); observações rápidas continuam na tela de escolha.
-  if(!productOpensItemChoice(p)){ commitDraftItem(productId,null); return; }
+  if(!productOpensItemChoice(p)){ if(commitDraftItem(productId,null)) comandaLocatorPersist(); return; }
   openItemChoice(productId,currentDraftChannel(),choice=>{
     if(!currentSaleDraft) return;
     if(!commitDraftItem(productId,choice)) return;
-    // "Localizar produto" da comanda continua aberto embaixo da escolha: grava a comanda como addComandaLocatorProduct faz.
-    if(currentSaleDraft.type==='comanda'&&window.comandaLocatorSaleId&&document.getElementById('clGrid')){
-      const sale=state.sales.find(x=>x.id===window.comandaLocatorSaleId);
-      if(sale){ sale.items=currentSaleDraft.items; sale.total=draftTotal(); save('sales'); }
-      toast('Item adicionado.');
-    }
+    comandaLocatorPersist();
   });
+}
+// "Localizar produto" da comanda fica aberto (e a escolha abre por cima): ao entrar um item, grava a comanda e avisa uma vez só.
+function comandaLocatorPersist(){
+  if(!(currentSaleDraft&&currentSaleDraft.type==='comanda'&&window.comandaLocatorSaleId&&document.getElementById('clGrid'))) return;
+  const sale=state.sales.find(x=>x.id===window.comandaLocatorSaleId);
+  if(sale){ sale.items=currentSaleDraft.items; sale.total=draftTotal(); save('sales'); }
+  toast('Item adicionado.');
 }
 // choice: null (produto sem escolha) ou o resultado do buildCustomization ({name,basePrice,price,customization}).
 // Devolve true quando o item entrou no pedido.

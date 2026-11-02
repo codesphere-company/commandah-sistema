@@ -56,16 +56,8 @@ function renderComandaLocatorGrid(){
   }
 }
 function addComandaLocatorProduct(productId){
-  const before = currentSaleDraft.items.reduce((n,i)=>n+i.qty,0);
+  // addDraftItem já grava a comanda e avisa "Item adicionado." quando o item entra (com ou sem tela de escolha).
   addDraftItem(productId);
-  if(document.getElementById('clGrid')){
-    const after = currentSaleDraft.items.reduce((n,i)=>n+i.qty,0);
-    if(after>before){
-      toast('Item adicionado.');
-      const sale = state.sales.find(x=>x.id===window.comandaLocatorSaleId);
-      if(sale){ sale.items = currentSaleDraft.items; sale.total = draftTotal(); save('sales'); }
-    }
-  }
 }
 
 /* "Mais opções" da comanda: o painel abria dentro da coluna da esquerda, que rola e corta
