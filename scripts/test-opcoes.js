@@ -190,4 +190,18 @@ t('1.12 rebuildCustomization', () => {
   assert.strictEqual(rebuildCustomization({ product: f.acai, complementos: f.complementos, oldCustomization: null }), null);
 });
 
+t('1.13 grade pausada ou apagada não vira produto de preço único', () => {
+  const pausada = fixture(); pausada.complementos[0].active = false;
+  const apagada = fixture(); apagada.complementos = apagada.complementos.filter(c => c.id !== 'gAcai');
+  [pausada, apagada].forEach(f => {
+    assert.strictEqual(productNeedsChoice(f.acai, f.complementos), true);
+    assert.strictEqual(hiddenInSelfService(f.acai, f.complementos), true);
+    assert.strictEqual(blockedInCombo(f.acai, f.complementos), true);
+    assert.strictEqual(build(f, 's300', {}).error, 'Tamanhos indisponíveis para este produto.');
+    assert.strictEqual(rebuildCustomization({ product: f.acai, complementos: f.complementos,
+      oldCustomization: { v: 2, sizeId: 's300', groups: [] } }), null);
+  });
+  assert.strictEqual(productNeedsChoice({ kind: 'tamanho' }, pausada.complementos), false);
+});
+
 console.log('ok ' + n + ' testes');

@@ -50,12 +50,15 @@ function opcoesAllRules(product, complementos){
 }
 
 function productNeedsChoice(product, complementos){
-  return !!gradeOf(product, complementos) || opcoesAllRules(product, complementos).length > 0;
+  if(product && product.gradeId) return true; // grade pausada/apagada: ainda exige escolha (e a venda é barrada)
+  return opcoesAllRules(product, complementos).length > 0;
 }
 
 // Produto com tamanho ou com grupo obrigatório não cabe em fluxo sem balcão (autoatendimento/combo).
 function opcoesHasRequiredChoice(product, complementos){
-  return !!gradeOf(product, complementos) || opcoesAllRules(product, complementos).some(r => Number(r.min) >= 1);
+  // gradeId preenchido basta, mesmo com a grade pausada/apagada: não pode virar produto de preço único.
+  if(product && product.gradeId) return true;
+  return opcoesAllRules(product, complementos).some(r => Number(r.min) >= 1);
 }
 function hiddenInSelfService(product, complementos){ return opcoesHasRequiredChoice(product, complementos); }
 function blockedInCombo(product, complementos){ return opcoesHasRequiredChoice(product, complementos); }
@@ -114,6 +117,7 @@ function buildCustomization(p){
   const product = p.product, complementos = p.complementos, picks = p.picks || {};
   if(!product) return { error: 'Produto indisponível.' };
   const grade = gradeOf(product, complementos);
+  if(product.gradeId && !grade) return { error: 'Tamanhos indisponíveis para este produto.' };
   let size = null, sizeId = null, basePrice = Number(product.price) || 0;
   if(grade){
     const found = sizesForChannel(product, grade, '__qualquer__').find(s => s.sizeId === p.sizeId);
