@@ -45,6 +45,9 @@ jobs:
       - name: Validar index.html e assets (sintaxe, arquivos, ?v= único, órfãos)
         run: node scripts/check-app.js
 
+      - name: Testar regras de tamanhos e opções
+        run: node scripts/test-opcoes.js
+
       - name: Validar ordem de carregamento dos scripts
         run: |
           npm i --no-save --no-package-lock --silent acorn@8.14.0 acorn-walk@8.3.4
