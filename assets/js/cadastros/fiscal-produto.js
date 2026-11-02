@@ -117,16 +117,16 @@ function openProductModal(id){
   const p = id ? state.products.find(x=>x.id===id) : null;
   window.productImageDraft=p&&p.image||'';
   tempRecipe = p ? JSON.parse(JSON.stringify(p.recipe||[])) : [];
+  initProductSizesDraft(p);
   openModal(p?'Editar produto':'Novo produto', `
     <div class="record-body">
       <div class="record-tabs">
         <button data-tab="principal" class="active" onclick="setProductModalTab('principal')">Principal</button>
         <button data-tab="estoque" onclick="setProductModalTab('estoque')">Estoque</button>
         <button data-tab="ficha" onclick="setProductModalTab('ficha')">Ficha Técnica</button>
-        <button data-tab="perguntas" onclick="setProductModalTab('perguntas')">Perguntas (${state.perguntas.length})</button>
-        <button data-tab="complementos" onclick="setProductModalTab('complementos')">Complementos (${state.complementos.length})</button>
-        <button data-tab="observacoes" onclick="setProductModalTab('observacoes')">Observações (${state.observacoes.length})</button>
         <button data-tab="tamanhos" onclick="setProductModalTab('tamanhos')">Tamanhos</button>
+        <button data-tab="opcoes" onclick="setProductModalTab('opcoes')">Opções</button>
+        <button data-tab="observacoes" onclick="setProductModalTab('observacoes')">Observações (${state.observacoes.length})</button>
         <button data-tab="combo" onclick="setProductModalTab('combo')">Composição do combo</button>
         <button data-tab="fiscal" onclick="setProductModalTab('fiscal')">Fiscal (NFC-e)</button>
       </div>
@@ -135,6 +135,7 @@ function openProductModal(id){
         <div class="record-grid"><div><div class="product-image-box" id="productImagePreview">${p&&p.image?`<img src="${p.image}" alt="Produto" style="width:100%;height:100%;object-fit:contain">`:'🍽'}</div><button class="op-btn" type="button" style="width:100%;margin-top:8px" onclick="selectProductImage()">Selecionar imagem…</button><button class="op-btn" type="button" style="width:100%;margin-top:5px" onclick="clearProductImage()">Limpar imagem</button><input id="productImageFile" type="file" accept="image/*" hidden><p class="sub">Tamanho sugerido: 600 × 600 pixels. Limite: 500 KB.</p></div>
         <div><div class="field"><label>Nome</label><input id="pName" value="${h(p?p.name:'')}" autofocus></div>
         <div class="row"><div class="field"><label>Categoria</label><select id="pCat"><option value="">— Sem categoria —</option>${state.categorias.map(c=>`<option value="${h(c.nome)}" ${p&&p.category===c.nome?'selected':''}>${h(c.nome)}</option>`).join('')}</select></div><div class="field"><label>Vender este item como</label><select id="pMeasure">${[['un','Unidade (UN)'],['kg','Quilo (KG)'],['l','Litro (L)'],['g','Grama (G)'],['ml','Mililitro (ML)']].map(([v,l])=>`<option value="${v}" ${p&&(p.measure||'un')===v?'selected':''}>${l}</option>`).join('')}</select></div></div>
+        ${productGradeFieldHtml()}
         <div class="row"><div class="field"><label>Preço de custo</label><input id="pManualCost" type="number" step="0.01" value="${p?Number(p.manualCost)||'':''}" placeholder="Calculado pela ficha técnica"></div><div class="field"><label>Preço de venda</label><input id="pPrice" type="number" step="0.01" value="${p?p.price:''}"></div></div>
         <label style="font-size:13px"><input type="checkbox" id="pNoService" ${p&&p.noServiceFee?'checked':''}> Sem taxa de serviço</label>
         <div class="field" style="margin-top:12px"><label>Descrição</label><textarea id="pDescription" rows="2">${h(p?p.description||'':'')}</textarea></div>
@@ -148,23 +149,24 @@ function openProductModal(id){
       </section>
       <section class="record-pane" data-pane="estoque"><div class="grid3"><div class="field"><label>Estoque mínimo (alerta)</label><input id="pMinStock" type="number" min="0" step="1" value="${p?Number(p.minStock)||0:0}"></div><div class="field"><label>Ordem de exibição</label><input id="pSortOrder" type="number" step="1" value="${p?Number(p.sortOrder)||0:state.products.length}"></div><div class="field"><label>Tipo do cadastro</label><select id="pKind"><option value="produto" ${productKind(p||{})==='produto'?'selected':''}>Produto</option><option value="tamanho" ${productKind(p||{})==='tamanho'?'selected':''}>Produto por tamanho</option><option value="combo" ${productKind(p||{})==='combo'?'selected':''}>Combo</option></select></div></div><p class="sub">O estoque disponível é calculado pela ficha técnica e baixado somente quando o item é enviado à cozinha.</p></section>
       <section class="record-pane" data-pane="ficha"><p class="sub">Insumos consumidos por unidade vendida. O custo estimado é recalculado automaticamente.</p><div id="recipeRowsList"></div><button class="btn btn-sm" onclick="addRecipeRow()">+ Adicionar insumo</button></section>
-      <section class="record-pane" data-pane="perguntas"><p class="sub">Perguntas disponíveis para orientar o atendimento deste item.</p>${state.perguntas.length?state.perguntas.map(q=>`<label class="item-line"><span>${h(q.texto)}</span><input type="checkbox" class="pQuestion" value="${q.id}" ${(p&&p.questionIds||[]).includes(q.id)?'checked':''}></label>`).join(''):'<p class="empty">Nenhuma pergunta cadastrada.</p>'}</section>
-      <section class="record-pane" data-pane="complementos"><p class="sub">Complementos e tamanhos aceitos para este produto.</p>${state.complementos.length?state.complementos.map(c=>`<label class="item-line"><span>${h(c.nome)} · ${fmt(c.preco)}</span><input type="checkbox" class="pComplement" value="${c.id}" ${(p&&p.complementIds||[]).includes(c.id)?'checked':''}></label>`).join(''):'<p class="empty">Nenhum complemento cadastrado.</p>'}</section>
       <section class="record-pane" data-pane="observacoes"><p class="sub">Observações rápidas disponibilizadas durante o lançamento deste produto.</p>${state.observacoes.length?state.observacoes.map(o=>`<label class="item-line"><span>${h(o.texto)}</span><input type="checkbox" class="pObservation" value="${o.id}" ${(p&&p.observationIds||[]).includes(o.id)?'checked':''}></label>`).join(''):'<p class="empty">Nenhuma observação padrão cadastrada.</p>'}</section>
-      <section class="record-pane" data-pane="tamanhos"><p class="sub">Escolha os tamanhos oferecidos por este produto. O cliente deverá selecionar um deles no lançamento.</p>${state.complementos.filter(x=>x.recordKind==='type').map(type=>{const sizes=state.complementos.filter(x=>x.recordKind==='size'&&x.parentId===type.id&&x.active!==false);return `<fieldset><legend>${h(type.nome)}</legend>${sizes.map(size=>`<label class="item-line"><span>${h(size.nome)} ${Number(size.preco)?`· + ${fmt(size.preco)}`:''}</span><input type="checkbox" class="pSize" value="${size.id}" ${(p&&p.sizeIds||[]).includes(size.id)?'checked':''}></label>`).join('')||'<p class="empty">Nenhum tamanho ativo neste tipo.</p>'}</fieldset>`;}).join('')||'<p class="empty">Cadastre tipos e tamanhos para vinculá-los ao produto.</p>'}</section>
-      <section class="record-pane" data-pane="combo"><p class="sub">Selecione os produtos que compõem este combo. As fichas técnicas dos itens escolhidos serão consideradas no estoque.</p>${state.products.filter(x=>x.id!==(p&&p.id)&&productKind(x)!=='combo').map(x=>`<label class="item-line"><span>${h(x.name)} <small>${h(x.category||'Sem categoria')}</small></span><input type="checkbox" class="pComboItem" value="${x.id}" ${(p&&p.comboProductIds||[]).includes(x.id)?'checked':''}></label>`).join('')||'<p class="empty">Cadastre produtos individuais antes de montar um combo.</p>'}</section>
+      <section class="record-pane" data-pane="tamanhos"><div id="pTamanhosPane"></div></section>
+      <section class="record-pane" data-pane="opcoes"><div id="pOpcoesPane"></div></section>
+      <section class="record-pane" data-pane="combo"><p class="sub">Selecione os produtos que compõem este combo. As fichas técnicas dos itens escolhidos serão consideradas no estoque.</p>${state.products.filter(x=>x.id!==(p&&p.id)&&productKind(x)!=='combo'&&!blockedInCombo(x,state.complementos)).map(x=>`<label class="item-line"><span>${h(x.name)} <small>${h(x.category||'Sem categoria')}</small></span><input type="checkbox" class="pComboItem" value="${x.id}" ${(p&&p.comboProductIds||[]).includes(x.id)?'checked':''}></label>`).join('')||'<p class="empty">Cadastre produtos individuais antes de montar um combo.</p>'}</section>
       <section class="record-pane" data-pane="fiscal">${fiscalPaneHtml(p)}</section>
       <div class="record-actions"><button class="op-btn" onclick="closeModal()">Voltar</button><button class="op-btn primary" id="pSaveBtn">Salvar</button></div>
     </div>
   `, true);
   document.querySelector('#modalRoot .modal').classList.add('record-modal');
   renderRecipeRows();
+  refreshProductGradeUi();
   document.getElementById('pSaveBtn').onclick = ()=>{
     const name = document.getElementById('pName').value.trim();
     const price = parseFloat(document.getElementById('pPrice').value);
     const minStock = parseFloat(document.getElementById('pMinStock').value);
     const sortOrder = parseInt(document.getElementById('pSortOrder').value,10);
-    if(!name || !Number.isFinite(price) || price<0){ toast('Preencha o nome e um preço igual ou maior que zero.'); return; }
+    const comGrade = !!productSizesDraft.gradeId;
+    if(!name || (!comGrade && (!Number.isFinite(price) || price<0))){ toast('Preencha o nome e um preço igual ou maior que zero.'); return; }
     if(!Number.isFinite(minStock) || minStock<0 || !Number.isFinite(sortOrder)){ toast('Estoque mínimo e ordem devem ser números válidos.'); return; }
     if(tempRecipe.some(r=>!r.insumoId || !Number.isFinite(Number(r.qty)) || Number(r.qty)<=0)){ toast('Toda quantidade da ficha técnica deve ser maior que zero.'); return; }
     const code=document.getElementById('pCode').value.trim();
@@ -178,15 +180,24 @@ function openProductModal(id){
       manualCost:parseFloat(document.getElementById('pManualCost').value)||0, description:document.getElementById('pDescription').value.trim(),
       pdvCode:document.getElementById('pCustomCode').value.trim(), noServiceFee:document.getElementById('pNoService').checked,
       estacao:document.getElementById('pEstacao').value, askCopos:document.getElementById('pAskCopos').value, kitchenItem:document.getElementById('pEstacao').value==='cozinha', channels:{pdv:document.getElementById('pChPdv').checked,mobile:document.getElementById('pChMobile').checked,qr:document.getElementById('pChQr').checked,online:document.getElementById('pChOnline').checked},
-      questionIds:[...document.querySelectorAll('.pQuestion:checked')].map(x=>x.value), complementIds:[...document.querySelectorAll('.pComplement:checked')].map(x=>x.value),
       observationIds:[...document.querySelectorAll('.pObservation:checked')].map(x=>x.value) };
-    data.sizeIds=[...document.querySelectorAll('.pSize:checked')].map(x=>x.value);
+    // questionIds/complementIds/sizeIds (modelo antigo) ficam como estão no produto: não são mais editados aqui.
+    if(!p){ data.questionIds=[]; data.complementIds=[]; data.sizeIds=[]; }
     data.comboProductIds=[...document.querySelectorAll('.pComboItem:checked')].map(x=>x.value);
     if(data.kind==='combo'&&!data.comboProductIds.length){toast('Selecione ao menos um produto para compor o combo.');setProductModalTab('combo');return;}
+    const sz = readProductSizesDraft();
+    if(sz.error){ toast(sz.error); if(sz.sizeId) selectProductSize(sz.sizeId); setProductModalTab(sz.tab||'principal'); return; }
+    if(sz.gradeId && data.kind==='combo'){ toast('Combo não pode ter grade de tamanhos.'); setProductModalTab('principal'); return; }
+    data.gradeId = sz.gradeId; data.sizes = sz.sizes; data.groups = sz.groups;
+    if(sz.gradeId){
+      data.kind = 'tamanho';
+      data.price = Math.min(...Object.values(sz.sizes).filter(x=>x.active).map(x=>x.price)); // preço "a partir de" nas listas
+    }
     const fiscalRead = readProductFiscal(p&&p.fiscal);
     if(fiscalRead.error){ toast(fiscalRead.error); setProductModalTab('fiscal'); return; }
     data.fiscal = fiscalRead.fiscal;
     if(p){ Object.assign(p,data); } else { state.products.push({id:uid(), ...data}); }
+    applyPendingSizeCopies(); // regras copiadas para outros produtos: um único save('products')
     save('products'); closeModal(); renderAll(); toast('Produto salvo.');
   };
 }
