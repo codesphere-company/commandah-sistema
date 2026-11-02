@@ -274,7 +274,8 @@ function runCopyGroupRules(){
   const sizes = [...document.querySelectorAll('.pCopySize:checked')].map(x=>x.value);
   const prods = [...document.querySelectorAll('.pCopyProd:checked')].map(x=>x.value);
   if(!sizes.length && !prods.length){ toast('Marque para onde copiar.'); return; }
-  copyGroupRules(d.sel, sizes, prods);
+  const res = copyGroupRules(d.sel, sizes, prods);
+  if(!res || res.error) return; // erro já mostrado; painel segue aberto
   d.copyOpen = false;
   refreshProductGradeUi();
   toast('Regras copiadas'+(prods.length?'. Os outros produtos são atualizados ao salvar.':'.'));
@@ -283,12 +284,15 @@ function runCopyGroupRules(){
 // rascunho) e para o mesmo tamanho de outros produtos (guardado; grava no Salvar).
 function copyGroupRules(fromSizeId, toSizeIds, toProductIds){
   const d = productSizesDraft, from = d&&d.sizes[fromSizeId]; if(!from) return;
-  (toSizeIds||[]).forEach(id=>{ if(id!==fromSizeId && d.sizes[id]) d.sizes[id].groups = psdClone(from.groups); });
+  const lido = psdReadRules(from.groups, (psdGrade()&&(psdGrade().sizes||[]).find(x=>x.id===fromSizeId)||{}).nome||'');
+  if(lido.error){ toast(lido.error); return { error:lido.error }; }
+  (toSizeIds||[]).forEach(id=>{ if(id!==fromSizeId && d.sizes[id]) d.sizes[id].groups = lido.rules.map(r=>({ groupId:r.groupId, min:String(r.min), max:String(r.max), included:String(r.included), repeat:r.repeat })); });
   (toProductIds||[]).forEach(pid=>{
     if(pid===d.productId) return;
     d.copies = d.copies.filter(c=>!(c.productId===pid && c.sizeId===fromSizeId));
-    d.copies.push({ productId:pid, sizeId:fromSizeId, rules:psdClone(from.groups) });
+    d.copies.push({ productId:pid, sizeId:fromSizeId, rules:psdClone(lido.rules) }); // números já validados
   });
+  return { ok:true };
 }
 // Chamado no Salvar do produto: grava as regras copiadas nos outros produtos (sem salvar;
 // quem chama faz um único save('products')). Devolve quantos produtos mudaram.
@@ -298,8 +302,7 @@ function applyPendingSizeCopies(){
   d.copies.forEach(c=>{
     const prod = state.products.find(x=>x.id===c.productId);
     if(!prod || prod.gradeId!==d.gradeId || !prod.sizes || !prod.sizes[c.sizeId]) return;
-    prod.sizes[c.sizeId].groups = c.rules.map(r=>({
-      groupId:r.groupId, min:parseInt(r.min,10)||0, max:parseInt(r.max,10)||0, included:parseInt(r.included,10)||0, repeat:!!r.repeat }));
+    prod.sizes[c.sizeId].groups = psdClone(c.rules);
     tocados.add(prod.id);
   });
   d.copies = [];
@@ -338,12 +341,18 @@ function readProductSizesDraft(){
   const grade = psdGrade();
   if(!grade){ // grade apagada: não dá para conferir os tamanhos; mantém o que o produto já tem
     const keep = {};
+    let ativosK = 0;
     for(const id of Object.keys(d.sizes)){
       const e = d.sizes[id], r = psdReadRules(e.groups, '');
       if(r.error) return { error:r.error, tab:'tamanhos', sizeId:id };
       const pr = parseFloat(e.price);
+      if(e.active){
+        if(!Number.isFinite(pr) || pr<0) return { error:'Informe o preço do tamanho ligado.', tab:'tamanhos', sizeId:id };
+        ativosK++;
+      }
       keep[id] = psdSizeOut(e, Number.isFinite(pr)&&pr>=0?pr:0, r.rules);
     }
+    if(!ativosK) return { error:'Ligue ao menos um tamanho para vender este produto.', tab:'tamanhos' };
     return { gradeId:d.gradeId, sizes:keep, groups:[] };
   }
   const sizes = {};

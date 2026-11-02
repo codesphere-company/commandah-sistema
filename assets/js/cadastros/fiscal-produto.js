@@ -191,7 +191,8 @@ function openProductModal(id){
     data.gradeId = sz.gradeId; data.sizes = sz.sizes; data.groups = sz.groups;
     if(sz.gradeId){
       data.kind = 'tamanho';
-      data.price = Math.min(...Object.values(sz.sizes).filter(x=>x.active).map(x=>x.price)); // preço "a partir de" nas listas
+      const precos = Object.values(sz.sizes).filter(x=>x.active).map(x=>x.price).filter(Number.isFinite);
+      data.price = precos.length ? Math.min(...precos) : (p&&Number.isFinite(Number(p.price))?Number(p.price):0); // preço "a partir de" nas listas
     }
     const fiscalRead = readProductFiscal(p&&p.fiscal);
     if(fiscalRead.error){ toast(fiscalRead.error); setProductModalTab('fiscal'); return; }
