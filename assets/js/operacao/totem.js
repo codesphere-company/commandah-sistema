@@ -21,7 +21,7 @@ function renderMobileQr(){
 function renderTotem(){
   if(!cardapioDraft) cardapioDraft = { items:[], memberId:null, customerName:'' };
   const el = document.getElementById('view-totem');
-  const available=state.products.filter(p=>p.active!==false&&(!p.channels||p.channels.online!==false)).sort((a,b)=>(Number(a.sortOrder)||0)-(Number(b.sortOrder)||0)),categories=[...new Set(available.map(p=>p.category||'Sem categoria'))];
+  const available=state.products.filter(p=>p.active!==false&&!hiddenInSelfService(p,state.complementos)&&(!p.channels||p.channels.online!==false)).sort((a,b)=>(Number(a.sortOrder)||0)-(Number(b.sortOrder)||0)),categories=[...new Set(available.map(p=>p.category||'Sem categoria'))];
   const draftMember = cardapioDraft.memberId ? state.members.find(m=>m.id===cardapioDraft.memberId) : null;
   el.innerHTML = `<div class="panel" style="max-width:920px;margin:0 auto">
     <div style="display:flex;align-items:center;gap:12px"><h2 style="flex:1;text-align:center">Totem de autoatendimento</h2><button class="op-btn" onclick="toggleTotemFullscreen()">⛶ Tela cheia</button><button class="op-btn" onclick="clearSelfServiceDraft()">✕ Cancelar</button></div>

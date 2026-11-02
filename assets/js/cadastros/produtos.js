@@ -10,6 +10,17 @@ function effectiveProductRecipe(product,seen){
 }
 function productCost(p){ return effectiveProductRecipe(p).reduce((sum,r)=>{ const ins=state.insumos.find(i=>i.id===r.insumoId); return sum + (ins?ins.costPerUnit*r.qty:0); },0); }
 function productAvailable(p){
+  if(p&&p.gradeId&&p.sizes){
+    // Grade: disponível se algum tamanho ativo tem estoque (item sintético sem opções).
+    const ids=Object.keys(p.sizes).filter(id=>p.sizes[id]&&p.sizes[id].active!==false);
+    let best=0;
+    ids.forEach(id=>{
+      const r=itemRecipe(p,{customization:{v:2,sizeId:id,groups:[]}});
+      const n=r.length?Math.floor(Math.min(...r.map(x=>{ const ins=state.insumos.find(i=>i.id===x.insumoId); return ins&&Number(x.qty)>0 ? ins.stock / x.qty : (Number(x.qty)>0?0:Infinity); }))):Infinity;
+      if(n>best) best=n;
+    });
+    return ids.length?best:0;
+  }
   const recipe=effectiveProductRecipe(p);if(!recipe.length) return Infinity;
   return Math.floor(Math.min(...recipe.map(r=>{ const ins=state.insumos.find(i=>i.id===r.insumoId); return ins ? ins.stock / r.qty : 0; })));
 }

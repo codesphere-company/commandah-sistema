@@ -3,8 +3,11 @@ function requiredInsumosForItems(items){
   const required = {};
   items.forEach(it=>{
     const p=state.products.find(x=>x.id===it.productId);
-    effectiveProductRecipe(p).forEach(r=>required[r.insumoId]=(required[r.insumoId]||0)+(Number(r.qty)||0)*(Number(it.qty)||0));
-    ((it.customization&&it.customization.complementIds)||[]).forEach(id=>{
+    const v2=it.customization&&it.customization.v===2;
+    // Formato 2: com tamanho a ficha é a do tamanho; sem tamanho vale a do produto (e combo, via effectiveProductRecipe) + opções.
+    const base=(v2&&it.customization.sizeId)?[]:effectiveProductRecipe(p);
+    base.concat(v2?itemRecipe(p,it):[]).forEach(r=>required[r.insumoId]=(required[r.insumoId]||0)+(Number(r.qty)||0)*(Number(it.qty)||0));
+    if(!v2)((it.customization&&it.customization.complementIds)||[]).forEach(id=>{
       const complement=state.complementos.find(x=>x.id===id);
       (complement&&complement.recipe||[]).forEach(r=>required[r.insumoId]=(required[r.insumoId]||0)+(Number(r.qty)||0)*(Number(it.qty)||0));
     });
@@ -290,6 +293,7 @@ function applyLevarJunto(items, on){
 function itemStation(i){ const p=state.products.find(x=>x.id===i.productId); return p&&p.estacao?p.estacao:'cozinha'; }
 function kitchenItemExtras(i){
   const c=i.customization; if(!c) return [];
+  if(c.v===2) return customizationLines(i);
   const extras=[];
   if(c.size) extras.push(c.size.name);
   (c.answers||[]).forEach(a=>(a.values||[]).forEach(v=>extras.push(a.question+': '+v.text)));
@@ -297,7 +301,7 @@ function kitchenItemExtras(i){
   return extras;
 }
 // UX-07: observação livre ("sem cebola") em linha própria e destacada, não como "+ adicional".
-function kitchenItemNote(i){ return String((i.customization&&i.customization.notes)||i.notes||'').trim(); }
+function kitchenItemNote(i){ if(i.customization&&i.customization.v===2) return String(i.customization.notes||'').trim(); return String((i.customization&&i.customization.notes)||i.notes||'').trim(); }
 let kitchenStationFilter = (function(){ try{ return localStorage.getItem('cantina2:kitchenStation')||'todas'; }catch(e){ return 'todas'; } })();
 function setKitchenStationFilter(chave){
   kitchenStationFilter = chave;
