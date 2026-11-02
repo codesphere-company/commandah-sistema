@@ -54,7 +54,7 @@ function openItemChoice(productId, channel, onDone){
   const onlySize = sizes.length === 1 ? sizes[0].sizeId : null;
   // Toque rápido: nada para escolher (um tamanho só, sem grupos e sem observações rápidas) entra direto.
   if((!product.gradeId || onlySize) && !itemChoiceRules(product, onlySize).length && !observations.length){
-    const r = buildCustomization({ product, complementos, sizeId: onlySize, picks: {}, notes: '', observations: [], observationIds: [] });
+    const r = buildCustomization({ product, complementos, channel, sizeId: onlySize, picks: {}, notes: '', observations: [], observationIds: [] });
     if(r.error){ toast(r.error, 'erro'); return; }
     onDone(r);
     return;
@@ -202,7 +202,7 @@ function itemChoiceBuild(){
   const typed = notesEl ? notesEl.value.trim() : '';
   const notes = [...observations.map(o => o.text), typed].filter(Boolean).join(' · ');
   return buildCustomization({
-    product, complementos: state.complementos, sizeId: st.sizeId, picks: st.picks,
+    product, complementos: state.complementos, channel: st.channel, sizeId: st.sizeId, picks: st.picks,
     notes, observations, observationIds: observations.map(o => o.id)
   });
 }

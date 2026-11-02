@@ -204,4 +204,34 @@ t('1.13 grade pausada ou apagada não vira produto de preço único', () => {
   assert.strictEqual(productNeedsChoice({ kind: 'tamanho' }, pausada.complementos), false);
 });
 
+t('1.14 repetir: grupo pausado/apagado sem escolha não impede', () => {
+  const f = fixture();
+  const old = build(f, 's300', { gAc: { gran: 1 } }).customization;
+  old.groups.push({ groupId: 'gMolho', name: 'Molho', choices: [], charged: 0 });
+  f.complementos[2].active = false; // grupo vazio pausado
+  assert.ok(rebuildCustomization({ product: f.acai, complementos: f.complementos, oldCustomization: old }));
+  f.complementos = f.complementos.filter(c => c.id !== 'gMolho'); // apagado
+  assert.ok(rebuildCustomization({ product: f.acai, complementos: f.complementos, oldCustomization: old }));
+  // grupo apagado COM escolha continua barrando
+  const g = fixture(), old2 = build(g, 's300', { gAc: { gran: 1 } }).customization;
+  g.complementos = g.complementos.filter(c => c.id !== 'gAc');
+  assert.strictEqual(rebuildCustomization({ product: g.acai, complementos: g.complementos, oldCustomization: old2 }), null);
+});
+
+t('1.15 canal explícito recusa tamanho desligado nele', () => {
+  const f = fixture(); // s500 tem mobile:false
+  assert.ok(build(f, 's500', {}, { channel: 'pdv' }).customization);
+  assert.strictEqual(build(f, 's500', {}, { channel: 'mobile' }).error, 'Escolha o tamanho.');
+  assert.ok(build(f, 's500', {}).customization); // sem canal = qualquer
+  const old = build(f, 's500', {}).customization;
+  assert.strictEqual(rebuildCustomization({ product: f.acai, complementos: f.complementos, oldCustomization: old, channel: 'mobile' }), null);
+  assert.ok(rebuildCustomization({ product: f.acai, complementos: f.complementos, oldCustomization: old }));
+});
+
+t('1.16 combo com formato 2 imprime a linha Combo primeiro', () => {
+  const f = fixture(), c = build(f, 's300', { gAc: { gran: 1 } }).customization;
+  c.comboItems = [{ productId: 'a', name: 'X-Burger', qty: 1 }, { productId: 'b', name: 'Coca', qty: 1 }];
+  eq(customizationLines({ customization: c }), ['Combo: X-Burger, Coca', 'Acompanhamentos: 1x Granola']);
+});
+
 console.log('ok ' + n + ' testes');

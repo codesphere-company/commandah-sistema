@@ -38,7 +38,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
-### 02/11 — catálogo por tamanhos e grupos de opções (branch `tamanhos-opcoes`, sem migration)
+### 02/11 — catálogo por tamanhos e grupos de opções (branch `feat/tamanhos-e-opcoes`, sem migration)
 - **Cadastros:** entraram "Grades de tamanho" e "Grupos de opções". Saíram do menu "Tipos e Tamanhos", "Complementos" e "Perguntas". Os registros antigos continuam em `cantina2:complementos`, mas são ignorados.
 - **Produto:** ganhou grade de tamanhos, com preço, canais e receita por tamanho, e regras de opções (abas Tamanhos e Opções).
 - **Venda:** a janela de escolha (`assets/js/vendas/escolha-item.js`) vale no PDV, delivery, comandas e app do garçom. A escolha vai para a ficha e o KDS, baixa estoque pela receita do tamanho/opção e aparece nos relatórios por tamanho.

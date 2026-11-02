@@ -291,7 +291,7 @@ function cartAddLine(cart, product, choice, qty, copos){
   const existing = cart.find(i=>i.productId===product.id && cartLineSignature(i)===sig);
   if(existing){ existing.qty += n; return existing; }
   const line = choice
-    ? {productId:product.id, name:choice.name, price:Number(choice.price)||0, basePrice:Number(choice.basePrice)||0, customization:choice.customization, customizationSignature:sig, qty:n, estacao:product.estacao||'cozinha', copos:productAsksCopos(product)?(copos||0):undefined}
+    ? {productId:product.id, name:choice.name, price:Number(choice.price)||0, basePrice:Number(choice.basePrice)||0, customization:choice.customization, customizationSignature:sig, notes:choice.customization.summary||'', qty:n, estacao:product.estacao||'cozinha', copos:productAsksCopos(product)?(copos||0):undefined}
     : {productId:product.id, name:product.name, price:product.price, qty:n, estacao:product.estacao||'cozinha', copos:productAsksCopos(product)?(copos||0):undefined};
   cart.push(line);
   return line;
@@ -315,7 +315,7 @@ function cartAddProduct(cart, productId, afterAdd){
 function rebuildRepeatChoice(item, product){
   const c = item && item.customization;
   if(c && c.v===2){
-    const r = rebuildCustomization({product, complementos:state.complementos, oldCustomization:c});
+    const r = rebuildCustomization({product, complementos:state.complementos, oldCustomization:c, channel:'mobile'});
     return r ? {choice:r} : null;
   }
   // Produto de grade nunca cai no product.price (menor tamanho).
@@ -626,7 +626,7 @@ function openReorderComandaItem(idx){
   const product = state.products.find(p=>p.id===item.productId);
   if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
   const rb = rebuildRepeatChoice(item, product);
-  if(!rb){ toast('1 item(ns) mudaram no cadastro e foram ignorados.'); return; }
+  if(!rb){ toast('Este item mudou no cadastro (tamanho ou opção) e não pode ser repetido.'); return; }
   reorderQty = 1; reorderItemIdx = idx; reorderCopos = productAsksCopos(product) ? (item.copos!=null?item.copos:0) : 0;
   const reorderName = rb.choice ? rb.choice.name : product.name, reorderPrice = rb.choice ? rb.choice.price : product.price;
   openModal('Pedir novamente', `
@@ -670,7 +670,7 @@ async function confirmReorderComandaItem(){
   const product = state.products.find(p=>p.id===item.productId);
   if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
   const rb = rebuildRepeatChoice(item, product);
-  if(!rb){ toast('1 item(ns) mudaram no cadastro e foram ignorados.'); return; }
+  if(!rb){ toast('Este item mudou no cadastro (tamanho ou opção) e não pode ser repetido.'); return; }
   const who = item.requesterName || s.customerName || 'Cliente';
   const base = cartAddLine([], product, rb.choice, reorderQty, reorderCopos);
   const newItem = {lineId:uid(), ...base, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};

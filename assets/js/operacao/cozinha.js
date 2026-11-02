@@ -1,16 +1,22 @@
 /* ============ COZINHA (KDS) ============ */
+// Ficha por 1 unidade do item: formato 2 = ficha do tamanho (ou do produto/combo sem tamanho) + opções;
+// formato antigo = ficha do produto + complementos. Fonte única de estoque, custo e relatório de insumos.
+function itemUnitRecipe(p,it){
+  const v2=it&&it.customization&&it.customization.v===2;
+  const base=(v2&&it.customization.sizeId)?[]:effectiveProductRecipe(p);
+  if(v2) return base.concat(itemRecipe(p,it));
+  let out=base.slice();
+  ((it&&it.customization&&it.customization.complementIds)||[]).forEach(id=>{
+    const complement=state.complementos.find(x=>x.id===id);
+    out=out.concat((complement&&complement.recipe)||[]);
+  });
+  return out;
+}
 function requiredInsumosForItems(items){
   const required = {};
   items.forEach(it=>{
     const p=state.products.find(x=>x.id===it.productId);
-    const v2=it.customization&&it.customization.v===2;
-    // Formato 2: com tamanho a ficha é a do tamanho; sem tamanho vale a do produto (e combo, via effectiveProductRecipe) + opções.
-    const base=(v2&&it.customization.sizeId)?[]:effectiveProductRecipe(p);
-    base.concat(v2?itemRecipe(p,it):[]).forEach(r=>required[r.insumoId]=(required[r.insumoId]||0)+(Number(r.qty)||0)*(Number(it.qty)||0));
-    if(!v2)((it.customization&&it.customization.complementIds)||[]).forEach(id=>{
-      const complement=state.complementos.find(x=>x.id===id);
-      (complement&&complement.recipe||[]).forEach(r=>required[r.insumoId]=(required[r.insumoId]||0)+(Number(r.qty)||0)*(Number(it.qty)||0));
-    });
+    itemUnitRecipe(p,it).forEach(r=>required[r.insumoId]=(required[r.insumoId]||0)+(Number(r.qty)||0)*(Number(it.qty)||0));
   });
   return required;
 }
@@ -38,19 +44,9 @@ async function consumeInsumosForItems(items){
     return true;
   }
   if(!canFulfillItems(items)) return false;
-  items.forEach(it=>{
-    const p = state.products.find(x=>x.id===it.productId);
-    effectiveProductRecipe(p).forEach(r=>{
-      const ins = state.insumos.find(x=>x.id===r.insumoId);
-      if(ins){const qty=r.qty*it.qty;const before=Number(ins.stock)||0;ins.stock-=qty;state.stockMovements.unshift({id:uid(),insumoId:ins.id,name:ins.name,unit:ins.unit,type:'saida',operation:productKind(p)==='combo'?'Baixa por ficha do combo: '+p.name:'Baixa por ficha técnica',before,qty,after:ins.stock,user:currentUser?currentUser.name:'—',at:new Date().toISOString()});}
-    });
-    ((it.customization&&it.customization.complementIds)||[]).forEach(id=>{
-      const complement=state.complementos.find(x=>x.id===id);
-      (complement&&complement.recipe||[]).forEach(r=>{
-        const ins=state.insumos.find(x=>x.id===r.insumoId);
-        if(ins){const qty=(Number(r.qty)||0)*(Number(it.qty)||0),before=Number(ins.stock)||0;ins.stock-=qty;state.stockMovements.unshift({id:uid(),insumoId:ins.id,name:ins.name,unit:ins.unit,type:'saida',operation:'Baixa por complemento: '+complement.nome,before,qty,after:ins.stock,user:currentUser?currentUser.name:'—',at:new Date().toISOString()});}
-      });
-    });
+  Object.entries(required).forEach(([id,qty])=>{
+    const ins = state.insumos.find(x=>x.id===id);
+    if(ins){const before=Number(ins.stock)||0;ins.stock=before-qty;state.stockMovements.unshift({id:uid(),insumoId:ins.id,name:ins.name,unit:ins.unit,type:'saida',operation:'Baixa por venda',before,qty,after:ins.stock,user:currentUser?currentUser.name:'—',at:new Date().toISOString()});}
   });
   save('insumos');save('stockMovements');
   return true;

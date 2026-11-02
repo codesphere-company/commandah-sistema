@@ -69,7 +69,7 @@ function sizesForChannel(product, grade, channel){
   (grade.sizes || []).forEach(s => {
     const ps = product.sizes && product.sizes[s.id];
     if(!ps || ps.active === false) return;
-    if((ps.channels || {})[channel] === false) return;
+    if(channel && (ps.channels || {})[channel] === false) return; // sem canal = qualquer canal
     if(typeof ps.price !== 'number' || !isFinite(ps.price)) return;
     out.push({ sizeId: s.id, name: s.nome, sigla: s.sigla, price: ps.price });
   });
@@ -104,7 +104,12 @@ function opcoesGroupLine(g){
 function customizationLines(item){
   const c = item && item.customization;
   if(!c) return [];
-  if(c.v === 2) return (c.groups || []).map(opcoesGroupLine).filter(Boolean);
+  if(c.v === 2){
+    const lines = (c.groups || []).map(opcoesGroupLine).filter(Boolean);
+    // combo com grupos/observações: o texto 'Combo: X, Y' vai primeiro (ficha, KDS, cupom)
+    if(c.comboItems && c.comboItems.length) lines.unshift('Combo: ' + c.comboItems.map(x => x.name).join(', '));
+    return lines;
+  }
   // formato antigo (size/answers/complements): mesmo resultado do kitchenItemExtras
   const lines = [];
   if(c.size) lines.push(c.size.name);
@@ -113,6 +118,7 @@ function customizationLines(item){
   return lines;
 }
 
+// p.channel (opcional): 'pdv' | 'mobile' | 'qr' | 'online'; sem canal vale qualquer tamanho ativo.
 function buildCustomization(p){
   const product = p.product, complementos = p.complementos, picks = p.picks || {};
   if(!product) return { error: 'Produto indisponível.' };
@@ -120,7 +126,7 @@ function buildCustomization(p){
   if(product.gradeId && !grade) return { error: 'Tamanhos indisponíveis para este produto.' };
   let size = null, sizeId = null, basePrice = Number(product.price) || 0;
   if(grade){
-    const found = sizesForChannel(product, grade, '__qualquer__').find(s => s.sizeId === p.sizeId);
+    const found = sizesForChannel(product, grade, p.channel).find(s => s.sizeId === p.sizeId);
     if(!p.sizeId || !found) return { error: 'Escolha o tamanho.' };
     sizeId = found.sizeId;
     size = { id: found.sizeId, name: found.name, sigla: found.sigla, price: found.price };
@@ -203,13 +209,15 @@ function itemRecipe(product, item){
   return ordem.map(id => ({ insumoId: id, qty: Math.round(soma[id] * 1e6) / 1e6 }));
 }
 
-// Repetir pedido: refaz as escolhas antigas com o preço atual; null se algo sumiu ou ficou pausado.
+// Repetir pedido (p.channel opcional, como no buildCustomization): refaz as escolhas antigas com o preço atual; null se algo sumiu ou ficou pausado.
 function rebuildCustomization(p){
   const old = p.oldCustomization;
   if(!old || old.v !== 2) return null;
   const picks = {};
   for(let i = 0; i < (old.groups || []).length; i++){
-    const g = old.groups[i], grupo = opcoesGroupOf(p.complementos, g.groupId);
+    const g = old.groups[i];
+    if(!(g.choices || []).length) continue; // grupo sem escolha não impede repetir, mesmo pausado/apagado
+    const grupo = opcoesGroupOf(p.complementos, g.groupId);
     if(!grupo) return null;
     picks[g.groupId] = {};
     for(let j = 0; j < (g.choices || []).length; j++){
@@ -220,7 +228,7 @@ function rebuildCustomization(p){
     }
   }
   const r = buildCustomization({
-    product: p.product, complementos: p.complementos, sizeId: old.sizeId, picks: picks,
+    product: p.product, complementos: p.complementos, sizeId: old.sizeId, picks: picks, channel: p.channel,
     notes: old.notes, observations: old.observations, observationIds: old.observationIds
   });
   return r.error ? null : r;
