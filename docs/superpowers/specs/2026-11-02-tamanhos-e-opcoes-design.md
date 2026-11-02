@@ -112,7 +112,7 @@ Toque rápido: produto com grade de um tamanho só e sem grupos entra direto, se
 
 ## Decisões tomadas pelo Claude (o dono pode trocar)
 
-1. **Substituir** as telas Tipos e Tamanhos, Complementos e Perguntas por Grades de tamanho e Grupos de opções. Observações rápidas ficam como estão. Os 2 "tipos" vazios do Clube são apagados na migração.
+1. **Substituir** as telas Tipos e Tamanhos, Complementos e Perguntas por Grades de tamanho e Grupos de opções. Observações rápidas ficam como estão. Os 2 "tipos" vazios do Clube ficam no banco, ignorados pelas telas novas (apagar exigiria escrita em produção).
 2. Quando há opções de preços diferentes e inclusos < escolhidos, os **inclusos cobrem as opções mais caras** (cobra-se as mais baratas). É o mais favorável ao cliente e não depende da ordem dos toques.
 3. Estrutura dos dados fica em `app_data` como o resto do catálogo, **sem migration nova** se possível: grades e grupos dentro da chave `cantina2:complementos` (que já está na permissão "catálogo" do RLS), com `recordKind` novos (`grade`, `optionGroup`). Se o builder achar que uma chave nova é mais limpa, pode criar, mas aí entra migration (RLS por papel) e precisa do "sim" do dono para aplicar.
 4. No produto: `gradeId`, e por tamanho `{ price, cost, active, channels, recipe, groups:[{ groupId, min, max, included, repeat }] }`; produto sem grade guarda `groups` no próprio produto. `kind: 'tamanho'` passa a significar "tem grade".
