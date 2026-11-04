@@ -31,6 +31,12 @@ function askConfirm(opts){
     root.querySelector('[data-a="no"]').focus();
   });
 }
+// Auditoria 03/11 (B6): o confirm() do navegador saiu do sistema; tudo usa a confirmação própria (UX-04),
+// em que Enter e Esc nunca confirmam por engano. O texto vira o título; o botão leva o verbo da ação.
+function confirmarAcao(texto, opcoes){
+  const t = String(texto||''), verbo = (t.match(/^(Excluir|Apagar|Remover|Reiniciar|Gerar|Migrar|Transferir|Retornar|Cancelar|Enviar)/)||[])[1];
+  return askConfirm(Object.assign({ title:t, confirmLabel:verbo||'Confirmar', cancelLabel:'Voltar', danger:/^(Excluir|Apagar|Remover|Reiniciar|Cancelar|Isso vai substituir)/.test(t) }, opcoes||{}));
+}
 function closeModal(){
   const root=document.getElementById('modalRoot');
   if(root.dataset.locked==='true') return;

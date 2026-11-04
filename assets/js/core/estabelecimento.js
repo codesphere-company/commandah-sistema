@@ -54,7 +54,7 @@ function copyTenantCode(){
   navigator.clipboard?.writeText(code).then(()=>toast('Código copiado.')).catch(()=>toast('Não foi possível copiar automaticamente — selecione o texto e copie manualmente.'));
 }
 async function changeTenantSetup(){
-  if(!confirm('Isso vai desconectar este aparelho e pedir login de novo. Os dados continuam salvos no Supabase, só esse aparelho vai precisar entrar de novo. Continuar?')) return;
+  if(!await confirmarAcao('Isso vai desconectar este aparelho e pedir login de novo. Os dados continuam salvos no Supabase, só esse aparelho vai precisar entrar de novo. Continuar?')) return;
   try{ if(supabaseClient) await supabaseClient.auth.signOut(); }catch(e){}
   try{ localStorage.removeItem(TENANT_KEY); }catch(e){}
   location.reload();

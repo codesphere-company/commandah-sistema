@@ -115,7 +115,7 @@ function renderCardapioItems(){
     </div>`).join('') : `<p class="empty">Nenhum item selecionado ainda.</p>`;
   const t = document.getElementById('cdTotal'); if(t) t.textContent = fmt(cardapioDraft.items.reduce((a,i)=>a+i.price*i.qty,0));
 }
-function clearSelfServiceDraft(){if(cardapioDraft&&cardapioDraft.items.length&&!confirm('Cancelar e remover todos os itens selecionados?'))return;cardapioDraft={items:[],memberId:null,customerName:'',notes:''};renderAll();toast('Pedido cancelado.');}
+async function clearSelfServiceDraft(){if(cardapioDraft&&cardapioDraft.items.length&&!await confirmarAcao('Cancelar e remover todos os itens selecionados?'))return;cardapioDraft={items:[],memberId:null,customerName:'',notes:''};renderAll();toast('Pedido cancelado.');}
 function filterTotemProducts(){const q=(document.getElementById('totemSearch')?.value||'').trim().toLowerCase(),category=document.getElementById('totemCategory')?.value||'';document.querySelectorAll('#totemProducts [data-product]').forEach(row=>{row.style.display=(!q||row.textContent.toLowerCase().includes(q))&&(!category||row.dataset.category===category)?'':'none';});}
 function toggleTotemFullscreen(){const el=document.getElementById('view-totem');if(!document.fullscreenElement)el.requestFullscreen?.();else document.exitFullscreen?.();}
 function submitCardapioRequest(){

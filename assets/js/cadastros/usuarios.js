@@ -121,7 +121,7 @@ async function migrateAllStaffAuth(){
   if(!supabaseClient){ toast('Disponível só no modo nuvem (Supabase).'); return; }
   const pending = state.users.filter(u=>!u.migratedAuth);
   if(!pending.length){ toast('Todos os colaboradores já estão com acesso seguro.'); renderUsuarios(); return; }
-  if(!confirm(`Migrar ${pending.length} colaborador(es) pro acesso seguro agora? Não muda os PINs — só passa a validá-los pelo servidor.`)) return;
+  if(!await confirmarAcao(`Migrar ${pending.length} colaborador(es) pro acesso seguro agora? Não muda os PINs — só passa a validá-los pelo servidor.`)) return;
   let ok=0, fail=0;
   for(const u of pending){
     try{
@@ -138,7 +138,7 @@ function editUser(id){ openUserModal(id); }
 async function deleteUser(id){
   if(state.users.length<=1){ toast('É preciso manter ao menos um usuário.'); return; }
   if(id===currentUser.id){ toast('Você não pode excluir o usuário com que está logado.'); return; }
-  if(!confirm('Excluir este usuário?')) return;
+  if(!await confirmarAcao('Excluir este usuário?')) return;
   // Auditoria 03/11 (A3): excluir só tirava da lista; a conta no servidor seguia ativa e o PIN ainda
   // abria sessão pela API. Agora desliga a conta antes; se o servidor não confirmar, não exclui.
   const u = state.users.find(x=>x.id===id);

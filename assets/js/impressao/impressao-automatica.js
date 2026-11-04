@@ -422,7 +422,7 @@ async function checkPrintTokenStatus(){
 }
 async function regeneratePrintAgentToken(){
   if(!supabaseClient){ toast('Disponível só no modo nuvem (Supabase).'); return; }
-  if(!confirm('Gerar um novo token vai invalidar o token anterior — qualquer agente de impressão já configurado vai parar de funcionar até você colar o novo token nele. Continuar?')) return;
+  if(!await confirmarAcao('Gerar um novo token vai invalidar o token anterior — qualquer agente de impressão já configurado vai parar de funcionar até você colar o novo token nele. Continuar?')) return;
   try{
     // Dono ou administrador (migration 20261011060000); o nome vai para o audit_log.
     const { data, error } = await supabaseClient.rpc('regenerate_print_agent_token', { p_by: currentUser ? currentUser.name : null });

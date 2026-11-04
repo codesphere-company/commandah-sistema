@@ -104,7 +104,7 @@ function openFiadoEntry(type){if(type==='debt'?!hasPerm('contas'):!(hasPerm('con
   }catch(e){console.error('Falha ao gravar lançamento de fiado',e);toast('Não foi possível gravar agora. Confira a internet e tente de novo.');return;}
   finally{saveBtn.disabled=false;}
   logAction(`${type==='debt'?'Dívida':'Pagamento de fiado'}: ${m.name} — ${fmt(value)}`);closeModal();renderAll();toast('Conta corrente atualizada.');runAfterFiadoPaid(m,type);};}
-async function reverseFiadoEntry(memberId,entryId){if(!hasPerm('contas')){toast('Só o administrador estorna lançamento de fiado.');return;}const m=state.members.find(x=>x.id===memberId),entry=m&&Array.isArray(m.debtHistory)?m.debtHistory.find(x=>x.id===entryId):null;if(!entry||entry.reversed)return;if(!confirm('Estornar este lançamento?'))return;
+async function reverseFiadoEntry(memberId,entryId){if(!hasPerm('contas')){toast('Só o administrador estorna lançamento de fiado.');return;}const m=state.members.find(x=>x.id===memberId),entry=m&&Array.isArray(m.debtHistory)?m.debtHistory.find(x=>x.id===entryId):null;if(!entry||entry.reversed)return;if(!await confirmarAcao('Estornar este lançamento?'))return;
   try{await MembersStore.reverseDebtEntry(memberId,entryId,currentUser.name);}
   catch(e){console.error('Falha ao estornar fiado',e);toast('Não foi possível estornar agora. Confira a internet e tente de novo.');return;}
   if(entry.type==='payment')reverseFiadoPaymentInCash(m,entry);

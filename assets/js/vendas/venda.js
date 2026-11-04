@@ -143,32 +143,6 @@ function renderBalcao(){
   if(activeView!=='balcao'){ el.innerHTML=''; return; }
   renderBalcaoPdv(el);
   return;
-  /* A grade histórica permanece implementada para futura consulta dedicada. */
-  const list = state.sales.filter(s=>s.type==='balcao' && (pdvShowClosed || s.status!=='closed')).slice().sort((a,b)=>new Date(b.openedAt)-new Date(a.openedAt));
-  const rows = list.map(s=>{
-    const member=s.memberId?state.members.find(m=>m.id===s.memberId):null;
-    const who=member?member.name:(s.customerName||'Cliente avulso');
-    const status=s.status==='closed'?'Finalizado':'Em atendimento';
-    const statusAt=s.closedAt||s.openedAt;
-    const duration=Math.max(0,Math.floor((new Date(statusAt)-new Date(s.openedAt))/60000));
-    return `<tr data-search="${h((who+' '+(s.orderNumber||'')).toLowerCase())}" class="${selectedPdvSaleId===s.id?'selected':''}" onclick="selectPdvSale(${jsArg(s.id)})" ondblclick="editSelectedPdvSale()">
-      <td class="mono">#${s.orderNumber||'—'}</td><td>${dataHoraBR(s.openedAt)}</td><td>${duration} min</td>
-      <td>${h(who)}</td><td>${s.status==='closed'?'<span class="tag tag-green">Finalizado</span>':'<span class="tag tag-amber">Em atendimento</span>'}</td>
-      <td>${dataHoraBR(statusAt)}</td><td>Balcão</td><td>${h(s.operatorName||'—')}</td><td class="mono">${fmt(s.total)}</td></tr>`;
-  }).join('');
-  el.innerHTML = `<div class="pdv-shell">
-    <div class="pdv-actions">
-      <div class="pdv-search"><input id="pdvSearch" placeholder="Pesquisar cliente ou pedido..."></div><div class="spacer"></div>
-      <div class="pdv-menu-wrap"><button class="pdv-action ${pdvOptionsOpen?'active':''}" onclick="togglePdvOptions()">••• &nbsp; Opções ▾</button>
-        ${pdvOptionsOpen?`<div class="pdv-menu"><button onclick="toast('As principais colunas já estão visíveis.')">☰ &nbsp; Exibir colunas</button><button onclick="finalizeSelectedPdvSale()">☷ &nbsp; Finalizar selecionado</button><button onclick="focusPdvAdvancedSearch()">⌕ &nbsp; Busca avançada</button></div>`:''}</div>
-      <button class="pdv-action" onclick="editSelectedPdvSale()">✎ &nbsp; Editar</button>
-      <button class="pdv-action" onclick="openNewPdvSale()">＋ &nbsp; Novo</button>
-    </div>
-    <div class="pdv-table-wrap"><table class="pdv-table"><thead><tr><th>Pedido</th><th>Data abertura</th><th>Duração</th><th>Cliente</th><th>Status</th><th>Data do status</th><th>Atendimento</th><th>Operador</th><th>Total pedido</th></tr></thead>
-      <tbody id="pdvRows">${rows||'<tr><td colspan="9" class="pdv-empty">Nenhum pedido encontrado</td></tr>'}</tbody></table></div>
-    <div class="pdv-footer"><b class="mono">${list.length}</b><label>Mostrar pedidos finalizados: <select onchange="pdvShowClosed=this.value==='sim';selectedPdvSaleId=null;renderBalcao()"><option value="nao" ${!pdvShowClosed?'selected':''}>Não mostrar</option><option value="sim" ${pdvShowClosed?'selected':''}>Mostrar</option></select></label></div>
-  </div>`;
-  document.getElementById('pdvSearch').oninput=e=>{ const q=e.target.value.toLowerCase(); document.querySelectorAll('#pdvRows tr[data-search]').forEach(r=>r.style.display=r.dataset.search.includes(q)?'':'none'); };
 }
 function togglePdvOptions(){ pdvOptionsOpen=!pdvOptionsOpen; renderBalcao(); }
 /* Visual A, etapa 3 (22/10): o balcão vende direto na tela, sem popup: produtos por categoria à

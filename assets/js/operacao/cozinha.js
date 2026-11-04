@@ -229,7 +229,7 @@ async function sendItemsToKitchen(saleId, items, who, source, local){
   if(monitorItems.length && !cozinhaAberta()){
     const prox=proximaAberturaCozinha();
     if(source==='cardapio'||source==='totem'){ toast('A cozinha está fechada'+(prox?' (abre '+prox+')':'')+'. Os itens da cozinha não estão disponíveis agora.'); return false; }
-    if(!confirm('A cozinha está fechada'+(prox?' (abre '+prox+')':'')+'.\n\nEnviar o pedido para a cozinha mesmo assim?')) return false;
+    if(!await askConfirm({ title:'A cozinha está fechada', message:(prox?'Abre '+prox+'. ':'')+'Enviar o pedido para a cozinha mesmo assim?', confirmLabel:'Enviar mesmo assim', cancelLabel:'Voltar', danger:false })) return false;
   } else if(monitorItems.length){
     // Últimos 15 min do horário (pedido do dono, 31/10): aviso a quem lança, sem travar o pedido.
     const resta=minutosAteFecharCozinha();
@@ -456,5 +456,5 @@ function aplicarModoTv(){
 }
 function openKitchenOrder(id){const o=state.orders.find(x=>x.id===id);if(!o)return;const flow={pendente:['preparo','Iniciar preparo'],preparo:['pronto','Marcar pronto'],pronto:['entregue','Marcar entregue'],entregue:[null,'Entregue']}[o.status]||[null,'Concluído'];openModal('Pedido na Cozinha',`<div class="consumer-form-frame"><div class="app-status"><b>${h(o.who)}</b><span class="tag tag-blue">${h(o.status)}</span></div><p>${reportDateTime(o.createdAt)} · ${h(typeLabel(o.source))}</p><div class="finance-grid" style="height:260px"><table><thead><tr><th>Qtd.</th><th>Item</th><th>Observação</th></tr></thead><tbody>${(o.items||[]).map(i=>`<tr><td>${Number(i.qty)||0}</td><td>${h(i.name)}</td><td>${h(i.notes||'—')}</td></tr>`).join('')}</tbody></table></div><div class="field"><label>Observação da cozinha</label><textarea id="kitchenNote">${h(o.kitchenNote||'')}</textarea></div></div><div class="consumer-modal-actions"><button onclick="closeModal()">Voltar</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button><button class="op-btn" onclick="returnKitchenOrder(${jsArg(id)})" ${o.status==='pendente'?'disabled':''}>↶ Retornar etapa</button><button class="consumer-save" onclick="saveKitchenOrder(${jsArg(id)},${jsArg(flow[0]||'')})" ${flow[0]?'':'disabled'}>✓ ${flow[1]}</button></div>`,true);document.querySelector('#modalRoot .modal').classList.add('app-config-modal');}
 async function saveKitchenOrder(id,next){const o=state.orders.find(x=>x.id===id);if(!o)return;await OrdersStore.saveNote(id,document.getElementById('kitchenNote').value.trim());closeModal();if(next)await advanceOrder(id,next);}
-async function returnKitchenOrder(id){const o=state.orders.find(x=>x.id===id);if(!o)return;if(!confirm('Retornar o pedido para a etapa anterior?'))return;await OrdersStore.returnStep(id);closeModal();renderAll();}
+async function returnKitchenOrder(id){const o=state.orders.find(x=>x.id===id);if(!o)return;if(!await confirmarAcao('Retornar o pedido para a etapa anterior?'))return;await OrdersStore.returnStep(id);closeModal();renderAll();}
 

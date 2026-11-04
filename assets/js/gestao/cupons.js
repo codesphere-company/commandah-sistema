@@ -54,5 +54,5 @@ function openCouponModal(id){
   };
 }
 function toggleCoupon(id){ const c=state.coupons.find(x=>x.id===id); if(!c) return; c.active=!c.active; save('coupons'); renderAll(); }
-function deleteCoupon(id){ if(!confirm('Excluir este cupom?')) return; state.coupons = state.coupons.filter(x=>x.id!==id); save('coupons'); renderAll(); }
+async function deleteCoupon(id){ if(!await confirmarAcao('Excluir este cupom?')) return; state.coupons = state.coupons.filter(x=>x.id!==id); save('coupons'); renderAll(); }
 

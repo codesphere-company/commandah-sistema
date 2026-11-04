@@ -19,5 +19,5 @@ function renderFilaAtendimento(){
   el.querySelectorAll('[data-queue-pane]').forEach(button=>button.addEventListener('click',()=>setServiceQueuePane(button.dataset.queuePane)));
 }
 function saveServiceQueueSettings(){if(!requirePerm('config-sistema'))return;state.settings={...state.settings,queueAutoStart:document.getElementById('queueStart').checked,queueMute:document.getElementById('queueMute').checked};save('settings');toast('Configurações da fila salvas.');}
-function clearServiceQueue(){if(!confirm('Remover da visualização os pedidos já aceitos, recusados ou cancelados? Pedidos pendentes serão preservados.'))return;state.requests=state.requests.filter(r=>r.status==='pendente');state.scheduled=state.scheduled.filter(s=>!['cancelado','entregue'].includes(s.status));save('requests');save('scheduled');renderAll();toast('Histórico encerrado da fila foi limpo.');}
+async function clearServiceQueue(){if(!await confirmarAcao('Remover da visualização os pedidos já aceitos, recusados ou cancelados? Pedidos pendentes serão preservados.'))return;state.requests=state.requests.filter(r=>r.status==='pendente');state.scheduled=state.scheduled.filter(s=>!['cancelado','entregue'].includes(s.status));save('requests');save('scheduled');renderAll();toast('Histórico encerrado da fila foi limpo.');}
 
