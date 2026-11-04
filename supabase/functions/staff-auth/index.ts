@@ -1,5 +1,5 @@
 // Edge Function: staff-auth
-// Login por operador (PIN) mediado no servidor + gestão de colaboradores (criar/resetar PIN/ativar-desativar).
+// Login por operador (PIN) mediado no servidor + gestão de colaboradores (criar/resetar PIN/trocar perfil/ativar-desativar).
 // Guarda a chave de admin (service_role) só aqui, nunca no navegador. Ver plano em
 // .claude/ (Fase 2 — login por operador de verdade).
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -22,9 +22,21 @@ const ADMIN_PIN_MIN_LEN = 6;
 // staff_id vem do uid() do frontend (base36) e entra no e-mail sintético da conta;
 // PIN tem teto porque o bcrypt ignora o que passa de 72 bytes.
 const STAFF_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const ROLES = ["admin", "caixa", "cozinha"];
 const PIN_MAX_LEN = 64;
 function validStaffId(v: string) { return STAFF_ID_RE.test(v); }
 function validPin(v: string) { return v.length >= 1 && v.length <= PIN_MAX_LEN; }
+
+// Auditoria 03/11 (A2): troca de perfil vai para o audit_log (aparece em Logs para o dono).
+async function logRoleChange(tenantId: string, staffId: string, from: string, to: string, by: unknown) {
+  const label = (r: string) => r === "admin" ? "Administrador" : r === "caixa" ? "Operador de caixa" : "Cozinha";
+  const { error } = await admin.from("audit_log").insert({
+    tenant_id: tenantId, actor_name: String(by || "").slice(0, 120) || "Administrador", entity: "staff", entity_id: staffId,
+    action: `Perfil do colaborador ${staffId} alterado: ${label(from)} → ${label(to)}`,
+    meta: { from, to },
+  });
+  if (error) console.error("[staff-auth] falha ao registrar troca de perfil:", error);
+}
 
 function lockLabel(min: number) { return min >= 1440 ? "24 h" : min >= 60 ? `${min / 60} h` : `${min} min`; }
 
@@ -244,7 +256,7 @@ Deno.serve(async (req) => {
       const role = String(body.role || "");
       const pin = String(body.pin || "");
       if (!staffId || !role || !pin) return json({ error: "Campos obrigatórios faltando" }, 400);
-      if (!["admin", "caixa", "cozinha"].includes(role)) return json({ error: "Perfil inválido" }, 400);
+      if (!ROLES.includes(role)) return json({ error: "Perfil inválido" }, 400);
       if (!validStaffId(staffId)) return json({ error: "Identificador de colaborador inválido" }, 400);
       if (!validPin(pin)) return json({ error: "PIN inválido" }, 400);
       // legacy_migration: "Migrar acesso seguro" leva os PINs que já existiam (de 4 dígitos).
@@ -285,12 +297,33 @@ Deno.serve(async (req) => {
       if (role === "admin" && pin.length < ADMIN_PIN_MIN_LEN) {
         return json({ error: `PIN de administrador precisa ter ${ADMIN_PIN_MIN_LEN} dígitos` }, 400);
       }
+      if (!ROLES.includes(role)) return json({ error: "Perfil inválido" }, 400);
       const pinHash = bcrypt.hashSync(pin, 10);
+      // Auditoria 03/11 (A2): o perfil do formulário passa a valer no servidor junto com o PIN novo.
+      // Antes só validava o tamanho do PIN e o papel ficava o antigo (a RLS usa tenant_staff.role).
       const { error: updErr } = await admin.from("tenant_staff").update({
-        pin_hash: pinHash, failed_attempts: 0, lock_count: 0, locked_until: null, updated_at: new Date().toISOString(),
+        pin_hash: pinHash, role, failed_attempts: 0, lock_count: 0, locked_until: null, updated_at: new Date().toISOString(),
       }).eq("id", staffId);
       if (updErr) return internalError("Falha ao redefinir PIN", updErr);
+      if (role !== staff.role) await logRoleChange(tenantId, staffId, String(staff.role), role, body.by);
       return json({ ok: true });
+    }
+
+    // Auditoria 03/11 (A2): troca de perfil sem trocar o PIN (ex.: rebaixar administrador a caixa).
+    if (action === "set_role") {
+      const staffId = String(body.staff_id || "");
+      const role = String(body.role || "");
+      if (!staffId || !validStaffId(staffId)) return json({ error: "Dados inválidos" }, 400);
+      if (!ROLES.includes(role)) return json({ error: "Perfil inválido" }, 400);
+      const { data: staff, error: selErr } = await admin.from("tenant_staff").select("tenant_id, role").eq("id", staffId).maybeSingle();
+      if (selErr) return internalError("Falha ao consultar colaborador", selErr);
+      if (!staff || staff.tenant_id !== tenantId) return json({ error: "Colaborador não encontrado" }, 404);
+      if (staff.role !== role) {
+        const { error: updErr } = await admin.from("tenant_staff").update({ role, updated_at: new Date().toISOString() }).eq("id", staffId);
+        if (updErr) return internalError("Falha ao alterar o perfil", updErr);
+        await logRoleChange(tenantId, staffId, String(staff.role), role, body.by);
+      }
+      return json({ ok: true, role });
     }
 
     if (action === "set_active") {

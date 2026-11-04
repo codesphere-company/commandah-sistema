@@ -54,7 +54,11 @@ function openUserModal(id){
     if(changingPin){ data.pin = pin; data.pinLength = pin.length; }
     if(state.users.some(x=>x.id!==(u&&u.id)&&String(x.username).toLowerCase()===username.toLowerCase())){toast('Já existe um colaborador com este usuário.');return;}
     if(u&&u.id===currentUser.id&&!data.active){toast('Você não pode desativar o colaborador atualmente conectado.');return;}
+    // A2: o perfil agora vale no servidor na hora; rebaixar a si mesmo tiraria o acesso de quem está salvando.
+    if(u&&u.id===currentUser.id&&u.role==='admin'&&data.role!=='admin'){toast('Você não pode tirar o seu próprio perfil de administrador. Peça a outro administrador.');return;}
     if(u&&u.role==='admin'&&(!data.active||data.role!=='admin')&&!state.users.some(x=>x.id!==u.id&&x.role==='admin'&&x.active!==false)){toast('Mantenha ao menos um administrador ativo.');return;}
+    // Auditoria 03/11 (A2): virar administrador pede PIN de 6 dígitos (SEG-01); quem tinha PIN de 4 digita um novo.
+    if(u && isMigrated && data.role==='admin' && u.role!=='admin' && !changingPin && pinLengthFor(u)!==6){ toast('Para virar administrador, digite um PIN novo de 6 dígitos.'); return; }
     const id = u ? u.id : uid();
     await syncStaffAuth(id, u, data);
     // O blob app_data do tenant é legível por QUALQUER operador autenticado (a RLS isola por
@@ -79,16 +83,31 @@ async function syncStaffAuth(id, existing, data){
   if(needsCreateOrReset){
     const action = isMigrated ? 'reset_pin' : 'create_operator';
     try{
-      const { data: fnData, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action, staff_id:id, name:data.name, role:data.role, pin:data.pin } });
+      const { data: fnData, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action, staff_id:id, name:data.name, role:data.role, pin:data.pin, by:currentUser&&currentUser.name } });
       if(error || !fnData || fnData.error) toast('Não foi possível criar o acesso deste colaborador agora ('+((fnData&&fnData.error)||'sem conexão')+'). O cadastro foi salvo sem o PIN: abra de novo e salve com o PIN para liberar o login.','erro');
       else data.migratedAuth = true;
     }catch(e){ toast('Não foi possível criar o acesso deste colaborador agora. O cadastro foi salvo sem o PIN: abra de novo e salve com o PIN para liberar o login.','erro'); }
   } else {
     data.migratedAuth = true;
   }
+  // Auditoria 03/11 (A2): o perfil vale no servidor (a RLS usa tenant_staff.role). Com PIN novo ele vai junto
+  // no reset_pin; sem PIN novo, set_role. Se o servidor não confirmar, o perfil fica o antigo aqui também.
+  const roleChanged = !!(existing && existing.role !== data.role);
+  if(roleChanged && isMigrated && needsCreateOrReset && !data.migratedAuth){ data.role = existing.role; delete data.pinLength; }
+  else if(roleChanged && isMigrated && !needsCreateOrReset && !await staffSetRole(id, data.role)){
+    toast('O perfil não mudou: o servidor não confirmou. Os outros dados foram salvos; tente de novo.','erro');
+    data.role = existing.role;
+  }
   if(existing && existing.migratedAuth && (existing.active!==false) !== (data.active!==false)){
     if(!await staffSetActive(id, data.active!==false)) toast('O cadastro foi salvo, mas o servidor não '+(data.active!==false?'reativou':'desativou')+' o acesso agora. Abra o colaborador e salve de novo.','erro');
   }
+}
+// Troca o perfil do colaborador no servidor (staff-auth set_role). true = o servidor confirmou.
+async function staffSetRole(id, role){
+  try{
+    const { data, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action:'set_role', staff_id:id, role, by:currentUser&&currentUser.name } });
+    return !error && !!data && !data.error;
+  }catch(e){ return false; }
 }
 // Liga/desliga a conta de acesso do colaborador no servidor (staff-auth). true = o servidor confirmou.
 async function staffSetActive(id, active){
