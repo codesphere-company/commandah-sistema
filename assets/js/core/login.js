@@ -110,6 +110,15 @@ async function attemptPinLogin(){
         return;
       }
       await supabaseClient.auth.setSession(data.session);
+      // Auditoria 03/11 (M1): a sessão agora é do colaborador, nunca do dono. Antes o "é o dono" da
+      // entrada por e-mail continuava ligado e um caixa passava nas travas "só administrador" da tela.
+      sessionIsOwner = false;
+      // A1: dados lidos com outra visão (ex.: aparelho aberto como caixa, entra o admin) são relidos.
+      if(await visaoDaSessao()!==dadosCarregadosComo || !dadosCarregadosComo){
+        toast('Carregando os dados de '+pinTargetUser.name+'…');
+        const falhou = await carregarDados();
+        if(falhou.length){ toast('Não foi possível carregar os dados agora. Confira a internet e tente de novo.'); pinBuffer=''; updatePinDots(); return; }
+      }
       currentUser = pinTargetUser; afterLogin();
     }catch(e){
       toast('Não foi possível verificar o PIN agora. Tente de novo.'); pinBuffer=''; updatePinDots();

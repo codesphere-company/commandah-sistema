@@ -1,5 +1,24 @@
 /* ============ LOAD / SAVE ============ */
 async function loadAll(){
+  await carregarDados();
+  renderLogin();
+}
+/* Auditoria 03/11 (A1): o que a RLS deixa ler depende do papel da sessão. dadosCarregadosComo guarda
+   com qual "visão" os dados em memória foram lidos: 'total' (dono ou admin), 'caixa' ou 'cozinha';
+   null = não deu para saber. Quem entra por PIN com outra visão recarrega antes de abrir as telas
+   (attemptPinLogin): antes, um admin que entrava num aparelho aberto como caixa via Contas a Pagar
+   vazia, e o primeiro "salvar" gravava a lista vazia por cima da real. */
+let dadosCarregadosComo = null;
+function visaoDoPapel(papel){ return papel==='owner'||papel==='admin' ? 'total' : papel==='caixa'||papel==='cozinha' ? papel : null; }
+async function visaoDaSessao(){
+  if(!isCloudMode()) return 'total'; // sem RLS: lê tudo
+  if(sessionIsOwner) return 'total';
+  try{ const { data, error } = await supabaseClient.rpc('current_staff_role'); return error ? null : visaoDoPapel(data); }
+  catch(e){ return null; }
+}
+// Lê tudo do servidor para a memória. Devolve as chaves cuja leitura falhou (vazio = tudo certo).
+async function carregarDados(){
+  const visaoP = visaoDaSessao();
   const scalarDefaults = { cashSession:null, settings:{clubName:'', pixKey:'', receiptFooter:'Obrigado pela preferência!'}, orderCounter:0 };
   /* readFailed[key] = a leitura ESTOUROU (rede/erro do servidor). Diferente de
      "voltou vazio". Chave que falhou ao ler nunca pode ser semeada por cima. */
@@ -7,9 +26,9 @@ async function loadAll(){
   // Tudo em paralelo (10/10): antes eram ~30 leituras uma depois da outra e, com sócios, vendas e
   // pedidos atrás, o login passava de 6 s e o vigia de boot mostrava "Não foi possível carregar".
   const keys = Object.keys(STORE).filter(key=>!(key==='members'||key==='orders'||(key==='sales' && isCloudMode()))); // EST-01: sales vem da tabela
-  const membersP = MembersStore.load().catch(()=>[]);
-  const ordersP = OrdersStore.load().catch(()=>[]);
-  const salesP = isCloudMode() ? SalesStore.load().catch(()=>{ setSalesBase([]); return []; }) : null;
+  const membersP = MembersStore.load().catch(()=>{ readFailed.members = true; return []; });
+  const ordersP = OrdersStore.load().catch(()=>{ readFailed.orders = true; return []; });
+  const salesP = isCloudMode() ? SalesStore.load().catch(()=>{ readFailed.sales = true; setSalesBase([]); return []; }) : null;
   // t404: na nuvem, as chaves vêm numa leitura só; se ela falhar, lê uma por uma como antes.
   let many = null;
   if(typeof storageApi.getMany === 'function'){ try{ many = await storageApi.getMany(keys.map(k=>STORE[k])); }catch(e){ many = null; } }
@@ -81,7 +100,8 @@ async function loadAll(){
   }
   await migratePendingStaffAsOwner();
   applyBranding();
-  renderLogin();
+  dadosCarregadosComo = await visaoP;
+  return Object.keys(readFailed);
 }
 /* Estabelecimento recém-criado: os usuários semeados acima (Administrador /
    Garçom App) nascem sem acesso seguro, e na nuvem o login por PIN de quem não

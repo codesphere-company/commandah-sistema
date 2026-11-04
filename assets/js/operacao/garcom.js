@@ -225,8 +225,15 @@ function gcSearchAllProducts(q){
   const list = state.products.filter(p=>p.active!==false && p.name.toLowerCase().includes(q.toLowerCase()));
   results.innerHTML = `<div class="gc-prod-grid" style="margin-top:10px">${list.length?list.map(p=>{
     const inCart = cartProductQty(gcCart,p.id);
-    return `<button class="gc-prod-tile${inCart?' in-cart':''}" onclick="gcAddToCart(${jsArg(p.id)});gcSearchAllProducts(document.getElementById('gcProdSearch').value)"><span>${h(p.name)}</span>${inCart?`<span class="gc-qty-badge">x${inCart}</span>`:''}<span class="gc-price-badge">${productSalePriceLabel(p,'mobile')}</span></button>`;
+    return `<button class="gc-prod-tile${inCart?' in-cart':''}" onclick="gcAddFromSearch(${jsArg(p.id)})"><span>${h(p.name)}</span>${inCart?`<span class="gc-qty-badge">x${inCart}</span>`:''}<span class="gc-price-badge">${productSalePriceLabel(p,'mobile')}</span></button>`;
   }).join(''):'<p class="gc-empty">Nada encontrado.</p>'}</div>`;
+}
+// Auditoria 03/11 (M3): produto achado pela busca da tela de categorias soma no carrinho e a tela
+// continua na busca. Antes o clique chamava gcAddToCart, que trocava para a lista de produtos, e a
+// releitura da busca achava o campo nulo (erro visto em produção em 01/11, no Garçom App).
+function gcAddFromSearch(productId){
+  if(!gcRequester){ toast('Selecione quem está pedindo antes.'); return; }
+  cartAddProduct(gcCart, productId, ()=>{ const el = document.getElementById('gcProdSearch'); gcSearchAllProducts(el ? el.value : ''); });
 }
 function gcSelectCategory(cat){
   if(!gcRequester){ toast('Selecione quem está pedindo antes.'); return; }

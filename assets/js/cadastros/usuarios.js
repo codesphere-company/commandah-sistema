@@ -87,8 +87,15 @@ async function syncStaffAuth(id, existing, data){
     data.migratedAuth = true;
   }
   if(existing && existing.migratedAuth && (existing.active!==false) !== (data.active!==false)){
-    try{ await supabaseClient.functions.invoke('staff-auth', { body:{ action:'set_active', staff_id:id, active:data.active!==false } }); }catch(e){}
+    if(!await staffSetActive(id, data.active!==false)) toast('O cadastro foi salvo, mas o servidor não '+(data.active!==false?'reativou':'desativou')+' o acesso agora. Abra o colaborador e salve de novo.','erro');
   }
+}
+// Liga/desliga a conta de acesso do colaborador no servidor (staff-auth). true = o servidor confirmou.
+async function staffSetActive(id, active){
+  try{
+    const { data, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action:'set_active', staff_id:id, active } });
+    return !error && !!data && !data.error;
+  }catch(e){ return false; }
 }
 async function migrateAllStaffAuth(){
   userOptionsOpen=false;
@@ -109,10 +116,14 @@ async function migrateAllStaffAuth(){
   toast(`Migração concluída: ${ok} colaborador(es) migrado(s)`+(fail?`, ${fail} falharam (tente de novo depois)`:'.'));
 }
 function editUser(id){ openUserModal(id); }
-function deleteUser(id){
+async function deleteUser(id){
   if(state.users.length<=1){ toast('É preciso manter ao menos um usuário.'); return; }
   if(id===currentUser.id){ toast('Você não pode excluir o usuário com que está logado.'); return; }
   if(!confirm('Excluir este usuário?')) return;
-  state.users = state.users.filter(u=>u.id!==id); save('users'); renderAll();
+  // Auditoria 03/11 (A3): excluir só tirava da lista; a conta no servidor seguia ativa e o PIN ainda
+  // abria sessão pela API. Agora desliga a conta antes; se o servidor não confirmar, não exclui.
+  const u = state.users.find(x=>x.id===id);
+  if(u && u.migratedAuth && supabaseClient && !await staffSetActive(id, false)){ toast('Não foi possível desligar o acesso deste colaborador agora. Tente de novo.','erro'); return; }
+  state.users = state.users.filter(x=>x.id!==id); save('users'); renderAll();
 }
 

@@ -17,3 +17,5 @@ submitTotemOrder = singleFlight('submitTotemOrder', submitTotemOrder);
 saveDeliveryOrder = singleFlight('saveDeliveryOrder', saveDeliveryOrder);
 duplicateDeliveryOrder = singleFlight('duplicateDeliveryOrder', duplicateDeliveryOrder);
 cancelDelivery = singleFlight('cancelDelivery', cancelDelivery);
+// Auditoria 03/11 (M2): toque duplo em "Registrar" gravava o pagamento parcial duas vezes.
+savePartialPayment = singleFlight('savePartialPayment', savePartialPayment);
