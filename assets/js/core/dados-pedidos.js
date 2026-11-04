@@ -140,7 +140,8 @@ const OrdersStore = {
 const TOAST_ERROR_RE = /^(n[ãa]o foi poss[íi]vel|falha|erro|sem permiss[ãa]o|sem conex[ãa]o|aviso:)|n[ãa]o (pode|gravou|foi poss)|inv[áa]lid|insuficiente|incorret|bloquead|recusad/i;
 function toast(msg, type){
   const root = document.getElementById('toastRoot'); if(!root) return;
-  const isError = type==='erro' || (type===undefined && TOAST_ERROR_RE.test(String(msg||'')));
+  // Auditoria 03/11: 'error' também vale (6 chamadas usavam o nome em inglês e o aviso saía como comum).
+  const isError = type==='erro' || type==='error' || (type===undefined && TOAST_ERROR_RE.test(String(msg||'')));
   const el = document.createElement('div');
   el.className = 'toast'+(isError?' toast-erro':'');
   el.setAttribute('role', isError?'alert':'status');

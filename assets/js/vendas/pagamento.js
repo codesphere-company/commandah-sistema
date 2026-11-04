@@ -287,6 +287,12 @@ async function recordDebtPaidWithSale(member, debtParts, saleId){
 }
 async function finalizeSale(mode, comandaId, memberId, payments, total, creditApplied, creditFromChange, saleMeta){
   saleMeta = saleMeta || {};
+  // Auditoria 03/11 (M8): o caixa pode ter sido fechado em outro aparelho (este só confere a cada 30 s).
+  // Venda paga com o caixa já fechado não entrava em nenhum fechamento: confere antes de gravar.
+  if(isCloudMode()){
+    await refreshCashState();
+    if(!state.cashSession || state.cashSession.status!=='open'){ renderScoreboard(); toast('O caixa foi fechado em outro aparelho. Abra o caixa para receber este pagamento.','erro'); return false; }
+  }
   const saleMember = memberId ? state.members.find(m=>m.id===memberId) : null;
   const who = memberId ? (saleMember||{}).name : (currentSaleDraft.customerName||'Cliente avulso');
   const cota = saleMember ? saleMember.code : '';
