@@ -157,8 +157,8 @@ function checkLocalModeLeftovers(){
     a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
   });
-  el.querySelector('.local-leftovers-del').addEventListener('click', ()=>{
-    if(!confirm('Apagar deste aparelho as vendas feitas sem conexão? Baixe o arquivo antes, se ainda não baixou.')) return;
+  el.querySelector('.local-leftovers-del').addEventListener('click', async ()=>{
+    if(!await confirmarAcao('Apagar deste aparelho as vendas feitas sem conexão? Baixe o arquivo antes, se ainda não baixou.')) return;
     try{ Object.values(STORE).forEach(k=>localStorage.removeItem(k)); }catch(e){}
     el.remove(); applyTopBannerOffset();
   });

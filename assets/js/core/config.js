@@ -186,6 +186,10 @@ function rolePermissions(role){const custom=state&&state.settings&&state.setting
    ser escrita exclusiva de admin/dono na RLS — sem isto o caixa clicaria em
    Salvar e tomaria erro de permissão do banco, com banner de falha ao salvar. */
 function hasPerm(token){ return !!currentUser && rolePermissions(currentUser.role).includes(token); }
+// Auditoria 03/11 (M5): cadastros (locais, estações, origens, quem levou e os outros) só o administrador
+// grava, como na RLS. Os outros perfis abrem essas telas só para consulta (decisão do dono, 03/11).
+function podeEditarCatalogo(){ return hasPerm('config-sistema'); }
+const AVISO_SO_CONSULTA = 'Só consulta: quem cadastra e altera é o administrador.';
 function requirePerm(token){
   if(hasPerm(token)) return true;
   toast('Sem permissão para o seu perfil. Fale com um administrador.');
