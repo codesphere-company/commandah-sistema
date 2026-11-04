@@ -136,8 +136,7 @@ function mergeSalesChanges(rows){
 // Dois aparelhos na mesma venda (migration 20261011020000): cada venda vai com a versão que
 // este aparelho tinha lido (salesBase). Se no banco ela mudou nesse meio tempo, o banco não grava
 // e devolve a versão atual; aqui as duas mudanças são juntadas (mergeSaleThreeWay) e a venda é
-// gravada de novo. Sem a migration aplicada, cai na gravação antiga (vale a última).
-let salesApplyV2 = true;
+// gravada de novo. Auditoria 03/11 (B2): a versão antiga do sales_apply (sem trava) saiu do banco.
 function mergeArrayThreeWay(base, local, server, keyFn){
   const b = new Map((base||[]).map(i=>[keyFn(i), i])), l = new Map((local||[]).map(i=>[keyFn(i), i]));
   const out = [];
@@ -170,9 +169,7 @@ async function pushSales(){
     if(!d.upserts.length && !d.deletes.length) return;
     const bases = {};
     d.upserts.forEach(u=>{ const b = salesBase.get(u.id); if(b) bases[u.id] = JSON.parse(b); });
-    let res = salesApplyV2 ? await supabaseClient.rpc('sales_apply', { p_upserts:d.upserts, p_delete_ids:d.deletes, p_bases:bases }) : null;
-    if(res && res.error && (res.error.code==='PGRST202' || /sales_apply/.test(res.error.message||'') && /(could not find|does not exist|não existe)/i.test(res.error.message||''))){ salesApplyV2 = false; res = null; }
-    if(!res) res = await supabaseClient.rpc('sales_apply', { p_upserts:d.upserts, p_delete_ids:d.deletes });
+    const res = await supabaseClient.rpc('sales_apply', { p_upserts:d.upserts, p_delete_ids:d.deletes, p_bases:bases });
     if(res.error) throw res.error;
     const conflicts = (res.data && res.data.conflicts) || [];
     const conflictIds = new Set(conflicts.map(c=>c.id));
@@ -181,6 +178,9 @@ async function pushSales(){
     conflicts.forEach(c=>{
       const idx = state.sales.findIndex(x=>x && x.id===c.id);
       if(c.data) salesBase.set(c.id, JSON.stringify(c.data)); else salesBase.delete(c.id);
+      // Auditoria 03/11 (A4): venda fechada só muda por administrador; o banco recusa e devolve a venda
+      // como está. Vale a do servidor (sem juntar), senão o aparelho tentaria gravar de novo para sempre.
+      if(c.reason==='fechada'){ if(!c.data){ if(idx>-1) state.sales.splice(idx, 1); return; } if(idx>-1) state.sales[idx] = c.data; else state.sales.push(c.data); return; }
       if(idx<0) return;
       const merged = mergeSaleThreeWay(bases[c.id], state.sales[idx], c.data);
       if(merged===null) state.sales.splice(idx, 1); else state.sales[idx] = merged;
