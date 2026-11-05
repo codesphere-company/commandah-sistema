@@ -132,20 +132,12 @@ const MembersStore = {
     const member = state.members.find(x=>x.id===memberId);
     if(!member) return;
     if(isCloudMode()){
-      const { error: delErr } = await supabaseClient.from('member_dependents').delete().eq('member_id', memberId);
-      if(delErr) throw delErr;
-      if(dependents.length){
-        const rows = dependents.map(d=>({
-          id: d.id||uid(), tenant_id: storageApi.tenantId, member_id: memberId,
-          name: d.name, relationship: d.relationship||null, document: d.document||null,
-          can_order: d.canOrder!==false
-        }));
-        const { error: insErr } = await supabaseClient.from('member_dependents').insert(rows);
-        if(insErr) throw insErr;
-        member.dependents = rows.map(memberDependentFromRow);
-      } else {
-        member.dependents = [];
-      }
+      // Auditoria 03/11 (B9): apagar e inserir numa transação só (member_dependents_save). Antes eram
+      // dois pedidos; uma falha entre eles apagava os dependentes.
+      const rows = dependents.map(d=>({ id: d.id||uid(), name: d.name, relationship: d.relationship||null, document: d.document||null, can_order: d.canOrder!==false }));
+      const { data, error } = await supabaseClient.rpc('member_dependents_save', { p_member_id: memberId, p_dependents: rows });
+      if(error) throw error;
+      member.dependents = (data||[]).map(memberDependentFromRow);
     } else {
       member.dependents = dependents;
       await save('members');
@@ -244,11 +236,16 @@ const MembersStore = {
   },
   async removeTagEverywhere(tag){
     const affected = state.members.filter(m=>(m.tags||[]).includes(tag));
+    let falhas = 0;
     if(isCloudMode()){
-      await Promise.all(affected.map(m=>{
+      // B9: confere cada gravação; só tira a etiqueta aqui de quem o servidor confirmou.
+      const res = await Promise.all(affected.map(m=>{
         const newTags = (m.tags||[]).filter(x=>x!==tag);
-        return supabaseClient.from('members').update({ tags:newTags, updated_at:new Date().toISOString() }).eq('id', m.id);
+        return supabaseClient.from('members').update({ tags:newTags, updated_at:new Date().toISOString() }).eq('id', m.id).then(r=>({ m, error:r.error }), e=>({ m, error:e }));
       }));
+      res.forEach(r=>{ if(r.error) falhas++; else r.m.tags = (r.m.tags||[]).filter(x=>x!==tag); });
+      if(falhas) throw new Error(falhas+' cliente(s) ficaram com a etiqueta (falha ao gravar).');
+      return;
     }
     affected.forEach(m=>{ m.tags = (m.tags||[]).filter(x=>x!==tag); });
     if(!isCloudMode()) await save('members');
@@ -265,7 +262,10 @@ const MembersStore = {
   },
   async bulkSetGeoStatus(members, geoStatus){
     if(isCloudMode()){
-      await Promise.all(members.map(m=>supabaseClient.from('members').update({ geo_status:geoStatus, updated_at:new Date().toISOString() }).eq('id', m.id)));
+      // B9: confere cada gravação.
+      const res = await Promise.all(members.map(m=>supabaseClient.from('members').update({ geo_status:geoStatus, updated_at:new Date().toISOString() }).eq('id', m.id).then(r=>r.error, e=>e)));
+      const falhas = res.filter(Boolean).length;
+      if(falhas) throw new Error(falhas+' cliente(s) sem a situação de mapa atualizada (falha ao gravar).');
     }
     members.forEach(m=>{ m.geoStatus = geoStatus; });
     if(!isCloudMode()) await save('members');
