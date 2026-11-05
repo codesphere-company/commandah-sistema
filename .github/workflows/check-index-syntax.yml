@@ -48,6 +48,9 @@ jobs:
       - name: Testar regras de tamanhos e opções
         run: node scripts/test-opcoes.js
 
+      - name: Testar núcleo da venda por peso
+        run: node scripts/test-peso.js
+
       - name: Validar ordem de carregamento dos scripts
         run: |
           npm i --no-save --no-package-lock --silent acorn@8.14.0 acorn-walk@8.3.4
