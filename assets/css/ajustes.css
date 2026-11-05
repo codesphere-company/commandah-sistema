@@ -180,6 +180,8 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .balcao-cats{display:flex;gap:8px;flex-wrap:wrap}
 .balcao-cats button{min-height:40px;padding:0 16px;border-radius:var(--r-pill);border:1px solid var(--c-border-strong);background:var(--c-surface);color:var(--c-text-2);font-weight:600;font-size:14px;cursor:pointer}
 .balcao-cats button:hover{border-color:var(--c-text-3);color:var(--c-text)}
+.balcao-cats .balcao-cats-back{color:var(--c-text);border-color:var(--c-text-3)}
+.balcao-cats-current{display:inline-flex;align-items:center;min-height:40px;padding:0 4px;font-weight:700;font-size:16px;color:var(--c-text)}
 .balcao-cats button.active{background:var(--c-text);border-color:var(--c-text);color:var(--c-surface)}
 .balcao-grid{flex:1 1 auto;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;align-content:start;padding:2px 2px 12px}
 .balcao-prod{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:14px;min-height:108px;border-radius:var(--r-lg);border:1px solid var(--c-border);background:var(--c-surface);color:var(--c-text);cursor:pointer}
