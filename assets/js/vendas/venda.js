@@ -164,7 +164,7 @@ function renderBalcaoPdv(el){
   el.innerHTML = `<div class="table-workspace balcao-split">
     <div class="balcao-main">
       <div class="table-toolbar"><div class="op-search"><input type="search" id="balcaoSearch" placeholder="Buscar produto ou código" value="${h(balcaoQuery)}" oninput="filterBalcaoProducts(this.value)"></div></div>
-      <div class="balcao-cats" role="group" aria-label="Categorias"><button class="${!balcaoCategory?'active':''}" onclick="setBalcaoCategory('')">Todos</button>${categories.map(c=>`<button class="${balcaoCategory===c?'active':''}" data-category="${h(c)}" onclick="setBalcaoCategory(this.dataset.category)">${h(c)}</button>`).join('')}</div>
+      <div class="balcao-cats" id="balcaoCats" role="group" aria-label="Categorias">${balcaoCatsInner(categories)}</div>
       <div class="balcao-grid" id="balcaoGrid">${cards || '<p class="empty">Cadastre produtos na aba Produtos antes de vender.</p>'}</div>
     </div>
     <aside class="balcao-cart" aria-label="Pedido da ficha">
@@ -185,7 +185,27 @@ function filterBalcaoProducts(q){
   const value = balcaoQuery.trim().toLowerCase();
   document.querySelectorAll('#balcaoGrid .balcao-prod').forEach(b=>{ b.style.display = (!balcaoCategory||b.dataset.category===balcaoCategory) && (!value||b.dataset.search.includes(value)) ? '' : 'none'; });
 }
-function setBalcaoCategory(c){ balcaoCategory = c||''; document.querySelectorAll('.balcao-cats button').forEach(b=>b.classList.toggle('active', (b.dataset.category||'')===balcaoCategory)); filterBalcaoProducts(balcaoQuery); }
+/* Pedido do dono (05/11): com 45 categorias os botões tomavam a tela e os produtos da categoria
+   escolhida ficavam fora da vista. Com uma categoria escolhida, a barra mostra só ela e o botão de
+   voltar para todas; a grade fica com o espaço todo. */
+function balcaoCatsInner(categories){
+  if(balcaoCategory) return `<button class="balcao-cats-back" onclick="setBalcaoCategory('')">‹ Todas as categorias</button><span class="balcao-cats-current">${h(balcaoCategory)}</span>`;
+  return `<button class="active" onclick="setBalcaoCategory('')">Todos</button>${categories.map(c=>`<button data-category="${h(c)}" onclick="setBalcaoCategory(this.dataset.category)">${h(c)}</button>`).join('')}`;
+}
+function balcaoCategories(){
+  return [...new Set(state.products.filter(productEnabledForCurrentChannel).map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+}
+function setBalcaoCategory(c){
+  balcaoCategory = c||'';
+  const bar = document.getElementById('balcaoCats');
+  if(bar){
+    bar.innerHTML = balcaoCatsInner(balcaoCategories());
+    const alvo = balcaoCategory ? bar.querySelector('.balcao-cats-back') : (c===''&&bar.querySelector('button'));
+    if(alvo) alvo.focus();
+  }
+  filterBalcaoProducts(balcaoQuery);
+  const grid = document.getElementById('balcaoGrid'); if(grid) grid.scrollTop = 0;
+}
 function openBalcaoClientModal(){
   openModal('Vincular cliente', `<div id="balcaoClientPick"><div class="field"><input id="pdvClientSearch" placeholder="Nome, telefone, CPF ou cota" oninput="filterPdvClients(this.value)"></div><p id="pdvClientTips" class="sub">Digite parte do nome, do telefone, do CPF ou o número da cota.</p><div id="pdvClientResults"></div></div>`);
   setTimeout(()=>document.getElementById('pdvClientSearch')?.focus(), 0);
