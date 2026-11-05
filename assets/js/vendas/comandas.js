@@ -261,13 +261,34 @@ function openNovoPedidoModal(saleId){
   document.getElementById('npConfirmBtn').onclick = ()=>confirmNovoPedidoModal(saleId);
 }
 let npCategory = '';
+/* Pedido do dono (05/11), igual à Ficha: com 45 categorias as abas tomavam a janela e os produtos
+   ficavam espremidos. Com uma aba escolhida (categoria ou "Já pedidos"), a barra mostra só ela e o
+   botão de voltar para todas. */
 function renderNpCatTabs(){
   const el = document.getElementById('npCatTabs'); if(!el) return;
   const cats = [...new Set(state.products.filter(p=>p.active!==false).map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   if(!cats.length){ el.innerHTML=''; return; }
   const hist = npHistoryProducts().length;
-  el.innerHTML = (hist?`<button class="np-cat-tab np-cat-hist ${npCategory==='__hist'?'active':''}" onclick="npCategory='__hist';renderNpCatTabs();renderNpProductGrid(document.getElementById('npProductSearch').value)">Já pedidos <b>${hist}</b></button>`:'') + `<button class="np-cat-tab ${!npCategory?'active':''}" onclick="npCategory='';renderNpCatTabs();renderNpProductGrid(document.getElementById('npProductSearch').value)">Todas</button>` +
-    cats.map(c=>`<button class="np-cat-tab ${npCategory===c?'active':''}" onclick="npCategory=${h(JSON.stringify(c))};renderNpCatTabs();renderNpProductGrid(document.getElementById('npProductSearch').value)">${h(c)}</button>`).join('');
+  if(npCategory==='__hist' && !hist) npCategory = '';
+  if(npCategory && npCategory!=='__hist' && !cats.includes(npCategory)) npCategory = '';
+  el.classList.toggle('np-cat-chosen', !!npCategory);
+  if(npCategory){
+    el.innerHTML = `<button class="np-cat-tab np-cat-back" onclick="npSetCategory('')">‹ Todas as categorias</button><span class="np-cat-current">${npCategory==='__hist' ? 'Já pedidos <b>'+hist+'</b>' : h(npCategory)}</span>`;
+    return;
+  }
+  el.innerHTML = (hist?`<button class="np-cat-tab np-cat-hist" onclick="npSetCategory('__hist')">Já pedidos <b>${hist}</b></button>`:'') + `<button class="np-cat-tab active" onclick="npSetCategory('')">Todas</button>` +
+    cats.map(c=>`<button class="np-cat-tab" data-category="${h(c)}" onclick="npSetCategory(this.dataset.category)">${h(c)}</button>`).join('');
+}
+function npSetCategory(c){
+  const antes = npCategory;
+  npCategory = c||'';
+  renderNpCatTabs();
+  const q = document.getElementById('npProductSearch');
+  renderNpProductGrid(q ? q.value : '');
+  const grid = document.getElementById('npProductGrid'); if(grid) grid.scrollTop = 0;
+  const bar = document.getElementById('npCatTabs');
+  const alvo = bar && (npCategory ? bar.querySelector('.np-cat-back') : (antes && bar.querySelector('.np-cat-tab.active')));
+  if(alvo) alvo.focus();
 }
 function renderNpProductGrid(q){
   const el = document.getElementById('npProductGrid'); if(!el) return;
