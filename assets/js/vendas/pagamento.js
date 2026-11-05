@@ -287,6 +287,7 @@ async function recordDebtPaidWithSale(member, debtParts, saleId){
 }
 async function finalizeSale(mode, comandaId, memberId, payments, total, creditApplied, creditFromChange, saleMeta){
   saleMeta = saleMeta || {};
+  let debtEntries = null; // M9: lançamentos do sócio que vão junto no close_sale (nuvem)
   // Auditoria 03/11 (M8): o caixa pode ter sido fechado em outro aparelho (este só confere a cada 30 s).
   // Venda paga com o caixa já fechado não entrava em nenhum fechamento: confere antes de gravar.
   if(isCloudMode()){
@@ -378,7 +379,17 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
     } else {
       patch = sale;
     }
-    const { data: savedSale, error } = await supabaseClient.rpc('close_sale', { p_sale_id: sale.id, p_existing: !!(isExistingComanda||isExistingDelivery), p_sale_patch: patch });
+    // Auditoria 03/11 (M9): fiado, uso de crédito e crédito de troco vão na mesma transação do
+    // fechamento. Antes eram gravados depois; se a rede caísse no meio, a venda ficava sem o fiado.
+    // Ids fixos por venda: nova tentativa não duplica.
+    const fiadoDaVenda = payments.filter(p=>p.method==='fiado').reduce((a,p)=>a+p.amount,0);
+    const quem = (currentUser&&currentUser.name)||'';
+    debtEntries = !memberId ? [] : [
+      fiadoDaVenda>0 ? { id:sale.id+'-fiado', member_id:memberId, type:'debt', value:arredondaCentavos(fiadoDaVenda), reason:'Venda #'+sale.id, sale_id:sale.id, created_by:quem } : null,
+      Number(creditApplied)>TOLERANCIA_CENTAVO ? { id:sale.id+'-credito', member_id:memberId, type:'debt', value:arredondaCentavos(Number(creditApplied)), reason:'Uso de crédito na venda #'+sale.id, sale_id:sale.id, created_by:quem } : null,
+      Number(creditFromChange)>TOLERANCIA_CENTAVO ? { id:sale.id+'-troco', member_id:memberId, type:'payment', value:arredondaCentavos(Number(creditFromChange)), reason:'Crédito de troco — Venda #'+sale.id, sale_id:sale.id, created_by:quem } : null,
+    ].filter(Boolean);
+    const { data: savedSale, error } = await supabaseClient.rpc('close_sale', { p_sale_id: sale.id, p_existing: !!(isExistingComanda||isExistingDelivery), p_sale_patch: patch, p_debt_entries: debtEntries });
     if(error){
       // OP-12: no balcão a comida já foi para a cozinha antes deste ponto. Se o
       // operador desistir aqui, sai pedido sem venda: o aviso fica fixo na tela.
@@ -403,6 +414,16 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   const fiadoTotal = payments.filter(p=>p.method==='fiado').reduce((a,p)=>a+p.amount,0);
   let fiadoMemberForPrompt = null;
   try{
+  if(debtEntries){
+    // M9: já gravados pelo close_sale; aqui só entram no extrato em memória.
+    const m = state.members.find(x=>x.id===memberId);
+    if(m && debtEntries.length){
+      m.debtHistory = m.debtHistory||[];
+      debtEntries.forEach(e=>{ if(!m.debtHistory.some(x=>x.id===e.id)) m.debtHistory.unshift(debtEntryFromRow({ ...e, at:sale.closedAt })); });
+      recalcMemberDebtLocal(m);
+      if(debtEntries.some(e=>e.id===sale.id+'-fiado')) fiadoMemberForPrompt = m;
+    }
+  } else {
   if(fiadoTotal>0 && memberId){
     const m = state.members.find(x=>x.id===memberId);
     if(m){ await MembersStore.recordDebtEntry(m.id, 'debt', fiadoTotal, { reason:'Venda #'+sale.id, saleId: sale.id }); fiadoMemberForPrompt = m; }
@@ -414,6 +435,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   if(Number(creditFromChange)>TOLERANCIA_CENTAVO && memberId){
     const m = state.members.find(x=>x.id===memberId);
     if(m) await MembersStore.recordDebtEntry(m.id, 'payment', creditFromChange, { reason:'Crédito de troco — Venda #'+sale.id, saleId: sale.id });
+  }
   }
   await applyAutomaticLoyalty(memberId,total,sale.id);
   }catch(e){
