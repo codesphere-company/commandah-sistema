@@ -5,7 +5,7 @@ const PESO_MAX_KG = 10;
 let _pesoSeq = 0;
 
 // Venda por peso, 05/11: produto pesado = vendido em KG.
-function isWeighedProduct(p){ return !!p && p.measure === 'KG'; }
+function isWeighedProduct(p){ return !!p && String(p.measure).toLowerCase() === 'kg'; }
 
 // Venda por peso, 05/11: lê o que o operador digitou. Aceita "0,480", "0.480", "480" (gramas), "1,5", "480 g", "0,48 kg".
 function parsePesoKg(texto){
@@ -17,7 +17,7 @@ function parsePesoKg(texto){
   if(!/^\d+([.,]\d+)?$/.test(s)) return { error: 'Peso inválido. Use por exemplo 0,480 ou 480 g.' };
   let v = parseFloat(s.replace(',', '.'));
   if(gramas) v = v / 1000;
-  else if(!/[.,]/.test(s) && v > PESO_MAX_KG) v = v / 1000; // número inteiro grande = gramas (480 -> 0,480 kg)
+  else if(!/[.,]/.test(s) && v >= PESO_MAX_KG) v = v / 1000; // número inteiro >= 10 = gramas (480 -> 0,480 kg; 10 -> 0,010 kg)
   v = Math.round(v * 1000) / 1000;
   if(!(v > 0)) return { error: 'O peso deve ser maior que zero.' };
   if(v > PESO_MAX_KG) return { error: 'Peso acima do limite de ' + PESO_MAX_KG + ' kg.' };

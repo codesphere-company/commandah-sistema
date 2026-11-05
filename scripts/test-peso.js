@@ -11,15 +11,19 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'assets', 'js', 'c
 const { isWeighedProduct, parsePesoKg, pesoValor, fmtKg, weighedLine, itemStockQty, itemQtyLabel } = ctx;
 
 let n = 0;
-function t(nome, fn) { fn(); n++; }
+function t(nome, fn) {
+  try { fn(); } catch (e) { console.error('FALHOU: ' + nome); throw e; }
+  n++;
+}
 
 t('parsePesoKg aceita formatos válidos', () => {
   const casos = [['0,480', 0.48], ['0.480', 0.48], ['480', 0.48], ['1.500', 1.5], ['1,5', 1.5],
-    ['2', 2], ['480 g', 0.48], ['0,48 kg', 0.48]];
+    ['2', 2], ['480 g', 0.48], ['0,48 kg', 0.48], ['0,48 KG', 0.48],
+    ['10', 0.01], ['9', 9], ['10000', 10]];
   casos.forEach(([txt, kg]) => assert.strictEqual(parsePesoKg(txt).kg, kg, txt));
 });
 t('parsePesoKg rejeita inválidos', () => {
-  ['', '0', 'abc', '10,001', '-1'].forEach(txt => {
+  ['', '0', 'abc', '10,001', '-1', '10001'].forEach(txt => {
     const r = parsePesoKg(txt);
     assert.ok(typeof r.error === 'string' && r.error.length > 0 && r.kg === undefined, txt);
   });
@@ -32,6 +36,9 @@ t('pesoValor', () => {
 t('fmtKg', () => assert.strictEqual(fmtKg(0.48), '0,480 kg'));
 t('isWeighedProduct', () => {
   assert.strictEqual(isWeighedProduct({ measure: 'KG' }), true);
+  assert.strictEqual(isWeighedProduct({ measure: 'kg' }), true);
+  assert.strictEqual(isWeighedProduct({ measure: 'Kg' }), true);
+  assert.strictEqual(isWeighedProduct(null), false);
   assert.strictEqual(isWeighedProduct({ measure: 'un' }), false);
   assert.strictEqual(isWeighedProduct({}), false);
 });
@@ -48,6 +55,11 @@ t('weighedLine', () => {
   const b = weighedLine({ id: 'p', name: 'PICANHA GRILL KG' }, 0.48, 119.9);
   assert.ok(a.customizationSignature.startsWith('peso:'));
   assert.notStrictEqual(a.customizationSignature, b.customizationSignature);
+});
+t('weighedLine com override', () => {
+  const o = { por: 'gerente', motivo: 'x' };
+  const l = weighedLine({ id: 'p', name: 'N' }, 0.5, 100, o);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(l.weight.override)), o);
 });
 t('itemStockQty e itemQtyLabel', () => {
   assert.strictEqual(itemStockQty({ qty: 1, weight: { kg: 0.48 } }), 0.48);
