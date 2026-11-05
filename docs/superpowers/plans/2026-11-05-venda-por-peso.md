@@ -18,7 +18,8 @@
 - Textos de UI em português; código no padrão existente (camelCase, comentários citando "venda por peso, 05/11").
 - Escape com `h()` / `jsArg()`; ações que gravam passam por `singleFlight` como já fazem.
 - Arquivo JS novo: tag em `index.html` na ordem certa com o mesmo `?v=`; depois de qualquer mudança em `assets/`: `node scripts/bump-version.js`, `node scripts/check-app.js`, `NODE_PATH=../auditoria-2026-11-03/node_modules node scripts/check-load-order.js`.
-- Ordem de publicação: deploy da `staff-auth` (com "sim" do dono) **antes** do merge do site. Cadastro de insumos/fichas das 6 carnes (com "sim" e cópia de segurança) **depois** do merge.
+- Ordem de publicação: deploy da `staff-auth` e da `nfce` (com "sim" do dono) **antes** do merge do site.
+- Estoque: por enquanto as carnes não têm ficha técnica e **a venda não trava**. O código de estoque fica pronto (sem ficha técnica = sem conferência); não cadastrar insumos nem fichas nesta entrega.
 - Fora: cardápio digital, totem, delivery, combos, app do garçom.
 
 ## Pontos de atenção da revisão
@@ -100,7 +101,7 @@
 
 Comportamento (decidido no spec e no rascunho B): camada própria `#weightChoiceRoot` por cima do modal (não usar `openModal`: a comanda é modal). Cabeçalho com o nome; "Preço do quilo" travado com botão "Alterar (PIN do admin)"; admin logado edita direto. Lista de peças: um campo por peça, Enter valida e abre a próxima, ✕ tira; erro de digitação aparece na linha. Rodapé: "N peças · X kg" e total; botão "Adicionar N peças". Estoque: se a soma passar de `weighedAvailableKg`, aviso vermelho "Estoque de <produto>: <fmtKg> . Lance a entrada do fornecedor em Insumos." e botão bloqueado. PIN do admin: painel dentro da própria janela (escolher admin + PIN); nuvem → `staffAuthCall({action:'price_override',...})`; local → confere `admin.pin` e `logAction`. Admin logado alterando: `logAction` ao confirmar. `override = { original, by, operator, at }`. Esc/Voltar fecha sem adicionar.
 
-- [ ] **Passo 1:** em `t13` (1366 px e 390 px, perfis caixa e admin): abrir `openWeightChoice('<carne>')` direto; digitar `480` Enter `0,515` → 2 peças, total `R$ 119,30`; ✕ na segunda → 1 peça; `abc` → erro na linha e botão bloqueado; preço travado para o caixa; caixa → PIN de admin errado → mensagem, preço igual; PIN certo → preço novo e `override.by` = admin; estoque 0,3 kg + peça 0,48 → aviso e bloqueio; Esc com peças → `onDone` não chamado.
+- [ ] **Passo 1:** em `t13` (1366 px e 390 px, perfis caixa e admin), com e sem ficha técnica: carne sem ficha técnica e peça de qualquer peso → nunca bloqueia; abrir `openWeightChoice('<carne>')` direto; digitar `480` Enter `0,515` → 2 peças, total `R$ 119,30`; ✕ na segunda → 1 peça; `abc` → erro na linha e botão bloqueado; preço travado para o caixa; caixa → PIN de admin errado → mensagem, preço igual; PIN certo → preço novo e `override.by` = admin; estoque 0,3 kg + peça 0,48 → aviso e bloqueio; Esc com peças → `onDone` não chamado.
 - [ ] **Passo 2:** rodar → falha.
 - [ ] **Passo 3:** implementar.
 - [ ] **Passo 4:** `t13` (parte da janela) passa; checagens do app.
@@ -142,5 +143,5 @@ Comportamento (decidido no spec e no rascunho B): camada própria `#weightChoice
 - [ ] **Passo 1:** versão (`bump-version`), checagens, regressão completa da bancada (`npm run banco` + t2, t3, t5–t13, telas).
 - [ ] **Passo 2:** PR. Pedir o "sim" do dono e preparar o script de deploy da `staff-auth` e da `nfce`. O dono roda.
 - [ ] **Passo 3:** com as funções no ar, merge do PR (depois do `syntax-check`).
-- [ ] **Passo 4:** cadastro, com "sim" e cópia `backup:cantina2:...:2026-11-xx-peso`: 6 insumos em kg (estoque 0) e fichas técnicas 1 kg/kg nas 6 carnes; estação `nenhuma`. Script `.sql` + `.sh` no scratchpad, conferido antes em modo só leitura. O dono roda.
+- [ ] **Passo 4:** cadastro, com "sim" e cópia `backup:cantina2:products:2026-11-xx-peso`: só a estação `nenhuma` nas 6 carnes (sem insumos nem fichas técnicas por enquanto). Script `.sql` + `.sh` no scratchpad, conferido antes em modo só leitura. O dono roda.
 - [ ] **Passo 5:** atualizar `docs/HANDOFF.md` (B5 substituída; ordem de deploy; onde fica cada parte).
