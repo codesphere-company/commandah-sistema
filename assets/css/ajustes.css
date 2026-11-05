@@ -250,6 +250,9 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .np-search-row .sub{white-space:nowrap;font-size:13px}
 .np-modal .np-cat-tabs{display:flex;gap:6px;flex-wrap:wrap}
 .np-modal .np-cat-tab{min-height:38px;padding:0 14px;font-size:14px;font-weight:600}
+.np-cat-tabs.np-cat-chosen{align-items:center;flex-wrap:nowrap}
+.np-cat-tab.np-cat-back{color:var(--c-text);border-color:var(--c-text-3)}
+.np-cat-current{font-weight:700;font-size:15px;color:var(--c-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .np-cat-hist b{margin-left:4px;font-weight:700}
 .np-modal .np-menu-grid{flex:1;min-height:0;max-height:none;overflow:auto;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;align-content:start;padding:2px 4px 8px 2px}
 .np-modal .np-prod-btn{min-height:118px!important;height:118px!important;padding:12px!important;border-radius:var(--r-md)!important;background:var(--c-surface)!important;gap:3px;overflow:hidden}
