@@ -188,7 +188,7 @@ function gcRenderCategories(){
   const requesterOptions = member
     ? `<option value="">— Selecione —</option><option value="holder:${member.id}" ${memberBlockedByDebt(member)?'disabled':''}>Titular — ${h(member.name)}${memberBlockedByDebt(member)?' (bloqueado — deve '+fmt(member.debt)+')':''}</option>${(member.dependents||[]).map(d=>`<option value="dependent:${d.id}" ${d.canOrder===false||memberBlockedByDebt(member)?'disabled':''}>Dependente — ${h(d.name)}${d.canOrder===false?' (bloqueado)':memberBlockedByDebt(member)?' (bloqueado — cota com pendência)':''}</option>`).join('')}`
     : `<option value="guest">${h(s.customerName||'Cliente avulso')}</option>`;
-  const cats = [...new Set(state.products.filter(p=>p.active!==false).map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const cats = [...new Set(state.products.filter(p=>p.active!==false&&!isWeighedProduct(p)).map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   const screen = document.getElementById('gcScreen');
   screen.innerHTML = gcBarHtml('Novo Pedido', info.person+(info.quota?' — Cota '+info.quota:'')) + `
     <div class="gc-body">
@@ -222,7 +222,7 @@ function gcSearchAllProducts(q){
   const results = document.getElementById('gcSearchProductResults');
   if(!q){ if(catGrid)catGrid.style.display='grid'; if(results)results.innerHTML=''; return; }
   if(catGrid) catGrid.style.display='none';
-  const list = state.products.filter(p=>p.active!==false && p.name.toLowerCase().includes(q.toLowerCase()));
+  const list = state.products.filter(p=>p.active!==false && !isWeighedProduct(p) && p.name.toLowerCase().includes(q.toLowerCase()));
   results.innerHTML = `<div class="gc-prod-grid" style="margin-top:10px">${list.length?list.map(p=>{
     const inCart = cartProductQty(gcCart,p.id);
     return `<button class="gc-prod-tile${inCart?' in-cart':''}" onclick="gcAddFromSearch(${jsArg(p.id)})"><span>${h(p.name)}</span>${inCart?`<span class="gc-qty-badge">x${inCart}</span>`:''}<span class="gc-price-badge">${productSalePriceLabel(p,'mobile')}</span></button>`;
@@ -244,7 +244,7 @@ function gcRenderProducts(q){
   const s = gcSale(); if(!s){ gcRenderHome(); return; }
   const info = comandaPersonData(s);
   const cat = gcFlow.category;
-  let list = state.products.filter(p=>p.active!==false);
+  let list = state.products.filter(p=>p.active!==false&&!isWeighedProduct(p)); // venda por peso, 05/11: peso só no balcão
   if(cat) list = list.filter(p=>p.category===cat);
   const query = String(q||'').toLowerCase();
   if(query) list = list.filter(p=>p.name.toLowerCase().includes(query));

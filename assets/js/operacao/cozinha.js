@@ -16,7 +16,7 @@ function requiredInsumosForItems(items){
   const required = {};
   items.forEach(it=>{
     const p=state.products.find(x=>x.id===it.productId);
-    itemUnitRecipe(p,it).forEach(r=>required[r.insumoId]=(required[r.insumoId]||0)+(Number(r.qty)||0)*(Number(it.qty)||0));
+    itemUnitRecipe(p,it).forEach(r=>required[r.insumoId]=(required[r.insumoId]||0)+(Number(r.qty)||0)*itemStockQty(it)); // venda por peso, 05/11: peça pesada baixa o estoque em kg
   });
   return required;
 }

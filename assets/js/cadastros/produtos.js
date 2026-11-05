@@ -9,7 +9,13 @@ function effectiveProductRecipe(product,seen){
   return Object.entries(quantities).map(([insumoId,qty])=>({insumoId,qty}));
 }
 function productCost(p){ return effectiveProductRecipe(p).reduce((sum,r)=>{ const ins=state.insumos.find(i=>i.id===r.insumoId); return sum + (ins?ins.costPerUnit*r.qty:0); },0); }
+// venda por peso, 05/11: kg disponíveis. Sem ficha técnica = Infinity (a venda nunca bloqueia); com ficha, sem Math.floor.
+function weighedAvailableKg(p){
+  const recipe=effectiveProductRecipe(p);if(!recipe.length) return Infinity;
+  return Math.min(...recipe.map(r=>{ const ins=state.insumos.find(i=>i.id===r.insumoId); return ins&&Number(r.qty)>0 ? ins.stock / r.qty : 0; }));
+}
 function productAvailable(p){
+  if(isWeighedProduct(p)) return weighedAvailableKg(p);
   if(p&&p.gradeId&&p.sizes){
     // Grade: disponível se algum tamanho ativo tem estoque (item sintético sem opções).
     const ids=Object.keys(p.sizes).filter(id=>p.sizes[id]&&p.sizes[id].active!==false);

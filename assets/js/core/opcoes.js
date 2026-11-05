@@ -58,6 +58,8 @@ function productNeedsChoice(product, complementos){
 function opcoesHasRequiredChoice(product, complementos){
   // gradeId preenchido basta, mesmo com a grade pausada/apagada: não pode virar produto de preço único.
   if(product && product.gradeId) return true;
+  // venda por peso, 05/11: produto vendido a kg precisa da balança (pesagem no balcão), não cabe em autoatendimento/combo.
+  if(product && String(product.measure).toLowerCase() === 'kg') return true;
   return opcoesAllRules(product, complementos).some(r => Number(r.min) >= 1);
 }
 function hiddenInSelfService(product, complementos){ return opcoesHasRequiredChoice(product, complementos); }
