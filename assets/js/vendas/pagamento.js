@@ -132,7 +132,7 @@ function openPaymentModal(mode, comandaId){
     const balance = finalTotal-received;
     document.getElementById('paymentParts').innerHTML = tempPayments.length ? tempPayments.map((p,idx)=>`
       <div class="item-line"><span>${methodLabel(p.method)}</span><div><b class="mono">${fmt(p.amount)}</b>
-      <button class="btn btn-sm btn-danger" style="margin-left:8px" onclick="tempPayments.splice(${idx},1);renderPaymentPartsGlobal()">Remover</button></div></div>`).join('') : '<p class="empty" style="padding:12px">Clique numa forma de pagamento e depois em Adicionar.</p>';
+      <button class="btn btn-sm btn-danger" style="margin-left:8px" onclick="tempPayments.splice(${idx},1);renderPaymentPartsGlobal()">Remover</button></div></div>`).join('') : '<p class="empty" style="padding:12px">Escolha a forma e confirme. Para dividir em mais de uma forma, use Adicionar.</p>';
     document.getElementById('payReceived').textContent = fmt(received);
     document.getElementById('payBalanceLabel').textContent = balance>=0 ? 'Falta pagar' : 'Troco';
     document.getElementById('payBalance').textContent = fmt(Math.abs(balance));
@@ -155,14 +155,15 @@ function openPaymentModal(mode, comandaId){
   }
   window.renderPaymentPartsGlobal = renderPaymentParts;
   window.setPayChangeDecision = function(v){ changeDecision=v; renderPaymentParts(); };
-  document.getElementById('addPaymentBtn').onclick = ()=>{
+  function addCurrentPayment(){
     const method = currentMethod().method; const amount = parseFloat(document.getElementById('payPartAmount').value);
     const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
-    if(!amount || amount<=0){ toast('Informe o valor desta forma de pagamento.'); return; }
-    if(method==='fiado' && (!member || memberBlockedByDebt(member))){ toast(!member?'Selecione um associado para usar fiado.':'Associado com pendência não pode usar fiado.'); return; }
-    if(method==='fiado' && debtIncluded>TOLERANCIA_CENTAVO){ toast('Para lançar no fiado, desmarque "Cobrar a pendência anterior junto".'); return; }
-    tempPayments.push({method,amount}); renderPaymentParts();
-  };
+    if(!amount || amount<=0){ toast('Informe o valor desta forma de pagamento.'); return false; }
+    if(method==='fiado' && (!member || memberBlockedByDebt(member))){ toast(!member?'Selecione um associado para usar fiado.':'Associado com pendência não pode usar fiado.'); return false; }
+    if(method==='fiado' && debtIncluded>TOLERANCIA_CENTAVO){ toast('Para lançar no fiado, desmarque "Cobrar a pendência anterior junto".'); return false; }
+    tempPayments.push({method,amount}); renderPaymentParts(); return true;
+  }
+  document.getElementById('addPaymentBtn').onclick = ()=>{ addCurrentPayment(); };
   document.getElementById('payPartAmount').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('addPaymentBtn').click(); } });
   selectPayMethod('A');
   recomputeTotals();
@@ -186,6 +187,17 @@ function openPaymentModal(mode, comandaId){
   }
   document.addEventListener('keydown', payKeyHandler);
   document.getElementById('confirmPayBtn').onclick = async ()=>{
+    // UX lote 1 (06/11): no caso comum (uma forma só, valor já preenchido) o Confirmar respondia
+    // "Ainda falta R$ X" e exigia clicar Adicionar antes. Agora, se ainda falta e há valor no
+    // campo, a forma escolhida entra sozinha. Se isso gerar troco para sócio, para aqui para o
+    // caixa escolher "Devolver Troco" ou "Deixar como Crédito" e confirmar de novo.
+    const faltaAntes = finalTotal - tempPayments.reduce((a,p)=>a+p.amount,0);
+    const valorNoCampo = parseFloat(document.getElementById('payPartAmount').value);
+    if(faltaAntes>TOLERANCIA_CENTAVO && valorNoCampo>0){
+      if(!addCurrentPayment()) return;
+      const sobra = tempPayments.reduce((a,p)=>a+p.amount,0) - finalTotal;
+      if(sobra>TOLERANCIA_CENTAVO && selMember.value) return;
+    }
     const memberId = selMember.value || null;
     const member = memberId ? state.members.find(m=>m.id===memberId) : null;
     if(tempPayments.some(p=>p.method==='fiado')){

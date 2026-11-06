@@ -55,8 +55,13 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 @media (prefers-reduced-motion:reduce){button[aria-busy="true"]::after{animation:none}}
 .boot-loading{text-align:center}
 /* UX-13: avisos empilhados; erro com cara própria */
-#toastRoot{position:fixed;right:20px;bottom:20px;z-index:300;display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:min(440px,calc(100vw - 40px));pointer-events:none}
-#toastRoot .toast{position:static;pointer-events:auto;display:flex;align-items:center;gap:10px}
+/* UX lote 1 (06/11): os avisos ficavam no canto de baixo, em cima do Total/Cobrar da Ficha, do
+   Confirmar do pagamento e da barra do garçom, e seguravam o clique por 2,6 s. Agora saem no topo,
+   centralizados (abaixo dos banners), e o clique passa através; só o aviso de erro, que tem o
+   botão de fechar, recebe clique. */
+#toastRoot{position:fixed;top:calc(var(--top-banner-offset,0px) + 12px);left:50%;transform:translateX(-50%);z-index:300;display:flex;flex-direction:column;align-items:center;gap:8px;width:max-content;max-width:min(440px,calc(100vw - 32px));pointer-events:none}
+#toastRoot .toast{position:static;pointer-events:none;display:flex;align-items:center;gap:10px}
+#toastRoot .toast-erro{pointer-events:auto}
 #toastRoot .toast-erro{background:var(--c-danger-soft);color:var(--c-text);border:1px solid var(--c-danger);border-left-width:4px}
 #toastRoot .toast-close{background:none;border:0;color:inherit;font-size:20px;line-height:1;min-width:32px;min-height:32px;cursor:pointer}
 /* UX-04: janela de confirmação do sistema (acima dos modais) */
