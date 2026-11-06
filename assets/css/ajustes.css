@@ -322,12 +322,31 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
    usavam margem negativa de 24px para encostar na borda: perdiam 24px à esquerda e no topo
    (primeira coluna e botões do topo cortados). Ficam dentro da área, como as outras telas. */
 #view-relatorios>.full-report-page,#view-relatorios>.report-workspace{margin:0;width:100%;max-width:100%}
+/* UX lote 2 (06/11): faltava o mesmo para o relatório genérico (.workspace-gray, ex.: Histórico do
+   Caixa), que ainda saía cortado à esquerda ("istórico do Caixa", "pções de Pesquisa"). */
+#view-relatorios>.workspace-gray{margin:0;width:100%;max-width:100%;height:auto}
 /* A janela de relatório deixava 13% da largura vazia à esquerda e passava da borda direita. */
 #view-relatorios .report-window{margin-left:0;width:100%}
 /* Valor, data e porcentagem não quebram em duas linhas ("R$" numa, "12,00" na outra). */
 #view-relatorios td.nowrap,#view-relatorios th.nowrap{white-space:nowrap}
 /* Rótulos do filtro de relatório (ex.: "Período" grudado no checkbox anterior). */
 .full-report-filter>label{display:block}
+/* UX lote 2 (06/11): Ranking de Atendimentos — barras de faturamento por colaborador. */
+.ranking-filter>label{display:block;margin:4px 0}
+.ranking-report-layout{grid-template-columns:300px minmax(0,1fr)}
+.ranking-main{display:block;overflow:auto;padding:14px 0 0 16px}
+.ranking-content{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:none;gap:16px}
+.ranking-table{overflow:auto}
+.ranking-note{font-size:12px;color:var(--c-text-3);margin:10px 0 0}
+.ranking-filter>b{display:block;margin-top:16px}
+@media(max-width:760px){.ranking-main{padding:12px 0 0}#view-relatorios .ranking-table th,#view-relatorios .ranking-table td{padding-left:5px;padding-right:5px}}
+.ranking-bars{background:var(--c-surface);border:1px solid var(--c-border);border-radius:8px;padding:14px 16px}
+.ranking-bars h3{font-size:14px;margin:0 0 10px}
+.ranking-bar-row{display:grid;grid-template-columns:minmax(90px,160px) minmax(0,1fr) max-content;align-items:center;gap:10px;padding:5px 0;font-size:13px}
+.ranking-bar-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ranking-bar-track{height:12px;border-radius:6px;background:var(--c-surface-2);overflow:hidden}
+.ranking-bar-fill{height:100%;border-radius:6px;background:var(--c-primary)}
+.ranking-bar-val{font-variant-numeric:tabular-nums;white-space:nowrap}
 .full-report-filter>b{display:block;margin-top:10px}
 /* Janelas de configuração/registro sem espaço interno: o título encostava na borda. */
 :is(.app-config-modal,.scale-config-modal,.campaign-modal,.integration-modal,.record-modal,.cash-close-modal,.cash-entry-modal,.finance-record-modal,.columns-record-modal,.scheduled-record-modal,.bulk-product-modal,.nfe-stock-modal,.sms-window-modal,.cash-order-modal)>.modal-title{padding:16px 48px 12px 20px;margin:0;border-bottom:1px solid var(--c-border)}
