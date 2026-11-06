@@ -13,7 +13,7 @@ function psdGrade(){
 function psdGroup(id){ return (state.complementos||[]).find(c=>c&&c.id===id&&c.recordKind==='optionGroup')||null; }
 function psdClone(x){ return JSON.parse(JSON.stringify(x)); }
 function psdRuleDraft(r){
-  return { groupId:r.groupId, min:String(Number(r.min)||0), max:String(Number(r.max)||0), included:String(Number(r.included)||0), repeat:!!r.repeat };
+  return { groupId:r.groupId, included:String(Number(r.included)||0) }; // complemento livre: sem mínimo/máximo/repetir
 }
 function psdSizeDraft(s, ativoPadrao){
   s = s || {};
@@ -127,12 +127,9 @@ function psdRulesHtml(target){
       <div style="display:flex;justify-content:space-between;gap:8px"><b>${g?h(g.nome):'(grupo removido)'}${g&&g.active===false?' <small>(pausado)</small>':''}</b>
         <span>${g?`<button type="button" class="link-btn" onclick="editRuleGroup(${jsArg(r.groupId)})">✎ editar lista</button> `:''}<button type="button" class="link-btn" onclick="removeGroupRule(${t},${i})">✕ remover</button></span></div>
       <div class="row" style="align-items:flex-end;margin-top:6px">
-        <div class="field"><label>Mínimo</label>${num(i,'min',r.min)}</div>
-        <div class="field"><label>Máximo</label>${num(i,'max',r.max)}</div>
-        <div class="field"><label>Inclusos no preço</label>${num(i,'included',r.included)}</div>
-        <label style="align-self:center"><input type="checkbox" ${r.repeat?'checked':''} onchange="setRuleField(${t},${i},'repeat',this.checked)"> Pode repetir</label></div>
+        <div class="field"><label>Inclusos no preço</label>${num(i,'included',r.included)}</div></div>
       ${g?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${(g.options||[]).map(o=>`<span class="tag tag-gray" style="${o.active===false?'opacity:.5':''}">${h(o.nome)}${Number(o.preco)?` <small>+ ${h(fmt(o.preco))}</small>`:''}</span>`).join('')}</div>`:''}
-      <p class="sub" style="margin:6px 0 0">Os inclusos já estão no preço; opção com preço só cobra o que passar dos inclusos.</p></div>`;
+      <p class="sub" style="margin:6px 0 0">Escolha livre: sem mínimo nem máximo. Os inclusos já estão no preço; opção com preço só cobra o que passar dos inclusos.</p></div>`;
   }).join('')||'<p class="empty" style="padding:10px">Nenhum grupo de opções ainda.</p>'}
   <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
     <button type="button" class="op-btn primary" onclick="newGroupForProduct(${t})">+ Grupo de opções</button>
@@ -141,7 +138,7 @@ function psdRulesHtml(target){
 }
 function setRuleField(target, idx, field, value){
   const r = psdRules(target)[idx]; if(!r) return;
-  r[field] = field==='repeat' ? !!value : String(value); // sem redesenhar: não perder o clique seguinte
+  r[field] = String(value); // sem redesenhar: não perder o clique seguinte
 }
 function addGroupRule(target){
   const sel = document.getElementById('pGroupPick-'+target);
@@ -152,7 +149,7 @@ function addGroupRule(target){
 function psdAddRule(target, groupId){
   const rules = psdRules(target);
   if(rules.some(r=>r.groupId===groupId)){ toast('Este grupo já está na lista.'); return; }
-  rules.push({ groupId, min:'0', max:'1', included:'0', repeat:false });
+  rules.push({ groupId, included:'0' });
   refreshProductGradeUi();
 }
 function removeGroupRule(target, idx){
@@ -286,7 +283,7 @@ function copyGroupRules(fromSizeId, toSizeIds, toProductIds){
   const d = productSizesDraft, from = d&&d.sizes[fromSizeId]; if(!from) return;
   const lido = psdReadRules(from.groups, (psdGrade()&&(psdGrade().sizes||[]).find(x=>x.id===fromSizeId)||{}).nome||'');
   if(lido.error){ toast(lido.error); return { error:lido.error }; }
-  (toSizeIds||[]).forEach(id=>{ if(id!==fromSizeId && d.sizes[id]) d.sizes[id].groups = lido.rules.map(r=>({ groupId:r.groupId, min:String(r.min), max:String(r.max), included:String(r.included), repeat:r.repeat })); });
+  (toSizeIds||[]).forEach(id=>{ if(id!==fromSizeId && d.sizes[id]) d.sizes[id].groups = lido.rules.map(r=>({ groupId:r.groupId, included:String(r.included) })); });
   (toProductIds||[]).forEach(pid=>{
     if(pid===d.productId) return;
     d.copies = d.copies.filter(c=>!(c.productId===pid && c.sizeId===fromSizeId));
@@ -320,12 +317,10 @@ function renderProductOptionsPane(product){
 function psdReadRules(list, onde){
   const out = [];
   for(const r of list){
-    const min = parseInt(r.min,10), max = parseInt(r.max,10), included = parseInt(r.included,10);
+    const included = parseInt(r.included,10);
     const g = psdGroup(r.groupId), nome = g ? g.nome : 'grupo removido';
-    if(![min,max,included].every(n=>Number.isFinite(n)&&n>=0)) return { error:'Mínimo, máximo e inclusos de '+nome+(onde?' ('+onde+')':'')+' devem ser números a partir de 0.' };
-    if(max<min) return { error:'Em '+nome+(onde?' ('+onde+')':'')+', o máximo não pode ser menor que o mínimo.' };
-    if(included>max) return { error:'Em '+nome+(onde?' ('+onde+')':'')+', os inclusos não podem passar do máximo.' };
-    out.push({ groupId:r.groupId, min, max, included, repeat:!!r.repeat });
+    if(!(Number.isFinite(included)&&included>=0)) return { error:'Inclusos de '+nome+(onde?' ('+onde+')':'')+' devem ser um número a partir de 0.' };
+    out.push({ groupId:r.groupId, included });
   }
   return { rules:out };
 }

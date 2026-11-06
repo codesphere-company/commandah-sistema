@@ -120,18 +120,18 @@ function renderItemChoice(focusKey){
     const grupo = opcoesGroupOf(state.complementos, rule.groupId);
     const picks = st.picks[rule.groupId] || {};
     const options = (grupo.options || []).filter(o => o && o.active !== false);
-    const max = Number(rule.max) || 0, min = Number(rule.min) || 0, included = Number(rule.included) || 0;
+    const included = Number(rule.included) || 0; // complemento livre: sem mínimo, máximo nem trava de repetir
     const total = options.reduce((s, o) => s + (Number(picks[o.id]) || 0), 0);
-    const info = [min > 0 ? 'Obrigatório: escolha ao menos ' + min : 'Opcional',
+    const info = ['Opcional',
       included > 0 && options.some(o => Number(o.preco) > 0) ? included + ' incluso(s) no preço' : ''].filter(Boolean).join(' · ');
-    html += `<div class="ic-section"><div class="ic-section-head"><b>${h(grupo.nome)}</b><span class="ic-counter">${total} de ${max}</span></div><small class="ic-rule">${h(info)}</small>`;
+    html += `<div class="ic-section"><div class="ic-section-head"><b>${h(grupo.nome)}</b><span class="ic-counter">${total} escolhido(s)</span></div><small class="ic-rule">${h(info)}</small>`;
     html += options.map(o => {
-      const q = Number(picks[o.id]) || 0, canAdd = total < max && (rule.repeat || q < 1);
+      const q = Number(picks[o.id]) || 0;
       const key = rule.groupId + '|' + o.id;
       return `<div class="ic-opt"><span>${h(o.nome)}${Number(o.preco) ? ` <small>+ ${fmt(o.preco)}</small>` : ''}</span><span class="ic-qty">`
         + `<button type="button" data-ic-key="${h(key + '|-1')}" aria-label="${h('Tirar ' + o.nome)}" ${q <= 0 ? 'disabled' : ''} onclick="itemChoiceStep(${jsArg(rule.groupId)},${jsArg(o.id)},-1)">−</button>`
         + `<span class="mono">${q}</span>`
-        + `<button type="button" data-ic-key="${h(key + '|1')}" aria-label="${h('Pôr ' + o.nome)}" ${canAdd ? '' : 'disabled'} onclick="itemChoiceStep(${jsArg(rule.groupId)},${jsArg(o.id)},1)">+</button></span></div>`;
+        + `<button type="button" data-ic-key="${h(key + '|1')}" aria-label="${h('Pôr ' + o.nome)}" onclick="itemChoiceStep(${jsArg(rule.groupId)},${jsArg(o.id)},1)">+</button></span></div>`;
     }).join('') || '<p class="sub">Nenhuma opção ativa neste grupo.</p>';
     html += '</div>';
   });
@@ -160,9 +160,6 @@ function itemChoicePickSize(sizeId){
     const ativas = (grupo.options || []).filter(o => o && o.active !== false).map(o => o.id);
     const kept = {};
     Object.keys(old).forEach(oid => { if(ativas.indexOf(oid) >= 0 && Number(old[oid]) > 0) kept[oid] = Number(old[oid]); });
-    const total = Object.keys(kept).reduce((s, k) => s + kept[k], 0);
-    const repetida = !rule.repeat && Object.keys(kept).some(k => kept[k] > 1);
-    if(total > (Number(rule.max) || 0) || repetida) return; // não cabe no tamanho novo: recomeça o grupo
     picks[rule.groupId] = kept;
   });
   st.picks = picks;
@@ -177,11 +174,9 @@ function itemChoiceStep(groupId, optionId, delta){
   const rule = itemChoiceRules(product, st.sizeId).find(r => r.groupId === groupId);
   if(!rule) return;
   const picks = st.picks[groupId] = st.picks[groupId] || {};
-  const total = Object.keys(picks).reduce((s, k) => s + (Number(picks[k]) || 0), 0);
   const q = Number(picks[optionId]) || 0;
   if(delta > 0){
-    if(total >= (Number(rule.max) || 0) || (!rule.repeat && q >= 1)) return; // "+" travado
-    picks[optionId] = q + 1;
+    picks[optionId] = q + 1; // complemento livre: "+" nunca trava
   } else {
     if(q <= 0) return;
     if(q - 1 > 0) picks[optionId] = q - 1; else delete picks[optionId];
@@ -207,7 +202,7 @@ function itemChoiceBuild(){
   });
 }
 
-// Total ao vivo. Com escolha incompleta (mínimo não atingido, sem tamanho), mostra a prévia do
+// Total ao vivo. Com escolha incompleta (sem tamanho, opção indisponível), mostra a prévia do
 // preço e o aviso do que falta; "Adicionar" fica com cara de bloqueado e só avisa.
 function itemChoiceUpdateTotal(){
   const st = itemChoiceState, product = itemChoiceProduct();
