@@ -507,7 +507,7 @@ async function printSingleTicket(who, cota, local, estacao, printer, items, orde
         let { error } = await supabaseClient.from('print_jobs').insert(job);
         // Computador removido (ou banco sem a coluna): manda sem computador definido, como antes.
         if(error && job.agent_id){ delete job.agent_id; ({ error } = await supabaseClient.from('print_jobs').insert(job)); }
-        if(!error){ toast('Pedido enviado pra fila de impressão: '+printer); return; }
+        if(!error){ toast('Ficha enviada para a impressora: '+printer); return; }
       }catch(e){ /* cai pro modo antigo abaixo */ }
     }
     const base = printerAgentBase(imp);
@@ -558,8 +558,10 @@ function renderPrintFailBanner(){
     ? (n===1 ? 'Ficha de '+est+' não foi para a impressora' : n+' fichas não foram para a impressora')
     : (n===1 ? 'Estação '+est+' sem impressora: item não impresso' : n+' fichas sem impressora: itens não impressos');
   const resumo = failedPrintTickets.slice(-3).map(t=>(t.orderNumber?'#'+t.orderNumber+' ':'')+(t.who||'')+' ('+(estacaoLabel(t.estacao)||t.estacao)+')').join(' · ');
-  el.querySelector('.local-mode-sub').textContent = resumo + '. Toque em "Imprimir aqui" para sair na impressora deste aparelho, ou leve o pedido até a estação.'
-    + (last.printer ? ' Confira se o agente de impressão está aberto no computador.' : ' Cadastre a impressora em Configurações › Impressoras.');
+  // UX lote 3 (06/11): texto mais curto — o aviso tinha 4 linhas, empurrava a tela ~140 px e
+  // cobria o cabeçalho das janelas. O caminho para cadastrar a impressora só aparece para o administrador (o caixa não cadastra).
+  el.querySelector('.local-mode-sub').textContent = resumo + '. Imprima aqui ou leve o pedido até a estação.'
+    + (last.printer ? ' Confira se o agente de impressão está aberto.' : (typeof hasPerm==='function' && hasPerm('config-sistema') ? ' Cadastre em Configurações › Impressoras.' : ''));
   applyTopBannerOffset();
 }
 function ticketPopupHtml(t){

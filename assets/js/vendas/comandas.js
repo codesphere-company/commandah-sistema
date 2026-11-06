@@ -424,7 +424,9 @@ async function confirmNovoPedidoModal(saleId){
   });
   logAction('Pedido registrado para '+who+(local?' — local: '+local:'')+' — origem: '+origemLabel(origem));
   printNovoPedidoTickets(who, member?member.code:'', local, printJobs, s.orderNumber);
-  toast('Pedido confirmado e enviado para a cozinha.');
+  // UX lote 3 (06/11): "enviado para a cozinha" aparecia junto com "Estação Bar sem impressora".
+  // A confirmação diz só o que é certo; para onde cada ficha foi, quem diz é o aviso da impressão.
+  toast('Pedido confirmado.');
   closeModal(); openComanda(saleId, true); renderComandas();
 }
 function printNovoPedidoTickets(who, cota, local, printJobs, orderNumber){
@@ -705,7 +707,7 @@ async function confirmReorderComandaItem(){
     printSingleTicket(who, member?member.code:'', s.local||'', newItem.estacao, printer?printer.nome:null, [newItem], s.orderNumber);
   }
   logAction('Pedido repetido do histórico: '+newItem.name+' x'+reorderQty+' para '+who+' — pedido #'+(s.orderNumber||saleId));
-  toast('Adicionado e enviado para a cozinha.');
+  toast('Item adicionado à comanda.'); // UX lote 3: ver o toast de 'Pedido confirmado.'
   reorderItemIdx = null;
   closeModal(); openComanda(saleId, true); renderComandas();
 }
@@ -1028,7 +1030,7 @@ async function confirmComandaQuickAdd(){
   });
   logAction('Produto(s) adicionado(s) via busca na comanda: '+items.map(i=>i.qty+'x '+i.name).join(', ')+' para '+who+' — pedido #'+(s.orderNumber||saleId));
   printNovoPedidoTickets(who, member?member.code:'', s.local, printJobs, s.orderNumber);
-  toast('Adicionado e enviado para a cozinha.');
+  toast('Item adicionado à comanda.'); // UX lote 3: ver o toast de 'Pedido confirmado.'
   comandaQuickCart = []; levarJunto.quick=false;
   closeModal(); openComanda(saleId, true); renderComandas();
 }
