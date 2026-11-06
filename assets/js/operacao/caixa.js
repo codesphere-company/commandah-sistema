@@ -60,7 +60,7 @@ function renderCaixa(){
   // UX lote 1 (06/11), PROD-05: a conferência do fechamento é às cegas, mas esta tela mostrava
   // ao operador o "dinheiro esperado na gaveta" e os totais o tempo todo — inclusive atrás do
   // modal "Conte o caixa antes de ver o esperado". Agora só administrador ou dono veem os totais.
-  const veTotaisCaixa = !!currentUser && (currentUser.role==='admin' || sessionIsOwner);
+  const veTotaisCaixa = podeVerTotaisDoCaixa();
   // 06/11 (pedido do dono): o operador também não vê as linhas de venda da Movimentação — somando
   // à mão dava para chegar no esperado. Ele vê só o saldo inicial e as entradas/saídas manuais
   // (sangria e reforço) que ele mesmo lança; vendas, parciais, troco e fiado ficam para o admin.
@@ -138,7 +138,7 @@ function openCashMovementModal(initialType,movementId){
   };
 }
 function renderCashHistoryPanel(){
-  if(!state.cashHistory.length) return '';
+  if(!state.cashHistory.length || !podeVerTotaisDoCaixa()) return ''; // 06/11: vendido/contado/diferença só para admin/dono
   const rows = state.cashHistory.slice(0,10).map(h=>`
     <tr><td>${new Date(h.openedAt).toLocaleDateString('pt-BR')}</td><td class="mono">${fmt(h.openingAmount)}</td>
     <td class="mono">${fmt(Object.values(h.totals).reduce((a,b)=>a+b,0))}</td><td class="mono">${fmt(h.countedAmount)}</td>
