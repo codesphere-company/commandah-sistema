@@ -752,3 +752,24 @@ body.tv-mode .kfechada-faixa{font-size:22px}
 .ic-actions .op-btn{min-height:44px;justify-content:center}
 .ic-actions .op-btn.ic-blocked{opacity:.55}
 @media(max-width:520px){.item-choice-backdrop{padding:0;align-items:flex-end}.item-choice-box{max-width:none;max-height:100dvh;border-radius:var(--r-lg) var(--r-lg) 0 0}.ic-actions .op-btn{flex:1}}
+/* UX lote 3 (06/11): telas de caixa fechado (Comandas e Ficha). Antes o título era "Caixa livre"
+   em verde (cor de "tudo certo") e havia dois botões, um com seta de voltar que na verdade abria o
+   caixa. Agora: "Caixa fechado", em cor neutra, com um botão só. */
+.free-cash h2{color:var(--c-text)!important} /* vence o !important de componentes.css */
+.free-cash-actions.free-cash-single{justify-content:center;margin-top:40px}
+.free-cash-actions.free-cash-single .op-btn{min-width:220px}
+/* UX lote 3 (06/11): a faixa de atalhos rolava de lado sem barra visível. Em Configurações metade
+   dos atalhos (Estações, Impressoras, Logs, Ajuda...) ficava escondida à direita; em Relatórios os
+   16 botões eram espremidos até o nome quebrar em 3 linhas. Agora os grupos passam para a linha de
+   baixo quando não cabem: tudo fica à vista, sem rolagem escondida. */
+.ribbon-toolbar,.ribbon-toolbar.reports-mode{flex-wrap:wrap;row-gap:8px;overflow-x:visible;justify-content:flex-start}
+.rb-group{padding:0 10px;max-width:100%}
+.rb-icons{flex-wrap:wrap;row-gap:6px}
+.ribbon-toolbar.reports-mode .rb-group{flex:0 0 auto;padding:0 6px}
+.ribbon-toolbar.reports-mode .rb-icons button{flex:0 0 auto;width:auto;min-width:72px;max-width:104px;padding:5px 4px}
+.ribbon-toolbar.reports-mode .rb-icons button .lb{min-height:0}
+/* UX lote 3 (06/11): aviso de ficha não impressa — mais largo e baixo (botões ao lado do texto em
+   vez de empilhados), e as janelas abrem abaixo dele em vez de ficar com o cabeçalho coberto. */
+.local-mode.print-fail{max-width:760px}
+@media(min-width:761px){.print-fail .print-fail-actions{flex-direction:row;width:auto}.print-fail .print-fail-actions .local-mode-btn{width:auto;flex:0 0 auto}.local-mode.print-fail{flex-wrap:nowrap}}
+#modalRoot .modal-overlay{padding-top:calc(var(--top-banner-offset,0px) + 16px)}

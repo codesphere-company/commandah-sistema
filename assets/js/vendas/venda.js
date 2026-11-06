@@ -136,7 +136,7 @@ let pdvOptionsOpen = false;
 function renderBalcao(){
   const el = document.getElementById('view-balcao');
   if(!state.cashSession || state.cashSession.status!=='open'){
-    el.innerHTML = `<div class="consumer-workspace"><section class="free-cash"><h2>Caixa livre</h2><div class="free-cash-actions"><button class="op-btn" onclick="switchView('principal')">‹ &nbsp; Voltar</button><button class="op-btn primary" onclick="switchView('caixa')"><span class="op-ico">＋</span> Abrir caixa</button></div><p class="sub" style="margin-top:25px">Abra o caixa para iniciar um novo pedido.</p></section></div>`; return;
+    el.innerHTML = `<div class="consumer-workspace"><section class="free-cash"><h2>Caixa fechado</h2><div class="free-cash-actions free-cash-single"><button class="op-btn primary" onclick="switchView('caixa')">Abrir caixa</button></div><p class="sub" style="margin-top:25px">Abra o caixa para começar a vender na Ficha.</p></section></div>`; return;
   }
   // Só desenha com o balcão na tela: renderAll chama todas as telas, e o balcão usa os mesmos
   // #draftItemsList/#draftTotal e o mesmo currentSaleDraft da comanda aberta.
