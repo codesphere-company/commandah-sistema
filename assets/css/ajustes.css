@@ -773,3 +773,44 @@ body.tv-mode .kfechada-faixa{font-size:22px}
 .local-mode.print-fail{max-width:760px}
 @media(min-width:761px){.print-fail .print-fail-actions{flex-direction:row;width:auto}.print-fail .print-fail-actions .local-mode-btn{width:auto;flex:0 0 auto}.local-mode.print-fail{flex-wrap:nowrap}}
 #modalRoot .modal-overlay{padding-top:calc(var(--top-banner-offset,0px) + 16px)}
+/* UX lote 4 (06/11): telas estreitas (celular ou tablet em pé, até 900 px).
+   - Ficha: o carrinho fica depois da grade inteira de produtos. A barra fixa embaixo mostra itens,
+     total e Cobrar; "Ver ficha" rola até o carrinho.
+   - Novo Pedido: "Quem está pedindo" (obrigatório) vinha depois do cardápio, e Total/Confirmar no
+     fim de tudo. Agora "Quem está pedindo" vem primeiro e o rodapé com Total/Confirmar fica preso
+     embaixo.
+   - Pagamento: o Confirmar ficava fora da tela; agora fica preso embaixo da janela. */
+.bc-mobile-bar{display:none}
+@media(max-width:900px){
+  .bc-mobile-bar{display:flex;position:sticky;bottom:0;z-index:5;gap:10px;align-items:center;padding:10px 14px;background:var(--c-surface);border-top:1px solid var(--c-border);box-shadow:0 -4px 14px rgba(0,0,0,.08)}
+  .bc-mobile-sum{flex:1;min-width:0;display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:baseline;background:none;border:0;padding:4px 0;text-align:left;color:var(--c-text);min-height:48px;cursor:pointer;font:inherit}
+  .bc-mobile-sum span{font-size:13px;color:var(--c-text-2)}
+  .bc-mobile-sum b{font-size:19px;justify-self:end}
+  .bc-mobile-sum small{grid-column:1/-1;font-size:12px;font-weight:700;color:var(--c-primary-text)}
+  .bc-mobile-bar .op-btn{min-height:50px;min-width:128px;font-size:17px;font-weight:700;justify-content:center}
+  .np-layout{display:flex;flex-direction:column}
+  .np-side{display:contents}
+  .np-side>.np-section{margin:0 16px 10px;padding:12px}
+  .np-side>.np-section:first-child{order:-1;margin-top:12px}
+  .np-menu{order:0}
+  .np-side>.np-section:not(:first-child){order:1}
+  .np-side-foot{order:2;position:sticky;bottom:0;z-index:3;background:var(--c-surface);padding:10px 16px;box-shadow:0 -4px 14px rgba(0,0,0,.08)}
+}
+@media(max-width:760px){
+  .pay-modal #confirmPayBtn{position:sticky;bottom:0;z-index:3;box-shadow:0 -6px 14px rgba(0,0,0,.12)}
+}
+/* UX lote 4 (06/11): com o aviso de impressora aberto, as janelas descem (lote 3), então a altura
+   máxima delas desconta o aviso; senão o rodapé (ex.: Confirmar do Novo Pedido) saía da tela. */
+#modalRoot .modal{max-height:calc(100dvh - 32px - var(--top-banner-offset,0px))}
+#modalRoot .modal.record-modal{max-height:calc(100dvh - 28px - var(--top-banner-offset,0px))}
+@media(min-width:901px){#modalRoot .modal.np-modal{height:calc(100dvh - 32px - var(--top-banner-offset,0px))}}
+/* Em tela estreita o Novo Pedido cresce e quem rola é o fundo: sem overflow próprio na janela, o
+   rodapé com Total/Confirmar consegue ficar preso embaixo. */
+@media(max-width:900px){#modalRoot .modal.np-modal{max-height:none;overflow:visible}}
+/* UX lote 4 (06/11): o "×" de fechar das janelas de gestão aparecia de dois jeitos (solto, ou num
+   quadradinho com borda quando era <button>). Agora os dois têm o mesmo tamanho e a mesma cara. */
+.op-titlebar .op-controls>button,.op-titlebar .op-controls>span{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;padding:0;border:0;border-radius:8px;background:none;color:var(--c-text-2);font-size:20px;font-weight:400;line-height:1;cursor:pointer;box-shadow:none}
+.op-titlebar .op-controls>button:hover,.op-titlebar .op-controls>span:hover{background:var(--c-surface-3);color:var(--c-text)}
+/* UX lote 4 (06/11): linha escolhida destacada também nas listas .finance-grid (Categoria de
+   Contas, Contas a Pagar), como já era nas outras. */
+.finance-grid tr.selected td{background:var(--c-primary-soft)}
