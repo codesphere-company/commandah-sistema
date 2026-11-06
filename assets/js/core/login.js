@@ -115,8 +115,9 @@ async function attemptPinLogin(){
       sessionIsOwner = false;
       // A1: dados lidos com outra visão (ex.: aparelho aberto como caixa, entra o admin) são relidos.
       if(await visaoDaSessao()!==dadosCarregadosComo || !dadosCarregadosComo){
-        toast('Carregando os dados de '+pinTargetUser.name+'…');
+        const avisoCarregando = toast('Carregando os dados de '+pinTargetUser.name+'…');
         const falhou = await carregarDados();
+        if(avisoCarregando) avisoCarregando.remove(); // UX lote 1: não sobra por cima da tela já aberta
         if(falhou.length){ toast('Não foi possível carregar os dados agora. Confira a internet e tente de novo.'); pinBuffer=''; updatePinDots(); return; }
       }
       currentUser = pinTargetUser; afterLogin();
@@ -157,7 +158,7 @@ function afterLogin(){
     document.getElementById('garcomApp').classList.add('show');
     gcApplyDeviceTheme();
     gcRenderHome();
-    toast('Bem-vindo(a), '+currentUser.name+'.');
+    // UX lote 1 (06/11): sem o aviso "Bem-vindo(a)" — o nome já aparece no topo ("Olá, …").
     logAction('Login realizado (modo garçom)');
     return;
   }
@@ -166,7 +167,7 @@ function afterLogin(){
   document.getElementById('sbUserRole').textContent = roleLabel(currentUser.role);
   buildNav();
   renderAll();
-  toast('Bem-vindo(a), '+currentUser.name+'.');
+  // UX lote 1 (06/11): sem o aviso "Bem-vindo(a)" — o nome já aparece na barra de baixo (Usuário).
   logAction('Login realizado');
   if(currentUser.username==='admin' && currentUser.pin==='1234') setTimeout(openForcedPinModal,0);
 }

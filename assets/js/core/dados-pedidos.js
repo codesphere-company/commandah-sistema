@@ -150,5 +150,6 @@ function toast(msg, type){
   root.appendChild(el);
   while(root.children.length>4) root.firstElementChild.remove();
   setTimeout(()=>el.remove(), isError?5000:2600);
+  return el; // quem mostra "carregando…" tira o aviso assim que termina (UX lote 1)
 }
 
