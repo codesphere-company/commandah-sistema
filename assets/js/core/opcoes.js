@@ -8,8 +8,9 @@
 //   complementos: { id, recordKind:'grade', nome, active, sizes:[{id,nome,sigla}] }
 //                 { id, recordKind:'optionGroup', nome, active, options:[{id,nome,preco,active,recipe}] }
 //   produto: gradeId, sizes{[sizeId]:{price,active,channels,recipe,groups}}, groups (sem grade)
-//   GroupRule: { groupId, included } — complemento é livre (pedido do dono, 06/11/2026): sem mínimo,
-//              sem máximo e qualquer opção pode repetir. min/max/repeat de dados antigos são ignorados.
+//   GroupRule: { groupId, min, max, included } — 0 = sem limite (pedido do dono, 06/11/2026): mínimo 0 é
+//              opcional e máximo 0 deixa lançar quantos precisar. Qualquer opção pode repetir; o `repeat`
+//              de dados antigos é ignorado.
 //   customization (v2): { v:2, sizeId, size, groups:[{groupId,name,choices,charged}], observationIds,
 //                         observations, notes, extra, summary }
 //   Cada choice guarda { optionId, name, qty, price } + recipe (cópia da ficha da opção na hora da
@@ -84,6 +85,14 @@ function chargedForGroup(choices, included){
   return opcoesRound2(total);
 }
 
+function validateGroup(rule, groupName, choices){
+  const total = (choices || []).reduce((s, c) => s + (Number(c.qty) || 0), 0);
+  const max = Number(rule.max) || 0, min = Number(rule.min) || 0;
+  if(max > 0 && total > max) return 'Escolha no máximo ' + max + ' em ' + groupName + '.';
+  if(min > 0 && total < min) return 'Escolha ao menos ' + min + ' em ' + groupName + '.';
+  return '';
+}
+
 function opcoesGroupLine(g){
   if(!g.choices || !g.choices.length) return '';
   const partes = g.choices.map(c => c.qty + 'x ' + c.name).join(', ');
@@ -146,6 +155,8 @@ function buildCustomization(p){
       if(op.recipe && op.recipe.length) ch.recipe = op.recipe.map(r => ({ insumoId: r.insumoId, qty: r.qty }));
       choices.push(ch);
     }
+    const erro = validateGroup(rule, grupo.nome, choices);
+    if(erro) return { error: erro };
     const charged = chargedForGroup(choices, rule.included);
     extra += charged;
     groups.push({ groupId: grupo.id, name: grupo.nome, choices: choices, charged: charged });
