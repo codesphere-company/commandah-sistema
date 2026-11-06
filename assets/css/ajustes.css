@@ -62,7 +62,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 #toastRoot{position:fixed;top:calc(var(--top-banner-offset,0px) + 12px);left:50%;transform:translateX(-50%);z-index:300;display:flex;flex-direction:column;align-items:center;gap:8px;width:max-content;max-width:min(440px,calc(100vw - 32px));pointer-events:none}
 #toastRoot .toast{position:static;pointer-events:none;display:flex;align-items:center;gap:10px}
 #toastRoot .toast-erro{pointer-events:auto}
-#toastRoot .toast-erro{background:var(--c-danger-soft);color:var(--c-text);border:1px solid var(--c-danger);border-left-width:4px}
+#toastRoot .toast-erro{background:var(--c-danger-soft);color:var(--c-text);border:1px solid var(--c-danger)} /* UX P3 (06/11): sem a faixa grossa à esquerda; o fundo vermelho claro já diz que é erro */
 #toastRoot .toast-close{background:none;border:0;color:inherit;font-size:20px;line-height:1;min-width:32px;min-height:32px;cursor:pointer}
 /* UX-04: janela de confirmação do sistema (acima dos modais) */
 .confirm-backdrop{position:fixed;inset:0;z-index:400;background:rgba(15,20,30,.45);display:flex;align-items:center;justify-content:center;padding:16px}
@@ -131,7 +131,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .comanda-list-head .table-heading span{display:inline-block;min-width:26px;padding:1px 8px;margin-left:6px;border-radius:var(--r-pill);background:var(--c-primary-soft);color:var(--c-primary-text);font-size:14px;text-align:center}
 .comanda-list-sum{color:var(--c-text-2);font-size:14px}
 .comanda-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
-.comanda-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:4px 10px;text-align:left;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);border-left:5px solid var(--c-border-strong);border-radius:var(--r-lg);padding:12px 14px;min-height:92px;cursor:pointer;box-shadow:var(--sh-1);font:inherit}
+.comanda-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:4px 10px;text-align:left;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);border-left:1px solid var(--c-border);border-radius:var(--r-lg);padding:12px 14px;min-height:92px;cursor:pointer;box-shadow:var(--sh-1);font:inherit}
 .comanda-card:hover{border-color:var(--c-border-strong);box-shadow:var(--sh-2)}
 .comanda-card:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
 .comanda-card .cc-name{font-size:16px;font-weight:600;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
@@ -438,11 +438,11 @@ tr.ua-row-sens td{background:color-mix(in srgb,var(--c-danger) 8%,transparent)}
 button.cash-open-row{cursor:pointer}
 button.cash-open-row:hover{border-color:var(--c-primary)}
 /* OPS-11: aviso de versão nova */
-.new-version-bar{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:320;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border-strong);border-left:5px solid var(--c-primary);border-radius:var(--r-lg);box-shadow:var(--sh-2);padding:10px 14px;font-weight:600;max-width:calc(100vw - 24px)}
+.new-version-bar{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:320;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border-strong);border-radius:var(--r-lg);box-shadow:var(--sh-2);padding:10px 14px;font-weight:600;max-width:calc(100vw - 24px)}
 .new-version-bar button{min-height:38px;border-radius:var(--r-md);border:1px solid var(--c-primary);background:var(--c-primary);color:var(--c-text-inverse);font-weight:700;padding:0 14px;cursor:pointer}
 .new-version-bar .nv-later{background:none;color:var(--c-text-2);border-color:var(--c-border-control)}
 /* OP-13: pagamentos parciais na comanda */
-.partial-box{margin-top:8px;border:1px solid var(--c-border);border-left:4px solid var(--c-primary);border-radius:var(--r-md);padding:8px 12px;background:var(--c-surface);display:grid;gap:4px}
+.partial-box{margin-top:8px;border:1px solid var(--c-border);border-radius:var(--r-md);padding:8px 12px;background:var(--c-primary-soft);display:grid;gap:4px}
 .partial-head{display:flex;justify-content:space-between;gap:10px;font-size:14px}
 .partial-line{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--c-text-2)}
 /* PROD-07: extrato por período e saldos em atraso */
@@ -469,7 +469,7 @@ button.cash-open-row:hover{border-color:var(--c-primary)}
 .help-sheet-head h2{margin:0}
 .help-sheet h3{font-size:16px;margin:18px 0 6px;color:var(--c-primary)}
 .help-sheet ol,.help-sheet ul{margin:0;padding-left:22px;display:grid;gap:5px;line-height:1.45}
-.help-sheet .help-warn{border-left:4px solid var(--c-danger);background:var(--c-surface-2);border-radius:var(--r-md);padding:10px 14px;margin-top:16px}
+.help-sheet .help-warn{border:1px solid var(--c-danger);background:var(--c-danger-soft);border-radius:var(--r-md);padding:10px 14px;margin-top:16px}
 .help-sheet .help-warn b{color:var(--c-danger)}
 .help-sheet table{width:100%;border-collapse:collapse}
 .help-sheet td{border-bottom:1px solid var(--c-border);padding:8px 6px;vertical-align:top;line-height:1.4}
@@ -814,3 +814,8 @@ body.tv-mode .kfechada-faixa{font-size:22px}
 /* UX lote 4 (06/11): linha escolhida destacada também nas listas .finance-grid (Categoria de
    Contas, Contas a Pagar), como já era nas outras. */
 .finance-grid tr.selected td{background:var(--c-primary-soft)}
+/* UX P3 (06/11): menor letra do sistema era o selo "Em construção" (10 px) e o título "Gestão" do
+   menu (11 px). Sobem para 12 px, o mesmo mínimo do resto da tela. */
+.selo-obra{font-size:12px}
+.ribbon-tabs .sb-sep{font-size:12px}
+#view-estacoes td small.mono,#view-origens td small.mono{font-size:12px} /* UX P3: chave da estação/origem saía em 10,8 px */
