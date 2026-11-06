@@ -440,7 +440,9 @@ async function confirmNovoPedidoModal(saleId){
   closeModal(); openComanda(saleId, true); renderComandas();
 }
 function printNovoPedidoTickets(who, cota, local, printJobs, orderNumber){
-  const jobsToPrint = printJobs.filter(job=>saidaTemImpressao(job.estacao));
+  // Venda por peso, 05/11: peça pesada não imprime ficha de preparo (a linha leva estacao 'nenhuma',
+  // que sairia no bar). Trava única para Ficha, Novo pedido, adição rápida e fechar comanda.
+  const jobsToPrint = printJobs.map(job=>({...job, items:(job.items||[]).filter(i=>!i.weight)})).filter(job=>job.items.length && saidaTemImpressao(job.estacao));
   if(!jobsToPrint.length) return;
   jobsToPrint.forEach((job, idx)=>{
     setTimeout(()=>printSingleTicket(who, cota, local, job.estacao, job.printer, job.items, orderNumber), idx*700);
@@ -583,7 +585,7 @@ function renderComandaAuditItemRow(item,idx,locked){
   const requester = item.requesterName||currentSaleDraft.customerName||'Não registrado';
   const status = item.canceled?'<span class="tag tag-red">Cancelado</span>':item.sent?'<span class="tag tag-blue">Enviado</span>':'<span class="tag tag-amber">Novo</span>';
   const actions = item.canceled||!item.sent ? '' :
-    `<button class="btn btn-sm cmd-act" title="Reimprimir a ficha deste item" onclick="reprintComandaItem(${idx})">${ICN.printer}<span>Reimprimir</span></button>`+
+    (item.weight?'':`<button class="btn btn-sm cmd-act" title="Reimprimir a ficha deste item" onclick="reprintComandaItem(${idx})">${ICN.printer}<span>Reimprimir</span></button>`)+
     `<button class="btn btn-sm cmd-act" title="Pedir este item de novo" onclick="openReorderComandaItem(${idx})">${ICN.history}<span>Repetir</span></button>`+
     (hasPerm('cancelar-comanda')?`<button class="btn btn-sm cmd-act cmd-act-danger" title="Cancelar este item" ${locked?'disabled':''} onclick="openCancelComandaItem(${idx})">${ICN.trash}<span>Cancelar</span></button>`:'');
   // Venda por peso, 05/11: peça mostra o kg e só o botão de tirar; a linha "0,480 kg × R$ 119,90" fica no lugar do "1× R$".
@@ -1075,7 +1077,7 @@ function openReorderComandaBatch(batchKey){
   openComandaQuickAddConfirm();
 }
 function reprintComandaItem(idx){
-  const item = (currentSaleDraft.items||[])[idx]; if(!item) return;
+  const item = (currentSaleDraft.items||[])[idx]; if(!item || item.weight) return; // venda por peso, 05/11: peça não tem ficha de preparo
   const product = state.products.find(p=>p.id===item.productId);
   const estacao = item.estacao || (product&&product.estacao) || 'cozinha';
   if(!saidaTemImpressao(estacao)){ toast('Esta estação está configurada como "só tela" — não imprime.'); return; }
