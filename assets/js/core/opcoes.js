@@ -8,7 +8,8 @@
 //   complementos: { id, recordKind:'grade', nome, active, sizes:[{id,nome,sigla}] }
 //                 { id, recordKind:'optionGroup', nome, active, options:[{id,nome,preco,active,recipe}] }
 //   produto: gradeId, sizes{[sizeId]:{price,active,channels,recipe,groups}}, groups (sem grade)
-//   GroupRule: { groupId, min, max, included, repeat }
+//   GroupRule: { groupId, included } — complemento é livre (pedido do dono, 06/11/2026): sem mínimo,
+//              sem máximo e qualquer opção pode repetir. min/max/repeat de dados antigos são ignorados.
 //   customization (v2): { v:2, sizeId, size, groups:[{groupId,name,choices,charged}], observationIds,
 //                         observations, notes, extra, summary }
 //   Cada choice guarda { optionId, name, qty, price } + recipe (cópia da ficha da opção na hora da
@@ -54,14 +55,11 @@ function productNeedsChoice(product, complementos){
   return opcoesAllRules(product, complementos).length > 0;
 }
 
-// Produto com tamanho ou com grupo obrigatório não cabe em fluxo sem balcão (autoatendimento/combo).
-function opcoesHasRequiredChoice(product, complementos){
-  // gradeId preenchido basta, mesmo com a grade pausada/apagada: não pode virar produto de preço único.
-  if(product && product.gradeId) return true;
-  return opcoesAllRules(product, complementos).some(r => Number(r.min) >= 1);
-}
-function hiddenInSelfService(product, complementos){ return opcoesHasRequiredChoice(product, complementos); }
-function blockedInCombo(product, complementos){ return opcoesHasRequiredChoice(product, complementos); }
+// Produto com tamanho ou com complemento não cabe em fluxo sem balcão (autoatendimento/combo), que
+// não tem tela de escolha. Antes só o grupo com mínimo escondia; sem mínimo (06/11/2026), o dono
+// decidiu manter fora do QR/totem tudo que tem complemento.
+function hiddenInSelfService(product, complementos){ return productNeedsChoice(product, complementos); }
+function blockedInCombo(product, complementos){ return productNeedsChoice(product, complementos); }
 
 function sizesForChannel(product, grade, channel){
   if(!product || !grade) return [];
@@ -84,15 +82,6 @@ function chargedForGroup(choices, included){
   let total = 0;
   for(let i = Math.max(0, Number(included) || 0); i < units.length; i++) total += units[i];
   return opcoesRound2(total);
-}
-
-function validateGroup(rule, groupName, choices){
-  const total = (choices || []).reduce((s, c) => s + (Number(c.qty) || 0), 0);
-  const max = Number(rule.max) || 0, min = Number(rule.min) || 0;
-  if(total > max) return 'Escolha no máximo ' + max + ' em ' + groupName + '.';
-  if(total < min) return 'Escolha ao menos ' + min + ' em ' + groupName + '.';
-  if(!rule.repeat && (choices || []).some(c => (Number(c.qty) || 0) > 1)) return 'Cada opção de ' + groupName + ' só pode ser escolhida uma vez.';
-  return '';
 }
 
 function opcoesGroupLine(g){
@@ -157,8 +146,6 @@ function buildCustomization(p){
       if(op.recipe && op.recipe.length) ch.recipe = op.recipe.map(r => ({ insumoId: r.insumoId, qty: r.qty }));
       choices.push(ch);
     }
-    const erro = validateGroup(rule, grupo.nome, choices);
-    if(erro) return { error: erro };
     const charged = chargedForGroup(choices, rule.included);
     extra += charged;
     groups.push({ groupId: grupo.id, name: grupo.nome, choices: choices, charged: charged });
