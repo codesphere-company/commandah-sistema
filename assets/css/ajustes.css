@@ -819,3 +819,15 @@ body.tv-mode .kfechada-faixa{font-size:22px}
 .selo-obra{font-size:12px}
 .ribbon-tabs .sb-sep{font-size:12px}
 #view-estacoes td small.mono,#view-origens td small.mono{font-size:12px} /* UX P3: chave da estação/origem saía em 10,8 px */
+/* Unificação das telas de gestão (06/11): cabeçalho padrão (o mesmo de Produtos) nas telas que não
+   tinham, e o título antigo escondido. Ver padronizarCabecalhoDaTela() em core/navegacao.js. */
+.tela-cabecalho{display:flex;align-items:center;gap:12px;padding:2px 0 14px;font-family:var(--font-sans)}
+.tela-cabecalho h1{margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em;color:var(--c-text);line-height:1.3}
+.tela-cabecalho .op-controls{margin-left:auto;display:flex}
+.tela-cabecalho .op-controls>button{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;padding:0;border:0;border-radius:8px;background:none;color:var(--c-text-2);font-size:20px;line-height:1;cursor:pointer}
+.tela-cabecalho .op-controls>button:hover{background:var(--c-surface-3);color:var(--c-text)}
+.tela-com-cabecalho .finance-title-tab,.tela-com-cabecalho .full-report-title,.tela-com-cabecalho .report-window>.op-titlebar,.tela-com-cabecalho .daily-summary-head h2,.tela-com-cabecalho>.panel>h2:first-child{display:none}
+@media print{.tela-cabecalho .op-controls{display:none}}
+.tela-com-cabecalho .workspace-gray>section.record-modal>h3:first-child{display:none} /* Numeração de Pedidos: título repetido */
+.tela-com-cabecalho .full-report-head{justify-content:flex-end;gap:10px;height:auto;padding-top:0;padding-bottom:10px} /* botões Imprimir/Exportar à direita, como nas outras */
+.workspace-gray>.settings-window>.op-titlebar{height:auto;min-height:0;padding:18px 20px 6px;border-bottom:0;font-size:20px;font-weight:600;letter-spacing:-.01em} /* Configurações com o mesmo título das outras */

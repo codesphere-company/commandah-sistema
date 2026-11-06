@@ -385,3 +385,41 @@ function renderScoreboard(){
   document.getElementById('sbVendidoHoje').parentElement.hidden = !podeVerTotaisDoCaixa();
 }
 
+
+/* ============ CABEÇALHO PADRÃO DAS TELAS DE GESTÃO ============
+   Unificação das telas de gestão (06/11): o padrão é o de Produtos (título grande à esquerda e × à
+   direita, em .workspace-gray > .op-window > .op-titlebar). Relatórios, financeiro e algumas telas de
+   configuração tinham o título de cinco jeitos (aba com borda, caixa pequena, h2 solto, cartão, ou
+   nenhum). Telas sem o cabeçalho padrão recebem um igual, com o nome do menu; o título antigo some
+   pelo CSS (.tela-com-cabecalho). As telas de operação (caixa, comandas, ficha...) ficam como estão. */
+const TELAS_SEM_CABECALHO = new Set(['caixa','comandas','balcao','delivery','cozinha','principal','totem','garcom']);
+function tituloDaTelaAtiva(){
+  if(activeRibbonAction) return activeRibbonAction;
+  const it = RIBBON_TABS.flatMap(t=>t.groups.flatMap(g=>g.items)).find(i=>i.view===activeView);
+  return it ? it.label : '';
+}
+function padronizarCabecalhoDaTela(){
+  if(!activeView || TELAS_SEM_CABECALHO.has(activeView)) return;
+  const v = document.getElementById('view-'+activeView); if(!v || !v.firstElementChild) return;
+  let cab = v.querySelector(':scope > .tela-cabecalho');
+  const padrao = v.querySelector(':scope > .workspace-gray > section > .op-titlebar');
+  if(padrao){
+    if(cab) cab.remove(); v.classList.remove('tela-com-cabecalho');
+    // Algumas telas do padrão não tinham o × (Logs, Backup, Ajuda, Histórico do Caixa...): ganha o mesmo.
+    if(!padrao.querySelector('.op-controls')) padrao.insertAdjacentHTML('beforeend','<span class="op-controls"><button type="button" onclick="closeOperationalWindow()" aria-label="Fechar" title="Fechar">×</button></span>');
+    return;
+  }
+  const antigo = v.querySelector('.finance-title-tab, .full-report-title, .report-window > .op-titlebar, .daily-summary-head h2, :scope > .panel > h2:first-child');
+  const titulo = tituloDaTelaAtiva() || (antigo && antigo.textContent.trim()) || '';
+  if(!titulo) return;
+  if(!cab){ cab = document.createElement('header'); cab.className = 'tela-cabecalho'; v.prepend(cab); }
+  else if(cab !== v.firstElementChild) v.prepend(cab);
+  if(cab.dataset.t !== titulo){ cab.dataset.t = titulo; cab.innerHTML = `<h1>${h(titulo)}</h1><span class="op-controls"><button type="button" onclick="closeOperationalWindow()" aria-label="Fechar" title="Fechar">×</button></span>`; }
+  if(!v.classList.contains('tela-com-cabecalho')) v.classList.add('tela-com-cabecalho');
+}
+(function(){
+  let pendente=false;
+  const agendar=()=>{ if(pendente) return; pendente=true; requestAnimationFrame(()=>{ pendente=false; try{ padronizarCabecalhoDaTela(); }catch(e){} }); };
+  const iniciar=()=>{ const app=document.getElementById('app')||document.body; agendar(); new MutationObserver(agendar).observe(app,{childList:true,subtree:true}); };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();
+})();
