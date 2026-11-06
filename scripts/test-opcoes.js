@@ -9,7 +9,7 @@ const assert = require('assert');
 const ctx = {};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'assets', 'js', 'core', 'opcoes.js'), 'utf8'), ctx);
 const {
-  gradeOf, productNeedsChoice, sizesForChannel, rulesFor, chargedForGroup,
+  gradeOf, productNeedsChoice, sizesForChannel, rulesFor, chargedForGroup, validateGroup,
   buildCustomization, customizationSignature, customizationLines, itemRecipe,
   rebuildCustomization, hiddenInSelfService, blockedInCombo
 } = ctx;
@@ -74,27 +74,30 @@ t('1.2 açaí 300ml com 2x granola = R$ 18, nome com tamanho', () => {
   assert.strictEqual(r.customization.summary, 'Acompanhamentos: 2x Granola');
 });
 
-// Complemento livre (06/11/2026): min/max/repeat gravados em dados antigos não limitam mais nada.
-t('1.3 passar do máximo antigo é livre', () => {
+// 06/11/2026: mínimo/máximo valem quando > 0; 0 = sem limite. Repetir é sempre livre.
+t('1.3 passar do máximo', () => {
   const f = fixture();
-  const r = build(f, 's300', { gAc: { gran: 2, pac: 1, kk: 2 } });
-  assert.strictEqual(r.error, undefined);
-  assert.strictEqual(r.price, 18); // os 2 inclusos cobrem os 2 Kit Kat; granola e paçoca são grátis
-  assert.strictEqual(build(f, 's300', { gAc: { kk: 3 } }).price, 21); // 3º Kit Kat passa dos inclusos
+  assert.match(build(f, 's300', { gAc: { gran: 2, pac: 1 } }).error, /no máximo 2/);
+  assert.match(build(f, 's500', { gAc: { gran: 4 } }).error, /no máximo 3/);
+  assert.strictEqual(build(f, 's500', { gAc: { gran: 3 } }).error, undefined);
 });
 
-t('1.4 repetir desligado antigo é livre', () => {
+t('1.4 máximo 0 = sem limite; repetir antigo desligado é ignorado', () => {
   const f = fixture({ repeat: false });
-  assert.strictEqual(build(f, 's300', { gAc: { gran: 3 } }).error, undefined);
+  assert.strictEqual(build(f, 's300', { gAc: { gran: 2 } }).error, undefined);
+  f.acai.sizes.s300.groups = [{ groupId: 'gAc', min: 0, max: 0, included: 2 }];
+  const r = build(f, 's300', { gAc: { gran: 5, pac: 1, kk: 3 } });
+  assert.strictEqual(r.error, undefined);
+  assert.strictEqual(r.price, 21); // 2 inclusos cobrem 2 Kit Kat; o 3º cobra R$ 3
 });
 
-t('1.5 mínimo antigo é livre', () => {
+t('1.5 mínimo', () => {
   const f = fixture();
-  f.acai.sizes.s300.groups.push({ groupId: 'gMolho', min: 1, max: 1, included: 1, repeat: false });
-  assert.strictEqual(build(f, 's300', {}).error, undefined);
+  f.acai.sizes.s300.groups.push({ groupId: 'gMolho', min: 1, max: 0, included: 1 });
+  assert.match(build(f, 's300', {}).error, /Escolha .*Molho/);
   assert.strictEqual(build(f, 's300', { gMolho: { ket: 4 } }).error, undefined);
-  f.acai.sizes.s300.groups.push({ groupId: 'gMolho2', max: 0 }); // grupo apagado continua ignorado
-  assert.strictEqual(build(f, 's300', {}).error, undefined);
+  assert.strictEqual(validateGroup({ min: 1, max: 1 }, 'Molho', []), 'Escolha ao menos 1 em Molho.');
+  assert.strictEqual(validateGroup({ min: 0, max: 0 }, 'X', [{ qty: 9 }]), '');
 });
 
 t('1.6 tamanho inexistente, opção pausada, sem tamanho', () => {
@@ -172,7 +175,7 @@ t('1.11 produto normal, autoatendimento e combo', () => {
   const grade = gradeOf(f.acai, f.complementos);
   eq(sizesForChannel(f.acai, grade, 'mobile'), [{ sizeId: 's300', name: '300ml', sigla: 'P', price: 18 }]);
   assert.strictEqual(sizesForChannel(f.acai, grade, 'pdv').length, 2);
-  assert.strictEqual(rulesFor(f.acai, 's500')[0].included, 3);
+  assert.strictEqual(rulesFor(f.acai, 's500')[0].max, 3);
   eq(rulesFor({ groups: [{ groupId: 'x' }] }, null), [{ groupId: 'x' }]);
 });
 
