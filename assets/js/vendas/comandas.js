@@ -328,6 +328,16 @@ function cartLineOptionsHtml(line, style){
 function cartAddProduct(cart, productId, afterAdd){
   const p = state.products.find(x=>x.id===productId); if(!p) return;
   if(productAvailable(p)<=0){ toast('Sem estoque de insumos para este produto.'); return; }
+  // Venda por peso, 05/11: uma linha por peça (weighedLine, já com estacao 'nenhuma'), nunca soma.
+  // O estoque confere o carrinho todo mais as peças novas (a janela só conta as peças dela).
+  if(isWeighedProduct(p)){
+    openWeightChoice(productId, lines=>{
+      if(!canFulfillItems(cart.filter(i=>!i.sent).concat(lines))){ toast('Estoque insuficiente para estas peças.'); return; }
+      lines.forEach(l=>cart.push(l));
+      afterAdd();
+    });
+    return;
+  }
   if(!productOpensItemChoice(p)){ cartAddLine(cart, p, null); afterAdd(); return; }
   openItemChoice(productId, 'mobile', choice=>{ cartAddLine(cart, p, choice); afterAdd(); });
 }
@@ -352,6 +362,7 @@ function npCartAdd(productId){
 }
 function npCartChangeQty(idx,delta){
   const it = npCart[idx]; if(!it) return;
+  if(it.weight){ if(delta>0) return; delta=-it.qty; } // venda por peso, 05/11: peça não aumenta; − tira
   it.qty+=delta; if(it.qty<=0) npCart.splice(idx,1);
   renderNpCart();
   renderNpProductGrid(document.getElementById('npProductSearch')?.value||'');
@@ -390,7 +401,8 @@ function renderNpCart(){
   el.innerHTML = npCart.length ? npCart.map((i,idx)=>`
     <div class="np-line">
       <div class="np-line-top"><span class="np-line-name">${h(i.name)}${cartLineOptionsHtml(i,'display:block;font-weight:400;color:var(--c-text-3)')}</span><span class="mono np-line-sub">${fmt(i.price*i.qty)}</span></div>
-      <div class="np-line-ctrl"><span class="sub mono">${fmt(i.price)} cada</span><div class="qty-ctrl"><button onclick="npCartChangeQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${i.qty}</span><button onclick="npCartChangeQty(${idx},1)" aria-label="Aumentar">+</button></div></div>
+      ${i.weight?`<div class="np-line-ctrl"><span class="sub mono">${h(i.notes||'')}</span><div class="qty-ctrl"><span class="mono">${fmtKg(i.weight.kg)}</span><button onclick="npCartChangeQty(${idx},-1)" aria-label="Tirar peça">✕</button></div></div>`
+      :`<div class="np-line-ctrl"><span class="sub mono">${fmt(i.price)} cada</span><div class="qty-ctrl"><button onclick="npCartChangeQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${i.qty}</span><button onclick="npCartChangeQty(${idx},1)" aria-label="Aumentar">+</button></div></div>`}
       ${i.copos!=null?`<div class="np-line-ctrl"><span class="sub">Copos</span><div class="qty-ctrl"><button onclick="npCartChangeCopos(${idx},-1)" aria-label="Menos copos">−</button><span class="mono">${i.copos||0}</span><button onclick="npCartChangeCopos(${idx},1)" aria-label="Mais copos">+</button></div></div>`:''}
     </div>`).join('') + levarJuntoBox(npCart,'np') : '<p class="np-empty">Toque nos produtos à esquerda para adicionar.</p>';
   const totEl = document.getElementById('npCartTotal'); if(totEl) totEl.textContent = fmt(npCart.reduce((a,i)=>a+i.price*i.qty,0));
@@ -574,10 +586,12 @@ function renderComandaAuditItemRow(item,idx,locked){
     `<button class="btn btn-sm cmd-act" title="Reimprimir a ficha deste item" onclick="reprintComandaItem(${idx})">${ICN.printer}<span>Reimprimir</span></button>`+
     `<button class="btn btn-sm cmd-act" title="Pedir este item de novo" onclick="openReorderComandaItem(${idx})">${ICN.history}<span>Repetir</span></button>`+
     (hasPerm('cancelar-comanda')?`<button class="btn btn-sm cmd-act cmd-act-danger" title="Cancelar este item" ${locked?'disabled':''} onclick="openCancelComandaItem(${idx})">${ICN.trash}<span>Cancelar</span></button>`:'');
-  const qtyCtrl = item.sent ? '' : `<div class="qty-ctrl"><button onclick="changeDraftQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${qty}</span><button onclick="changeDraftQty(${idx},1)" aria-label="Aumentar">+</button></div>`;
+  // Venda por peso, 05/11: peça mostra o kg e só o botão de tirar; a linha "0,480 kg × R$ 119,90" fica no lugar do "1× R$".
+  const weight = item.weight;
+  const qtyCtrl = item.sent ? '' : weight ? `<div class="qty-ctrl"><span class="mono">${fmtKg(weight.kg)}</span><button onclick="changeDraftQty(${idx},-1)" aria-label="Tirar peça">✕</button></div>` : `<div class="qty-ctrl"><button onclick="changeDraftQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${qty}</span><button onclick="changeDraftQty(${idx},1)" aria-label="Aumentar">+</button></div>`;
   return `<tr class="cmd-row${item.canceled?' is-canceled':''}">
     <td class="cmd-when"><b>${comandaShortTime(item.addedAt)}</b><small>${h(item.addedBy||'Registro anterior')}</small></td>
-    <td class="cmd-prod"><b>${item.canceled?'<s>'+h(item.name)+'</s>':h(item.name)}</b><small>${qty}× ${fmt(price)} · para ${h(requester)}</small>${item.notes?`<small class="cmd-note">Obs.: ${h(item.notes)}</small>`:''}${item.levarJunto?'<small class="cmd-junto">Segurar: levar junto com a comida</small>':''}${item.levarJuntoCom?`<small class="cmd-junto">Levar junto: ${h(item.levarJuntoCom)}</small>`:''}${item.canceled&&item.canceledReason?`<small class="cmd-cancel">Motivo: ${h(item.canceledReason)}</small>`:''}${qtyCtrl}</td>
+    <td class="cmd-prod"><b>${item.canceled?'<s>'+h(item.name)+'</s>':h(item.name)}</b><small>${weight?h(item.notes||fmtKg(weight.kg)):qty+'× '+fmt(price)} · para ${h(requester)}</small>${item.notes&&!weight?`<small class="cmd-note">Obs.: ${h(item.notes)}</small>`:''}${item.levarJunto?'<small class="cmd-junto">Segurar: levar junto com a comida</small>':''}${item.levarJuntoCom?`<small class="cmd-junto">Levar junto: ${h(item.levarJuntoCom)}</small>`:''}${item.canceled&&item.canceledReason?`<small class="cmd-cancel">Motivo: ${h(item.canceledReason)}</small>`:''}${qtyCtrl}</td>
     <td class="mono cmd-total">${fmt(qty*price)}</td>
     <td class="cmd-entrega"><small>${h(item.local||'Sem local')}</small>${item.sent&&!item.canceled?comandaLevouSelect(item,idx):''}</td>
     <td class="cmd-status">${status}${actions?`<div class="cmd-actions">${actions}</div>`:''}</td>
@@ -644,6 +658,8 @@ function setComandaItemDeliveredBy(idx,value){
 let reorderQty = 1, reorderItemIdx = null, reorderCopos = 0;
 function openReorderComandaItem(idx){
   const item = (currentSaleDraft&&currentSaleDraft.items||[])[idx]; if(!item) return;
+  // Venda por peso, 05/11: cada peça tem o seu peso; repetir copiaria o peso da peça antiga.
+  if(item.weight){ toast('Carne por peso: lance a peça nova pelo peso.'); return; }
   const product = state.products.find(p=>p.id===item.productId);
   if(!product || product.active===false){ toast('Este produto não está mais disponível no catálogo.'); return; }
   const rb = rebuildRepeatChoice(item, product);
@@ -685,7 +701,7 @@ function reorderCoposChange(delta){
 }
 async function confirmReorderComandaItem(){
   const saleId = currentSaleDraft&&currentSaleDraft.id; if(!saleId) return;
-  const item = (currentSaleDraft.items||[])[reorderItemIdx]; if(!item) return;
+  const item = (currentSaleDraft.items||[])[reorderItemIdx]; if(!item || item.weight) return;
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
   if(!comandaAcceptsOrders(s)) return;
   const product = state.products.find(p=>p.id===item.productId);
@@ -940,6 +956,7 @@ function quickCartAdd(productId){
 }
 function quickCartChangeQty(idx,delta){
   const it = comandaQuickCart[idx]; if(!it) return;
+  if(it.weight){ if(delta>0) return; delta=-it.qty; } // venda por peso, 05/11: peça não aumenta; − tira
   it.qty+=delta; if(it.qty<=0) comandaQuickCart.splice(idx,1);
   renderComandaQuickSearch(document.getElementById('comandaQuickSearch')?.value||'');
   renderComandaQuickCart();
@@ -958,9 +975,9 @@ function renderComandaQuickCart(){
   wrap.innerHTML = `<div class="np-cart" style="border-top:1px solid var(--c-border);padding-top:10px">
     ${comandaQuickCart.map((i,idx)=>`
       <div class="item-line" style="flex-wrap:wrap">
-        <span>${h(i.name)}${cartLineOptionsHtml(i,'display:block;color:var(--c-text-3)')}</span>
-        <div class="qty-ctrl"><button onclick="quickCartChangeQty(${idx},-1)">−</button><span class="mono">${i.qty}</span>
-        <button onclick="quickCartChangeQty(${idx},1)">+</button>
+        <span>${h(i.name)}${i.weight?`<small style="display:block;color:var(--c-text-3)">${h(i.notes||'')}</small>`:cartLineOptionsHtml(i,'display:block;color:var(--c-text-3)')}</span>
+        <div class="qty-ctrl">${i.weight?`<span class="mono">${fmtKg(i.weight.kg)}</span><button onclick="quickCartChangeQty(${idx},-1)" aria-label="Tirar peça">✕</button>`:`<button onclick="quickCartChangeQty(${idx},-1)">−</button><span class="mono">${i.qty}</span>
+        <button onclick="quickCartChangeQty(${idx},1)">+</button>`}
         <span class="mono" style="min-width:70px;text-align:right">${fmt(i.price*i.qty)}</span></div>
         ${i.copos!=null?`<div class="qty-ctrl" style="width:100%;justify-content:flex-end"><span class="sub" style="margin-right:6px">Quantidade de copos:</span><button onclick="quickCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="quickCartChangeCopos(${idx},1)">+</button></div>`:''}
       </div>`).join('')}
@@ -1039,8 +1056,10 @@ function openReorderComandaBatch(batchKey){
   const batchItems = (currentSaleDraft.items||[]).filter((it,idx)=>!it.canceled && comandaItemBatchKey(it,idx)===batchKey);
   if(!batchItems.length){ toast('Nenhum item ativo neste pedido para repetir.'); return; }
   comandaQuickCart = []; levarJunto.quick=false;
-  let skipped = 0, changed = 0;
+  let skipped = 0, changed = 0, pesadas = 0;
   batchItems.forEach(item=>{
+    // Venda por peso, 05/11: peça não se repete (cartAddLine a lançaria pelo preço do quilo, sem peso).
+    if(item.weight){ pesadas++; return; }
     const product = state.products.find(p=>p.id===item.productId);
     if(!product || product.active===false){ skipped++; return; }
     // Tamanho/opções: refaz com o preço atual; se algo sumiu ou foi pausado, o item é pulado.
@@ -1048,7 +1067,8 @@ function openReorderComandaBatch(batchKey){
     if(!rb){ changed++; return; }
     cartAddLine(comandaQuickCart, product, rb.choice, item.qty, item.copos);
   });
-  if(!comandaQuickCart.length){ toast(changed&&!skipped ? changed+' item(ns) mudaram no cadastro e foram ignorados.' : 'Nenhum destes produtos está mais disponível no catálogo.'); return; }
+  if(pesadas) toast('Carne por peso: lance a peça nova pelo peso.');
+  if(!comandaQuickCart.length){ if(pesadas&&!changed&&!skipped) return; toast(changed&&!skipped ? changed+' item(ns) mudaram no cadastro e foram ignorados.' : 'Nenhum destes produtos está mais disponível no catálogo.'); return; }
   if(skipped) toast(skipped+' item(ns) deste pedido não está(ão) mais disponível(is) e foi(ram) ignorado(s).');
   if(changed) toast(changed+' item(ns) mudaram no cadastro e foram ignorados.');
   renderComandaQuickCart();
