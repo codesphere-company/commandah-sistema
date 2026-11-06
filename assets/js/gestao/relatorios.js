@@ -8,7 +8,8 @@ function loadXlsx(){
   return new Promise((resolve,reject)=>{ const sc=document.createElement('script'); sc.src=XLSX_SRC; sc.integrity=XLSX_SRI; sc.crossOrigin='anonymous'; sc.onload=()=>resolve(window.XLSX); sc.onerror=()=>reject(new Error('não foi possível carregar o gerador de planilhas (sem internet?)')); document.head.appendChild(sc); });
 }
 function monthRange(offset){ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+offset); const from=localDay(d.toISOString()); const e=new Date(d.getFullYear(), d.getMonth()+1, 0, 12); return { from, to: localDay(e.toISOString()) }; }
-function openAccountantExport(){
+function openAccountantExport(){if(!requirePerm('relatorios-gerencia'))return; // 06/11: a exportação traz os valores de venda e de caixa
+
   const r=monthRange(-1);
   openModal('Exportar para o contador', `
     <p class="sub">Escolha o período e gere a planilha (Excel). Abas: Resumo, Vendas por dia, Vendas, Produtos, Fiado, Fechamentos de caixa e Entradas e saídas.</p>
@@ -368,8 +369,13 @@ function renderStockPositionReport(){const rows=(state.insumos||[]).map(i=>`<tr>
 const REPORT_NOWRAP=/^\s*(-?\s*R\$\s?-?[\d.,]+|\d{2}\/\d{2}\/\d{4}(,?\s+\d{2}:\d{2}(:\d{2})?)?|-?[\d.,]+\s?%|\d{2}:\d{2})\s*$/;
 function markReportNowrap(){ const v=document.getElementById('view-relatorios'); if(!v) return; v.querySelectorAll('td').forEach(td=>{ if(!td.children.length && REPORT_NOWRAP.test(td.textContent)) td.classList.add('nowrap'); }); }
 function renderRelatorios(){ renderRelatoriosInner(); markReportNowrap(); }
+// 06/11: relatório que exige 'relatorios-gerencia' não abre para quem não tem (ex.: o caixa chegava em
+// Meu Negócio, o padrão, só por tocar em Relatórios). Cai no primeiro relatório que a pessoa pode ver.
+function relatorioPermitido(nome){const it=(RIBBON_TABS.find(t=>t.id==='relatorios')||{groups:[]}).groups.flatMap(g=>g.items).find(i=>i.actionArg===nome||i.label===nome);return !it||!it.perm||hasPerm(it.perm);}
+function primeiroRelatorioPermitido(){const it=(RIBBON_TABS.find(t=>t.id==='relatorios')||{groups:[]}).groups.flatMap(g=>g.items).find(i=>i.action==='openReportView'&&(!i.perm||hasPerm(i.perm))&&!MODULOS_EM_CONSTRUCAO.has(i.label));return it?it.actionArg:'Histórico de Pedidos';}
 function renderRelatoriosInner(){
-  const report=activeRibbonAction||'Meu Negócio';const sales=state.sales.filter(saleCountsAsRevenue);
+  let report=activeRibbonAction||(hasPerm('relatorios-gerencia')?'Meu Negócio':primeiroRelatorioPermitido());
+  if(!relatorioPermitido(report)){report=primeiroRelatorioPermitido();activeRibbonAction=report;}const sales=state.sales.filter(saleCountsAsRevenue);
   if(report==='Meu Negócio'){renderRelatoriosDashboard();return;}
   if(report==='Resumo do Dia'){renderDailySummaryReport();return;}
   if(report==='Movimentações por Usuário'){renderUserActivityReport();return;}

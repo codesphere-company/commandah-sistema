@@ -135,10 +135,10 @@ const RIBBON_TABS = [
       { label:'Integrações', items:[ {label:'Pix Online', icon:ICN.pix, perm:'config-sistema', action:'openPixOnlineConfig'} ] }
   ]},
   { id:'relatorios', label:'Relatórios', groups:[
-      { label:'Vendas', items:[ {label:'Mais Vendidos', icon:ICN.trophy, perm:'relatorios', action:'openReportView', actionArg:'Mais Vendidos'}, {label:'Histórico de Pedidos', icon:ICN.history, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Pedidos'}, {label:'Histórico de Itens Vendidos', icon:ICN.listCheck, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Itens Vendidos'}, {label:'Ranking de Atendimentos', icon:ICN.medal, perm:'relatorios', action:'openReportView', actionArg:'Ranking de Atendimentos'} ] },
-      { label:'Caixa', items:[ {label:'Histórico do Caixa', icon:ICN.cashbox, perm:'relatorios', action:'openReportView', actionArg:'Histórico do Caixa'} ] },
+      { label:'Vendas', items:[ {label:'Mais Vendidos', icon:ICN.trophy, perm:'relatorios-gerencia', action:'openReportView', actionArg:'Mais Vendidos'}, {label:'Histórico de Pedidos', icon:ICN.history, perm:'relatorios', action:'openReportView', actionArg:'Histórico de Pedidos'}, {label:'Histórico de Itens Vendidos', icon:ICN.listCheck, perm:'relatorios-gerencia', action:'openReportView', actionArg:'Histórico de Itens Vendidos'}, {label:'Ranking de Atendimentos', icon:ICN.medal, perm:'relatorios-gerencia', action:'openReportView', actionArg:'Ranking de Atendimentos'} ] },
+      { label:'Caixa', items:[ {label:'Histórico do Caixa', icon:ICN.cashbox, perm:'relatorios-gerencia', action:'openReportView', actionArg:'Histórico do Caixa'} ] },
       { label:'Auditoria', items:[ {label:'Movimentações por Usuário', icon:ICN.history, perm:'logs', action:'openReportView', actionArg:'Movimentações por Usuário'} ] },
-      { label:'Financeiro', items:[ {label:'Resumo do Dia', icon:ICN.calendar, perm:'relatorios', action:'openReportView', actionArg:'Resumo do Dia'}, {label:'Exportar para o Contador', icon:ICN.receipt, perm:'relatorios', action:'openAccountantExport'}, {label:'Meu Negócio', icon:ICN.chart, perm:'relatorios', action:'openReportView', actionArg:'Meu Negócio'}, {label:'Meu Delivery', icon:ICN.clock, perm:'relatorios', action:'openReportView', actionArg:'Meu Delivery'}, {label:'Recebimentos (Pedidos e Fiado)', icon:ICN.cash, perm:'relatorios', action:'openReportView', actionArg:'Recebimentos (Pedidos e Fiado)'}, {label:'Resumo Financeiro', icon:ICN.pie, perm:'relatorios', action:'openReportView', actionArg:'Resumo Financeiro'}, {label:'DRE Simplificado', icon:ICN.receipt, perm:'relatorios', action:'openReportView', actionArg:'DRE Simplificado'} ] },
+      { label:'Financeiro', items:[ {label:'Resumo do Dia', icon:ICN.calendar, perm:'relatorios-gerencia', action:'openReportView', actionArg:'Resumo do Dia'}, {label:'Exportar para o Contador', icon:ICN.receipt, perm:'relatorios-gerencia', action:'openAccountantExport'}, {label:'Meu Negócio', icon:ICN.chart, perm:'relatorios-gerencia', action:'openReportView', actionArg:'Meu Negócio'}, {label:'Meu Delivery', icon:ICN.clock, perm:'relatorios-gerencia', action:'openReportView', actionArg:'Meu Delivery'}, {label:'Recebimentos (Pedidos e Fiado)', icon:ICN.cash, perm:'relatorios-gerencia', action:'openReportView', actionArg:'Recebimentos (Pedidos e Fiado)'}, {label:'Resumo Financeiro', icon:ICN.pie, perm:'relatorios-gerencia', action:'openReportView', actionArg:'Resumo Financeiro'}, {label:'DRE Simplificado', icon:ICN.receipt, perm:'relatorios-gerencia', action:'openReportView', actionArg:'DRE Simplificado'} ] },
       { label:'Estoque', items:[ {label:'Entradas e Saídas', icon:ICN.swap, perm:'relatorios', action:'openReportView', actionArg:'Entradas e Saídas'}, {label:'Posição por Data', icon:ICN.layers, perm:'relatorios', action:'openReportView', actionArg:'Posição por Data'} ] }
   ]},
   { id:'apps', label:'Apps', groups:[
@@ -170,10 +170,14 @@ const SIMPLE_RIBBON_COZINHA = [
    'senha-propria': token de autoatendimento (trocar o próprio PIN). Todo papel
    tem, porque não depende de escrita administrativa — pra usuário migrado o
    modal só informa que a troca é feita pelo servidor. */
+// 06/11 (pedido do dono, conferência às cegas): 'relatorios-gerencia' separa os relatórios com valores de
+// venda e de caixa (Resumo do Dia, Histórico do Caixa, Meu Negócio, financeiros, mais vendidos...) do
+// 'relatorios' operacional (Histórico de Pedidos para reimprimir comprovante, estoque). Só o admin tem
+// por padrão; o dono pode liberar ao caixa em Colaboradores › Permissões.
 const ROLE_PERMS = {
   admin: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','produtos','insumos','usuarios','relatorios','cozinha',
     'categorias','complementos','observacoes','perguntas','fornecedores','pagamentos','contascategorias','contas','locais','quemlevou','impressoras','estacoes','origens',
-    'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr','senha-propria','cancelar-comanda','receber-fiado'],
+    'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr','senha-propria','cancelar-comanda','receber-fiado','relatorios-gerencia'],
   caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','quemlevou','impressoras','estacoes','origens','relatorios','painel-senhas','totem','ajuda','mobile-qr','senha-propria','cancelar-comanda','receber-fiado'],
   cozinha: ['cozinha','senha-propria']
 };
@@ -185,6 +189,8 @@ function rolePermissions(role){const custom=state&&state.settings&&state.setting
    item de ribbon). Usada nos fluxos que gravam cantina2:settings, que passou a
    ser escrita exclusiva de admin/dono na RLS — sem isto o caixa clicaria em
    Salvar e tomaria erro de permissão do banco, com banner de falha ao salvar. */
+// Conferência às cegas (06/11): quem vê o dinheiro esperado, os totais e as vendas do caixa.
+function podeVerTotaisDoCaixa(){ return !!currentUser && (currentUser.role==='admin' || (typeof sessionIsOwner!=='undefined' && sessionIsOwner)); }
 function hasPerm(token){ return !!currentUser && rolePermissions(currentUser.role).includes(token); }
 // Auditoria 03/11 (M5): cadastros (locais, estações, origens, quem levou e os outros) só o administrador
 // grava, como na RLS. Os outros perfis abrem essas telas só para consulta (decisão do dono, 03/11).

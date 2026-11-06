@@ -381,5 +381,7 @@ function renderScoreboard(){
   const today = todayStr();
   const vendidoHoje = state.sales.filter(s=>saleCountsAsRevenue(s) && saleRevenueDay(s)===today).reduce((sum,s)=>sum+s.total,0);
   document.getElementById('sbVendidoHoje').textContent = fmt(vendidoHoje);
+  // Conferência às cegas (06/11): o total vendido do dia some da barra para quem não é admin/dono.
+  document.getElementById('sbVendidoHoje').parentElement.hidden = !podeVerTotaisDoCaixa();
 }
 
