@@ -85,3 +85,32 @@ if(typeof document.addEventListener==='function'){
   document.addEventListener('mouseup', ()=>{ modalDragState=null; document.body.style.userSelect=''; });
 }
 
+
+/* ============ RÓTULOS DOS CAMPOS ============
+   UX P3 (06/11): a auditoria achou até 12 campos por tela sem rótulo para leitor de tela. Quase
+   todos têm o rótulo escrito na tela (<label>De</label><input>), só não ligado ao campo; outros
+   (buscas) só têm placeholder. Esta rotina liga o rótulo que está ao lado ou, sem ele, usa o
+   placeholder/title como aria-label. Roda depois de cada mudança na tela. Não muda o visual. */
+function ligarRotulosDosCampos(root){
+  const sel='input:not([type=hidden]):not([aria-label]):not([aria-labelledby]),select:not([aria-label]):not([aria-labelledby]),textarea:not([aria-label]):not([aria-labelledby])';
+  (root||document).querySelectorAll(sel).forEach(el=>{
+    if(el.labels && el.labels.length) return;
+    const box=el.closest('.field,.report-date-row,.np-section')||el.parentElement;
+    const lb=box && [...box.querySelectorAll('label')].find(l=>!l.querySelector('input,select,textarea'));
+    if(lb){
+      const txt=lb.textContent.replace(/\s+/g,' ').replace(/[:*]\s*$/,'').trim();
+      const irmaos=[...box.querySelectorAll('input:not([type=hidden]),select,textarea')];
+      if(irmaos[0]===el && el.id && !lb.htmlFor){ lb.htmlFor=el.id; return; }
+      if(lb.htmlFor && lb.htmlFor===el.id) return;
+      if(txt){ el.setAttribute('aria-label', irmaos[0]===el ? txt : txt+(el.type==='time'?' — hora':'')); return; }
+    }
+    const alt=(el.getAttribute('placeholder')||el.getAttribute('title')||'').trim();
+    if(alt) el.setAttribute('aria-label', alt.replace(/\.\.\.$|…$/,''));
+  });
+}
+(function(){
+  let pendente=false;
+  const agendar=()=>{ if(pendente) return; pendente=true; requestAnimationFrame(()=>{ pendente=false; ligarRotulosDosCampos(document); }); };
+  const iniciar=()=>{ agendar(); new MutationObserver(agendar).observe(document.body,{childList:true,subtree:true}); };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();
+})();

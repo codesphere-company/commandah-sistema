@@ -8,7 +8,9 @@
 //   complementos: { id, recordKind:'grade', nome, active, sizes:[{id,nome,sigla}] }
 //                 { id, recordKind:'optionGroup', nome, active, options:[{id,nome,preco,active,recipe}] }
 //   produto: gradeId, sizes{[sizeId]:{price,active,channels,recipe,groups}}, groups (sem grade)
-//   GroupRule: { groupId, min, max, included, repeat }
+//   GroupRule: { groupId, min, max, included } — 0 = sem limite (pedido do dono, 06/11/2026): mínimo 0 é
+//              opcional e máximo 0 deixa lançar quantos precisar. Qualquer opção pode repetir; o `repeat`
+//              de dados antigos é ignorado.
 //   customization (v2): { v:2, sizeId, size, groups:[{groupId,name,choices,charged}], observationIds,
 //                         observations, notes, extra, summary }
 //   Cada choice guarda { optionId, name, qty, price } + recipe (cópia da ficha da opção na hora da
@@ -54,16 +56,16 @@ function productNeedsChoice(product, complementos){
   return opcoesAllRules(product, complementos).length > 0;
 }
 
-// Produto com tamanho ou com grupo obrigatório não cabe em fluxo sem balcão (autoatendimento/combo).
-function opcoesHasRequiredChoice(product, complementos){
-  // gradeId preenchido basta, mesmo com a grade pausada/apagada: não pode virar produto de preço único.
-  if(product && product.gradeId) return true;
-  // venda por peso, 05/11: produto vendido a kg precisa da balança (pesagem no balcão), não cabe em autoatendimento/combo.
+// Produto com tamanho ou com complemento não cabe em fluxo sem balcão (autoatendimento/combo), que
+// não tem tela de escolha. Antes só o grupo com mínimo escondia; sem mínimo (06/11/2026), o dono
+// decidiu manter fora do QR/totem tudo que tem complemento.
+// Venda por peso, 05/11: produto vendido a kg precisa da balança (pesagem no balcão), também fica fora.
+function opcoesSoNoBalcao(product, complementos){
   if(product && String(product.measure).toLowerCase() === 'kg') return true;
-  return opcoesAllRules(product, complementos).some(r => Number(r.min) >= 1);
+  return productNeedsChoice(product, complementos);
 }
-function hiddenInSelfService(product, complementos){ return opcoesHasRequiredChoice(product, complementos); }
-function blockedInCombo(product, complementos){ return opcoesHasRequiredChoice(product, complementos); }
+function hiddenInSelfService(product, complementos){ return opcoesSoNoBalcao(product, complementos); }
+function blockedInCombo(product, complementos){ return opcoesSoNoBalcao(product, complementos); }
 
 function sizesForChannel(product, grade, channel){
   if(!product || !grade) return [];
@@ -91,9 +93,8 @@ function chargedForGroup(choices, included){
 function validateGroup(rule, groupName, choices){
   const total = (choices || []).reduce((s, c) => s + (Number(c.qty) || 0), 0);
   const max = Number(rule.max) || 0, min = Number(rule.min) || 0;
-  if(total > max) return 'Escolha no máximo ' + max + ' em ' + groupName + '.';
-  if(total < min) return 'Escolha ao menos ' + min + ' em ' + groupName + '.';
-  if(!rule.repeat && (choices || []).some(c => (Number(c.qty) || 0) > 1)) return 'Cada opção de ' + groupName + ' só pode ser escolhida uma vez.';
+  if(max > 0 && total > max) return 'Escolha no máximo ' + max + ' em ' + groupName + '.';
+  if(min > 0 && total < min) return 'Escolha ao menos ' + min + ' em ' + groupName + '.';
   return '';
 }
 

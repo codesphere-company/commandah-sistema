@@ -120,13 +120,14 @@ function renderItemChoice(focusKey){
     const grupo = opcoesGroupOf(state.complementos, rule.groupId);
     const picks = st.picks[rule.groupId] || {};
     const options = (grupo.options || []).filter(o => o && o.active !== false);
+    // 0 = sem limite: mínimo 0 é opcional, máximo 0 deixa lançar quantos precisar
     const max = Number(rule.max) || 0, min = Number(rule.min) || 0, included = Number(rule.included) || 0;
     const total = options.reduce((s, o) => s + (Number(picks[o.id]) || 0), 0);
     const info = [min > 0 ? 'Obrigatório: escolha ao menos ' + min : 'Opcional',
       included > 0 && options.some(o => Number(o.preco) > 0) ? included + ' incluso(s) no preço' : ''].filter(Boolean).join(' · ');
-    html += `<div class="ic-section"><div class="ic-section-head"><b>${h(grupo.nome)}</b><span class="ic-counter">${total} de ${max}</span></div><small class="ic-rule">${h(info)}</small>`;
+    html += `<div class="ic-section"><div class="ic-section-head"><b>${h(grupo.nome)}</b><span class="ic-counter">${max > 0 ? total + ' de ' + max : total + ' escolhido(s)'}</span></div><small class="ic-rule">${h(info)}</small>`;
     html += options.map(o => {
-      const q = Number(picks[o.id]) || 0, canAdd = total < max && (rule.repeat || q < 1);
+      const q = Number(picks[o.id]) || 0, canAdd = !max || total < max;
       const key = rule.groupId + '|' + o.id;
       return `<div class="ic-opt"><span>${h(o.nome)}${Number(o.preco) ? ` <small>+ ${fmt(o.preco)}</small>` : ''}</span><span class="ic-qty">`
         + `<button type="button" data-ic-key="${h(key + '|-1')}" aria-label="${h('Tirar ' + o.nome)}" ${q <= 0 ? 'disabled' : ''} onclick="itemChoiceStep(${jsArg(rule.groupId)},${jsArg(o.id)},-1)">−</button>`
@@ -160,9 +161,8 @@ function itemChoicePickSize(sizeId){
     const ativas = (grupo.options || []).filter(o => o && o.active !== false).map(o => o.id);
     const kept = {};
     Object.keys(old).forEach(oid => { if(ativas.indexOf(oid) >= 0 && Number(old[oid]) > 0) kept[oid] = Number(old[oid]); });
-    const total = Object.keys(kept).reduce((s, k) => s + kept[k], 0);
-    const repetida = !rule.repeat && Object.keys(kept).some(k => kept[k] > 1);
-    if(total > (Number(rule.max) || 0) || repetida) return; // não cabe no tamanho novo: recomeça o grupo
+    const total = Object.keys(kept).reduce((s, k) => s + kept[k], 0), max = Number(rule.max) || 0;
+    if(max > 0 && total > max) return; // não cabe no tamanho novo: recomeça o grupo
     picks[rule.groupId] = kept;
   });
   st.picks = picks;
@@ -177,10 +177,10 @@ function itemChoiceStep(groupId, optionId, delta){
   const rule = itemChoiceRules(product, st.sizeId).find(r => r.groupId === groupId);
   if(!rule) return;
   const picks = st.picks[groupId] = st.picks[groupId] || {};
-  const total = Object.keys(picks).reduce((s, k) => s + (Number(picks[k]) || 0), 0);
   const q = Number(picks[optionId]) || 0;
   if(delta > 0){
-    if(total >= (Number(rule.max) || 0) || (!rule.repeat && q >= 1)) return; // "+" travado
+    const total = Object.keys(picks).reduce((s, k) => s + (Number(picks[k]) || 0), 0), max = Number(rule.max) || 0;
+    if(max > 0 && total >= max) return; // "+" travado no máximo (0 = sem limite)
     picks[optionId] = q + 1;
   } else {
     if(q <= 0) return;

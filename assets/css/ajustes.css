@@ -55,9 +55,14 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 @media (prefers-reduced-motion:reduce){button[aria-busy="true"]::after{animation:none}}
 .boot-loading{text-align:center}
 /* UX-13: avisos empilhados; erro com cara própria */
-#toastRoot{position:fixed;right:20px;bottom:20px;z-index:300;display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:min(440px,calc(100vw - 40px));pointer-events:none}
-#toastRoot .toast{position:static;pointer-events:auto;display:flex;align-items:center;gap:10px}
-#toastRoot .toast-erro{background:var(--c-danger-soft);color:var(--c-text);border:1px solid var(--c-danger);border-left-width:4px}
+/* UX lote 1 (06/11): os avisos ficavam no canto de baixo, em cima do Total/Cobrar da Ficha, do
+   Confirmar do pagamento e da barra do garçom, e seguravam o clique por 2,6 s. Agora saem no topo,
+   centralizados (abaixo dos banners), e o clique passa através; só o aviso de erro, que tem o
+   botão de fechar, recebe clique. */
+#toastRoot{position:fixed;top:calc(var(--top-banner-offset,0px) + 12px);left:50%;transform:translateX(-50%);z-index:300;display:flex;flex-direction:column;align-items:center;gap:8px;width:max-content;max-width:min(440px,calc(100vw - 32px));pointer-events:none}
+#toastRoot .toast{position:static;pointer-events:none;display:flex;align-items:center;gap:10px}
+#toastRoot .toast-erro{pointer-events:auto}
+#toastRoot .toast-erro{background:var(--c-danger-soft);color:var(--c-text);border:1px solid var(--c-danger)} /* UX P3 (06/11): sem a faixa grossa à esquerda; o fundo vermelho claro já diz que é erro */
 #toastRoot .toast-close{background:none;border:0;color:inherit;font-size:20px;line-height:1;min-width:32px;min-height:32px;cursor:pointer}
 /* UX-04: janela de confirmação do sistema (acima dos modais) */
 .confirm-backdrop{position:fixed;inset:0;z-index:400;background:rgba(15,20,30,.45);display:flex;align-items:center;justify-content:center;padding:16px}
@@ -126,7 +131,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .comanda-list-head .table-heading span{display:inline-block;min-width:26px;padding:1px 8px;margin-left:6px;border-radius:var(--r-pill);background:var(--c-primary-soft);color:var(--c-primary-text);font-size:14px;text-align:center}
 .comanda-list-sum{color:var(--c-text-2);font-size:14px}
 .comanda-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
-.comanda-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:4px 10px;text-align:left;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);border-left:5px solid var(--c-border-strong);border-radius:var(--r-lg);padding:12px 14px;min-height:92px;cursor:pointer;box-shadow:var(--sh-1);font:inherit}
+.comanda-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:4px 10px;text-align:left;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);border-left:1px solid var(--c-border);border-radius:var(--r-lg);padding:12px 14px;min-height:92px;cursor:pointer;box-shadow:var(--sh-1);font:inherit}
 .comanda-card:hover{border-color:var(--c-border-strong);box-shadow:var(--sh-2)}
 .comanda-card:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
 .comanda-card .cc-name{font-size:16px;font-weight:600;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
@@ -317,12 +322,31 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
    usavam margem negativa de 24px para encostar na borda: perdiam 24px à esquerda e no topo
    (primeira coluna e botões do topo cortados). Ficam dentro da área, como as outras telas. */
 #view-relatorios>.full-report-page,#view-relatorios>.report-workspace{margin:0;width:100%;max-width:100%}
+/* UX lote 2 (06/11): faltava o mesmo para o relatório genérico (.workspace-gray, ex.: Histórico do
+   Caixa), que ainda saía cortado à esquerda ("istórico do Caixa", "pções de Pesquisa"). */
+#view-relatorios>.workspace-gray{margin:0;width:100%;max-width:100%;height:auto}
 /* A janela de relatório deixava 13% da largura vazia à esquerda e passava da borda direita. */
 #view-relatorios .report-window{margin-left:0;width:100%}
 /* Valor, data e porcentagem não quebram em duas linhas ("R$" numa, "12,00" na outra). */
 #view-relatorios td.nowrap,#view-relatorios th.nowrap{white-space:nowrap}
 /* Rótulos do filtro de relatório (ex.: "Período" grudado no checkbox anterior). */
 .full-report-filter>label{display:block}
+/* UX lote 2 (06/11): Ranking de Atendimentos — barras de faturamento por colaborador. */
+.ranking-filter>label{display:block;margin:4px 0}
+.ranking-report-layout{grid-template-columns:300px minmax(0,1fr)}
+.ranking-main{display:block;overflow:auto;padding:14px 0 0 16px}
+.ranking-content{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:none;gap:16px}
+.ranking-table{overflow:auto}
+.ranking-note{font-size:12px;color:var(--c-text-3);margin:10px 0 0}
+.ranking-filter>b{display:block;margin-top:16px}
+@media(max-width:760px){.ranking-main{padding:12px 0 0}#view-relatorios .ranking-table th,#view-relatorios .ranking-table td{padding-left:5px;padding-right:5px}}
+.ranking-bars{background:var(--c-surface);border:1px solid var(--c-border);border-radius:8px;padding:14px 16px}
+.ranking-bars h3{font-size:14px;margin:0 0 10px}
+.ranking-bar-row{display:grid;grid-template-columns:minmax(90px,160px) minmax(0,1fr) max-content;align-items:center;gap:10px;padding:5px 0;font-size:13px}
+.ranking-bar-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ranking-bar-track{height:12px;border-radius:6px;background:var(--c-surface-2);overflow:hidden}
+.ranking-bar-fill{height:100%;border-radius:6px;background:var(--c-primary)}
+.ranking-bar-val{font-variant-numeric:tabular-nums;white-space:nowrap}
 .full-report-filter>b{display:block;margin-top:10px}
 /* Janelas de configuração/registro sem espaço interno: o título encostava na borda. */
 :is(.app-config-modal,.scale-config-modal,.campaign-modal,.integration-modal,.record-modal,.cash-close-modal,.cash-entry-modal,.finance-record-modal,.columns-record-modal,.scheduled-record-modal,.bulk-product-modal,.nfe-stock-modal,.sms-window-modal,.cash-order-modal)>.modal-title{padding:16px 48px 12px 20px;margin:0;border-bottom:1px solid var(--c-border)}
@@ -414,11 +438,11 @@ tr.ua-row-sens td{background:color-mix(in srgb,var(--c-danger) 8%,transparent)}
 button.cash-open-row{cursor:pointer}
 button.cash-open-row:hover{border-color:var(--c-primary)}
 /* OPS-11: aviso de versão nova */
-.new-version-bar{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:320;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border-strong);border-left:5px solid var(--c-primary);border-radius:var(--r-lg);box-shadow:var(--sh-2);padding:10px 14px;font-weight:600;max-width:calc(100vw - 24px)}
+.new-version-bar{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:320;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border-strong);border-radius:var(--r-lg);box-shadow:var(--sh-2);padding:10px 14px;font-weight:600;max-width:calc(100vw - 24px)}
 .new-version-bar button{min-height:38px;border-radius:var(--r-md);border:1px solid var(--c-primary);background:var(--c-primary);color:var(--c-text-inverse);font-weight:700;padding:0 14px;cursor:pointer}
 .new-version-bar .nv-later{background:none;color:var(--c-text-2);border-color:var(--c-border-control)}
 /* OP-13: pagamentos parciais na comanda */
-.partial-box{margin-top:8px;border:1px solid var(--c-border);border-left:4px solid var(--c-primary);border-radius:var(--r-md);padding:8px 12px;background:var(--c-surface);display:grid;gap:4px}
+.partial-box{margin-top:8px;border:1px solid var(--c-border);border-radius:var(--r-md);padding:8px 12px;background:var(--c-primary-soft);display:grid;gap:4px}
 .partial-head{display:flex;justify-content:space-between;gap:10px;font-size:14px}
 .partial-line{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--c-text-2)}
 /* PROD-07: extrato por período e saldos em atraso */
@@ -445,7 +469,7 @@ button.cash-open-row:hover{border-color:var(--c-primary)}
 .help-sheet-head h2{margin:0}
 .help-sheet h3{font-size:16px;margin:18px 0 6px;color:var(--c-primary)}
 .help-sheet ol,.help-sheet ul{margin:0;padding-left:22px;display:grid;gap:5px;line-height:1.45}
-.help-sheet .help-warn{border-left:4px solid var(--c-danger);background:var(--c-surface-2);border-radius:var(--r-md);padding:10px 14px;margin-top:16px}
+.help-sheet .help-warn{border:1px solid var(--c-danger);background:var(--c-danger-soft);border-radius:var(--r-md);padding:10px 14px;margin-top:16px}
 .help-sheet .help-warn b{color:var(--c-danger)}
 .help-sheet table{width:100%;border-collapse:collapse}
 .help-sheet td{border-bottom:1px solid var(--c-border);padding:8px 6px;vertical-align:top;line-height:1.4}
@@ -753,3 +777,82 @@ body.tv-mode .kfechada-faixa{font-size:22px}
 .ws-err:empty{display:none}
 .ws-sum{font-size:18px}
 @media(max-width:520px){.ws-line{grid-template-columns:minmax(0,1fr) auto 70px 44px;gap:6px}.ws-unlock{padding:0 10px;font-size:13px}}
+/* UX lote 3 (06/11): telas de caixa fechado (Comandas e Ficha). Antes o título era "Caixa livre"
+   em verde (cor de "tudo certo") e havia dois botões, um com seta de voltar que na verdade abria o
+   caixa. Agora: "Caixa fechado", em cor neutra, com um botão só. */
+.free-cash h2{color:var(--c-text)!important} /* vence o !important de componentes.css */
+.free-cash-actions.free-cash-single{justify-content:center;margin-top:40px}
+.free-cash-actions.free-cash-single .op-btn{min-width:220px}
+/* UX lote 3 (06/11): a faixa de atalhos rolava de lado sem barra visível. Em Configurações metade
+   dos atalhos (Estações, Impressoras, Logs, Ajuda...) ficava escondida à direita; em Relatórios os
+   16 botões eram espremidos até o nome quebrar em 3 linhas. Agora os grupos passam para a linha de
+   baixo quando não cabem: tudo fica à vista, sem rolagem escondida. */
+.ribbon-toolbar,.ribbon-toolbar.reports-mode{flex-wrap:wrap;row-gap:8px;overflow-x:visible;justify-content:flex-start}
+.rb-group{padding:0 10px;max-width:100%}
+.rb-icons{flex-wrap:wrap;row-gap:6px}
+.ribbon-toolbar.reports-mode .rb-group{flex:0 0 auto;padding:0 6px}
+.ribbon-toolbar.reports-mode .rb-icons button{flex:0 0 auto;width:auto;min-width:72px;max-width:104px;padding:5px 4px}
+.ribbon-toolbar.reports-mode .rb-icons button .lb{min-height:0}
+/* UX lote 3 (06/11): aviso de ficha não impressa — mais largo e baixo (botões ao lado do texto em
+   vez de empilhados), e as janelas abrem abaixo dele em vez de ficar com o cabeçalho coberto. */
+.local-mode.print-fail{max-width:760px}
+@media(min-width:761px){.print-fail .print-fail-actions{flex-direction:row;width:auto}.print-fail .print-fail-actions .local-mode-btn{width:auto;flex:0 0 auto}.local-mode.print-fail{flex-wrap:nowrap}}
+#modalRoot .modal-overlay{padding-top:calc(var(--top-banner-offset,0px) + 16px)}
+/* UX lote 4 (06/11): telas estreitas (celular ou tablet em pé, até 900 px).
+   - Ficha: o carrinho fica depois da grade inteira de produtos. A barra fixa embaixo mostra itens,
+     total e Cobrar; "Ver ficha" rola até o carrinho.
+   - Novo Pedido: "Quem está pedindo" (obrigatório) vinha depois do cardápio, e Total/Confirmar no
+     fim de tudo. Agora "Quem está pedindo" vem primeiro e o rodapé com Total/Confirmar fica preso
+     embaixo.
+   - Pagamento: o Confirmar ficava fora da tela; agora fica preso embaixo da janela. */
+.bc-mobile-bar{display:none}
+@media(max-width:900px){
+  .bc-mobile-bar{display:flex;position:sticky;bottom:0;z-index:5;gap:10px;align-items:center;padding:10px 14px;background:var(--c-surface);border-top:1px solid var(--c-border);box-shadow:0 -4px 14px rgba(0,0,0,.08)}
+  .bc-mobile-sum{flex:1;min-width:0;display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:baseline;background:none;border:0;padding:4px 0;text-align:left;color:var(--c-text);min-height:48px;cursor:pointer;font:inherit}
+  .bc-mobile-sum span{font-size:13px;color:var(--c-text-2)}
+  .bc-mobile-sum b{font-size:19px;justify-self:end}
+  .bc-mobile-sum small{grid-column:1/-1;font-size:12px;font-weight:700;color:var(--c-primary-text)}
+  .bc-mobile-bar .op-btn{min-height:50px;min-width:128px;font-size:17px;font-weight:700;justify-content:center}
+  .np-layout{display:flex;flex-direction:column}
+  .np-side{display:contents}
+  .np-side>.np-section{margin:0 16px 10px;padding:12px}
+  .np-side>.np-section:first-child{order:-1;margin-top:12px}
+  .np-menu{order:0}
+  .np-side>.np-section:not(:first-child){order:1}
+  .np-side-foot{order:2;position:sticky;bottom:0;z-index:3;background:var(--c-surface);padding:10px 16px;box-shadow:0 -4px 14px rgba(0,0,0,.08)}
+}
+@media(max-width:760px){
+  .pay-modal #confirmPayBtn{position:sticky;bottom:0;z-index:3;box-shadow:0 -6px 14px rgba(0,0,0,.12)}
+}
+/* UX lote 4 (06/11): com o aviso de impressora aberto, as janelas descem (lote 3), então a altura
+   máxima delas desconta o aviso; senão o rodapé (ex.: Confirmar do Novo Pedido) saía da tela. */
+#modalRoot .modal{max-height:calc(100dvh - 32px - var(--top-banner-offset,0px))}
+#modalRoot .modal.record-modal{max-height:calc(100dvh - 28px - var(--top-banner-offset,0px))}
+@media(min-width:901px){#modalRoot .modal.np-modal{height:calc(100dvh - 32px - var(--top-banner-offset,0px))}}
+/* Em tela estreita o Novo Pedido cresce e quem rola é o fundo: sem overflow próprio na janela, o
+   rodapé com Total/Confirmar consegue ficar preso embaixo. */
+@media(max-width:900px){#modalRoot .modal.np-modal{max-height:none;overflow:visible}}
+/* UX lote 4 (06/11): o "×" de fechar das janelas de gestão aparecia de dois jeitos (solto, ou num
+   quadradinho com borda quando era <button>). Agora os dois têm o mesmo tamanho e a mesma cara. */
+.op-titlebar .op-controls>button,.op-titlebar .op-controls>span{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;padding:0;border:0;border-radius:8px;background:none;color:var(--c-text-2);font-size:20px;font-weight:400;line-height:1;cursor:pointer;box-shadow:none}
+.op-titlebar .op-controls>button:hover,.op-titlebar .op-controls>span:hover{background:var(--c-surface-3);color:var(--c-text)}
+/* UX lote 4 (06/11): linha escolhida destacada também nas listas .finance-grid (Categoria de
+   Contas, Contas a Pagar), como já era nas outras. */
+.finance-grid tr.selected td{background:var(--c-primary-soft)}
+/* UX P3 (06/11): menor letra do sistema era o selo "Em construção" (10 px) e o título "Gestão" do
+   menu (11 px). Sobem para 12 px, o mesmo mínimo do resto da tela. */
+.selo-obra{font-size:12px}
+.ribbon-tabs .sb-sep{font-size:12px}
+#view-estacoes td small.mono,#view-origens td small.mono{font-size:12px} /* UX P3: chave da estação/origem saía em 10,8 px */
+/* Unificação das telas de gestão (06/11): cabeçalho padrão (o mesmo de Produtos) nas telas que não
+   tinham, e o título antigo escondido. Ver padronizarCabecalhoDaTela() em core/navegacao.js. */
+.tela-cabecalho{display:flex;align-items:center;gap:12px;padding:2px 0 14px;font-family:var(--font-sans)}
+.tela-cabecalho h1{margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em;color:var(--c-text);line-height:1.3}
+.tela-cabecalho .op-controls{margin-left:auto;display:flex}
+.tela-cabecalho .op-controls>button{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;padding:0;border:0;border-radius:8px;background:none;color:var(--c-text-2);font-size:20px;line-height:1;cursor:pointer}
+.tela-cabecalho .op-controls>button:hover{background:var(--c-surface-3);color:var(--c-text)}
+.tela-com-cabecalho .finance-title-tab,.tela-com-cabecalho .full-report-title,.tela-com-cabecalho .report-window>.op-titlebar,.tela-com-cabecalho .daily-summary-head h2,.tela-com-cabecalho>.panel>h2:first-child{display:none}
+@media print{.tela-cabecalho .op-controls{display:none}}
+.tela-com-cabecalho .workspace-gray>section.record-modal>h3:first-child{display:none} /* Numeração de Pedidos: título repetido */
+.tela-com-cabecalho .full-report-head{justify-content:flex-end;gap:10px;height:auto;padding-top:0;padding-bottom:10px} /* botões Imprimir/Exportar à direita, como nas outras */
+.workspace-gray>.settings-window>.op-titlebar{height:auto;min-height:0;padding:18px 20px 6px;border-bottom:0;font-size:20px;font-weight:600;letter-spacing:-.01em} /* Configurações com o mesmo título das outras */

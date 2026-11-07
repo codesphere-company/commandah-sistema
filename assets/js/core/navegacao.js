@@ -229,7 +229,7 @@ function saveWhatsAppBotConfig(){state.settings.whatsappBot={provider:document.g
 function openPixOnlineConfig(){const c=state.settings.pixOnline||{};openModal('Pix Online',`<div class="integration-form"><div class="app-status"><b>Recebimentos Pix</b><span class="tag ${c.enabled?'tag-green':'tag-gray'}">${c.enabled?'Ativo':'Não configurado'}</span></div><div class="field"><label>Instituição / Provedor</label><select id="pixProvider"><option value="">Selecione...</option><option>Banco com API Pix</option><option>Intermediador de pagamentos</option></select></div><div class="field"><label>Chave Pix do estabelecimento</label><input id="pixKeyOnline" value="${h(c.key||state.settings.pixKey||'')}"></div><div class="row"><div class="field"><label>Client ID</label><input id="pixClient" value="${h(c.clientId||'')}"></div><div class="field"><label>Ambiente</label><select id="pixEnvironment"><option>Homologação</option><option>Produção</option></select></div></div><label><input id="pixEnabled" type="checkbox" ${c.enabled?'checked':''}> Ativar cobrança Pix online</label><p class="sub">A geração e confirmação automática exigem contrato e API do provedor.</p><p class="sub">O segredo (client secret / token de API) não é cadastrado aqui: tudo que é salvo nesta tela fica visível para qualquer operador logado. Quando a integração de Pix for ligada de verdade, a credencial vai ficar guardada no servidor, nunca no navegador.</p></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="savePixOnlineConfig()">✓ Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('integration-modal');}
 function savePixOnlineConfig(){state.settings.pixOnline={provider:document.getElementById('pixProvider').value,key:document.getElementById('pixKeyOnline').value.trim(),clientId:document.getElementById('pixClient').value.trim(),environment:document.getElementById('pixEnvironment').value,enabled:document.getElementById('pixEnabled').checked};save('settings');closeModal();toast('Configuração do Pix Online salva.');}
 let pendingNfeItems=[],pendingNfeMeta={};
-function openNfeStockWindow(){pendingNfeItems=[];pendingNfeMeta={};openModal('Alterar Estoque com NFe',`<div class="nfe-stock-body"><div class="nfe-import-head"><div><b>Importar XML da Nota Fiscal Eletrônica</b><p class="sub">Selecione o XML para conferir a nota, os vínculos e as quantidades antes da entrada.</p><input id="nfeXmlFile" type="file" accept=".xml,text/xml,application/xml"></div><button class="op-btn" onclick="readNfeXml()">▧ &nbsp; Ler XML</button></div><div id="nfeSummary" class="nfe-summary"><div><small>Fornecedor</small><b>—</b></div><div><small>Número</small><b>—</b></div><div><small>Série</small><b>—</b></div><div><small>Emissão</small><b>—</b></div><div><small>Total</small><b>R$ 0,00</b></div></div><div class="finance-grid nfe-preview"><table><thead><tr><th style="width:44px"><input type="checkbox" checked onchange="document.querySelectorAll('.nfe-apply').forEach(x=>x.checked=this.checked);updateNfeSelection()"></th><th>Código</th><th>Produto da NFe</th><th>Quantidade</th><th>Un.</th><th>Valor Unitário</th><th>Vincular ao Insumo</th></tr></thead><tbody id="nfePreviewRows"><tr><td colspan="7" class="empty">Nenhum arquivo carregado.</td></tr></tbody></table></div><div class="nfe-actions"><span id="nfeSelectionStatus" class="sub">0 item selecionado</span><div class="right"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="op-btn" onclick="clearNfeImport()">Limpar</button><button class="consumer-save" onclick="applyNfeStock()">✓ Atualizar Estoque</button></div></div></div>`,true);document.querySelector('#modalRoot .modal').classList.add('nfe-stock-modal');}
+function openNfeStockWindow(){pendingNfeItems=[];pendingNfeMeta={};openModal('Alterar Estoque com NFe',`<div class="nfe-stock-body"><div class="nfe-import-head"><div><b>Importar XML da Nota Fiscal Eletrônica</b><p class="sub">Selecione o XML para conferir a nota, os vínculos e as quantidades antes da entrada.</p><input id="nfeXmlFile" aria-label="Arquivo XML da NF-e" type="file" accept=".xml,text/xml,application/xml"></div><button class="op-btn" onclick="readNfeXml()">▧ &nbsp; Ler XML</button></div><div id="nfeSummary" class="nfe-summary"><div><small>Fornecedor</small><b>—</b></div><div><small>Número</small><b>—</b></div><div><small>Série</small><b>—</b></div><div><small>Emissão</small><b>—</b></div><div><small>Total</small><b>R$ 0,00</b></div></div><div class="finance-grid nfe-preview"><table><thead><tr><th style="width:44px"><input type="checkbox" checked aria-label="Marcar todos os itens" onchange="document.querySelectorAll('.nfe-apply').forEach(x=>x.checked=this.checked);updateNfeSelection()"></th><th>Código</th><th>Produto da NFe</th><th>Quantidade</th><th>Un.</th><th>Valor Unitário</th><th>Vincular ao Insumo</th></tr></thead><tbody id="nfePreviewRows"><tr><td colspan="7" class="empty">Nenhum arquivo carregado.</td></tr></tbody></table></div><div class="nfe-actions"><span id="nfeSelectionStatus" class="sub">0 item selecionado</span><div class="right"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="op-btn" onclick="clearNfeImport()">Limpar</button><button class="consumer-save" onclick="applyNfeStock()">✓ Atualizar Estoque</button></div></div></div>`,true);document.querySelector('#modalRoot .modal').classList.add('nfe-stock-modal');}
 function xmlValue(node,name){return node.getElementsByTagName(name)[0]?.textContent?.trim()||'';}
 function nfeNormalized(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase();}
 function findNfeInsumo(item){return state.insumos.find(ins=>(item.code&&String(ins.nfeCode||ins.code||'')===String(item.code))||nfeNormalized(ins.name)===nfeNormalized(item.name));}
@@ -381,5 +381,45 @@ function renderScoreboard(){
   const today = todayStr();
   const vendidoHoje = state.sales.filter(s=>saleCountsAsRevenue(s) && saleRevenueDay(s)===today).reduce((sum,s)=>sum+s.total,0);
   document.getElementById('sbVendidoHoje').textContent = fmt(vendidoHoje);
+  // Conferência às cegas (06/11): o total vendido do dia some da barra para quem não é admin/dono.
+  document.getElementById('sbVendidoHoje').parentElement.hidden = !podeVerTotaisDoCaixa();
 }
 
+
+/* ============ CABEÇALHO PADRÃO DAS TELAS DE GESTÃO ============
+   Unificação das telas de gestão (06/11): o padrão é o de Produtos (título grande à esquerda e × à
+   direita, em .workspace-gray > .op-window > .op-titlebar). Relatórios, financeiro e algumas telas de
+   configuração tinham o título de cinco jeitos (aba com borda, caixa pequena, h2 solto, cartão, ou
+   nenhum). Telas sem o cabeçalho padrão recebem um igual, com o nome do menu; o título antigo some
+   pelo CSS (.tela-com-cabecalho). As telas de operação (caixa, comandas, ficha...) ficam como estão. */
+const TELAS_SEM_CABECALHO = new Set(['caixa','comandas','balcao','delivery','cozinha','principal','totem','garcom']);
+function tituloDaTelaAtiva(){
+  if(activeRibbonAction) return activeRibbonAction;
+  const it = RIBBON_TABS.flatMap(t=>t.groups.flatMap(g=>g.items)).find(i=>i.view===activeView);
+  return it ? it.label : '';
+}
+function padronizarCabecalhoDaTela(){
+  if(!activeView || TELAS_SEM_CABECALHO.has(activeView)) return;
+  const v = document.getElementById('view-'+activeView); if(!v || !v.firstElementChild) return;
+  let cab = v.querySelector(':scope > .tela-cabecalho');
+  const padrao = v.querySelector(':scope > .workspace-gray > section > .op-titlebar');
+  if(padrao){
+    if(cab) cab.remove(); v.classList.remove('tela-com-cabecalho');
+    // Algumas telas do padrão não tinham o × (Logs, Backup, Ajuda, Histórico do Caixa...): ganha o mesmo.
+    if(!padrao.querySelector('.op-controls')) padrao.insertAdjacentHTML('beforeend','<span class="op-controls"><button type="button" onclick="closeOperationalWindow()" aria-label="Fechar" title="Fechar">×</button></span>');
+    return;
+  }
+  const antigo = v.querySelector('.finance-title-tab, .full-report-title, .report-window > .op-titlebar, .daily-summary-head h2, :scope > .panel > h2:first-child');
+  const titulo = tituloDaTelaAtiva() || (antigo && antigo.textContent.trim()) || '';
+  if(!titulo) return;
+  if(!cab){ cab = document.createElement('header'); cab.className = 'tela-cabecalho'; v.prepend(cab); }
+  else if(cab !== v.firstElementChild) v.prepend(cab);
+  if(cab.dataset.t !== titulo){ cab.dataset.t = titulo; cab.innerHTML = `<h1>${h(titulo)}</h1><span class="op-controls"><button type="button" onclick="closeOperationalWindow()" aria-label="Fechar" title="Fechar">×</button></span>`; }
+  if(!v.classList.contains('tela-com-cabecalho')) v.classList.add('tela-com-cabecalho');
+}
+(function(){
+  let pendente=false;
+  const agendar=()=>{ if(pendente) return; pendente=true; requestAnimationFrame(()=>{ pendente=false; try{ padronizarCabecalhoDaTela(); }catch(e){} }); };
+  const iniciar=()=>{ const app=document.getElementById('app')||document.body; agendar(); new MutationObserver(agendar).observe(app,{childList:true,subtree:true}); };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();
+})();

@@ -43,7 +43,15 @@ function applyProductSearch(){
 }
 function productKind(p){ return p.kind==='tamanho'||p.kind==='combo' ? p.kind : 'produto'; }
 function setProdutosTab(kind){ produtosTab=kind; selectedProductId=null; productOptionsOpen=false; renderProdutos(); }
-function selectProductRow(id){ selectedProductId=id; renderProdutos(); }
+// Clique só marca a linha, sem redesenhar a lista: redesenhar jogava a rolagem para o topo e o
+// segundo clique do duplo clique abria o produto que ficava sob o mouse (relato do dono, 06/11/2026).
+function selectProductRow(id){
+  selectedProductId=id;
+  const rows=document.querySelectorAll('#productRows tr[data-id]');
+  if(!rows.length){ renderProdutos(); return; }
+  rows.forEach(r=>r.classList.toggle('selected', r.dataset.id===id));
+  document.querySelectorAll('#view-produtos [data-needs-selection]').forEach(b=>{ b.disabled=false; });
+}
 function editSelectedProduct(){ if(!selectedProductId){ toast('Selecione um produto para editar.'); return; } openProductModal(selectedProductId); }
 function openSelectedProductStock(){
   if(!selectedProductId){toast('Selecione um produto para consultar o estoque.');return;}
@@ -64,10 +72,11 @@ function saveProductStockAdjustment(productId){
 function toggleProductOptions(){ productOptionsOpen=!productOptionsOpen; renderProdutos(); }
 function renderProdutos(){
   const el = document.getElementById('view-produtos');
+  const gridAntes = el.querySelector('.op-grid'), rolagem = gridAntes ? gridAntes.scrollTop : 0; // redesenho mantém a rolagem
   const list = state.products.filter(p=>productKind(p)===produtosTab).sort((a,b)=>(Number(a.sortOrder)||0)-(Number(b.sortOrder)||0)||a.name.localeCompare(b.name,'pt-BR'));
   const rows = list.length ? list.map(p=>{
     const av = productAvailable(p); const cost = productCost(p); const min=Number(p.minStock)||0; // S5 (auditoria de design): selo só nas exceções (Baixo, Pausado, Conferir, Sem código); o normal é texto.
-    return `<tr data-search="${h(((p.code||'')+' '+(p.category||'')+' '+p.name).toLowerCase())}" class="${selectedProductId===p.id?'selected':''}" onclick="selectProductRow(${jsArg(p.id)})" ondblclick="editProduct(${jsArg(p.id)})">
+    return `<tr data-id="${h(p.id)}" data-search="${h(((p.code||'')+' '+(p.category||'')+' '+p.name).toLowerCase())}" class="${selectedProductId===p.id?'selected':''}" onclick="selectProductRow(${jsArg(p.id)})" ondblclick="editProduct(${jsArg(p.id)})">
       <td class="mono">${h(p.code||'—')}</td><td>${h(p.category||'—')}</td><td>${h(p.name)}</td><td class="mono">${fmt(cost)}</td><td class="mono">${fmt(p.price)}</td><td>${h(p.measure||'un')}</td>
       <td class="mono">${av===Infinity?'—':av}</td><td class="mono">${min}</td><td>${av!==Infinity&&av<=min?'<span class="tag tag-red">Baixo</span>':'<span class="tag-quiet">Normal</span>'}</td>
       <td>${(p.recipe||[]).length?'<span class="tag-quiet">Configurada</span>':'—'}</td><td>${p.active===false?'<span class="tag tag-gray">Pausado</span>':'<span class="tag-quiet">À venda</span>'}</td><td class="mono">${h(p.pdvCode||'—')}</td>
@@ -82,9 +91,9 @@ function renderProdutos(){
       <div class="op-search"><span>⌕</span><input id="productSearch" placeholder="Pesquisar aqui..." value="${h(productSearchQuery)}"></div><div class="op-toolbar-spacer"></div>
       <div style="position:relative"><button class="op-btn" onclick="toggleProductOptions()"><span class="op-ico">•••</span> Opções <span style="margin-left:8px">▾</span></button>${productOptionsOpen?`<div class="pdv-menu product-options-menu" style="top:48px;right:0;left:auto;min-width:270px"><button onclick="productOptionsOpen=false;window.print()">▣ &nbsp; Imprimir</button><button onclick="openProductOrderModal()">↕ &nbsp; Ajustar Ordem</button><button onclick="openFiscalBulkModal()">▤ &nbsp; Dados fiscais (NFC-e)</button><div class="menu-title">Exportar Produtos</div><button onclick="exportProductsXlsx()">▧ &nbsp; Para arquivo Excel (.xlsx)</button><button onclick="exportProductsPackage()">▧ &nbsp; Para arquivo Commandah (.ccprod)</button><div class="menu-title">Importar Produtos</div><button onclick="openProductImportWizard()">▧ &nbsp; De arquivo Excel (.xlsx)</button><button onclick="pickProductsImport('json')">▧ &nbsp; De arquivo Commandah (.ccprod)</button></div>`:''}</div>
       <button class="op-btn" onclick="refreshProductList()">↻ &nbsp; Atualizar Lista</button>
-      <button class="op-btn" onclick="duplicateSelectedProduct()" ${selectedProductId?'':'disabled'}>▣ &nbsp; Duplicar</button>
-      <button class="op-btn" onclick="openSelectedProductStock()" ${selectedProductId?'':'disabled'}><span class="op-ico">▣</span> Estoque</button>
-      <button class="op-btn" onclick="editSelectedProduct()" ${selectedProductId?'':'disabled'}><span class="op-ico">✎</span> Editar</button>
+      <button class="op-btn" onclick="duplicateSelectedProduct()" data-needs-selection ${selectedProductId?'':'disabled'}>▣ &nbsp; Duplicar</button>
+      <button class="op-btn" onclick="openSelectedProductStock()" data-needs-selection ${selectedProductId?'':'disabled'}><span class="op-ico">▣</span> Estoque</button>
+      <button class="op-btn" onclick="editSelectedProduct()" data-needs-selection ${selectedProductId?'':'disabled'}><span class="op-ico">✎</span> Editar</button>
       <button class="op-btn primary" onclick="openProductModal()"><span class="op-ico">＋</span> Novo</button>
     </div>
     <div class="op-tabs">
@@ -97,6 +106,7 @@ function renderProdutos(){
   </section></div>`;
   document.getElementById('productSearch').oninput=e=>{productSearchQuery=e.target.value;applyProductSearch();};
   applyProductSearch();
+  const grid = el.querySelector('.op-grid'); if(grid) grid.scrollTop = rolagem;
 }
 function exportProductsXlsx(){
   productOptionsOpen=false;

@@ -148,6 +148,10 @@ function renderDraftItems(){
       totEl.textContent = fmt(subtotal);
     }
   }
+  // UX lote 4 (06/11): em tela estreita (< 900 px) o carrinho da Ficha fica depois da grade inteira
+  // de produtos; a barra fixa embaixo mostra itens, total e Cobrar sem precisar rolar até o fim.
+  const mBar=document.getElementById('bcMobileTotal');
+  if(mBar){const n=currentSaleDraft.items.reduce((a,i)=>a+(Number(i.qty)||0),0);mBar.textContent=fmt(draftTotal());document.getElementById('bcMobileCount').textContent=(Number.isInteger(n)?n:n.toLocaleString('pt-BR'))+(n===1?' item':' itens');}
   const printBtn=document.getElementById('pdvPrintConsumption');
   if(printBtn){const count=currentSaleDraft.items.reduce((sum,item)=>sum+(Number(item.qty)||0),0);printBtn.disabled=!count;printBtn.textContent=`Imprimir Fichas de Consumação (${count} ${count===1?'Item novo':'Itens novos'})`;}
 }
@@ -159,7 +163,7 @@ let pdvOptionsOpen = false;
 function renderBalcao(){
   const el = document.getElementById('view-balcao');
   if(!state.cashSession || state.cashSession.status!=='open'){
-    el.innerHTML = `<div class="consumer-workspace"><section class="free-cash"><h2>Caixa livre</h2><div class="free-cash-actions"><button class="op-btn" onclick="switchView('principal')">‹ &nbsp; Voltar</button><button class="op-btn primary" onclick="switchView('caixa')"><span class="op-ico">＋</span> Abrir caixa</button></div><p class="sub" style="margin-top:25px">Abra o caixa para iniciar um novo pedido.</p></section></div>`; return;
+    el.innerHTML = `<div class="consumer-workspace"><section class="free-cash"><h2>Caixa fechado</h2><div class="free-cash-actions free-cash-single"><button class="op-btn primary" onclick="switchView('caixa')">Abrir caixa</button></div><p class="sub" style="margin-top:25px">Abra o caixa para começar a vender na Ficha.</p></section></div>`; return;
   }
   // Só desenha com o balcão na tela: renderAll chama todas as telas, e o balcão usa os mesmos
   // #draftItemsList/#draftTotal e o mesmo currentSaleDraft da comanda aberta.
@@ -183,7 +187,7 @@ function renderBalcaoPdv(el){
   if(balcaoCategory && !categories.includes(balcaoCategory)) balcaoCategory = '';
   const member = currentSaleDraft.memberId ? state.members.find(m=>m.id===currentSaleDraft.memberId) : null;
   const cards = products.map(p=>{ const av = productAvailable(p), out = av!==Infinity && av<=0;
-    return `<button class="balcao-prod" data-category="${h(p.category||'')}" data-search="${h(((p.category||'')+' '+(p.code||'')+' '+(p.pdvCode||'')+' '+p.name).toLowerCase())}" ${out?'disabled title="Sem estoque"':''} onclick="addDraftItem(${jsArg(p.id)})"><span class="bp-cat">${h(p.category||'Sem categoria')}</span><span class="bp-name">${h(p.name)}</span><span class="bp-price mono">${out?'Sem estoque':productSalePriceLabel(p,currentDraftChannel())}</span></button>`; }).join('');
+    return `<button class="balcao-prod" data-category="${h(p.category||'')}" data-search="${h(((p.category||'')+' '+(p.code||'')+' '+(p.pdvCode||'')+' '+p.name).toLowerCase())}" ${out?'disabled title="Sem estoque"':''} onclick="addDraftItem(${jsArg(p.id)})"><span class="bp-name">${h(p.name)}</span><span class="bp-cat">${h(p.category||'Sem categoria')}</span><span class="bp-price mono">${out?'Sem estoque':productSalePriceLabel(p,currentDraftChannel())}</span></button>`; }).join('');
   el.innerHTML = `<div class="table-workspace balcao-split">
     <div class="balcao-main">
       <div class="table-toolbar"><div class="op-search"><input type="search" id="balcaoSearch" placeholder="Buscar produto ou código" value="${h(balcaoQuery)}" oninput="filterBalcaoProducts(this.value)"></div></div>
@@ -198,6 +202,7 @@ function renderBalcaoPdv(el){
       <div class="cash-order-total"><span>Total</span><span class="mono" id="draftTotal">R$ 0,00</span></div>
       <div class="bc-actions"><button class="op-btn" onclick="clearPdvDraft()">Limpar</button><button class="op-btn primary" id="balcaoPayBtn" onclick="openPaymentModal('balcao')">Cobrar</button></div>
     </aside>
+    <div class="bc-mobile-bar" aria-label="Resumo da ficha"><button type="button" class="bc-mobile-sum" onclick="document.querySelector('.balcao-cart').scrollIntoView({behavior:'smooth',block:'start'})"><span id="bcMobileCount">0 itens</span><b class="mono" id="bcMobileTotal">R$ 0,00</b><small>Ver ficha</small></button><button type="button" class="op-btn primary" onclick="openPaymentModal('balcao')">Cobrar</button></div>
   </div>`;
   filterBalcaoProducts(balcaoQuery);
   renderDraftItems();
@@ -213,7 +218,7 @@ function filterBalcaoProducts(q){
    voltar para todas; a grade fica com o espaço todo. */
 function balcaoCatsInner(categories){
   if(balcaoCategory) return `<button class="balcao-cats-back" onclick="setBalcaoCategory('')">‹ Todas as categorias</button><span class="balcao-cats-current">${h(balcaoCategory)}</span>`;
-  return `<button class="active" onclick="setBalcaoCategory('')">Todos</button>${categories.map(c=>`<button data-category="${h(c)}" onclick="setBalcaoCategory(this.dataset.category)">${h(c)}</button>`).join('')}`;
+  return `<button class="active" onclick="setBalcaoCategory('')">Todas</button>${categories.map(c=>`<button data-category="${h(c)}" onclick="setBalcaoCategory(this.dataset.category)">${h(c)}</button>`).join('')}`;
 }
 function balcaoCategories(){
   return [...new Set(state.products.filter(productEnabledForCurrentChannel).map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));

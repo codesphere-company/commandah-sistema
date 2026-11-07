@@ -74,24 +74,30 @@ t('1.2 açaí 300ml com 2x granola = R$ 18, nome com tamanho', () => {
   assert.strictEqual(r.customization.summary, 'Acompanhamentos: 2x Granola');
 });
 
+// 06/11/2026: mínimo/máximo valem quando > 0; 0 = sem limite. Repetir é sempre livre.
 t('1.3 passar do máximo', () => {
   const f = fixture();
   assert.match(build(f, 's300', { gAc: { gran: 2, pac: 1 } }).error, /no máximo 2/);
+  assert.match(build(f, 's500', { gAc: { gran: 4 } }).error, /no máximo 3/);
+  assert.strictEqual(build(f, 's500', { gAc: { gran: 3 } }).error, undefined);
 });
 
-t('1.4 repetir desligado', () => {
+t('1.4 máximo 0 = sem limite; repetir antigo desligado é ignorado', () => {
   const f = fixture({ repeat: false });
-  assert.match(build(f, 's300', { gAc: { gran: 2 } }).error, /uma vez/);
-  assert.strictEqual(build(f, 's300', { gAc: { gran: 1, pac: 1 } }).error, undefined);
+  assert.strictEqual(build(f, 's300', { gAc: { gran: 2 } }).error, undefined);
+  f.acai.sizes.s300.groups = [{ groupId: 'gAc', min: 0, max: 0, included: 2 }];
+  const r = build(f, 's300', { gAc: { gran: 5, pac: 1, kk: 3 } });
+  assert.strictEqual(r.error, undefined);
+  assert.strictEqual(r.price, 21); // 2 inclusos cobrem 2 Kit Kat; o 3º cobra R$ 3
 });
 
 t('1.5 mínimo', () => {
   const f = fixture();
-  f.acai.sizes.s300.groups.push({ groupId: 'gMolho', min: 1, max: 1, included: 1, repeat: false });
+  f.acai.sizes.s300.groups.push({ groupId: 'gMolho', min: 1, max: 0, included: 1 });
   assert.match(build(f, 's300', {}).error, /Escolha .*Molho/);
-  assert.strictEqual(build(f, 's300', { gMolho: { ket: 1 } }).error, undefined);
-  assert.strictEqual(validateGroup({ min: 1, max: 1, repeat: false }, 'Molho', []), 'Escolha ao menos 1 em Molho.');
-  assert.strictEqual(validateGroup({ min: 0, max: 2, repeat: true }, 'X', [{ qty: 2 }]), '');
+  assert.strictEqual(build(f, 's300', { gMolho: { ket: 4 } }).error, undefined);
+  assert.strictEqual(validateGroup({ min: 1, max: 1 }, 'Molho', []), 'Escolha ao menos 1 em Molho.');
+  assert.strictEqual(validateGroup({ min: 0, max: 0 }, 'X', [{ qty: 9 }]), '');
 });
 
 t('1.6 tamanho inexistente, opção pausada, sem tamanho', () => {
@@ -162,7 +168,8 @@ t('1.11 produto normal, autoatendimento e combo', () => {
   assert.strictEqual(blockedInCombo(f.acai, f.complementos), true);
   assert.strictEqual(hiddenInSelfService({ kind: 'tamanho' }, f.complementos), false);
   assert.strictEqual(blockedInCombo(molho(1), f.complementos), true);
-  assert.strictEqual(blockedInCombo(molho(0), f.complementos), false);
+  assert.strictEqual(blockedInCombo(molho(0), f.complementos), true); // sem mínimo: todo complemento fica fora do combo
+  assert.strictEqual(hiddenInSelfService(molho(0), f.complementos), true);
   assert.strictEqual(gradeOf(f.acai, f.complementos).id, 'gAcai');
   assert.strictEqual(gradeOf({ gradeId: 'nada' }, f.complementos), null);
   const grade = gradeOf(f.acai, f.complementos);
