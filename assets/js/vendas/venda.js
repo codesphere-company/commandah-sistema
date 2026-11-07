@@ -7,6 +7,7 @@ function productEnabledForCurrentChannel(product){
   const channels=product.channels||{};
   const channel=currentDraftChannel();
   if(channels[channel]===false)return false;
+  if(channel==='online'&&isWeighedProduct(product))return false; // venda por peso: precisa pesar no balcão, fora do delivery
   // Produto com grade: some da lista se nenhum tamanho pode ser vendido neste canal (ou a grade foi pausada/apagada).
   if(product.gradeId&&!itemChoiceSizes(product,channel).length)return false;
   return true;
@@ -25,6 +26,13 @@ function addDraftItem(productId){
   if(currentSaleDraft&&currentSaleDraft.type==='comanda'&&window.currentComandaRequester&&window.currentComandaRequester.canOrder===false){toast('Esta pessoa está bloqueada para consumir nesta cota.');return;}
   const p = state.products.find(x=>x.id===productId);
   if(!p) return;
+  // Venda por peso, 05/11: carne por kg abre a janela do peso; cada peça vira uma linha.
+  // Delivery não pesa (o peso vem da etiqueta do cozinheiro, no caixa).
+  if(isWeighedProduct(p)){
+    if(currentSaleDraft&&currentSaleDraft.type==='delivery'){ toast('Venda por peso só no caixa.'); return; }
+    openWeightChoice(p.id, lines=>{ if(!currentSaleDraft) return; if(commitWeighedLines(lines)) comandaLocatorPersist(); });
+    return;
+  }
   // Tamanhos e opções (escolha-item.js). Os campos antigos questionIds/complementIds/sizeIds não são
   // mais lidos pela venda (nenhum em uso); observações rápidas continuam na tela de escolha.
   if(!productOpensItemChoice(p)){ if(commitDraftItem(productId,null)) comandaLocatorPersist(); return; }
@@ -65,9 +73,24 @@ function commitDraftItem(productId,choice){
   renderDraftItems();renderComandaAuditHistory();
   return true;
 }
+// Venda por peso, 05/11: acrescenta as peças (weighedLine de core/peso.js), uma linha cada, nunca
+// somando com linha existente. O estoque confere todas as linhas não enviadas mais as peças novas
+// (a janela do peso só conta as peças dela). Devolve true quando as peças entraram no pedido.
+function commitWeighedLines(lines){
+  if(!currentSaleDraft||!Array.isArray(lines)||!lines.length) return false;
+  const requester=currentSaleDraft.type==='comanda'?window.currentComandaRequester:null;
+  const now=new Date().toISOString();
+  const novas=lines.map(l=>({...l,lineId:uid(),sent:false,addedAt:now,addedById:currentUser&&currentUser.id||null,addedBy:currentUser&&currentUser.name||'—',requesterId:requester&&requester.id||null,requesterName:requester&&requester.name||'',requesterType:requester&&requester.type||''}));
+  const unsent=currentSaleDraft.items.filter(i=>!i.sent).concat(novas);
+  if(!canFulfillItems(unsent)){ toast('Estoque insuficiente para estas peças.'); return false; }
+  novas.forEach(l=>currentSaleDraft.items.push(l));
+  renderDraftItems();renderComandaAuditHistory();
+  return true;
+}
 function changeDraftQty(idx, delta){
   const it = currentSaleDraft.items[idx]; if(!it) return;
   if(it.sent){ toast('Itens enviados não podem ser alterados. Use um fluxo de cancelamento com estorno.'); return; }
+  if(it.weight){ if(delta>0) return; delta=-it.qty; } // venda por peso, 05/11: peça não aumenta; − tira a linha
   if(delta>0){
     const unsent=currentSaleDraft.items.filter(i=>!i.sent).map(i=>({...i}));
     const proposed=unsent.find(i=>i.productId===it.productId&&(i.customizationSignature||'')===(it.customizationSignature||''));
@@ -102,9 +125,10 @@ function renderDraftItems(){
     <div class="item-line">
       <span>${h(i.name)} ${i.sent?'<span class=\"tag tag-blue\">Enviado</span>':''}${i.notes?`<small style="display:block;color:var(--c-text-3);margin-top:3px;max-width:520px">${h(i.notes)}</small>`:''}</span>
       <div class="qty-ctrl">
-        <button ${i.sent?'disabled':''} onclick="changeDraftQty(${idx},-1)">−</button>
+        ${i.weight?`<span class="mono">${fmtKg(i.weight.kg)}</span>
+        <button ${i.sent?'disabled':''} onclick="changeDraftQty(${idx},-1)" aria-label="Tirar peça">✕</button>`:`<button ${i.sent?'disabled':''} onclick="changeDraftQty(${idx},-1)">−</button>
         <span class="mono">${i.qty}</span>
-        <button ${i.sent?'disabled':''} onclick="changeDraftQty(${idx},1)">+</button>
+        <button ${i.sent?'disabled':''} onclick="changeDraftQty(${idx},1)">+</button>`}
         <span class="mono" style="min-width:70px;text-align:right">${fmt(i.price*i.qty)}</span>
       </div>
     </div>`).join('') : `<p class="empty">${el.closest('.cash-order-modal,.comanda-inline')?'Nenhum item lançado.':'Nenhum item adicionado.'}</p>`;

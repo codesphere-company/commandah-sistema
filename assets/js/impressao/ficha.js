@@ -102,7 +102,7 @@ function buildTicketLines(who, cota, local, estacao, items, orderNumber, payLine
     else if(x.k==='produtos'){
       sep('-');
       (items||[]).forEach(it=>{
-        L.push({ label:'', value: it.qty+'x '+it.name+(it.copos!=null ? ' — '+it.copos+' copo'+(it.copos===1?'':'s') : ''), size:prodSize, bold:false });
+        L.push({ label:'', value: itemQtyLabel(it)+' '+it.name+(it.copos!=null ? ' — '+it.copos+' copo'+(it.copos===1?'':'s') : ''), size:prodSize, bold:false });
         if(c.mostrarAdicionais && typeof kitchenItemExtras==='function') kitchenItemExtras(it).forEach(e=>L.push({ label:'  + ', value:e, size:1, bold:false }));
         if(c.mostrarObs && typeof kitchenItemNote==='function'){ const n = kitchenItemNote(it); if(n) L.push({ label:'  OBS: ', value:n, size:1, bold:true }); }
         if(showPrices) L.push({ label:'', value:fmt((Number(it.price)||0)*(Number(it.qty)||0)), size:1, bold:false });

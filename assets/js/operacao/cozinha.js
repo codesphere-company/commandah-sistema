@@ -16,7 +16,7 @@ function requiredInsumosForItems(items){
   const required = {};
   items.forEach(it=>{
     const p=state.products.find(x=>x.id===it.productId);
-    itemUnitRecipe(p,it).forEach(r=>required[r.insumoId]=(required[r.insumoId]||0)+(Number(r.qty)||0)*(Number(it.qty)||0));
+    itemUnitRecipe(p,it).forEach(r=>required[r.insumoId]=(required[r.insumoId]||0)+(Number(r.qty)||0)*itemStockQty(it)); // venda por peso, 05/11: peça pesada baixa o estoque em kg
   });
   return required;
 }
@@ -222,7 +222,8 @@ async function sendItemsToKitchen(saleId, items, who, source, local){
   if(!items.length) return false;
   const batchId = uid();
   items.forEach(i=>{ if(!i.batchId) i.batchId = batchId; });
-  const monitorItems=items.filter(i=>{const product=state.products.find(p=>p.id===i.productId);const estacao=product&&product.estacao?product.estacao:'cozinha';return saidaTemTela(estacao);});
+  // Venda por peso, 05/11: peça pesada nunca vai ao Monitor (nem pergunta "cozinha fechada"), qualquer que seja a estação do produto.
+  const monitorItems=items.filter(i=>{if(i.weight)return false;const product=state.products.find(p=>p.id===i.productId);const estacao=product&&product.estacao?product.estacao:'cozinha';return saidaTemTela(estacao);});
   // Cozinha fora do horário: caixa e garçom recebem um aviso e podem confirmar; cardápio digital
   // e totem (o próprio cliente pedindo) não enviam. Vem antes de baixar o estoque: cancelar não
   // deixa nada lançado.
@@ -270,7 +271,7 @@ function productAsksCopos(p){ return !!p && p.askCopos!=='nao' && productIsDrink
 // "LEVAR JUNTO: 1x Coca…", na ficha impressa, no Monitor e no histórico da comanda.
 const levarJunto={np:false,quick:false,gc:false};
 function cartHasDrinkAndFood(cart){
-  const prods=(cart||[]).map(i=>state.products.find(p=>p.id===i.productId)).filter(Boolean);
+  const prods=(cart||[]).filter(i=>!i.weight).map(i=>state.products.find(p=>p.id===i.productId)).filter(Boolean);
   return prods.some(productIsDrink) && prods.some(p=>!productIsDrink(p));
 }
 function levarJuntoBox(cart, key){
@@ -280,7 +281,8 @@ function levarJuntoBox(cart, key){
 function applyLevarJunto(items, on){
   if(!on) return;
   const isDrink=i=>productIsDrink(state.products.find(p=>p.id===i.productId));
-  const drinks=items.filter(isDrink), foods=items.filter(i=>!isDrink(i));
+  // Venda por peso, 05/11: peça de carne não é a "comida" do levar junto (não passa pela cozinha).
+  const drinks=items.filter(i=>!i.weight&&isDrink(i)), foods=items.filter(i=>!i.weight&&!isDrink(i));
   if(!drinks.length || !foods.length) return;
   const txt=drinks.map(d=>d.qty+'x '+d.name).join(', ');
   drinks.forEach(d=>{ d.levarJunto=true; });

@@ -59,8 +59,13 @@ function productNeedsChoice(product, complementos){
 // Produto com tamanho ou com complemento não cabe em fluxo sem balcão (autoatendimento/combo), que
 // não tem tela de escolha. Antes só o grupo com mínimo escondia; sem mínimo (06/11/2026), o dono
 // decidiu manter fora do QR/totem tudo que tem complemento.
-function hiddenInSelfService(product, complementos){ return productNeedsChoice(product, complementos); }
-function blockedInCombo(product, complementos){ return productNeedsChoice(product, complementos); }
+// Venda por peso, 05/11: produto vendido a kg precisa da balança (pesagem no balcão), também fica fora.
+function opcoesSoNoBalcao(product, complementos){
+  if(product && String(product.measure).toLowerCase() === 'kg') return true;
+  return productNeedsChoice(product, complementos);
+}
+function hiddenInSelfService(product, complementos){ return opcoesSoNoBalcao(product, complementos); }
+function blockedInCombo(product, complementos){ return opcoesSoNoBalcao(product, complementos); }
 
 function sizesForChannel(product, grade, channel){
   if(!product || !grade) return [];

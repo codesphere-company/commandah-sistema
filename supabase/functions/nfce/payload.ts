@@ -5,7 +5,9 @@
 
 export type Fiscal = { ncm?: string; cest?: string; cfop?: string; csosn?: string; origem?: string; status?: string };
 export type Product = { id: string; name?: string; code?: string; measure?: string; fiscal?: Fiscal | null };
-export type SaleItem = { productId?: string; name?: string; qty?: number; price?: number; canceled?: boolean };
+export type SaleItem = { productId?: string; name?: string; qty?: number; price?: number; canceled?: boolean;
+  // venda por peso, 05/11: peça pesada (qty 1, price = valor da peça já arredondado)
+  weight?: { kg: number; pricePerKg: number } };
 export type Payment = { method?: string; amount?: number; change?: number; partial?: boolean; reversed?: boolean };
 export type Sale = {
   id: string; status?: string; canceled?: boolean; items?: SaleItem[]; payments?: Payment[];
@@ -48,16 +50,19 @@ export function buildNfcePayload(sale: Sale, products: Product[], opts: { ambien
     if (cest && cest.length !== 7) problems.push(`"${nome}": o CEST precisa ter 7 números.`);
     // t214: produto com ICMS-ST sem CEST a SEFAZ recusa (Rejeição 806); avisa antes de enviar.
     else if (!cest && CSOSN_ST.includes(csosn)) problems.push(`"${nome}": tem substituição tributária (CSOSN ${csosn}) e está sem CEST; a SEFAZ recusa. Preencha o CEST em Produtos › Editar › aba Fiscal.`);
-    const qtd = Number(i.qty) || 0, unit = cents(Number(i.price) || 0);
+    // venda por peso, 05/11: peça pesada sai em KG (Quantidade = kg, ValorUnitario = preço/kg) e o
+    // ValorTotal é o valor exato da peça, para a nota fechar com o pedido.
+    const w = i.weight && Number(i.weight.kg) > 0 ? i.weight : null;
+    const qtd = w ? Number(w.kg) : Number(i.qty) || 0, unit = cents(Number(w ? w.pricePerKg : i.price) || 0);
     const item: Record<string, unknown> = {
       NmProduto: nome.slice(0, 120),
       CodProdutoServico: String((p && (p.code && p.code !== "0" ? p.code : p.id)) || "ITEM" + (idx + 1)).slice(0, 60),
       EAN: "SEM GTIN",
       NCM: ncm,
       Quantidade: qtd,
-      UnidadeComercial: UNIDADE[String((p && p.measure) || "un").toLowerCase()] || "UN",
+      UnidadeComercial: w ? "KG" : UNIDADE[String((p && p.measure) || "un").toLowerCase()] || "UN",
       ValorUnitario: unit,
-      ValorTotal: cents(unit * qtd),
+      ValorTotal: w ? cents(Number(i.price) || 0) : cents(unit * qtd),
       CFOP: Number(cfop) || 0,
       OrigemProduto: Number(f.origem || 0) || 0,
       // Simples Nacional: ICMS pelo CSOSN; PIS/COFINS 49 (outras saídas), como no exemplo da Brasil NFe. Conferir com o contador.

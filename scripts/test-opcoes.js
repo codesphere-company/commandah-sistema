@@ -241,4 +241,10 @@ t('1.16 combo com formato 2 imprime a linha Combo primeiro', () => {
   eq(customizationLines({ customization: c }), ['Combo: X-Burger, Coca', 'Acompanhamentos: 1x Granola']);
 });
 
+t('1.17 produto por peso (measure kg) some do autoatendimento e do combo (venda por peso, 05/11)', () => {
+  assert.strictEqual(hiddenInSelfService({ measure: 'kg' }, []), true);
+  assert.strictEqual(blockedInCombo({ measure: 'KG' }, []), true);
+  assert.strictEqual(hiddenInSelfService({ measure: 'un' }, []), false);
+});
+
 console.log('ok ' + n + ' testes');

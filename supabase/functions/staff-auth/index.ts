@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
 
     // Confirmação de senha antes de uma alteração sensível (ex.: reabrir comanda fechada).
     // Não devolve sessão: só diz se o PIN confere e o perfil de quem digitou.
-    if (action === "verify" || action === "release_debt") {
+    if (action === "verify" || action === "release_debt" || action === "price_override") {
       const staffId = String(body.staff_id || "");
       const pin = String(body.pin || "");
       if (!staffId || !pin) return json({ error: "staff_id e pin são obrigatórios" }, 400);
@@ -225,6 +225,27 @@ Deno.serve(async (req) => {
       const staff = checked.staff;
       const name = await staffName(staff);
       if (action === "verify") return json({ ok: true, staff_id: staff.id, role: staff.role, name });
+
+      // Venda por peso, 05/11: o caixa não muda o preço do quilo sozinho; um administrador digita o
+      // PIN na janela da venda (sem trocar de usuário). Só confere PIN + perfil e grava o audit_log.
+      // O nome do produto vem do cliente (produtos ficam no app_data, não numa tabela).
+      if (action === "price_override") {
+        if (staff.role !== "admin") return json({ error: "Só administrador altera o preço." }, 403);
+        const productId = String(body.product_id || "");
+        if (!validStaffId(productId)) return json({ error: "Produto inválido" }, 400);
+        const original = Number(body.original), price = Number(body.price);
+        if (!Number.isFinite(original) || !Number.isFinite(price) || !(price > 0)) return json({ error: "Preço inválido" }, 400);
+        const productName = String(body.product_name || "").slice(0, 120) || productId;
+        const operatorName = String(body.operator_name || "").slice(0, 120);
+        const fmt = (n: number) => n.toFixed(2).replace(".", ",");
+        const { error: pErr } = await admin.from("audit_log").insert({
+          tenant_id: staff.tenant_id, actor_name: name, entity: "product", entity_id: productId,
+          action: `Preço do quilo alterado na venda: ${productName} R$ ${fmt(original)} → R$ ${fmt(price)} (caixa: ${operatorName})`,
+          meta: { product_id: productId, original, price, operator_name: operatorName },
+        });
+        if (pErr) return internalError("Falha ao registrar a alteração de preço", pErr);
+        return json({ ok: true, name });
+      }
 
       // OP-14: liberar sócio bloqueado por fiado exige a senha de um administrador, mesmo
       // com o caixa logado no aparelho. A gravação vai com service_role (a trava do banco
