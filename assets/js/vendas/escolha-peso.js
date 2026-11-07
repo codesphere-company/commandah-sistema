@@ -33,7 +33,7 @@ function openWeightChoice(productId, onDone){
   const product = (state.products || []).find(p => p.id === productId);
   if(!product || !isWeighedProduct(product)){ toast('Produto indisponível.', 'erro'); return; }
   closeWeightChoice();
-  const original = Number(product.price) || 0;
+  const original = arredondaCentavos(Number(product.price) || 0); // 2 casas: a NFC-e rejeita preço com mais (Rejeição 629)
   const admin = _wsIsAdmin();
   weightChoiceState = { productId, onDone, rows: [_wsNewRow('')], original, price: original, priceText: _wsPriceBR(original),
     override: null, pinBusy: false, returnFocus: document.activeElement };

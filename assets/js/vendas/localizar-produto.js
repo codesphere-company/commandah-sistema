@@ -112,7 +112,7 @@ function openComandaItemTransfer(saleId){
   const opts=targets.map(t=>{const m=t.memberId?state.members.find(x=>x.id===t.memberId):null,who=m?m.name:(t.customerName||'Avulso');return `<option value="${h(t.id)}">${h(who)}${t.orderNumber?' — Pedido #'+t.orderNumber:''}</option>`;}).join('');
   const clube=(state.settings.operationMode||'clube')!=='bar';
   openModal('Transferir/Copiar Itens',`
-    <div class="field"><label>Itens</label><div class="transfer-items">${items.map(({it,idx})=>`<label class="transfer-item"><input type="checkbox" value="${idx}" ${it.sent?'':'checked'}><span>${Number(it.qty)||0}x ${h(it.name)}</span><span class="sub">${it.sent?'já na cozinha':'não enviado'}</span><span class="mono">${fmt((Number(it.qty)||0)*(Number(it.price)||0))}</span></label>`).join('')}</div></div>
+    <div class="field"><label>Itens</label><div class="transfer-items">${items.map(({it,idx})=>`<label class="transfer-item"><input type="checkbox" value="${idx}" ${it.sent?'':'checked'}><span>${h(itemQtyLabel(it))} ${h(it.name)}</span><span class="sub">${it.sent?'já na cozinha':'não enviado'}</span><span class="mono">${fmt((Number(it.qty)||0)*(Number(it.price)||0))}</span></label>`).join('')}</div></div>
     <div class="field"><label>Pedido de destino</label><select id="transferTargetSale" onchange="toggleTransferNew()">${opts}<option value="__new">＋ Abrir nova comanda…</option></select></div>
     <div id="transferNewBox" hidden>
       ${clube?`<div class="field"><label>Sócio (nome ou cota)</label><input id="trAccountSearch" autocomplete="off" placeholder="Digite o nome do titular ou a cota..." oninput="transferAccount=null;filterTransferAccounts(this.value)"></div><div id="trAccountResults" class="comanda-account-results"></div><p class="sub" style="margin:4px 0 8px">Ou, para cliente avulso:</p>`:''}
@@ -141,6 +141,8 @@ async function confirmComandaItemTransfer(saleId){
   const mode=document.getElementById('transferMode').value;
   const picked=[...document.querySelectorAll('.transfer-item input:checked')].map(x=>currentSaleDraft.items[Number(x.value)]).filter(Boolean);
   if(!picked.length){ toast('Marque os itens que vão para o outro pedido.'); return; }
+  // venda por peso (revisão geral 05/11): copiar uma peça pesada lançaria a mesma peça duas vezes
+  if(mode==='copy' && picked.some(i=>i.weight)){ toast('Carne por peso não se copia: lance a peça nova pelo peso.'); return; }
   if(mode==='copy' && picked.some(i=>i.sent)){ toast('Copiar só vale para itens ainda não enviados à cozinha. Para item já enviado, use Transferir.'); return; }
   if(mode==='move'){
     const rest=saleTotal(currentSaleDraft.items.filter(i=>!picked.includes(i)));
@@ -174,7 +176,7 @@ async function confirmComandaItemTransfer(saleId){
     await commitSaleChange(saleId, cur=>{ cur.items=(cur.items||[]).filter(i=>!movedKeys.has(comandaItemKey(i))); cur.total=saleTotal(cur.items); });
   }
   const dest=target.customerName||'Avulso';
-  logAction('Itens '+(mode==='move'?'transferidos':'copiados')+' do pedido #'+(src.orderNumber||saleId)+' para #'+(target.orderNumber||targetId)+(created?' (comanda nova)':'')+': '+picked.map(i=>i.qty+'x '+i.name).join(', '));
+  logAction('Itens '+(mode==='move'?'transferidos':'copiados')+' do pedido #'+(src.orderNumber||saleId)+' para #'+(target.orderNumber||targetId)+(created?' (comanda nova)':'')+': '+picked.map(i=>itemQtyLabel(i)+' '+i.name).join(', '));
   closeModal(); renderAll();
   toast((mode==='move'?'Itens transferidos':'Itens copiados')+' para '+dest+(created?' (comanda nova aberta)':'')+'.');
   openComanda(saleId,true);

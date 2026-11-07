@@ -7,6 +7,7 @@ function productEnabledForCurrentChannel(product){
   const channels=product.channels||{};
   const channel=currentDraftChannel();
   if(channels[channel]===false)return false;
+  if(channel==='online'&&isWeighedProduct(product))return false; // venda por peso: precisa pesar no balcão, fora do delivery
   // Produto com grade: some da lista se nenhum tamanho pode ser vendido neste canal (ou a grade foi pausada/apagada).
   if(product.gradeId&&!itemChoiceSizes(product,channel).length)return false;
   return true;

@@ -351,7 +351,7 @@ function whatsAppCollectionMessage(member){
   const clubName = state.settings.clubName || 'o clube';
   const lines = [];
   todaysSalesForMember(member.id).forEach(s=>{
-    (s.items||[]).filter(i=>!i.canceled).forEach(i=>{ lines.push('• '+i.qty+'x '+i.name+' — '+fmt(i.price*i.qty)); });
+    (s.items||[]).filter(i=>!i.canceled).forEach(i=>{ lines.push('• '+itemQtyLabel(i)+' '+i.name+' — '+fmt(i.price*i.qty)); });
   });
   const itemsText = lines.length ? ('\n\nConsumo de hoje:\n'+lines.join('\n')) : '';
   const pixKey = (state.settings.pixKey||'').trim();

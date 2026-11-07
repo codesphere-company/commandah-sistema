@@ -92,7 +92,8 @@ function comandaPanelHtml(s){
   const info = comandaPersonData(s);
   const items = (s.items||[]).filter(i=>!i.canceled && Number(i.qty)>0);
   const grouped = [];
-  items.forEach(i=>{ const key=(i.productId||'')+'|'+i.name+'|'+Number(i.price); const g=grouped.find(x=>x.key===key); if(g){ g.qty+=Number(i.qty); } else grouped.push({ key, name:i.name, price:Number(i.price)||0, qty:Number(i.qty) }); });
+  // peça pesada não agrupa: cada peça tem seu peso e seu valor (venda por peso, 05/11)
+  items.forEach(i=>{ const key=i.weight?'peso|'+grouped.length:(i.productId||'')+'|'+i.name+'|'+Number(i.price); const g=grouped.find(x=>x.key===key); if(g){ g.qty+=Number(i.qty); } else grouped.push({ key, name:i.name, price:Number(i.price)||0, qty:Number(i.qty), weight:i.weight||null }); });
   // Mesma conta do pagamento e do app do garçom: crédito do sócio abatido antes do serviço,
   // parcial no fim e pendência anterior (fiado liberado) junto. Antes o painel somava só
   // consumo + serviço e mostrava um total maior que o do pagamento.
@@ -102,7 +103,7 @@ function comandaPanelHtml(s){
     <div class="cp-head"><span class="cp-num">${h(info.quota||(s.orderNumber?'#'+s.orderNumber:''))}</span><span class="cp-name">${h(info.person)}</span><button class="cp-close" type="button" onclick="fecharResumoComanda()" title="Fechar resumo" aria-label="Fechar resumo">×</button></div>
     <div class="cp-meta">${meta.map(h).join(' · ')}</div>
     ${s.locked?`<span class="tag tag-red">Pedido bloqueado</span>`:''}
-    <div class="cp-items">${grouped.length?grouped.map(g=>`<div class="cp-item"><span class="cp-qty">${g.qty}×</span><span class="cp-iname">${h(g.name)}</span><span class="mono">${fmt(g.price*g.qty)}</span></div>`).join(''):'<p class="cp-empty">Nenhum item lançado ainda.</p>'}</div>
+    <div class="cp-items">${grouped.length?grouped.map(g=>`<div class="cp-item"><span class="cp-qty">${g.weight?h(itemQtyLabel(g)):g.qty+'×'}</span><span class="cp-iname">${h(g.name)}</span><span class="mono">${fmt(g.price*g.qty)}</span></div>`).join(''):'<p class="cp-empty">Nenhum item lançado ainda.</p>'}</div>
     <div class="cp-totals">
       <div><span>Consumo</span><span class="mono">${fmt(t.subtotal)}</span></div>
       ${t.creditApplied>TOLERANCIA_CENTAVO?`<div><span>Crédito do sócio (abatido)</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
@@ -856,7 +857,7 @@ function openCancelComandaItem(idx){
   const item = (currentSaleDraft.items||[])[idx]; if(!item || item.canceled) return;
   cancelItemIdx = idx;
   openModal('Cancelar item', `
-    <p class="sub">${h(item.name)} · ${item.qty}x ${fmt(item.price)} — lançado por ${h(item.addedBy||'—')} em ${item.addedAt?reportDateTime(item.addedAt):'—'}</p>
+    <p class="sub">${h(item.name)} · ${h(itemQtyLabel(item))} ${fmt(item.price)} — lançado por ${h(item.addedBy||'—')} em ${item.addedAt?reportDateTime(item.addedAt):'—'}</p>
     <p class="sub" style="color:var(--c-danger)"><b>Esta ação não pode ser desfeita.</b> O valor sai do total da comanda e o insumo consumido é devolvido ao estoque.</p>
     <div class="field"><label>Motivo (opcional)</label><input id="cancelItemReason" placeholder="Ex: lançado errado, cliente desistiu..."></div>
     <div class="row">
