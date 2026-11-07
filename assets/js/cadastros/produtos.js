@@ -52,6 +52,26 @@ function selectProductRow(id){
   rows.forEach(r=>r.classList.toggle('selected', r.dataset.id===id));
   document.querySelectorAll('#view-produtos [data-needs-selection]').forEach(b=>{ b.disabled=false; });
 }
+// Excluir produto (pedido do dono, 06/11/2026). Venda guarda nome e preço do item, então o histórico
+// continua nos relatórios. Barrado quando o produto está num combo (o combo perderia a composição) ou
+// numa comanda aberta (cancelar item, NFC-e e estoque ainda leem o cadastro dele).
+async function deleteSelectedProduct(){
+  productOptionsOpen=false;
+  if(!requirePerm('produtos')) return;
+  const p=state.products.find(x=>x.id===selectedProductId);
+  if(!p){ toast('Selecione um produto para excluir.'); return; }
+  const combos=state.products.filter(c=>c.id!==p.id&&(c.comboProductIds||[]).includes(p.id));
+  if(combos.length){ toast('Este produto faz parte do combo '+combos.map(c=>c.name).join(', ')+'. Tire ele do combo antes de excluir.'); return; }
+  const aberta=state.sales.find(s=>s.status==='open'&&!s.canceled&&(s.items||[]).some(i=>i.productId===p.id&&!i.canceled));
+  if(aberta){ toast('Este produto está numa comanda aberta'+(aberta.orderNumber?' (pedido #'+aberta.orderNumber+')':'')+'. Feche ou cancele o item antes de excluir.'); return; }
+  if(!await confirmarAcao('Excluir o produto "'+p.name+'"?',{message:'Não dá para desfazer. As vendas antigas continuam nos relatórios. Para tirar da venda só por um tempo, marque o produto como pausado no cadastro.'})) return;
+  state.products=state.products.filter(x=>x.id!==p.id);
+  selectedProductId=null;
+  save('products');
+  logAction('Produto excluído: '+p.name+(p.code?' (cód. '+p.code+')':''));
+  renderAll();
+  toast('Produto excluído.');
+}
 function editSelectedProduct(){ if(!selectedProductId){ toast('Selecione um produto para editar.'); return; } openProductModal(selectedProductId); }
 function openSelectedProductStock(){
   if(!selectedProductId){toast('Selecione um produto para consultar o estoque.');return;}
@@ -94,6 +114,7 @@ function renderProdutos(){
       <button class="op-btn" onclick="duplicateSelectedProduct()" data-needs-selection ${selectedProductId?'':'disabled'}>▣ &nbsp; Duplicar</button>
       <button class="op-btn" onclick="openSelectedProductStock()" data-needs-selection ${selectedProductId?'':'disabled'}><span class="op-ico">▣</span> Estoque</button>
       <button class="op-btn" onclick="editSelectedProduct()" data-needs-selection ${selectedProductId?'':'disabled'}><span class="op-ico">✎</span> Editar</button>
+      <button class="op-btn" onclick="deleteSelectedProduct()" data-needs-selection ${selectedProductId?'':'disabled'}><span class="op-ico">✕</span> Excluir</button>
       <button class="op-btn primary" onclick="openProductModal()"><span class="op-ico">＋</span> Novo</button>
     </div>
     <div class="op-tabs">
