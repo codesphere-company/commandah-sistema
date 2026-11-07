@@ -7,7 +7,7 @@ const VIEW_LABELS = {caixa:'Caixa',balcao:'Ficha',comandas:'Comandas',delivery:'
   contascategorias:'Categorias de Contas',contas:'Contas a Pagar/Receber',locais:'Locais e Áreas do Clube',impressoras:'Impressoras',estacoes:'Estações',origens:'Origens de Pedido','config-sistema':'Configurações do Sistema',backup:'Backup',logs:'Logs',
   'painel-senhas':'Painel de Senhas',ajuda:'Ajuda e Suporte',diagnostico:'Diagnóstico de Serviços',totem:'Totem de Autoatendimento',cupons:'Promoções e Cupons',modulos:'Central de Módulos','mobile-qr':'Acesso Mobile — Garçom'};
 function buildNav(){
-  const allowed = rolePermissions(currentUser.role);
+  const allowed = userPermissions(currentUser);
   const tabs = currentUser.role==='cozinha' ? SIMPLE_RIBBON_COZINHA : RIBBON_TABS;
   visibleTabs = tabs;
   activeRibbonTab = tabs[0].id;
@@ -57,7 +57,7 @@ const SIDEBAR_LABELS = {caixa:'Caixa', comandas:'Comandas', balcao:'Ficha', deli
 // comandas, balcão...) e, abaixo, as outras áreas; clicar numa área abre a faixa de atalhos dela.
 function renderRibbonTabs(){
   const el = document.getElementById('ribbonTabs');
-  const allowed = rolePermissions(currentUser.role);
+  const allowed = userPermissions(currentUser);
   const [home, ...areas] = visibleTabs;
   const homeItems = home ? home.groups.flatMap(g=>g.items).filter(it=>!HIDDEN_MODULES.has(it.label)) : [];
   const links = homeItems.map(it=>{
@@ -77,7 +77,7 @@ function renderRibbonTabs(){
 }
 function renderRibbonToolbar(){
   const el = document.getElementById('ribbonToolbar');
-  const allowed = rolePermissions(currentUser.role);
+  const allowed = userPermissions(currentUser);
   const tab = visibleTabs.find(t=>t.id===activeRibbonTab);
   // A primeira área não tem faixa: os atalhos dela já estão no menu lateral.
   el.parentElement.classList.toggle('is-empty', !tab || tab===visibleTabs[0]);
@@ -326,7 +326,7 @@ function renderAll(){
   if(typeof aplicarModoTv==='function') aplicarModoTv(); // Modo TV só no monitor de preparo
   if(document.getElementById('garcomApp') && document.getElementById('garcomApp').classList.contains('show')){ if(!gcFlow||gcFlow.step==='home') gcRenderHome(); return; }
   renderScoreboard();
-  const allowed = rolePermissions(currentUser.role);
+  const allowed = userPermissions(currentUser);
   if(allowed.includes('caixa')){renderCaixa();enhanceCashMovementGrid();}
   if(allowed.includes('balcao')) renderBalcao();
   if(allowed.includes('comandas')) renderComandas();
