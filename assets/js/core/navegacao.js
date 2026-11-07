@@ -42,9 +42,24 @@ function ribbonItemAction(it, allowed){
 // Visual A (22/10): várias telas têm a altura em calc(100vh - Npx), com N contando a barra e as
 // abas antigas do topo (158 px até 800 px de altura de tela, 177 px acima disso; medido em 22/10).
 // --shell-gap devolve a diferença para o topo de agora (faixa de atalhos, ou nada na área Principal).
+// 07/11 (dono: "o menu de Configurações fica quebrado"): com muitos atalhos (Configurações tem 18) a faixa
+// quebrava em 3 linhas altas e desalinhadas. Quando os grupos não cabem numa linha, a faixa vira compacta
+// (ícone pequeno ao lado do nome, sem o nome do grupo). Áreas que cabem numa linha ficam como estavam.
+function ajustarFaixaCompacta(){
+  const tb = document.getElementById('ribbonToolbar'); if(!tb) return;
+  tb.classList.remove('rb-compacta');
+  const tops = new Set([...tb.querySelectorAll('.rb-group')].map(g=>g.offsetTop));
+  if(tops.size<=1) return;
+  tb.classList.add('rb-compacta');
+  // Grupo que começa no início de uma linha não leva a risca de separação.
+  const botoes = [...tb.querySelectorAll('.rb-icons button')];
+  botoes.forEach(b=>b.classList.remove('rb-inicio-linha'));
+  botoes.forEach((b,i)=>{ if(i && b.offsetTop>botoes[i-1].offsetTop) b.classList.add('rb-inicio-linha'); });
+}
 function updateShellGap(){
   const app = document.getElementById('app'), ribbon = document.querySelector('.ribbon'), side = document.querySelector('.sidebar');
   if(!app || !ribbon) return;
+  ajustarFaixaCompacta();
   const oldTop = innerHeight<=800 ? 158 : 177;
   const sideOnTop = side && getComputedStyle(app).flexDirection==='column' ? side.offsetHeight : 0;
   const top = sideOnTop + (ribbon.classList.contains('is-empty') ? 0 : ribbon.offsetHeight);

@@ -863,3 +863,16 @@ body.tv-mode .kfechada-faixa{font-size:22px}
 .perm-proprias-grupo>b{grid-column:1/-1;margin:4px 0}
 #uPermBox .perm-proprias-grupo label.item-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0;padding:6px 0 6px 12px;font-weight:400}
 #uPermBox .perm-proprias-grupo label.item-line input{width:auto;flex:none;margin:0}
+
+/* 07/11: faixa de atalhos compacta (ajustarFaixaCompacta em core/navegacao.js). Só entra quando os grupos
+   não cabem numa linha: ícone pequeno ao lado do nome, sem o nome do grupo, linhas baixas.
+   Os botões de todos os grupos correm numa sequência só; uma risca fina separa um grupo do outro. */
+.ribbon-toolbar.rb-compacta{padding:8px 16px;gap:4px 2px;align-items:center}
+.ribbon-toolbar.rb-compacta .rb-group,.ribbon-toolbar.rb-compacta .rb-icons{display:contents}
+.ribbon-toolbar.rb-compacta .rb-icons button{flex:0 0 auto;flex-direction:row;gap:6px;padding:6px 10px;min-width:0;max-width:none;width:auto;position:relative}
+.ribbon-toolbar.rb-compacta .rb-group+.rb-group .rb-icons button:first-child{margin-left:13px}
+.ribbon-toolbar.rb-compacta .rb-group+.rb-group .rb-icons button:first-child::before{content:'';position:absolute;left:-8px;top:7px;bottom:7px;border-left:1px solid var(--c-border)}
+.ribbon-toolbar.rb-compacta .rb-group+.rb-group .rb-icons button.rb-inicio-linha{margin-left:0}
+.ribbon-toolbar.rb-compacta .rb-group+.rb-group .rb-icons button.rb-inicio-linha::before{content:none}
+.ribbon-toolbar.rb-compacta .rb-icons button .ic svg{width:16px;height:16px}
+.ribbon-toolbar.rb-compacta .rb-caption{display:none}
