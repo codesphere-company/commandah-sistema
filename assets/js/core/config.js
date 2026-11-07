@@ -191,7 +191,15 @@ function rolePermissions(role){const custom=state&&state.settings&&state.setting
    Salvar e tomaria erro de permissão do banco, com banner de falha ao salvar. */
 // Conferência às cegas (06/11): quem vê o dinheiro esperado, os totais e as vendas do caixa.
 function podeVerTotaisDoCaixa(){ return !!currentUser && (currentUser.role==='admin' || (typeof sessionIsOwner!=='undefined' && sessionIsOwner)); }
-function hasPerm(token){ return !!currentUser && rolePermissions(currentUser.role).includes(token); }
+// 07/11 (pedido do dono): permissões por colaborador. O operador de caixa pode ter uma lista própria
+// (user.permissions); sem ela, vale a do perfil (Colaboradores › Perfis e permissões). O administrador
+// tem tudo sempre. Como a matriz do perfil, é permissão de TELA: o banco continua decidindo pelo perfil.
+function userHasOwnPermissions(user){ return !!user && user.role==='caixa' && Array.isArray(user.permissions); }
+function userPermissions(user){
+  if(!user) return [];
+  return userHasOwnPermissions(user) ? user.permissions : rolePermissions(user.role);
+}
+function hasPerm(token){ return !!currentUser && userPermissions(currentUser).includes(token); }
 // Auditoria 03/11 (M5): cadastros (locais, estações, origens, quem levou e os outros) só o administrador
 // grava, como na RLS. Os outros perfis abrem essas telas só para consulta (decisão do dono, 03/11).
 function podeEditarCatalogo(){ return hasPerm('config-sistema'); }
