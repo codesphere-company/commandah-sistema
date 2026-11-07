@@ -141,6 +141,21 @@ async function attemptPinLogin(){
   else { logPinFail(); toast('PIN incorreto.'); pinBuffer=''; updatePinDots(); }
 }
 function pinBackspace(){ pinBuffer = pinBuffer.slice(0,-1); updatePinDots(); }
+// PIN pelo teclado (pedido do dono, 06/11/2026): números da linha de cima e do teclado numérico
+// (com ou sem Num Lock: e.code 'Numpad0'..'Numpad9'), Backspace apaga, Esc volta à lista.
+// Só vale com a tela do PIN à vista e o foco fora de campo de texto.
+document.addEventListener('keydown', e=>{
+  const dots = document.getElementById('pinDots');
+  if(!dots || !dots.offsetParent || !pinTargetUser) return;
+  if(e.ctrlKey || e.altKey || e.metaKey) return;
+  const t = e.target;
+  if(t && (t.tagName==='INPUT' || t.tagName==='TEXTAREA' || t.tagName==='SELECT' || t.isContentEditable)) return;
+  const num = /^Numpad([0-9])$/.exec(e.code||'');
+  const d = num ? num[1] : /^[0-9]$/.test(e.key) ? e.key : null;
+  if(d!==null){ e.preventDefault(); pinPress(d); return; }
+  if(e.key==='Backspace' || e.key==='Delete'){ e.preventDefault(); pinBackspace(); return; }
+  if(e.key==='Escape'){ e.preventDefault(); renderLogin(); }
+});
 function updatePinDots(){
   const dots = document.querySelectorAll('#pinDots span');
   dots.forEach((d,i)=> d.classList.toggle('filled', i<pinBuffer.length));
