@@ -5,13 +5,13 @@ Comanda/PDV de bares e lanchonetes, em produção. Estado atual e decisões: `do
 ## Stack
 - Front: HTML/CSS/JS puro, **sem build, sem npm**. Bibliotecas por CDN com versão fixa + SRI: supabase-js, qrcodejs, xlsx, Turnstile.
 - Back: Supabase (Postgres + RLS + RPCs + Edge Functions em Deno/TS). Agente de impressão em C# (Windows).
-- Deploy: **GitHub Pages direto da `main`** (merge = produção na hora). Prévia de PR no Netlify (usa o banco de produção).
+- Deploy: **GitHub Pages direto da `main`** (merge = produção na hora). Sem prévia de PR: a conta da Netlify foi apagada em 07/11/2026; o único endereço é `https://codesphere-company.github.io/commandah-sistema/`.
 
 ## Comandos
 - Rodar local: `npx serve .` ou `python -m http.server` na raiz e abrir `http://localhost:<porta>/` (login real precisa do domínio publicado por causa do Turnstile).
 - Checar (o mesmo que o CI faz): `node scripts/check-app.js` e `node scripts/check-load-order.js` (precisa de `npm i --no-save acorn@8.14.0 acorn-walk@8.3.4`).
 - Depois de mudar qualquer arquivo de `assets/js` ou `assets/css`: `node scripts/bump-version.js` (troca o `?v=`; o CI recusa o PR sem isso).
-- Não há testes automáticos nem lint. Mudança de tela: conferir no Chrome (captura) e na prévia do Netlify antes do merge.
+- Não há testes automáticos nem lint. Mudança de tela: conferir no Chrome (captura) e na bancada local (`../auditoria-2026-11-03`) antes do merge, e no site oficial logo depois.
 - Migrations e Edge Functions: ver "Limitação importante" em `docs/HANDOFF.md` (CLI do Supabase desta máquina).
 
 ## Mapa das pastas
