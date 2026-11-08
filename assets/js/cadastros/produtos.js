@@ -90,10 +90,34 @@ function saveProductStockAdjustment(productId){
   effectiveProductRecipe(p).forEach(r=>{const i=state.insumos.find(x=>x.id===r.insumoId);if(!i)return;const qty=units*Number(r.qty||0),before=Number(i.stock)||0;i.stock=before+qty;state.stockMovements.unshift({id:uid(),type:'entrada',name:i.name,insumoName:i.name,productId:p.id,operation:productKind(p)==='combo'?'Ajuste pela composição do combo':'Ajuste por produto',before,qty,after:i.stock,note:reason,user:currentUser.name,at:new Date().toISOString()});});save('insumos');save('stockMovements');closeModal();renderAll();toast('Entrada proporcional registrada.');
 }
 function toggleProductOptions(){ productOptionsOpen=!productOptionsOpen; renderProdutos(); }
+// 08/11 (pedido do dono): clicar no título da coluna ordena a lista por ela. 1º clique: crescente;
+// 2º: decrescente; 3º: volta à ordem padrão (Ajustar Ordem, depois nome).
+const COLUNAS_PRODUTOS = [
+  ['Cód. Sistema', p=>p.code||''], ['Categoria', p=>p.category||''], ['Nome', p=>p.name||''],
+  ['Preço Custo', p=>productCost(p)], ['Preço Venda', p=>Number(p.price)||0], ['Medida', p=>p.measure||'un'],
+  ['Estoque', p=>{const av=productAvailable(p);return av===Infinity?Number.MAX_SAFE_INTEGER:av;}], ['Estoque Mín', p=>Number(p.minStock)||0],
+  ['Sit. Estoque', p=>{const av=productAvailable(p);return av!==Infinity&&av<=(Number(p.minStock)||0)?0:1;}],
+  ['Ficha Técnica', p=>(p.recipe||[]).length?0:1], ['Status Venda', p=>p.active===false?1:0], ['Cód. PDV', p=>p.pdvCode||''],
+  ['NFC-e', p=>({vazio:0,semCest:1,conferir:2,ok:3})[productFiscalStatus(p)]]
+];
+let produtosOrdem = { col:null, dir:1 };
+function ordenarProdutosPor(i){
+  if(produtosOrdem.col!==i) produtosOrdem = { col:i, dir:1 };
+  else if(produtosOrdem.dir===1) produtosOrdem.dir = -1;
+  else produtosOrdem = { col:null, dir:1 };
+  renderProdutos();
+}
+function compararProdutos(a,b){
+  const padrao = (Number(a.sortOrder)||0)-(Number(b.sortOrder)||0)||a.name.localeCompare(b.name,'pt-BR');
+  if(produtosOrdem.col===null) return padrao;
+  const valor = COLUNAS_PRODUTOS[produtosOrdem.col][1], va = valor(a), vb = valor(b);
+  const dif = typeof va==='number' && typeof vb==='number' ? va-vb : String(va).localeCompare(String(vb),'pt-BR',{numeric:true,sensitivity:'base'});
+  return dif*produtosOrdem.dir || padrao;
+}
 function renderProdutos(){
   const el = document.getElementById('view-produtos');
   const gridAntes = el.querySelector('.op-grid'), rolagem = gridAntes ? gridAntes.scrollTop : 0; // redesenho mantém a rolagem
-  const list = state.products.filter(p=>productKind(p)===produtosTab).sort((a,b)=>(Number(a.sortOrder)||0)-(Number(b.sortOrder)||0)||a.name.localeCompare(b.name,'pt-BR'));
+  const list = state.products.filter(p=>productKind(p)===produtosTab).sort(compararProdutos);
   const rows = list.length ? list.map(p=>{
     const av = productAvailable(p); const cost = productCost(p); const min=Number(p.minStock)||0; // S5 (auditoria de design): selo só nas exceções (Baixo, Pausado, Conferir, Sem código); o normal é texto.
     return `<tr data-id="${h(p.id)}" data-search="${h(((p.code||'')+' '+(p.category||'')+' '+p.name).toLowerCase())}" class="${selectedProductId===p.id?'selected':''}" onclick="selectProductRow(${jsArg(p.id)})" ondblclick="editProduct(${jsArg(p.id)})">
@@ -122,7 +146,7 @@ function renderProdutos(){
       <button onclick="setProdutosTab('tamanho')" class="${produtosTab==='tamanho'?'active':''}">Produto por Tamanho (${state.products.filter(p=>productKind(p)==='tamanho').length})</button>
       <button onclick="setProdutosTab('combo')" class="${produtosTab==='combo'?'active':''}">Combos (${state.products.filter(p=>productKind(p)==='combo').length})</button>
     </div>
-    <div class="op-grid"><table><thead><tr><th>Cód. Sistema</th><th>Categoria</th><th>Nome</th><th>Preço Custo</th><th>Preço Venda</th><th>Medida</th><th>Estoque</th><th>Estoque Mín</th><th>Sit. Estoque</th><th>Ficha Técnica</th><th>Status Venda</th><th>Cód. PDV</th><th>NFC-e</th></tr></thead><tbody id="productRows">${rows}</tbody></table></div>
+    <div class="op-grid"><table><thead><tr>${COLUNAS_PRODUTOS.map(([nome],i)=>{const ativa=produtosOrdem.col===i;return `<th class="th-ordena${ativa?' ativa':''}" aria-sort="${ativa?(produtosOrdem.dir===1?'ascending':'descending'):'none'}" title="Ordenar por ${h(nome)}" onclick="ordenarProdutosPor(${i})">${h(nome)}<span class="seta">${ativa?(produtosOrdem.dir===1?'▲':'▼'):''}</span></th>`;}).join('')}</tr></thead><tbody id="productRows">${rows}</tbody></table></div>
     <footer class="op-footer"><span>Registros: ${list.length}</span><span>Média=${fmt(avgCost)}</span><span>Média=${fmt(avgPrice)}</span></footer>
   </section></div>`;
   document.getElementById('productSearch').oninput=e=>{productSearchQuery=e.target.value;applyProductSearch();};
