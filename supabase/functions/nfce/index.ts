@@ -34,7 +34,8 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders() });
 }
 
-// Quem chama: dono (tenant_owners) ou colaborador ativo administrador/caixa.
+// Quem chama: dono (tenant_owners) ou colaborador ativo administrador/caixa/garçom.
+// isAdmin (dono ou perfil admin): só ele cancela NFC-e (08/11, pedido do dono).
 async function caller(req: Request) {
   const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   if (!jwt) return null;
@@ -42,11 +43,11 @@ async function caller(req: Request) {
   if (error || !data?.user) return null;
   const uid = data.user.id;
   const { data: owner } = await admin.from("tenant_owners").select("tenant_id").eq("user_id", uid).maybeSingle();
-  if (owner) return { tenantId: owner.tenant_id as string, name: "Dono" };
+  if (owner) return { tenantId: owner.tenant_id as string, name: "Dono", isAdmin: true };
   const { data: staff } = await admin.from("tenant_staff").select("tenant_id, role, active").eq("auth_user_id", uid).maybeSingle();
   if (staff && staff.active && (staff.role === "admin" || staff.role === "caixa" || staff.role === "garcom")) {
     const meta = data.user.user_metadata as { staff_name?: string } | undefined;
-    return { tenantId: staff.tenant_id as string, name: meta?.staff_name || String(staff.role) };
+    return { tenantId: staff.tenant_id as string, name: meta?.staff_name || String(staff.role), isAdmin: staff.role === "admin" };
   }
   return null;
 }
@@ -104,7 +105,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "Use POST." }, 405);
   const who = await caller(req);
-  if (!who) return json({ error: "Só o administrador ou o caixa emitem NFC-e. Entre de novo e tente outra vez." }, 403);
+  if (!who) return json({ error: "Só o administrador, o caixa ou o garçom emitem NFC-e. Entre de novo e tente outra vez." }, 403);
 
   let body: { action?: string; sale_id?: string; justificativa?: string };
   try { body = await req.json(); } catch { return json({ error: "Pedido inválido." }, 400); }
@@ -117,6 +118,7 @@ Deno.serve(async (req) => {
     return json({ notas: (data || []).map(publicRow) });
   }
   if (body.action === "cancelar") {
+    if (!who.isAdmin) return json({ error: "Só o administrador cancela NFC-e." }, 403);
     if (!BRASILNFE_TOKEN) return json({ error: "O emissor de NFC-e ainda não está configurado no servidor." }, 503);
     const just = String(body.justificativa || "").trim().replace(/\s+/g, " ");
     if (just.length < 15) return json({ error: "Escreva o motivo do cancelamento com pelo menos 15 letras." }, 400);
