@@ -28,7 +28,12 @@ function openPaymentModal(mode, comandaId){
   const partialPaid = mode==='comanda' && comandaId ? comandaPartialPaid(state.sales.find(x=>x.id===comandaId)) : 0;
   const memberOptions = state.members.filter(m=>!m.archived).map(m=>`<option value="${m.id}" ${memberBlockedByDebt(m)?'data-blocked="1"':''}>${h((m.code?m.code+' — ':'')+m.name+memberDebtLabel(m))}</option>`).join('');
   const preselected = currentSaleDraft.memberId || '';
-  const methods = methodConfig();
+  // D3 (08/11, pedido do dono): comanda de colaborador fecha sempre na conta dele, como um fiado que sai
+  // do salário. A única forma é "Conta do colaborador" (method 'fiado': fica fora do dinheiro do caixa e
+  // da conferência às cegas, como todo fiado). Sem pagar na hora com desconto. Parcial já recebido em
+  // dinheiro continua dinheiro; só o que falta vai para a conta.
+  const contaColaborador = mode==='comanda' && memberIsColaborador(preselected ? state.members.find(m=>m.id===preselected) : null);
+  const methods = contaColaborador ? [{key:'F',method:'fiado',label:'Conta do colaborador',icon:ICN.doc}] : methodConfig();
   // Visual A, etapa 3 (22/10): duas colunas (resumo e opções | forma de pagamento e confirmar),
   // para caber em 1366x768 sem rolar; até 900 px de largura viram uma coluna só.
   openModal('Pagamento', `<div class="pay-cols"><div class="pay-col">
@@ -52,16 +57,17 @@ function openPaymentModal(mode, comandaId){
       <p class="sub" style="margin:8px 0 0">Cada parte: <b class="mono" id="paySplitPerPart">R$ 0,00</b> — clique numa forma de pagamento pra lançar cada parte.</p>
     </div>
     <div class="field"><label>Associado (opcional — necessário para fiado)</label>
-      <select id="paySelMember"><option value="">— Cliente avulso —</option>${memberOptions}</select></div>
+      <select id="paySelMember" ${contaColaborador?'disabled':''}><option value="">— Cliente avulso —</option>${memberOptions}</select></div>
     <label class="comp-switch" id="payDebtBox" style="margin:0 0 8px" hidden><input type="checkbox" id="payChargeDebt" checked><span></span> <b id="payDebtLabel" style="font-weight:400">Cobrar a pendência anterior junto</b></label>
     <label class="comp-switch" style="margin:0 0 8px"><input type="checkbox" id="payPrintReceipt"><span></span> <b style="font-weight:400">Imprimir comprovante (se o cliente pedir)</b></label>
     </div><div class="pay-col">
     <label class="np-label" style="margin-top:0;display:block">Forma de pagamento <span style="text-transform:none;font-weight:400">(atalho de teclado entre parênteses)</span></label>
+    ${contaColaborador?'<p class="sub" id="payColabNote" style="margin:0 0 8px;font-size:13px">Comanda de colaborador: o valor vai para a conta dele (descontado do salário).</p>':''}
     <div class="pay-method-grid" id="payMethodGrid">
       ${methods.map(m=>`<button class="pay-method-btn" data-key="${m.key}" data-method="${h(m.method)}" onclick="selectPayMethod(${jsArg(m.key)})"><span class="pay-method-icon">${m.icon}</span><span>${h(m.label)}</span><span class="pay-method-key">${m.key}</span></button>`).join('')}
     </div>
     <div class="row" style="margin-top:10px">
-      <div class="field" style="flex:1"><label>Valor desta forma</label><input id="payPartAmount" type="number" min="0.01" step="0.01"></div>
+      <div class="field" style="flex:1"><label>Valor desta forma</label><input id="payPartAmount" type="number" min="0.01" step="0.01" ${contaColaborador?'readonly':''}></div>
       <button class="btn" id="addPaymentBtn" style="align-self:flex-end">+ &nbsp; Adicionar</button>
     </div>
     <p id="fiadoWarning" style="display:none;color:var(--red);font-size:12px">Este associado possui saldo devedor pendente e não pode usar fiado até quitar.</p>
@@ -172,7 +178,7 @@ function openPaymentModal(mode, comandaId){
   }
   document.getElementById('addPaymentBtn').onclick = ()=>{ addCurrentPayment(); };
   document.getElementById('payPartAmount').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('addPaymentBtn').click(); } });
-  selectPayMethod('A');
+  selectPayMethod(methods[0].key);
   recomputeTotals();
   document.getElementById('applyCouponBtn').onclick = ()=>{
     const code = document.getElementById('payCoupon').value.trim().toUpperCase();
@@ -198,6 +204,8 @@ function openPaymentModal(mode, comandaId){
     // "Ainda falta R$ X" e exigia clicar Adicionar antes. Agora, se ainda falta e há valor no
     // campo, a forma escolhida entra sozinha. Se isso gerar troco para sócio, para aqui para o
     // caixa escolher "Devolver Troco" ou "Deixar como Crédito" e confirmar de novo.
+    // D3: na comanda de colaborador vai sempre o restante inteiro para a conta (o valor do campo não vale).
+    if(contaColaborador) tempPayments = finalTotal>TOLERANCIA_CENTAVO ? [{method:'fiado', amount:arredondaCentavos(finalTotal)}] : [];
     const faltaAntes = finalTotal - tempPayments.reduce((a,p)=>a+p.amount,0);
     const valorNoCampo = parseFloat(document.getElementById('payPartAmount').value);
     if(faltaAntes>TOLERANCIA_CENTAVO && valorNoCampo>0){
@@ -318,6 +326,10 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   const cota = saleMember ? saleMember.code : '';
   const isExistingComanda = (mode==='comanda' && comandaId);
   const isExistingDelivery = (mode==='delivery' && comandaId);
+  // D3 (08/11, pedido do dono): o consumo da comanda do colaborador entra no extrato dele como
+  // "Consumo (colaborador)" (o extrato da conta do colaborador lista esses lançamentos pelo sale_id).
+  const consumoColaborador = mode==='comanda' && memberIsColaborador(saleMember) && memberId===currentSaleDraft.memberId;
+  const fiadoReason = consumoColaborador ? 'Consumo (colaborador)' : null;
   let orderNumber = null;
   // Venda nova: reaproveita id e numero entre tentativas da MESMA venda. Sem isso, um retry
   // depois de close_sale gravar no servidor mas a resposta se perder (timeout) gerava uid()
@@ -404,7 +416,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
     const fiadoDaVenda = payments.filter(p=>p.method==='fiado').reduce((a,p)=>a+p.amount,0);
     const quem = (currentUser&&currentUser.name)||'';
     debtEntries = !memberId ? [] : [
-      fiadoDaVenda>0 ? { id:sale.id+'-fiado', member_id:memberId, type:'debt', value:arredondaCentavos(fiadoDaVenda), reason:'Venda #'+sale.id, sale_id:sale.id, created_by:quem } : null,
+      fiadoDaVenda>0 ? { id:sale.id+'-fiado', member_id:memberId, type:'debt', value:arredondaCentavos(fiadoDaVenda), reason:fiadoReason||'Venda #'+sale.id, sale_id:sale.id, created_by:quem } : null,
       Number(creditApplied)>TOLERANCIA_CENTAVO ? { id:sale.id+'-credito', member_id:memberId, type:'debt', value:arredondaCentavos(Number(creditApplied)), reason:'Uso de crédito na venda #'+sale.id, sale_id:sale.id, created_by:quem } : null,
       Number(creditFromChange)>TOLERANCIA_CENTAVO ? { id:sale.id+'-troco', member_id:memberId, type:'payment', value:arredondaCentavos(Number(creditFromChange)), reason:'Crédito de troco — Venda #'+sale.id, sale_id:sale.id, created_by:quem } : null,
     ].filter(Boolean);
@@ -445,7 +457,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   } else {
   if(fiadoTotal>0 && memberId){
     const m = state.members.find(x=>x.id===memberId);
-    if(m){ await MembersStore.recordDebtEntry(m.id, 'debt', fiadoTotal, { reason:'Venda #'+sale.id, saleId: sale.id }); fiadoMemberForPrompt = m; }
+    if(m){ await MembersStore.recordDebtEntry(m.id, 'debt', fiadoTotal, { reason:fiadoReason||'Venda #'+sale.id, saleId: sale.id }); fiadoMemberForPrompt = m; }
   }
   if(Number(creditApplied)>TOLERANCIA_CENTAVO && memberId){
     const m = state.members.find(x=>x.id===memberId);
@@ -467,7 +479,8 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   // Comprovante só quando o cliente pede (decisão de 12/10): botão "Imprimir comprovante" no
   // detalhe da comanda (printSaleReceipt). Antes saía sozinho na venda de balcão.
   newDraft(mode); toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
-  if(fiadoMemberForPrompt) promptWhatsAppCollection(fiadoMemberForPrompt);
+  // D3: consumo do colaborador sai do salário; não oferece a cobrança por WhatsApp.
+  if(fiadoMemberForPrompt && !consumoColaborador) promptWhatsAppCollection(fiadoMemberForPrompt);
   return sale.id;
 }
 
