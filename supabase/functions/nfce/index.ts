@@ -44,7 +44,7 @@ async function caller(req: Request) {
   const { data: owner } = await admin.from("tenant_owners").select("tenant_id").eq("user_id", uid).maybeSingle();
   if (owner) return { tenantId: owner.tenant_id as string, name: "Dono" };
   const { data: staff } = await admin.from("tenant_staff").select("tenant_id, role, active").eq("auth_user_id", uid).maybeSingle();
-  if (staff && staff.active && (staff.role === "admin" || staff.role === "caixa")) {
+  if (staff && staff.active && (staff.role === "admin" || staff.role === "caixa" || staff.role === "garcom")) {
     const meta = data.user.user_metadata as { staff_name?: string } | undefined;
     return { tenantId: staff.tenant_id as string, name: meta?.staff_name || String(staff.role) };
   }

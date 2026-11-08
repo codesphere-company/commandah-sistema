@@ -1,5 +1,5 @@
 // ---------- t207: NFC-e da comanda (Edge Function "nfce"; por enquanto só homologação) ----------
-function nfceCanUse(sale){ return !!(sale && sale.status==='closed' && !sale.canceled && isCloudMode() && supabaseClient && ((currentUser && (currentUser.role==='admin'||currentUser.role==='caixa')) || sessionIsOwner)); }
+function nfceCanUse(sale){ return !!(sale && sale.status==='closed' && !sale.canceled && isCloudMode() && supabaseClient && ((currentUser && (currentUser.role==='admin'||currentUser.role==='caixa'||currentUser.role==='garcom')) || sessionIsOwner)); }
 async function nfceCall(action, saleId, extra){
   try{
     const { data, error } = await supabaseClient.functions.invoke('nfce', { body:{ action, sale_id:saleId, ...(extra||{}) } });

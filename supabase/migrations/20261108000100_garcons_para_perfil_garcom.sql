@@ -67,4 +67,5 @@ where s.role = 'caixa'
       and jsonb_typeof(a.value) = 'array'
       and u->>'id' = s.id::text
       and u->>'origem' = 'app'
+      and u->>'role' in ('caixa', 'garcom')
   );
