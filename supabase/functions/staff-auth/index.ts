@@ -22,7 +22,8 @@ const ADMIN_PIN_MIN_LEN = 6;
 // staff_id vem do uid() do frontend (base36) e entra no e-mail sintético da conta;
 // PIN tem teto porque o bcrypt ignora o que passa de 72 bytes.
 const STAFF_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const ROLES = ["admin", "caixa", "cozinha"];
+// 08/11 (pedido do dono): perfil garçom passa a existir no servidor (PIN de 4 dígitos, como caixa).
+const ROLES = ["admin", "caixa", "garcom", "cozinha"];
 const PIN_MAX_LEN = 64;
 function validStaffId(v: string) { return STAFF_ID_RE.test(v); }
 function validPin(v: string) { return v.length >= 1 && v.length <= PIN_MAX_LEN; }
