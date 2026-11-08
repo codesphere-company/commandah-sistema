@@ -15,7 +15,8 @@
 --    cota sem precisar mexer em constraint. Clientes existentes ficam
 --    'socio' pelo default da coluna (nenhuma linha muda de sentido;
 --    funcionário que hoje tem fiado como sócio comum o dono recadastra se
---    quiser).
+--    quiser). Só dono/admin cria colaborador ou troca o kind (gatilho
+--    trg_members_guard_kind).
 --
 -- 2. member_debt_entries.method = 'salario': aceito só em pagamento
 --    (type = 'payment') e só gravado por dono/admin. A trava é um gatilho
@@ -45,6 +46,40 @@ alter table public.members
 
 comment on column public.members.kind is
   'Tipo de cliente: socio (padrão) ou colaborador (sem cota, desconto de colaborador, dívida não bloqueia). 08/11 (pedido do dono).';
+
+-- Só dono/admin cria cliente colaborador ou troca o tipo (socio <-> colaborador).
+-- 08/11 (pedido do dono, decisão da revisão da D1): o colaborador tem desconto e
+-- dívida que não bloqueia; se o caixa pudesse marcar qualquer cliente como
+-- colaborador, daria desconto e fiado sem limite a quem quisesse. O caixa continua
+-- criando e editando sócios (e os outros campos do colaborador) como hoje.
+-- Gatilho, não policy, pelo mesmo motivo do de salário abaixo: vale também em
+-- caminho SECURITY DEFINER. Hoje nenhuma RPC grava members além do
+-- recalc_member_debt (que só mexe em debt) e do staff-auth (service_role, só
+-- debt_release); o gatilho cobre as que vierem.
+-- Atenção para o front: num upsert (insert ... on conflict do update) o gatilho de
+-- INSERT roda antes do conflito; o site usa insert e update separados
+-- (assets/js/core/dados-socios.js), então editar colaborador pelo caixa funciona.
+create or replace function public.members_guard_kind()
+returns trigger
+language plpgsql
+set search_path to ''
+as $function$
+begin
+  if auth.uid() is not null and not public.is_admin_like()
+     and (tg_op = 'INSERT' and new.kind is distinct from 'socio'
+          or tg_op = 'UPDATE' and new.kind is distinct from old.kind) then
+    raise exception 'so o administrador define cliente colaborador' using errcode = '42501';
+  end if;
+  return new;
+end;
+$function$;
+
+revoke all on function public.members_guard_kind() from public, anon, authenticated;
+
+drop trigger if exists trg_members_guard_kind on public.members;
+create trigger trg_members_guard_kind
+  before insert or update of kind on public.members
+  for each row execute function public.members_guard_kind();
 
 create or replace function public.member_debt_entries_guard_salario()
 returns trigger
