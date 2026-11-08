@@ -51,7 +51,7 @@ function openPaymentModal(mode, comandaId){
       <div class="field" style="flex:1"><label>Cupom de desconto (opcional)</label><input id="payCoupon" placeholder="Ex: SOCIO10"></div>
       <button class="btn btn-sm" id="applyCouponBtn">Aplicar</button>
     </div>
-    <label class="comp-switch" style="margin:12px 0 4px"><input type="checkbox" id="paySplitToggle"><span></span> Rachar a conta</label>
+    <label class="comp-switch" style="margin:12px 0 4px${contaColaborador?';display:none!important':''}"><input type="checkbox" id="paySplitToggle" ${contaColaborador?'disabled':''}><span></span> Rachar a conta</label>
     <div id="paySplitBox" style="display:none;background:var(--cream);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px">
       <div class="field" style="margin-bottom:0"><label>Dividir em quantas partes?</label><input id="paySplitCount" type="number" min="2" value="2"></div>
       <p class="sub" style="margin:8px 0 0">Cada parte: <b class="mono" id="paySplitPerPart">R$ 0,00</b> — clique numa forma de pagamento pra lançar cada parte.</p>
@@ -68,7 +68,7 @@ function openPaymentModal(mode, comandaId){
     </div>
     <div class="row" style="margin-top:10px">
       <div class="field" style="flex:1"><label>Valor desta forma</label><input id="payPartAmount" type="number" min="0.01" step="0.01" ${contaColaborador?'readonly':''}></div>
-      <button class="btn" id="addPaymentBtn" style="align-self:flex-end">+ &nbsp; Adicionar</button>
+      <button class="btn" id="addPaymentBtn" style="align-self:flex-end${contaColaborador?';display:none':''}" ${contaColaborador?'disabled':''}>+ &nbsp; Adicionar</button>
     </div>
     <p id="fiadoWarning" style="display:none;color:var(--red);font-size:12px">Este associado possui saldo devedor pendente e não pode usar fiado até quitar.</p>
     <div id="paymentParts"></div>
@@ -176,7 +176,9 @@ function openPaymentModal(mode, comandaId){
     if(method==='fiado' && debtIncluded>TOLERANCIA_CENTAVO){ toast('Para lançar no fiado, desmarque "Cobrar a pendência anterior junto".'); return false; }
     tempPayments.push({method,amount}); renderPaymentParts(); return true;
   }
-  document.getElementById('addPaymentBtn').onclick = ()=>{ addCurrentPayment(); };
+  // D4, 08/11 (pedido do dono): na comanda do colaborador o restante inteiro vai para a conta dele no Confirmar;
+  // "+ Adicionar" e "Rachar a conta" ficam escondidos e travados (não mudavam nada e confundiam).
+  document.getElementById('addPaymentBtn').onclick = ()=>{ if(contaColaborador) return; addCurrentPayment(); };
   document.getElementById('payPartAmount').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('addPaymentBtn').click(); } });
   selectPayMethod(methods[0].key);
   recomputeTotals();
