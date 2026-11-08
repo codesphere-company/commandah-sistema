@@ -34,6 +34,7 @@ function openPaymentModal(mode, comandaId){
   openModal('Pagamento', `<div class="pay-cols"><div class="pay-col">
     <div class="pay-summary">
       <div><span>Subtotal</span><span class="mono" id="paySubtotalLine">${fmt(subtotal)}</span></div>
+      <div id="payStaffDiscountRow" style="display:none"><span id="payStaffDiscountLabel">Desconto colaborador</span><span class="mono" id="payStaffDiscountLine">− R$ 0,00</span></div>
       <div id="payDiscountRow" style="display:none"><span>Desconto</span><span class="mono" id="payDiscountLine">− R$ 0,00</span></div>
       <div id="payCreditRow" style="display:none"><span>Crédito do sócio (abatido)</span><span class="mono" id="payCreditLine">− R$ 0,00</span></div>
       ${applyService?`<div><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono" id="payServiceLine">R$ 0,00</span></div>`:''}
@@ -76,7 +77,7 @@ function openPaymentModal(mode, comandaId){
     <button class="btn btn-primary btn-block" id="confirmPayBtn">Confirmar pagamento</button></div></div>`,true);
   const modal=document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal','pay-modal'); modal.style.width='960px';
   const selMember = document.getElementById('paySelMember');
-  let finalTotal = subtotal, discount = 0, selectedMethodKey = 'A', creditApplied = 0, changeDecision = 'troco', appliedCouponCode = '', serviceAmount = 0, debtIncluded = 0;
+  let staffDiscount = 0, finalTotal = subtotal, discount = 0, selectedMethodKey = 'A', creditApplied = 0, changeDecision = 'troco', appliedCouponCode = '', serviceAmount = 0, debtIncluded = 0;
   tempPayments = [];
   if(preselected) selMember.value = preselected;
   function currentMethod(){ return methods.find(m=>m.key===selectedMethodKey)||methods[0]; }
@@ -84,9 +85,15 @@ function openPaymentModal(mode, comandaId){
     const member = selMember.value ? state.members.find(m=>m.id===selMember.value) : null;
     // Crédito do sócio é abatido sozinho (decisão do dono, 18/10). A conta é a mesma do garçom
     // e do painel da comanda: comandaTotals (core/calculos.js).
-    const debtDue = memberDebtDue(member), debtBox = document.getElementById('payDebtBox');
+    // D2 (08/11, pedido do dono): a dívida do colaborador não é cobrada junto (sai do salário) e o
+    // desconto do colaborador só vale em comanda (ficha e delivery: sem desconto) e só para o próprio
+    // dono da comanda: trocar o associado no seletor por um colaborador não dá o desconto.
+    const debtDue = memberIsColaborador(member) ? 0 : memberDebtDue(member), debtBox = document.getElementById('payDebtBox');
     const chargeDebt = debtDue>TOLERANCIA_CENTAVO && document.getElementById('payChargeDebt').checked;
-    const t = comandaTotals({ subtotal, discount, partialPaid, member, applyService, includeDebt: chargeDebt });
+    const t = comandaTotals({ subtotal, discount, partialPaid, member, applyService, includeDebt: chargeDebt, applyStaffDiscount: mode==='comanda' && !!member && member.id===currentSaleDraft.memberId });
+    staffDiscount = t.staffDiscount;
+    document.getElementById('payStaffDiscountRow').style.display = staffDiscount>TOLERANCIA_CENTAVO ? 'flex':'none';
+    if(staffDiscount>TOLERANCIA_CENTAVO){ document.getElementById('payStaffDiscountLabel').textContent = staffDiscountLabel(t.staffDiscountPct); document.getElementById('payStaffDiscountLine').textContent = '− '+fmt(staffDiscount); }
     creditApplied = t.creditApplied; serviceAmount = t.service; debtIncluded = t.debt; finalTotal = t.total;
     const service = t.service;
     debtBox.hidden = !(debtDue>TOLERANCIA_CENTAVO);
@@ -238,7 +245,7 @@ function openPaymentModal(mode, comandaId){
     // A pendência sai das formas de pagamento: a venda fica só com o consumo e a pendência
     // entra como recebimento de fiado (extrato do sócio e caixa), depois da venda gravada.
     const { salePayments, debtParts } = splitDebtFromPayments(payments, debtIncluded);
-    const meta = { subtotal: arredondaCentavos(subtotal), discount: arredondaCentavos(discount), couponCode: appliedCouponCode||null, creditApplied: arredondaCentavos(creditApplied||0), serviceCharge: serviceAmount, partialPaid };
+    const meta = { subtotal: arredondaCentavos(subtotal), discount: arredondaCentavos(discount), couponCode: appliedCouponCode||null, staffDiscount: arredondaCentavos(staffDiscount||0), creditApplied: arredondaCentavos(creditApplied||0), serviceCharge: serviceAmount, partialPaid };
     if(debtIncluded>TOLERANCIA_CENTAVO) meta.debtPaid = debtIncluded;
     const closedSaleId = await finalizeSale(mode, comandaId, memberId, salePayments, arredondaCentavos(finalTotal-debtIncluded), creditApplied, creditFromChange, meta);
     if(closedSaleId){

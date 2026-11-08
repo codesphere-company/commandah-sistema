@@ -2,7 +2,7 @@
 function isCloudMode(){ return storageApi && storageApi.mode==='Nuvem (Supabase)'; }
 function memberFromRow(row, dependents, debtHistory){
   return {
-    id: row.id, name: row.name, code: row.code||'', phone: row.phone||'', email: row.email||'',
+    id: row.id, name: row.name, code: row.code||'', kind: row.kind==='colaborador'?'colaborador':'socio', phone: row.phone||'', email: row.email||'',
     gender: row.gender||'', document: row.document||'', registry: row.registry||'',
     birthDate: row.birth_date||'', zip: row.zip||'', address: row.address||'',
     addressNumber: row.address_number||'', addressComplement: row.address_complement||'',
@@ -35,6 +35,10 @@ function memberFieldsToRow(data){
     district: data.district||null, city: data.city||null, uf: data.uf||null,
     reference: data.reference||null, ibge: data.ibge||null, tags: data.tags||[], notes: data.notes||null,
     ...('marketingOptIn' in data ? { marketing_opt_in: !!data.marketingOptIn } : {}),
+    // Tipo de cliente (D2, 08/11, pedido do dono): só vai quando quem chama manda `kind`. No banco só
+    // o admin define colaborador ou troca o tipo (trg_members_guard_kind); o caixa e a anonimização
+    // LGPD não mandam kind, então nunca mudam o tipo.
+    ...('kind' in data ? { kind: data.kind==='colaborador' ? 'colaborador' : 'socio' } : {}),
     updated_at: new Date().toISOString()
   };
 }
@@ -209,6 +213,16 @@ const MembersStore = {
     recalcMemberDebtLocal(member);
   },
   async bulkImport(newMembers){
+    // D2 (08/11, pedido do dono): só o admin cadastra colaborador. Importação feita por quem não é
+    // admin pula as linhas de colaborador com aviso, em vez de o banco recusar o lote inteiro.
+    if(!isAdminUser()){
+      const pulados = newMembers.filter(m=>m && m.kind==='colaborador');
+      if(pulados.length){
+        newMembers = newMembers.filter(m=>!(m && m.kind==='colaborador'));
+        toast(pulados.length+' cliente(s) do tipo Colaborador não importado(s): só o administrador cadastra colaborador.','erro');
+      }
+      if(!newMembers.length) return;
+    }
     if(isCloudMode()){
       const now = new Date().toISOString();
       const rows = newMembers.map(data=>({ id: data.id||uid(), tenant_id: storageApi.tenantId, ...memberFieldsToRow(data), created_at: now }));

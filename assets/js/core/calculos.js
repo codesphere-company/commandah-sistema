@@ -10,17 +10,26 @@ function saleCountsAsRevenue(s){ return !!s && s.status==='closed' && s.delivery
 // OP-14: o faturamento de uma venda é do dia em que ela abriu (comanda aberta à noite e paga no dia
 // seguinte conta no dia da abertura). Recebimentos (formas de pagamento, caixa) seguem pela data do pagamento.
 function saleRevenueDay(s){ return localDay(s.openedAt||s.closedAt); }
+// Rótulo da linha do desconto do colaborador, igual no caixa, no pagamento e no garçom.
+function staffDiscountLabel(pct){ return 'Desconto colaborador ('+String(pct).replace('.',',')+'%)'; }
 // Total da comanda, igual no caixa, no garçom e no painel. Ordem: cupom; crédito do sócio (até o que
 // falta pagar); serviço sobre o que sobrou; menos o parcial já pago; mais a pendência anterior.
 // Crédito e serviço são arredondados para centavos antes de somar, então o total é a soma das linhas
 // mostradas. applyService: o caixa pode tirar o serviço. includeDebt: cobrar a pendência junto.
-function comandaTotals({ subtotal, discount = 0, partialPaid = 0, member = null, applyService = true, includeDebt = true }){
-  const afterCoupon = Math.max(0, subtotal - discount);
+// Desconto do colaborador (D2, 08/11, pedido do dono): comanda de cliente do tipo Colaborador tem
+// descontoColaborador() % (padrão 20) sobre o consumo, sozinho, antes de cupom/crédito/serviço. Só vale
+// em comanda: o pagamento de ficha/delivery passa applyStaffDiscount:false. A dívida do colaborador
+// não entra no total (é descontada do salário, não cobrada na comanda).
+function comandaTotals({ subtotal, discount = 0, partialPaid = 0, member = null, applyService = true, includeDebt = true, applyStaffDiscount = true }){
+  const colaborador = applyStaffDiscount && memberIsColaborador(member);
+  const staffDiscountPct = colaborador ? descontoColaborador() : 0;
+  const staffDiscount = colaborador ? arredondaCentavos(subtotal * staffDiscountPct / 100) : 0;
+  const afterCoupon = Math.max(0, subtotal - staffDiscount - discount);
   const available = memberAvailableCredit(member);
   const creditApplied = available > TOLERANCIA_CENTAVO ? arredondaCentavos(Math.min(available, Math.max(0, afterCoupon - partialPaid))) : 0;
   const afterCredit = Math.max(0, afterCoupon - creditApplied);
   const service = applyService ? arredondaCentavos(serviceChargeAmount(afterCredit)) : 0;
-  const debt = includeDebt ? memberDebtDue(member) : 0;
+  const debt = includeDebt && !memberIsColaborador(member) ? memberDebtDue(member) : 0;
   const total = arredondaCentavos(Math.max(0, afterCredit + service - partialPaid) + debt);
-  return { afterCoupon, available, creditApplied, afterCredit, service, debt, total };
+  return { staffDiscount, staffDiscountPct, afterCoupon, available, creditApplied, afterCredit, service, debt, total };
 }

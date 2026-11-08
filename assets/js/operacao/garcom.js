@@ -129,11 +129,13 @@ function gcComandaTotals(s){
   const partialPaid = comandaPartialPaid(s);
   // Pendência anterior (fiado de sócio liberado pelo administrador) vem sempre junto no garçom.
   const t = comandaTotals({ subtotal, partialPaid, member, applyService: serviceRatePct()>0, includeDebt: true });
-  return { member, subtotal, partialPaid, available: t.available, creditApplied: t.creditApplied, service: t.service, debt: t.debt, total: t.total };
+  // Desconto do colaborador (D2, 08/11): o mesmo do caixa, vindo de comandaTotals.
+  return { member, subtotal, partialPaid, staffDiscount: t.staffDiscount, staffDiscountPct: t.staffDiscountPct, available: t.available, creditApplied: t.creditApplied, service: t.service, debt: t.debt, total: t.total };
 }
 function gcSummaryHtml(t){
   return `<div class="gc-summary">
     <div><span>Consumo</span><span class="mono">${fmt(t.subtotal)}</span></div>
+    ${t.staffDiscount>TOLERANCIA_CENTAVO?`<div><span>${h(staffDiscountLabel(t.staffDiscountPct))}</span><span class="mono">− ${fmt(t.staffDiscount)}</span></div>`:''}
     ${t.creditApplied>TOLERANCIA_CENTAVO?`<div><span>Crédito do sócio${t.available-t.creditApplied>TOLERANCIA_CENTAVO?' (sobra '+fmt(t.available-t.creditApplied)+')':''}</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
     ${serviceRatePct()>0?`<div><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono">${fmt(t.service)}</span></div>`:''}
     ${t.partialPaid>TOLERANCIA_CENTAVO?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(t.partialPaid)}</span></div>`:''}
@@ -430,7 +432,7 @@ async function gcConfirmCloseComanda(){
   }
   currentSaleDraft = { id:s.id, items:JSON.parse(JSON.stringify(s.items||[])), memberId:s.memberId, customerName:s.customerName, notes:s.notes||'', type:'comanda' };
   const { salePayments, debtParts } = splitDebtFromPayments(payments, t.debt);
-  const meta = { subtotal: t.subtotal, discount: 0, couponCode: null, creditApplied: t.creditApplied, serviceCharge: t.service, partialPaid: t.partialPaid };
+  const meta = { subtotal: t.subtotal, discount: 0, couponCode: null, staffDiscount: t.staffDiscount, creditApplied: t.creditApplied, serviceCharge: t.service, partialPaid: t.partialPaid };
   if(t.debt>TOLERANCIA_CENTAVO) meta.debtPaid = t.debt;
   const closedId = await finalizeSale('comanda', s.id, s.memberId||null, salePayments, arredondaCentavos(t.total-t.debt), t.creditApplied, 0, meta);
   if(closedId && debtParts.length) await recordDebtPaidWithSale(t.member, debtParts, closedId);

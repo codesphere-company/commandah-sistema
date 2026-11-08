@@ -245,7 +245,19 @@ function fmt(n){ return 'R$ ' + (Number(n)||0).toLocaleString('pt-BR',{minimumFr
 // comanda nem compra até pagar; vale para o titular e os dependentes. Só o administrador libera
 // (members.debt_release = {amount, at, by}); a liberação vale enquanto a dívida não passar do valor
 // liberado, então um fiado novo bloqueia de novo. credit_limit continua sem uso (decisão de 03/10).
+// Conta do colaborador (D2, 08/11, pedido do dono): cliente do tipo "Colaborador" (members.kind).
+// Só a grafia exata 'colaborador' conta; o resto é sócio.
+function memberIsColaborador(member){ return !!member && member.kind==='colaborador'; }
+// Desconto do colaborador em % (Configurações, só o admin altera). Padrão 20; fora de 0–100 é cortado.
+function descontoColaborador(){
+  const raw=state.settings&&state.settings.staffDiscountPct;
+  const v=raw===''||raw==null?NaN:Number(raw);
+  return Number.isFinite(v)?Math.min(100,Math.max(0,v)):20;
+}
 function memberBlockedByDebt(member){
+  // A dívida do colaborador não bloqueia o consumo (D2, 08/11, pedido do dono): ela é descontada do
+  // salário pelo administrador. O sócio com dívida continua bloqueado.
+  if(memberIsColaborador(member)) return false;
   const debt=Number(member&&member.debt)||0;
   if(debt<=TOLERANCIA_CENTAVO) return false;
   const rel=member.debtRelease;
