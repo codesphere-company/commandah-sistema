@@ -29,6 +29,9 @@
 -- app_data de cantina2:products -> nada muda; Logs (admin) mostra as duas ações.
 -- =====================================================================
 
+-- Revisão final, item 8: falha em 5s em vez de enfileirar as gravações do app atrás de uma transação longa.
+set lock_timeout = '5s';
+
 alter table public.app_data add column if not exists version bigint not null default 1;
 
 create or replace function public.app_data_bump_version()

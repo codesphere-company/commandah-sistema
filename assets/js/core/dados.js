@@ -9,7 +9,10 @@ async function loadAll(){
    (attemptPinLogin): antes, um admin que entrava num aparelho aberto como caixa via Contas a Pagar
    vazia, e o primeiro "salvar" gravava a lista vazia por cima da real. */
 let dadosCarregadosComo = null;
-function visaoDoPapel(papel){ return papel==='owner'||papel==='admin' ? 'total' : papel==='caixa'||papel==='cozinha' ? papel : null; }
+// Revisão final, item 2: o garçom tem visão própria (lê quase o mesmo que o caixa, mas não o fiado);
+// antes caía em null e todo login de garçom forçava carregarDados() completo, e caixa ↔ garçom no mesmo
+// aparelho ficariam com os dados da visão errada se fossem tratados como iguais.
+function visaoDoPapel(papel){ return papel==='owner'||papel==='admin' ? 'total' : papel==='caixa'||papel==='garcom'||papel==='cozinha' ? papel : null; }
 async function visaoDaSessao(){
   if(!isCloudMode()) return 'total'; // sem RLS: lê tudo
   if(sessionIsOwner) return 'total';
@@ -65,10 +68,11 @@ async function carregarDados(){
 
   if(seedable('users') && !state.users.length){
     state.users.push({id:uid(), name:'Administrador', username:'admin', pin:'1234', role:'admin', origem:'caixa'});
-    state.users.push({id:uid(), name:'Garçom App', username:'garcom', pin:'1234', role:'caixa', origem:'app'});
+    // Revisão final, item 3: o garçom de estabelecimento novo já nasce com o perfil garcom.
+    state.users.push({id:uid(), name:'Garçom App', username:'garcom', pin:'1234', role:'garcom', origem:'app'});
     await save('users');
   } else if(seedable('users') && !state.users.some(u=>u.username==='garcom')){
-    state.users.push({id:uid(), name:'Garçom App', username:'garcom', pin:'1234', role:'caixa', origem:'app'});
+    state.users.push({id:uid(), name:'Garçom App', username:'garcom', pin:'1234', role:'garcom', origem:'app'});
     await save('users');
   }
   const usersMissingOrigem = state.users.filter(u=>!u.origem);

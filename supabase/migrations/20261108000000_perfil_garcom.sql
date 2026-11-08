@@ -18,7 +18,8 @@
 --                       não seja o uso de crédito desta venda ('<venda>-credito', até o crédito
 --                       que o sócio da venda tem). Pendência antiga do sócio fica com o caixa.
 --   consume_insumos, restore_insumos, next_order_number: sim.
---   members             só lê (não cria, não edita); fiado e dependentes: não.
+--   members             só lê (não cria, não edita); fiado: não.
+--   member_dependents   só lê (para barrar dependente sem permissão); gravar: não.
 --   print_jobs          lê e cria ficha; print_job_resolve: sim.
 --   nfce_notas          lê.
 --   cash_session_open/close, cash_movements_apply, insumos_apply: não (cash_can_write()
@@ -36,7 +37,11 @@
 --   recriar as policies e funções abaixo das migrations 20261103000000 / 20261103010000 e
 --   anteriores (checagem = 'caixa' / cash_can_write());
 --   drop function if exists public.pode_vender();
+--   drop policy if exists member_dependents_select_garcom on public.member_dependents;
 -- =====================================================================
+
+-- Revisão final, item 8: falha em 5s em vez de enfileirar as gravações do app atrás de uma transação longa.
+set lock_timeout = '5s';
 
 -- ---------------------------------------------------------------------
 -- Papel aceito em tenant_staff
@@ -154,6 +159,23 @@ create policy members_select_por_papel
   using (
     tenant_id = (select public.current_tenant_id())
     and (select public.current_staff_role()) in ('owner','admin','caixa','garcom')
+  );
+
+-- ---------------------------------------------------------------------
+-- member_dependents: garçom só lê (revisão final, item 1). O app do garçom monta
+-- "Quem está pedindo" com member.dependents e barra o dependente com can_order = false;
+-- sem esta leitura ele via o sócio sem dependentes. A policy member_dependents_por_papel
+-- (for all, owner/admin/caixa) continua sendo a única que deixa gravar, e
+-- member_dependents_save() continua recusando o garçom.
+-- ---------------------------------------------------------------------
+drop policy if exists member_dependents_select_garcom on public.member_dependents;
+create policy member_dependents_select_garcom
+  on public.member_dependents
+  for select
+  to authenticated
+  using (
+    tenant_id = (select public.current_tenant_id())
+    and (select public.current_staff_role()) = 'garcom'
   );
 
 -- ---------------------------------------------------------------------

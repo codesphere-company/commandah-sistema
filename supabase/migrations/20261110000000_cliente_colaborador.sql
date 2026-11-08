@@ -44,6 +44,9 @@
 -- o pagamento 'salario' baixa a dívida igual a Dinheiro/Cartão/Pix.
 -- =====================================================================
 
+-- Revisão final, item 8: falha em 5s em vez de enfileirar as gravações do app atrás de uma transação longa.
+set lock_timeout = '5s';
+
 alter table public.members
   add column if not exists kind text not null default 'socio';
 
