@@ -10,7 +10,8 @@
 --                       proibidas na gravação direta: orderCounter, insumos, cashSession,
 --                       cashHistory, cashMovements).
 --   orders              lê, cria e move pedido.
---   sales               lê; grava por sales_apply e close_sale.
+--   sales               lê; grava por sales_apply e close_sale. sales_apply também recusa do
+--                       garçom venda com pagamento 'fiado' (senão fecharia em fiado por ali).
 --   close_sale          sim, mas recusa fiado: lançamento em p_debt_entries ou pagamento com
 --                       method 'fiado' (o mesmo que methodBucket trata como fiado em
 --                       assets/js/core/config.js) → erro 'garcom nao fecha fiado'.
@@ -270,6 +271,16 @@ begin
   if exists (select 1 from jsonb_array_elements(v_up) x
               where jsonb_typeof(x) <> 'object' or coalesce(x->>'id', '') = '') then
     raise exception 'venda sem id';
+  end if;
+  -- 08/11 (pedido do dono): garçom não grava venda com pagamento 'fiado' (mesmo critério do
+  -- close_sale e do methodBucket do site). Sem isso ele fecharia a comanda em fiado por aqui,
+  -- sem lançamento no sócio. Venda fechada em dinheiro/cartão/pix continua passando.
+  if public.current_staff_role() = 'garcom'
+     and exists (select 1 from jsonb_array_elements(v_up) x,
+                       jsonb_array_elements(case when jsonb_typeof(x->'payments') = 'array'
+                                                 then x->'payments' else '[]'::jsonb end) p
+                  where p->>'method' = 'fiado') then
+    raise exception 'garcom nao fecha fiado' using errcode = '42501';
   end if;
 
   for e in select x from jsonb_array_elements(v_up) as t(x) loop
