@@ -1,8 +1,8 @@
 -- =====================================================================
 -- Perfil garçom — 08/11/2026 (pedido do dono)
 --
--- Por quê: o garçom precisa lançar pedido, fechar comanda e receber pagamento parcial pelo
--- celular sem ganhar o resto do caixa. Antes só existiam admin, caixa e cozinha; dar "caixa"
+-- Por quê: o garçom precisa lançar pedido e fechar comanda pelo celular sem ganhar o resto
+-- do caixa. Antes só existiam admin, caixa e cozinha; dar "caixa"
 -- ao garçom liberava abrir/fechar caixa, sangria, fiado e cadastro de sócio.
 --
 -- O que o garçom pode:
@@ -12,21 +12,23 @@
 --   orders              lê, cria e move pedido.
 --   sales               lê; grava por sales_apply e close_sale. sales_apply também recusa do
 --                       garçom venda com pagamento 'fiado' (senão fecharia em fiado por ali).
---   close_sale          sim, mas recusa fiado: lançamento em p_debt_entries ou pagamento com
+--   close_sale          sim, mas recusa fiado → erro 'garcom nao fecha fiado': pagamento com
 --                       method 'fiado' (o mesmo que methodBucket trata como fiado em
---                       assets/js/core/config.js) → erro 'garcom nao fecha fiado'.
+--                       assets/js/core/config.js) ou qualquer lançamento em p_debt_entries que
+--                       não seja o uso de crédito desta venda ('<venda>-credito', até o crédito
+--                       que o sócio da venda tem). Pendência antiga do sócio fica com o caixa.
 --   consume_insumos, restore_insumos, next_order_number: sim.
---   cash_movements_apply só pagamento parcial da comanda (origin 'parcial'/'parcial-estorno');
---                       não apaga nem regrava outro lançamento do caixa.
 --   members             só lê (não cria, não edita); fiado e dependentes: não.
 --   print_jobs          lê e cria ficha; print_job_resolve: sim.
 --   nfce_notas          lê.
---   cash_session_open/close, insumos_apply: não (cash_can_write() continua só admin/caixa).
+--   cash_session_open/close, cash_movements_apply, insumos_apply: não (cash_can_write()
+--                       continua só admin/caixa; o app do garçom não faz pagamento parcial).
+--   member_debt_entries: não (nem receber pendência).
 --
 -- pode_vender() = admin/dono, caixa ou garçom. Substitui cash_can_write()/= 'caixa' só nas
 -- funções de venda; as do caixa continuam com cash_can_write().
 -- Corpo das funções: copiado do banco atual (pg_get_functiondef), mudando só a checagem de papel
--- (e, em close_sale e cash_movements_apply, as regras do garçom acima).
+-- (e, em sales_apply e close_sale, as regras do garçom acima).
 --
 -- Desfazer:
 --   update public.tenant_staff set role = 'caixa' where role = 'garcom';  -- ou desativar
@@ -350,13 +352,25 @@ declare
   v_current jsonb;
   v_sale jsonb;
   v_debt jsonb := coalesce(p_debt_entries, '[]'::jsonb);
+  v_garcom boolean := public.current_staff_role() = 'garcom';
+  v_credito numeric;
 begin
   if not public.pode_vender() then
     raise exception 'sem permissao para fechar venda';
   end if;
 
-  -- 08/11 (pedido do dono): garçom não fecha fiado (lançamento de sócio na venda).
-  if public.current_staff_role() = 'garcom' and v_debt <> '[]'::jsonb then
+  -- 08/11 (pedido do dono): garçom não fecha fiado nem recebe pendência do sócio. O único
+  -- lançamento aceito dele é o uso de crédito desta venda, como o finalizeSale do site monta
+  -- (vendas/pagamento.js): id '<venda>-credito', type 'debt', sale_id da própria venda.
+  -- Valor e sócio são conferidos mais abaixo, depois do recibo (nova tentativa não é recusada).
+  if v_garcom and (
+       jsonb_typeof(v_debt) <> 'array'
+       or jsonb_array_length(v_debt) > 1
+       or exists (select 1 from jsonb_array_elements(v_debt) e
+                   where jsonb_typeof(e) <> 'object'
+                      or e->>'id' is distinct from p_sale_id || '-credito'
+                      or e->>'type' is distinct from 'debt'
+                      or coalesce(nullif(e->>'sale_id', ''), p_sale_id) is distinct from p_sale_id)) then
     raise exception 'garcom nao fecha fiado' using errcode = '42501';
   end if;
 
@@ -424,11 +438,27 @@ begin
   -- 08/11 (pedido do dono): nem pagamento 'fiado' sem lançamento. Mesmo critério do
   -- methodBucket do site (assets/js/core/config.js): só method = 'fiado' cai no grupo fiado.
   -- Confere a venda já juntada, para pegar também os pagamentos que vieram da venda gravada.
-  if public.current_staff_role() = 'garcom'
+  if v_garcom
      and exists (select 1 from jsonb_array_elements(
                    case when jsonb_typeof(v_sale->'payments') = 'array' then v_sale->'payments' else '[]'::jsonb end) p
                   where p->>'method' = 'fiado') then
     raise exception 'garcom nao fecha fiado' using errcode = '42501';
+  end if;
+
+  -- 08/11 (pedido do dono): o uso de crédito do garçom só consome crédito que o sócio da venda
+  -- já tem (members.debt negativo = crédito, como memberAvailableCredit no site). Nunca cria
+  -- nem aumenta dívida.
+  if v_garcom and jsonb_array_length(v_debt) = 1 then
+    if (v_debt->0->>'member_id') is distinct from (v_sale->>'memberId') then
+      raise exception 'garcom nao fecha fiado' using errcode = '42501';
+    end if;
+    select greatest(0, -coalesce(m.debt, 0)) into v_credito
+      from public.members m
+     where m.id = v_debt->0->>'member_id' and m.tenant_id = v_tenant
+       for update;
+    if coalesce(v_credito, 0) + 0.005 < (v_debt->0->>'value')::numeric then
+      raise exception 'garcom nao fecha fiado' using errcode = '42501';
+    end if;
   end if;
 
   insert into public.sales as s (tenant_id, id, data)
@@ -658,78 +688,6 @@ begin
    where tenant_id = v_tenant and key = 'cantina2:insumos';
 
   return v_movements;
-end;
-$function$
-;
-
-create or replace function public.cash_movements_apply(p_upserts jsonb, p_delete_ids jsonb)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare
-  v_tenant text := public.current_tenant_id();
-  v_list jsonb;
-  v_up jsonb := coalesce(p_upserts, '[]'::jsonb);
-  v_del jsonb := coalesce(p_delete_ids, '[]'::jsonb);
-  v_garcom boolean := public.current_staff_role() = 'garcom';
-begin
-  -- 08/11 (pedido do dono): garçom só lança pagamento parcial da comanda (conferido abaixo).
-  if v_tenant is null or not (public.cash_can_write() or v_garcom) then
-    raise exception 'sem permissao para lancar no caixa';
-  end if;
-  if jsonb_typeof(v_up) <> 'array' or jsonb_typeof(v_del) <> 'array'
-     or jsonb_array_length(v_up) > 200 or jsonb_array_length(v_del) > 200 then
-    raise exception 'lancamentos invalidos';
-  end if;
-  if exists (select 1 from jsonb_array_elements(v_up) e
-              where jsonb_typeof(e) <> 'object' or coalesce(e->>'id', '') = '') then
-    raise exception 'lancamento sem id';
-  end if;
-
-  insert into public.app_data (tenant_id, key, value)
-  values (v_tenant, 'cantina2:cashMovements', '[]'::jsonb)
-  on conflict (tenant_id, key) do nothing;
-
-  select value into v_list from public.app_data
-   where tenant_id = v_tenant and key = 'cantina2:cashMovements'
-   for update;
-  if jsonb_typeof(v_list) <> 'array' then
-    v_list := '[]'::jsonb;
-  end if;
-
-  -- 08/11 (pedido do dono): garçom só grava movimento com origin 'parcial'/'parcial-estorno'
-  -- (pagamento parcial da comanda e o estorno dele). Não apaga lançamento e não regrava um
-  -- lançamento do caixa (sangria, suprimento) usando o mesmo id.
-  if v_garcom then
-    if jsonb_array_length(v_del) > 0
-       or exists (select 1 from jsonb_array_elements(v_up) u
-                   where coalesce(u->>'origin', '') not in ('parcial', 'parcial-estorno'))
-       or exists (select 1 from jsonb_array_elements(v_up) u
-                    join jsonb_array_elements(v_list) m on m->>'id' = u->>'id'
-                   where coalesce(m->>'origin', '') not in ('parcial', 'parcial-estorno')) then
-      raise exception 'garcom so lanca pagamento parcial da comanda' using errcode = '42501';
-    end if;
-  end if;
-
-  -- Editado continua na mesma posição; novo entra no topo (como o unshift do site).
-  select coalesce(jsonb_agg(coalesce(
-           (select u from jsonb_array_elements(v_up) u where u->>'id' = m.elem->>'id' limit 1),
-           m.elem) order by m.ord), '[]'::jsonb)
-    into v_list
-    from jsonb_array_elements(v_list) with ordinality as m(elem, ord)
-   where not coalesce(m.elem->>'id' = any(array(select jsonb_array_elements_text(v_del))), false);
-
-  v_list := coalesce((select jsonb_agg(u order by n.ord)
-                        from jsonb_array_elements(v_up) with ordinality as n(u, ord)
-                       where not exists (select 1 from jsonb_array_elements(v_list) m where m->>'id' = u->>'id')), '[]'::jsonb)
-            || v_list;
-
-  update public.app_data set value = v_list, updated_at = now()
-   where tenant_id = v_tenant and key = 'cantina2:cashMovements';
-
-  return v_list;
 end;
 $function$
 ;
