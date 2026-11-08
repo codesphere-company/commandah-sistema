@@ -141,6 +141,8 @@ function startApp(){
     MembersStore.refreshDebts().then(changed=>{ if(changed && !document.querySelector('#modalRoot .modal')) renderAll(); }).catch(()=>{});
     // BD-03: caixa aberto/fechado/lançado em outro aparelho aparece aqui também.
     refreshCashState().then(changed=>{ if(changed && !document.querySelector('#modalRoot .modal')) renderAll(); else if(changed) renderScoreboard(); });
+    // Revisão B2 (08/11): produto pausado/ativado ou catálogo editado em outro aparelho (caixa-multiaparelho.js).
+    atualizarCatalogoSeMudou().then(changed=>{ if(changed) redesenharDepoisDoCatalogo(); });
   }, 30000);
   // Computador de caixa (impressão de tudo que for lançado aqui): descobre qual computador é.
   setTimeout(detectLocalPrintAgent, 3000);

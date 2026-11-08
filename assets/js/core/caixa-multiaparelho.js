@@ -244,20 +244,86 @@ async function lerProdutosDoServidor(){
   return { list: Array.isArray(data.value) ? data.value : [], version: data.version };
 }
 async function pushProducts(){
+  let versaoTentada = null;
   for(let tentativa = 0; tentativa < 3; tentativa++){
     const atual = await lerProdutosDoServidor();
     if(!atual || atual.semVersao){ // chave nova (ou banco antigo): grava como antes
       const payload = JSON.parse(JSON.stringify(state.products||[]));
       await storageApi.set(STORE.products, JSON.stringify(payload));
-      setProdutosAtivoBase(payload);
+      setProdutosAtivoBase(payload); produtosVersao = null;
       return;
     }
+    // A gravação anterior não mudou nenhuma linha e a versão continua a mesma: ninguém gravou no meio,
+    // então foi a RLS que recusou (só o administrador grava o catálogo).
+    if(versaoTentada!==null && String(atual.version)===String(versaoTentada)) throw new Error('Sem permissão para gravar o catálogo.');
     mesclarAtivoDosProdutos(state.products, atual.list);
     const payload = JSON.parse(JSON.stringify(state.products||[]));
+    versaoTentada = atual.version;
     const { data, error } = await supabaseClient.from('app_data').update({ value: payload, updated_at: new Date().toISOString() })
       .eq('tenant_id', storageApi.tenantId).eq('key', STORE.products).eq('version', atual.version).select('version');
     if(error) throw error;
-    if(data && data.length){ setProdutosAtivoBase(payload); return; }
+    if(data && data.length){ setProdutosAtivoBase(payload); produtosVersao = data[0].version; return; }
   }
   throw new Error('O catálogo mudou no servidor durante a gravação. Tente de novo.');
+}
+/* Revisão B2 (08/11): a pausa feita na cozinha não chegava aos aparelhos já abertos (garçom, Ficha,
+   totem, cardápio): o catálogo só era lido no login. O poll de 30 s lê só a versão da linha
+   cantina2:products (nunca o blob inteiro a cada volta: pode ter foto em base64). Quando a versão muda,
+   lê o catálogo uma vez e troca o daqui pelo do servidor (preço, nome, produtos novos e excluídos
+   chegam também), menos o "active" que este aparelho mudou e ainda não gravou. Não roda com o cadastro
+   de produto aberto nem com gravação de produtos na fila, para não atropelar edição em andamento. */
+let produtosVersao = null;
+function notarVersaoDosProdutos(v){
+  // Só anda uma casa: se outro aparelho gravou no meio, a próxima volta do poll ainda lê o catálogo.
+  if(v!=null && produtosVersao!=null && Number(v)===Number(produtosVersao)+1) produtosVersao = v;
+}
+function aplicarCatalogoDoServidor(server){
+  const locais = new Map((state.products||[]).filter(p=>p&&p.id).map(p=>[p.id,p]));
+  const ids = new Set();
+  const out = (server||[]).filter(s=>s&&s.id).map(s=>{
+    ids.add(s.id);
+    const p = locais.get(s.id), novo = JSON.parse(JSON.stringify(s));
+    if(p && produtosAtivoBase.has(s.id) && (p.active!==false)!==produtosAtivoBase.get(s.id)) novo.active = p.active;
+    if(!p) return novo;
+    Object.keys(p).forEach(k=>{ delete p[k]; }); Object.assign(p, novo); // mesmo objeto: quem guardou a referência vê o novo
+    return p;
+  });
+  // Produto criado aqui e ainda não gravado (não está no servidor nem na base) continua.
+  (state.products||[]).forEach(p=>{ if(p && p.id && !ids.has(p.id) && !produtosAtivoBase.has(p.id)) out.push(p); });
+  state.products = out;
+  (server||[]).forEach(s=>{ if(s && s.id) produtosAtivoBase.set(s.id, s.active!==false); });
+}
+let catalogoLendo = false;
+async function atualizarCatalogoSeMudou(){
+  if(!isCloudMode() || !supabaseClient || !storageApi || catalogoLendo) return false;
+  catalogoLendo = true;
+  try{
+    const { data, error } = await supabaseClient.from('app_data').select('version').eq('tenant_id', storageApi.tenantId).eq('key', STORE.products).maybeSingle();
+    if(error || !data || data.version==null) return false;
+    if(produtosVersao!=null && String(data.version)===String(produtosVersao)) return false;
+    if(document.getElementById('pSaveBtn')) return false; // cadastro de produto aberto: tenta na próxima volta
+    const fila = saveQueues.products;
+    await (fila||Promise.resolve()).catch(()=>{});
+    const atual = await lerProdutosDoServidor();
+    if(!atual || atual.semVersao) return false;
+    // Durante a leitura alguém abriu o cadastro ou mandou gravar: deixa para a próxima volta.
+    if(document.getElementById('pSaveBtn') || saveQueues.products!==fila) return false;
+    aplicarCatalogoDoServidor(atual.list);
+    produtosVersao = atual.version;
+    return true;
+  }catch(e){ return false; }
+  finally{ catalogoLendo = false; }
+}
+// Redesenha o que mostra produto: a tela ativa e, no app do garçom, a etapa em que ele está.
+function redesenharDepoisDoCatalogo(){
+  const gc = document.getElementById('garcomApp');
+  if(gc && gc.classList.contains('show')){
+    try{
+      if(!gcFlow || gcFlow.step==='home') gcRenderHome();
+      else if(gcFlow.step==='products') gcRenderProducts((document.getElementById('gcProdSearch2')||{}).value||'');
+      else if(gcFlow.step==='categories'){ const q = (document.getElementById('gcProdSearch')||{}).value||''; if(q) gcSearchAllProducts(q); }
+    }catch(e){}
+    return;
+  }
+  if(!document.querySelector('#modalRoot .modal')) renderAll();
 }

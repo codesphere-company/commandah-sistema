@@ -9,7 +9,7 @@ async function abrirProdutosEmFalta(){
   if(!requirePerm('pausar-produto')) return;
   // Mostra o que está no servidor agora: outro aparelho pode ter pausado depois do login.
   if(isCloudMode()){
-    try{ await (saveQueues.products||Promise.resolve()); const atual = await lerProdutosDoServidor(); if(atual) mesclarAtivoDosProdutos(state.products, atual.list); }catch(e){}
+    try{ await (saveQueues.products||Promise.resolve()); await atualizarCatalogoSeMudou(); }catch(e){}
   }
   const lista = (state.products||[]).filter(p=>p&&p.id).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pt-BR'));
   const linhas = lista.length ? lista.map(p=>`<tr data-id="${h(p.id)}" data-search="${h(((p.name||'')+' '+(p.category||'')+' '+(p.pdvCode||'')).toLowerCase())}"><td>${h(p.name||'—')}</td><td>${h(p.category||'—')}</td><td>${chaveProdutoAVenda(p)}</td></tr>`).join('')
@@ -53,6 +53,7 @@ async function alternarProdutoAVenda(id, ativo){
     if(r.error || !r.data || !r.data.ok){ toast(mensagemErroPausar(r.error)); redesenharChaveProduto(id); return; }
     p.active = ativo;
     marcarAtivoDoProdutoNoServidor(id, ativo);
+    notarVersaoDosProdutos(r.data.version);
   } else {
     // Fora da nuvem não há RPC nem RLS: grava a lista como sempre.
     p.active = ativo;
