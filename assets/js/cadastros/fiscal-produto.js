@@ -132,7 +132,7 @@ function openProductModal(id){
       </div>
       <section class="record-pane active" data-pane="principal">
         <div class="row"><div class="field"><label>Código do sistema</label><input id="pCode" value="${h(p?p.code||'':'')}" placeholder="Gerado ou informado"></div><label style="flex:0 0 auto;align-self:center"><input type="checkbox" id="pActive" ${!p||p.active!==false?'checked':''}> Ativo</label></div>
-        <div class="record-grid"><div><div class="product-image-box" id="productImagePreview">${p&&p.image?`<img src="${p.image}" alt="Produto" style="width:100%;height:100%;object-fit:contain">`:'🍽'}</div><button class="op-btn" type="button" style="width:100%;margin-top:8px" onclick="selectProductImage()">Selecionar imagem…</button><button class="op-btn" type="button" style="width:100%;margin-top:5px" onclick="clearProductImage()">Limpar imagem</button><input id="productImageFile" type="file" accept="image/*" hidden><p class="sub">Tamanho sugerido: 600 × 600 pixels. Limite: 500 KB.</p></div>
+        <div class="record-grid"><div><div class="product-image-box" id="productImagePreview">${p&&p.image?`<img src="${p.image}" alt="Produto" style="width:100%;height:100%;object-fit:contain">`:'🍽'}</div><button class="op-btn" type="button" style="width:100%;margin-top:8px" onclick="selectProductImage()">Selecionar imagem…</button><button class="op-btn" type="button" style="width:100%;margin-top:5px" onclick="clearProductImage()">Limpar imagem</button><input id="productImageFile" type="file" accept="image/*" hidden><p class="sub">Qualquer foto serve: o sistema reduz para 600 × 600 pixels.</p></div>
         <div><div class="field"><label>Nome</label><input id="pName" value="${h(p?p.name:'')}" autofocus></div>
         <div class="row"><div class="field"><label>Categoria</label><select id="pCat"><option value="">— Sem categoria —</option>${state.categorias.map(c=>`<option value="${h(c.nome)}" ${p&&p.category===c.nome?'selected':''}>${h(c.nome)}</option>`).join('')}</select></div><div class="field"><label>Vender este item como</label><select id="pMeasure">${[['un','Unidade (UN)'],['kg','Quilo (KG)'],['l','Litro (L)'],['g','Grama (G)'],['ml','Mililitro (ML)']].map(([v,l])=>`<option value="${v}" ${p&&(p.measure||'un')===v?'selected':''}>${l}</option>`).join('')}</select></div></div>
         ${productGradeFieldHtml()}
@@ -202,7 +202,42 @@ function openProductModal(id){
     save('products'); closeModal(); renderAll(); toast('Produto salvo.');
   };
 }
-function selectProductImage(){const input=document.getElementById('productImageFile');if(!input)return;input.onchange=()=>{const file=input.files&&input.files[0];if(!file)return;if(file.size>500000){toast('Escolha uma imagem de até 500 KB.');return;}const reader=new FileReader();reader.onload=()=>{window.productImageDraft=reader.result;const preview=document.getElementById('productImagePreview');if(preview)preview.innerHTML=`<img src="${reader.result}" alt="Produto" style="width:100%;height:100%;object-fit:contain">`;};reader.readAsDataURL(file);};input.click();}
+// 08/11 (pedido do dono): a foto escolhida é reduzida aqui mesmo para no máximo 600 × 600 px (WebP, ou JPEG
+// se o navegador não gerar WebP), em vez de recusar arquivo acima de 500 KB. Foto do celular ou do Drive
+// costuma ter vários MB; a reduzida fica com dezenas de KB, o que também mantém leve a lista de produtos
+// que todo aparelho baixa ao entrar.
+const FOTO_PRODUTO_LADO = 600, FOTO_PRODUTO_MAX_ARQUIVO = 25*1024*1024;
+function reduzirFotoProduto(file){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      const escala = Math.min(1, FOTO_PRODUTO_LADO/Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth*escala)), hgt = Math.max(1, Math.round(img.naturalHeight*escala));
+      const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = hgt;
+      const ctx = canvas.getContext('2d'); ctx.imageSmoothingQuality = 'high'; ctx.drawImage(img, 0, 0, w, hgt);
+      let dado = canvas.toDataURL('image/webp', 0.82);
+      if(!dado.startsWith('data:image/webp')) dado = canvas.toDataURL('image/jpeg', 0.82);
+      resolve(dado);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('imagem ilegível')); };
+    img.src = url;
+  });
+}
+function selectProductImage(){
+  const input=document.getElementById('productImageFile'); if(!input) return;
+  input.onchange=async ()=>{
+    const file=input.files&&input.files[0]; input.value=''; if(!file) return;
+    if(file.size>FOTO_PRODUTO_MAX_ARQUIVO){ toast('Arquivo grande demais (mais de 25 MB). Escolha outra imagem.'); return; }
+    try{
+      const dado = await reduzirFotoProduto(file);
+      window.productImageDraft=dado;
+      const preview=document.getElementById('productImagePreview');
+      if(preview) preview.innerHTML=`<img src="${dado}" alt="Produto" style="width:100%;height:100%;object-fit:contain">`;
+    }catch(e){ toast('Não foi possível ler esta imagem. Use JPG, PNG ou WebP.'); }
+  };
+  input.click();
+}
 function clearProductImage(){window.productImageDraft='';const preview=document.getElementById('productImagePreview');if(preview)preview.textContent='🍽';}
 function editProduct(id){ openProductModal(id); }
 
