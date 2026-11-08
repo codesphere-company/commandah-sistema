@@ -876,3 +876,9 @@ body.tv-mode .kfechada-faixa{font-size:22px}
 .ribbon-toolbar.rb-compacta .rb-group+.rb-group .rb-icons button.rb-inicio-linha::before{content:none}
 .ribbon-toolbar.rb-compacta .rb-icons button .ic svg{width:16px;height:16px}
 .ribbon-toolbar.rb-compacta .rb-caption{display:none}
+
+/* 08/11: títulos de coluna que ordenam a lista (Produtos). */
+th.th-ordena{cursor:pointer;user-select:none;white-space:nowrap}
+th.th-ordena:hover{color:var(--c-text)}
+th.th-ordena .seta{display:inline-block;margin-left:4px;font-size:10px;min-width:8px}
+th.th-ordena.ativa{color:var(--c-primary-text)}

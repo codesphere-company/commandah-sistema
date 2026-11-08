@@ -114,3 +114,42 @@ function ligarRotulosDosCampos(root){
   const iniciar=()=>{ agendar(); new MutationObserver(agendar).observe(document.body,{childList:true,subtree:true}); };
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();
 })();
+
+/* 08/11 (relato do dono): em Categorias, Insumos, Clientes, Fornecedores e outras listas, clicar numa
+   linha redesenha a tela inteira para marcar a seleção. O redesenho jogava a rolagem para o topo e o
+   segundo clique do duplo clique abria o item que ficava sob o mouse (o primeiro da lista). Aqui, num
+   lugar só: ao clicar numa linha de tabela dentro de uma tela, guarda a rolagem de todas as caixas que
+   a contêm (a tabela, a tela e a página em volta) e devolve antes do próximo quadro. Caixa redesenhada
+   é achada de novo pelo mesmo caminho dentro da tela. A pesquisa digitada também volta: a maioria das
+   telas recriava o campo vazio, a lista inteira reaparecia e o duplo clique abria o primeiro item. */
+(function manterRolagemAoClicarNaLinha(){
+  const caminho = (el, raiz)=>{ const p=[]; while(el && el!==raiz){ const pai=el.parentElement; if(!pai) return null; p.unshift(Array.prototype.indexOf.call(pai.children, el)); el=pai; } return el===raiz ? p : null; };
+  const seguir = (raiz, p)=>p.reduce((el,i)=>el && el.children[i], raiz);
+  document.addEventListener('click', e=>{
+    const tr = e.target && e.target.closest ? e.target.closest('tbody tr') : null;
+    const raiz = tr && tr.closest('.view');
+    if(!raiz) return;
+    // Campos de texto da tela (pesquisa, filtros digitados), pelo id.
+    const campos = [...raiz.querySelectorAll('input[id]')].filter(i=>(!i.type||/^(text|search)$/.test(i.type)) && i.value).map(i=>({ id:i.id, valor:i.value }));
+    const guardadas = [];
+    for(let el=tr.parentElement; el; el=el.parentElement){
+      if(el.scrollTop>0 || el.scrollLeft>0) guardadas.push({ p: raiz.contains(el)&&el!==raiz ? caminho(el, raiz) : null, top:el.scrollTop, left:el.scrollLeft, antiga:el });
+    }
+    if(!guardadas.length && !campos.length) return;
+    let feito = false;
+    const devolver = ()=>{
+      if(feito) return; feito = true;
+      document.removeEventListener('click', devolver);
+      campos.forEach(c=>{ const i=document.getElementById(c.id); if(i && raiz.contains(i) && i.value!==c.valor){ i.value=c.valor; i.dispatchEvent(new Event('input',{bubbles:true})); } });
+      guardadas.forEach(g=>{
+        const caixa = g.antiga.isConnected ? g.antiga : (g.p ? seguir(raiz, g.p) : null);
+        if(caixa && (caixa.scrollTop!==g.top || caixa.scrollLeft!==g.left)){ caixa.scrollTop=g.top; caixa.scrollLeft=g.left; }
+      });
+    };
+    // Na hora, logo depois do onclick da linha (o segundo clique de um duplo clique rápido pode chegar
+    // antes do próximo quadro). Se a tela parar a propagação do clique, o quadro seguinte faz a devolução;
+    // de um jeito ou de outro ela acontece uma vez só e não sobra para o próximo clique.
+    document.addEventListener('click', devolver);
+    requestAnimationFrame(devolver);
+  }, true);
+})();
