@@ -31,10 +31,12 @@ function accountantSheets(from, to){
   sales.forEach(sl=>{ const d=saleRevenueDay(sl), b=byMethod(sl); tot.fat+=Number(sl.total)||0; tot.desc+=Number(sl.discount)||0; tot.serv+=Number(sl.serviceCharge)||0;
     buckets.forEach(k=>tot.m[k]+=b[k]);
     const x=days[d]=days[d]||{n:0,fat:0,desc:0,serv:0,m:totaisPorFormaVazio()}; x.n++; x.fat+=Number(sl.total)||0; x.desc+=Number(sl.discount)||0; x.serv+=Number(sl.serviceCharge)||0; buckets.forEach(k=>x.m[k]+=b[k]); });
-  const debtRows=[]; let fiadoLanc=0, fiadoRec=0;
+  // D4, 08/11 (pedido do dono): baixa "Descontado do salário" (method 'salario') não é dinheiro recebido;
+  // fica fora do "Fiado recebido" e aparece numa linha própria.
+  const debtRows=[]; let fiadoLanc=0, fiadoRec=0, fiadoSalario=0;
   state.members.forEach(m=>(m.debtHistory||[]).forEach(e=>{ if(!inP(localDay(e.at))) return; const v=Number(e.value)||0;
-    if(!e.reversed){ if(e.type==='debt') fiadoLanc+=v; else if(e.type==='payment' && !/crédito de troco/i.test(e.reason||'')) fiadoRec+=v; }
-    debtRows.push([fmtD(e.at), m.name, m.code||'', e.type==='debt'?'Débito':e.type==='payment'?'Pagamento':'Crédito', round(v), e.method||'', e.reason||'', e.reversed?'Sim':'Não']); }));
+    if(!e.reversed){ if(e.type==='debt') fiadoLanc+=v; else if(e.type==='payment' && e.method==='salario') fiadoSalario+=v; else if(e.type==='payment' && !/crédito de troco/i.test(e.reason||'')) fiadoRec+=v; }
+    debtRows.push([fmtD(e.at), m.name, m.code||'', e.type==='debt'?'Débito':e.type==='payment'?'Pagamento':'Crédito', round(v), fiadoMethodLabel(e.method), e.reason||'', e.reversed?'Sim':'Não']); }));
   const closings=(state.cashHistory||[]).filter(c=>c.closedAt && inP(localDay(c.closedAt)));
   const moves=(state.cashMovements||[]).filter(mv=>mv.at && inP(localDay(mv.at)));
   const supr=moves.filter(mv=>mv.type==='suprimento').reduce((a,mv)=>a+(Number(mv.amount)||0),0), sang=moves.filter(mv=>mv.type==='sangria').reduce((a,mv)=>a+(Number(mv.amount)||0),0), diaria=moves.filter(mv=>mv.type==='sangria'&&mv.categoria==='diaria').reduce((a,mv)=>a+(Number(mv.amount)||0),0); // 08/11: diária de freelancer separada das retiradas
@@ -46,7 +48,7 @@ function accountantSheets(from, to){
       ['Estabelecimento', (state.settings&&state.settings.clubName)||''], ['Período', dateBR(from)+' a '+dateBR(to)], ['Gerado em', new Date().toLocaleString('pt-BR')], [],
       ['Faturamento (vendas fechadas, pelo dia de abertura)', round(tot.fat)], ['Número de vendas', tot.n], ['Ticket médio', tot.n?round(tot.fat/tot.n):0], ['Descontos concedidos', round(tot.desc)], ['Taxa de serviço', round(tot.serv)], [],
       ['Formas de pagamento das vendas do período'], ...buckets.map(k=>[bucketLabel[k], round(tot.m[k])]), [],
-      ['Fiado lançado no período', round(fiadoLanc)], ['Fiado recebido no período', round(fiadoRec)], [],
+      ['Fiado lançado no período', round(fiadoLanc)], ['Fiado recebido no período', round(fiadoRec)], ['Descontado do salário', round(fiadoSalario)], [],
       ['Vendas canceladas (quantidade)', canceled.length], ['Vendas canceladas (valor)', round(canceled.reduce((a,sl)=>a+(Number(sl.total)||0),0))], [],
       ['Fechamentos de caixa', closings.length], ['Entradas (suprimentos)', round(supr)], ['Saídas (sangrias, sem diárias)', round(sang-diaria)], ['Diárias de freelancer', round(diaria)], ['Soma das diferenças de caixa (contado − esperado)', round(diffs)]
     ], [52,18]],
@@ -135,8 +137,9 @@ function renderDailySummaryReport(){
   [...closed,...open].forEach(sl=>(sl.items||[]).filter(i=>!i.canceled).forEach(i=>{ qty[i.name]=(qty[i.name]||0)+itemStockQty(i); if(i.weight) kgNome[i.name]=true; rev[i.name]=(rev[i.name]||0)+(Number(i.qty)||0)*(Number(i.price)||0); }));
   const top=Object.keys(qty).sort((a,b)=>rev[b]-rev[a]).slice(0,8);
   const canceled=state.sales.filter(sl=>sl.canceled&&localDay(sl.canceledAt||sl.closedAt)===day);
-  const fiadoIn=[]; state.members.forEach(m=>(m.debtHistory||[]).forEach(e=>{ if(e.type==='payment'&&!e.reversed&&localDay(e.at)===day) fiadoIn.push({m,e}); }));
-  const fiadoInTotal=fiadoIn.reduce((a,x)=>a+(Number(x.e.value)||0),0);
+  // D4, 08/11 (pedido do dono): "Descontado do salário" separado do "Recebido de fiado" (não entra dinheiro).
+  const fiadoIn=[], salarioIn=[]; state.members.forEach(m=>(m.debtHistory||[]).forEach(e=>{ if(e.type==='payment'&&!e.reversed&&localDay(e.at)===day) (e.method==='salario'?salarioIn:fiadoIn).push({m,e}); }));
+  const fiadoInTotal=fiadoIn.reduce((a,x)=>a+(Number(x.e.value)||0),0), salarioInTotal=salarioIn.reduce((a,x)=>a+(Number(x.e.value)||0),0);
   const debtors=state.members.filter(m=>!m.archived&&(Number(m.debt)||0)>TOLERANCIA_CENTAVO), blocked=debtors.filter(memberBlockedByDebt);
   const closings=(state.cashHistory||[]).filter(c=>localDay(c.closedAt)===day).sort((a,b)=>new Date(a.closedAt)-new Date(b.closedAt));
   const count=closed.length+open.length, ticket=count?(closedTotal+openTotal)/count:0;
@@ -153,7 +156,7 @@ function renderDailySummaryReport(){
   </div>
   <div class="grid2" style="margin-top:16px">
     <div class="panel"><h2>Vendas fechadas por forma de pagamento</h2><table><tr><th>Forma</th><th>Total</th></tr>${methodRows}</table></div>
-    <div class="panel"><h2>Fiado no dia</h2><table><tr><td>Vendido no fiado</td><td class="mono">${fmt(byMethod.fiado)}</td></tr><tr><td>Recebido de fiado (${fiadoIn.length})</td><td class="mono">${fmt(fiadoInTotal)}</td></tr></table>${fiadoIn.length?`<p class="sub" style="margin-top:8px">${fiadoIn.map(x=>h(x.m.name)+' '+fmt(x.e.value)).join(' · ')}</p>`:''}</div>
+    <div class="panel"><h2>Fiado no dia</h2><table><tr><td>Vendido no fiado</td><td class="mono">${fmt(byMethod.fiado)}</td></tr><tr><td>Recebido de fiado (${fiadoIn.length})</td><td class="mono">${fmt(fiadoInTotal)}</td></tr><tr><td>Descontado do salário (${salarioIn.length})</td><td class="mono">${fmt(salarioInTotal)}</td></tr></table>${fiadoIn.length?`<p class="sub" style="margin-top:8px">${fiadoIn.map(x=>h(x.m.name)+' '+fmt(x.e.value)).join(' · ')}</p>`:''}</div>
   </div>
   <div class="panel" style="margin-top:16px"><h2>Fechamento do caixa</h2>${closings.length?`<table><tr><th>Caixa</th><th>Esperado (dinheiro)</th><th>Contado</th><th>Diferença</th><th>Ficou a receber</th></tr>${closings.map(c=>{const d=Number(c.diff)||0;return `<tr><td>${h(c.operatorName||c.closedBy||'—')} · ${timeFmt(c.openedAt)}–${timeFmt(c.closedAt)}</td><td class="mono">${fmt(c.expectedAmount)}</td><td class="mono">${fmt(c.countedAmount)}</td><td class="mono ${Math.abs(d)<0.01?'cash-ok':d<0?'cash-short':'cash-over'}">${Math.abs(d)<0.01?'Confere':(d<0?'Falta ':'Sobra ')+fmt(Math.abs(d))}</td><td class="mono">${c.openComandasTotal!=null?fmt(c.openComandasTotal):'—'}</td></tr>`;}).join('')}</table>`:`<p class="empty">${cashNone}</p>`}</div>
   <div class="grid2" style="margin-top:16px">
