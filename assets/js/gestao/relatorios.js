@@ -106,7 +106,7 @@ function renderUserActivityReport(fromLoad){
   const q=f.q.trim().toLowerCase(), rows=(f.rows||[]).filter(r=>!q||(r.text+' '+r.user).toLowerCase().includes(q));
   const byUser={}; rows.forEach(r=>{ const k=r.user; byUser[k]=byUser[k]||{n:0,s:0}; byUser[k].n++; if(SENSITIVE_ACTION.test(r.text)) byUser[k].s++; });
   const names=[...new Set([...(state.users||[]).map(u=>u.name),...(f.rows||[]).map(r=>r.user)])].filter(Boolean).sort();
-  const roleLabel=r=>({owner:'Dono',admin:'Administrador',caixa:'Caixa',cozinha:'Cozinha',sistema:'Sistema'})[r]||r||'';
+  const roleLabel=r=>({owner:'Dono',admin:'Administrador',caixa:'Caixa',garcom:'Garçom',cozinha:'Cozinha',sistema:'Sistema'})[r]||r||'';
   el.innerHTML=`<div class="daily-summary">
   <div class="daily-summary-head"><div><h2>Movimentações por usuário</h2><p class="sub">Tudo o que cada colaborador fez no sistema. Em destaque: cancelamentos, estornos, reaberturas, liberações e exclusões.</p></div></div>
   <div class="user-activity-filters">

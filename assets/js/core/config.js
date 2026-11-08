@@ -179,6 +179,8 @@ const ROLE_PERMS = {
     'categorias','complementos','observacoes','perguntas','fornecedores','pagamentos','contascategorias','contas','locais','quemlevou','impressoras','estacoes','origens',
     'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr','senha-propria','cancelar-comanda','receber-fiado','relatorios-gerencia'],
   caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','quemlevou','impressoras','estacoes','origens','relatorios','painel-senhas','totem','ajuda','mobile-qr','senha-propria','cancelar-comanda','receber-fiado'],
+  // 08/11 (pedido do dono): Garçom só atende comandas pelo app (sem caixa, fiado, cancelamento ou relatórios).
+  garcom: ['comandas','senha-propria','mobile-qr'],
   cozinha: ['cozinha','senha-propria']
 };
 function rolePermissions(role){const custom=state&&state.settings&&state.settings.rolePermissions&&state.settings.rolePermissions[role];if(!Array.isArray(custom))return ROLE_PERMS[role]||[];

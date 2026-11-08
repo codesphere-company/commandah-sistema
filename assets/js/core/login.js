@@ -39,7 +39,8 @@ function telaDescansoHtml(msg,titulo){const s=state.settings||{},nome=String(s.c
   const logo=logoDoEstabelecimento()?`<img class="tela-descanso-logo" src="${h(logoDoEstabelecimento())}" alt="">`:`<span class="tela-descanso-logo">${ICN.brandmark(undefined,undefined,140)}</span>`;
   const texto=titulo||(nome&&!logoDoEstabelecimento()?nome:''); // título (ex.: "Cozinha fechada") vale mais que o nome
   return `<div class="tela-descanso">${logo}${texto?`<div class="tela-descanso-nome">${h(texto)}</div>`:''}${msg?`<p class="tela-descanso-msg">${h(msg)}</p>`:''}</div>`;}
-function roleLabel(r){ return r==='admin'?'Administrador':r==='caixa'?'Operador de caixa':'Cozinha'; }
+// 08/11 (pedido do dono): nomes dos perfis na tela — Administrador, Caixa, Garçom e Cozinha.
+function roleLabel(r){ return r==='admin'?'Administrador':r==='caixa'?'Caixa':r==='garcom'?'Garçom':'Cozinha'; }
 function startPin(userId){
   pinTargetUser = state.users.find(u=>u.id===userId);
   if(!pinTargetUser||pinTargetUser.active===false){toast('Este colaborador está inativo.');renderLogin();return;}
@@ -169,7 +170,9 @@ function afterLogin(){
     // Só guarda a preferência: quem liga a tela é aplicarModoTv (cozinha.js), e só no monitor.
     try{ localStorage.setItem('cantina2:tvmode','1'); }catch(e){}
   }
-  if(currentUser.origem==='app' && currentUser.role!=='admin'){
+  // 08/11 (pedido do dono): perfil Garçom entra no app do garçom; origem 'app' segue valendo para quem
+  // ainda está como Caixa (compatibilidade até a troca dos perfis).
+  if(currentUser.role==='garcom' || (currentUser.origem==='app' && currentUser.role!=='admin')){
     document.getElementById('garcomApp').classList.add('show');
     gcApplyDeviceTheme();
     gcRenderHome();

@@ -166,6 +166,9 @@ async function gcGoCloseComanda(){
   if(!s || s.status!=='open' || s.canceled){ toast('Esta comanda já foi fechada ou cancelada em outro aparelho.'); gcRenderHome(); return; }
   if(s.locked){ toast('Comanda bloqueada no caixa. Peça para desbloquearem antes de fechar.'); gcRenderComanda(); return; }
   if(s.memberId){ try{ await MembersStore.refreshOne(s.memberId); }catch(e){} } // saldo (crédito ou pendência) mais novo
+  // 08/11 (pedido do dono): o banco recusa o garçom lançar pagamento de pendência (fiado) no caixa; sócio
+  // com pendência anterior fecha no caixa. Crédito do sócio segue valendo (não é pendência).
+  if(gcComandaTotals(s).debt>TOLERANCIA_CENTAVO){ toast('Sócio com pendência: feche no caixa.'); gcRenderComanda(); return; }
   gcFlow = { saleId, step:'charge', category:null, closeComanda:true, payMethod:null };
   gcRenderCharge();
 }
@@ -414,6 +417,7 @@ async function gcConfirmCloseComanda(){
   if(s.locked){ toast('Comanda bloqueada no caixa. Peça para desbloquearem antes de fechar.'); return; }
   if(s.memberId){ try{ await MembersStore.refreshOne(s.memberId); }catch(e){} }
   const t = gcComandaTotals(s);
+  if(t.debt>TOLERANCIA_CENTAVO){ toast('Sócio com pendência: feche no caixa.'); gcRenderComanda(); return; }
   // Total diferente do que o garçom mostrou ao cliente (item lançado em outro aparelho, saldo do sócio
   // mudou): confere antes.
   if(Math.abs(t.total-(gcFlow.shownTotal||0))>TOLERANCIA_CENTAVO){ gcRenderCharge(); toast('O total mudou (chegou item novo nesta comanda). Confira antes de cobrar.'); return; }
