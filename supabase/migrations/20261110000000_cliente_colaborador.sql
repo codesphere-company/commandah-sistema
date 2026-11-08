@@ -30,8 +30,15 @@
 --    current_user: dentro do close_sale o current_user é o dono da função.
 --    Sem usuário logado (service_role, rotinas do servidor, migrations)
 --    passa, como nas outras travas por papel.
---    Grafias como 'Salário', ' SALARIO ' ou 'Descontado do salário' contam
---    como salário: o caixa não contorna a trava escrevendo o rótulo da tela.
+--    Só a grafia exata 'salario' vale (D2, decisão do coordenador, 08/11):
+--    qualquer outra que, normalizada, vire salário ('Salário', ' SALARIO ',
+--    acento em NFD, tab/NBSP, pontuação, 'Descontado do salário'...) é
+--    recusada para TODOS, inclusive admin e service_role. Relatórios e filtros
+--    do site comparam method === 'salario'; uma grafia variante sumiria deles
+--    e o caixa ainda contornaria a trava escrevendo o rótulo da tela.
+--    Normalização: NFKD (separa acento e desfaz largura cheia), minúsculas e
+--    só letras a-z; se o resultado contém 'salario' e o texto não é
+--    exatamente 'salario', recusa.
 --
 -- members.debt continua saindo só da soma do extrato (recalc_member_debt):
 -- o pagamento 'salario' baixa a dívida igual a Dinheiro/Cartão/Pix.
@@ -65,7 +72,7 @@ language plpgsql
 set search_path to ''
 as $function$
 begin
-  if auth.uid() is not null and not public.is_admin_like()
+  if auth.uid() is not null and not coalesce(public.is_admin_like(), false)
      and (tg_op = 'INSERT' and new.kind is distinct from 'socio'
           or tg_op = 'UPDATE' and new.kind is distinct from old.kind) then
     raise exception 'so o administrador define cliente colaborador' using errcode = '42501';
@@ -87,13 +94,18 @@ language plpgsql
 set search_path to ''
 as $function$
 declare
-  v_metodo text := lower(btrim(translate(coalesce(new.method, ''), 'áàâãÁÀÂÃ', 'aaaaaaaa')));
+  -- só letras a-z, sem acento (NFKD solta o acento como marca combinante,
+  -- que cai fora no [^a-z]), sem espaço/tab/NBSP/pontuação
+  v_letras text := regexp_replace(lower(normalize(coalesce(new.method, ''), NFKD)), '[^a-z]', '', 'g');
 begin
-  if v_metodo in ('salario', 'descontado do salario') then
+  if new.method is distinct from 'salario' and position('salario' in v_letras) > 0 then
+    raise exception 'grafia de salario nao aceita: use a grafia salario' using errcode = '23514';
+  end if;
+  if new.method = 'salario' then
     if new.type is distinct from 'payment' then
       raise exception 'descontado do salario so em pagamento' using errcode = '23514';
     end if;
-    if auth.uid() is not null and not public.is_admin_like() then
+    if auth.uid() is not null and not coalesce(public.is_admin_like(), false) then
       raise exception 'so o administrador da baixa descontado do salario' using errcode = '42501';
     end if;
   end if;
