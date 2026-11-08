@@ -18,9 +18,9 @@ function staffDiscountLabel(pct){ return 'Desconto colaborador ('+String(pct).re
 // mostradas. applyService: o caixa pode tirar o serviço. includeDebt: cobrar a pendência junto.
 // Desconto do colaborador (D2, 08/11, pedido do dono): comanda de cliente do tipo Colaborador tem
 // descontoColaborador() % (padrão 20) sobre o consumo, sozinho, antes de cupom/crédito/serviço. Só vale
-// em comanda: o pagamento de ficha/delivery passa applyStaffDiscount:false. A dívida do colaborador
+// em comanda: quem calcula comanda passa applyStaffDiscount:true (padrão false). A dívida do colaborador
 // não entra no total (é descontada do salário, não cobrada na comanda).
-function comandaTotals({ subtotal, discount = 0, partialPaid = 0, member = null, applyService = true, includeDebt = true, applyStaffDiscount = true }){
+function comandaTotals({ subtotal, discount = 0, partialPaid = 0, member = null, applyService = true, includeDebt = true, applyStaffDiscount = false }){
   const colaborador = applyStaffDiscount && memberIsColaborador(member);
   const staffDiscountPct = colaborador ? descontoColaborador() : 0;
   const staffDiscount = colaborador ? arredondaCentavos(subtotal * staffDiscountPct / 100) : 0;
@@ -32,4 +32,12 @@ function comandaTotals({ subtotal, discount = 0, partialPaid = 0, member = null,
   const debt = includeDebt && !memberIsColaborador(member) ? memberDebtDue(member) : 0;
   const total = arredondaCentavos(Math.max(0, afterCredit + service - partialPaid) + debt);
   return { staffDiscount, staffDiscountPct, afterCoupon, available, creditApplied, afterCredit, service, debt, total };
+}
+// Quanto falta pagar na comanda aberta, igual ao total que ela mostra (desconto do colaborador,
+// crédito e serviço), sem a pendência anterior. Teto do pagamento parcial e conferência de
+// transferência (fix D2, 08/11): antes era saleTotal(itens) - parciais e passava do total com desconto.
+// items: lista a usar no lugar de s.items (rascunho aberto na tela).
+function comandaOpenDue(s, items){
+  const member = s && s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
+  return comandaTotals({ subtotal: arredondaCentavos(saleTotal(items||(s&&s.items))), partialPaid: comandaPartialPaid(s), member, applyService: serviceRatePct()>0, includeDebt: false, applyStaffDiscount: true }).total;
 }

@@ -128,7 +128,7 @@ function gcComandaTotals(s){
   const subtotal = arredondaCentavos(saleTotal(s.items));
   const partialPaid = comandaPartialPaid(s);
   // Pendência anterior (fiado de sócio liberado pelo administrador) vem sempre junto no garçom.
-  const t = comandaTotals({ subtotal, partialPaid, member, applyService: serviceRatePct()>0, includeDebt: true });
+  const t = comandaTotals({ subtotal, partialPaid, member, applyService: serviceRatePct()>0, includeDebt: true, applyStaffDiscount: true });
   // Desconto do colaborador (D2, 08/11): o mesmo do caixa, vindo de comandaTotals.
   return { member, subtotal, partialPaid, staffDiscount: t.staffDiscount, staffDiscountPct: t.staffDiscountPct, available: t.available, creditApplied: t.creditApplied, service: t.service, debt: t.debt, total: t.total };
 }

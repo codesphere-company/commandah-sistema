@@ -11,7 +11,7 @@ export type SaleItem = { productId?: string; name?: string; qty?: number; price?
 export type Payment = { method?: string; amount?: number; change?: number; partial?: boolean; reversed?: boolean };
 export type Sale = {
   id: string; status?: string; canceled?: boolean; items?: SaleItem[]; payments?: Payment[];
-  discount?: number; creditApplied?: number; orderNumber?: number | string | null; customerName?: string; cpfNaNota?: string;
+  discount?: number; staffDiscount?: number; creditApplied?: number; orderNumber?: number | string | null; customerName?: string; cpfNaNota?: string;
 };
 
 // Forma de pagamento do Commandah -> código da SEFAZ (tPag).
@@ -73,7 +73,10 @@ export function buildNfcePayload(sale: Sale, products: Product[], opts: { ambien
   });
 
   const bruto = cents(produtos.reduce((t, i) => t + (i.ValorTotal as number), 0));
-  const desconto = cents(Math.max(0, Math.min(Number(sale.discount) || 0, bruto)));
+  // Desconto da nota = cupom (sale.discount) + desconto do colaborador (sale.staffDiscount, D2 08/11,
+  // pedido do dono). Os dois ficam separados na venda (relatórios), mas na NFC-e somam num desconto
+  // só, limitado ao bruto; sem o do colaborador a nota saía cheia e os pagamentos não fechavam.
+  const desconto = cents(Math.max(0, Math.min((Number(sale.discount) || 0) + (Number(sale.staffDiscount) || 0), bruto)));
   const total = cents(bruto - desconto);
   if (itens.length && total <= 0) problems.push("O valor da nota ficou zerado (desconto igual ao total).");
 

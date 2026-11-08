@@ -145,7 +145,8 @@ async function confirmComandaItemTransfer(saleId){
   if(mode==='copy' && picked.some(i=>i.weight)){ toast('Carne por peso não se copia: lance a peça nova pelo peso.'); return; }
   if(mode==='copy' && picked.some(i=>i.sent)){ toast('Copiar só vale para itens ainda não enviados à cozinha. Para item já enviado, use Transferir.'); return; }
   if(mode==='move'){
-    const rest=saleTotal(currentSaleDraft.items.filter(i=>!picked.includes(i)));
+    // total que sobra com o desconto do colaborador/crédito/serviço, como a comanda mostra (fix D2, 08/11)
+    const rest=comandaOpenDue({...src, partialPayments:[]}, currentSaleDraft.items.filter(i=>!picked.includes(i)));
     if(comandaPartialPaid(src)>rest+TOLERANCIA_CENTAVO){ toast('Esta comanda já recebeu '+fmt(comandaPartialPaid(src))+' em pagamento parcial; sem esses itens o total fica menor que isso. Estorne o parcial antes.'); return; }
   }
   let targetId=document.getElementById('transferTargetSale').value, target=null, created=false;

@@ -120,7 +120,7 @@ function openPartialPayment(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
   if(!state.cashSession){ toast('Abra o caixa para receber pagamento.'); return; }
   const items = (currentSaleDraft && currentSaleDraft.id===saleId) ? currentSaleDraft.items : s.items;
-  const due = Math.max(0, arredondaCentavos(saleTotal(items) - comandaPartialPaid(s)));
+  const due = comandaOpenDue(s, items);
   if(due<=TOLERANCIA_CENTAVO){ toast('Não há saldo a receber nesta comanda.'); return; }
   const methods = methodConfig().filter(m=>m.method!=='fiado');
   openModal('Receber pagamento parcial', `<p class="sub">Para quando alguém paga a sua parte e a comanda continua aberta. Em aberto agora: <b class="mono">${fmt(due)}</b>.</p>
@@ -140,7 +140,7 @@ async function savePartialPayment(saleId){
   let refused = '';
   const cur = await commitSaleChange(saleId, c=>{
     if(c.status!=='open'||c.canceled){ refused='Esta comanda já foi fechada ou cancelada em outro aparelho.'; return false; }
-    const due = arredondaCentavos(saleTotal(c.items) - comandaPartialPaid(c));
+    const due = comandaOpenDue(c);
     if(amount > due+TOLERANCIA_CENTAVO){ refused='O valor passa do que está em aberto ('+fmt(due)+').'; return false; }
     c.partialPayments = [...(c.partialPayments||[]), pay];
   });
