@@ -30,7 +30,7 @@ function validPin(v: string) { return v.length >= 1 && v.length <= PIN_MAX_LEN; 
 
 // Auditoria 03/11 (A2): troca de perfil vai para o audit_log (aparece em Logs para o dono).
 async function logRoleChange(tenantId: string, staffId: string, from: string, to: string, by: unknown) {
-  const label = (r: string) => r === "admin" ? "Administrador" : r === "caixa" ? "Operador de caixa" : "Cozinha";
+  const label = (r: string) => r === "admin" ? "Administrador" : r === "caixa" ? "Operador de caixa" : r === "garcom" ? "Garçom" : "Cozinha";
   const { error } = await admin.from("audit_log").insert({
     tenant_id: tenantId, actor_name: String(by || "").slice(0, 120) || "Administrador", entity: "staff", entity_id: staffId,
     action: `Perfil do colaborador ${staffId} alterado: ${label(from)} → ${label(to)}`,
