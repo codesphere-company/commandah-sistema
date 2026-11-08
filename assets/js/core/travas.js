@@ -19,3 +19,5 @@ duplicateDeliveryOrder = singleFlight('duplicateDeliveryOrder', duplicateDeliver
 cancelDelivery = singleFlight('cancelDelivery', cancelDelivery);
 // Auditoria 03/11 (M2): toque duplo em "Registrar" gravava o pagamento parcial duas vezes.
 savePartialPayment = singleFlight('savePartialPayment', savePartialPayment);
+// 08/11 (pedido do dono): chave de "Produtos em falta" (operacao/disponibilidade.js), um produto por vez.
+alternarProdutoAVenda = singleFlight('alternarProdutoAVenda', alternarProdutoAVenda);

@@ -42,6 +42,7 @@ async function carregarDados(){
   stripIntegrationTokens(state.settings);
   setCashMovementsBase(state.cashMovements);
   setInsumosBase(state.insumos);
+  setProdutosAtivoBase(state.products); // 08/11: mescla do "active" no save('products') (caixa-multiaparelho.js)
   state.members = await membersP;
   state.orders = await ordersP;
   if(salesP) state.sales = await salesP;
@@ -123,11 +124,12 @@ async function migratePendingStaffAsOwner(){
   }
   if(changed) await save('users');
 }
+// 08/11: 'products' na nuvem vai por pushProducts (mescla o "active" pausado em outro aparelho).
 async function save(key){
   if(!STORE[key]){ toast('Erro interno: conjunto de dados desconhecido.'); return false; }
   const payload = JSON.stringify(state[key]);
   const previous = saveQueues[key] || Promise.resolve(true);
-  const operation = previous.catch(()=>false).then(()=> key==='cashMovements' && isCloudMode() ? pushCashMovements() : key==='insumos' && isCloudMode() ? pushInsumos() : key==='sales' && isCloudMode() ? pushSales() : storageApi.set(STORE[key], payload));
+  const operation = previous.catch(()=>false).then(()=> key==='cashMovements' && isCloudMode() ? pushCashMovements() : key==='insumos' && isCloudMode() ? pushInsumos() : key==='sales' && isCloudMode() ? pushSales() : key==='products' && isCloudMode() ? pushProducts() : storageApi.set(STORE[key], payload));
   saveQueues[key] = operation;
   try{ await operation; clearSaveFailBanner(key); return true; }
   catch(e){ saveFailBanner(key); return false; }

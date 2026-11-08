@@ -211,3 +211,53 @@ async function refreshCashState(){
   }catch(e){ return false; }
 }
 
+/* 08/11 (pedido do dono): "Produtos em falta". Caixa e cozinha pausam produto pela RPC
+   product_set_active, que troca só o "active" no servidor. O save('products') do administrador
+   regravava a lista inteira e, com a cópia lida antes da pausa, desfazia a pausa sem aviso.
+   Agora o "active" é mesclado em três vias: produtosAtivoBase = o "active" de cada produto como o
+   servidor tinha na última leitura/gravação deste aparelho. Produto cujo "active" este aparelho NÃO
+   mudou (igual à base) fica com o do servidor; produto que o admin pausou/ativou de propósito vai com
+   o daqui. O resto (preço, nome, produtos novos/excluídos) continua como antes: vale a lista daqui.
+   A gravação é condicionada à versão lida (app_data.version, migration 20261109000000): se outro
+   aparelho gravou no meio, lê e mescla de novo. */
+let produtosAtivoBase = new Map();
+function setProdutosAtivoBase(list){ produtosAtivoBase = new Map((list||[]).filter(p=>p&&p.id).map(p=>[p.id, p.active!==false])); }
+function marcarAtivoDoProdutoNoServidor(id, ativo){ if(id) produtosAtivoBase.set(id, !!ativo); }
+// Aplica em `list` o "active" do servidor nos produtos que este aparelho não mudou (e acerta a base).
+function mesclarAtivoDosProdutos(list, server){
+  const srv = new Map((server||[]).filter(p=>p&&p.id).map(p=>[p.id, p.active!==false]));
+  let mudou = false;
+  (list||[]).forEach(p=>{
+    if(!p || !p.id || !srv.has(p.id) || !produtosAtivoBase.has(p.id)) return;
+    const local = p.active!==false, s = srv.get(p.id);
+    if(local!==produtosAtivoBase.get(p.id)) return; // mudado aqui de propósito: vale o daqui
+    if(local!==s){ p.active = s; mudou = true; }
+    produtosAtivoBase.set(p.id, s);
+  });
+  return mudou;
+}
+// { list, version } do servidor; null se a linha não existe. semVersao: banco sem a migration.
+async function lerProdutosDoServidor(){
+  const { data, error } = await supabaseClient.from('app_data').select('value, version').eq('tenant_id', storageApi.tenantId).eq('key', STORE.products).maybeSingle();
+  if(error){ if(/version/i.test(String(error.message||''))) return { semVersao:true, list:[] }; throw error; }
+  if(!data) return null;
+  return { list: Array.isArray(data.value) ? data.value : [], version: data.version };
+}
+async function pushProducts(){
+  for(let tentativa = 0; tentativa < 3; tentativa++){
+    const atual = await lerProdutosDoServidor();
+    if(!atual || atual.semVersao){ // chave nova (ou banco antigo): grava como antes
+      const payload = JSON.parse(JSON.stringify(state.products||[]));
+      await storageApi.set(STORE.products, JSON.stringify(payload));
+      setProdutosAtivoBase(payload);
+      return;
+    }
+    mesclarAtivoDosProdutos(state.products, atual.list);
+    const payload = JSON.parse(JSON.stringify(state.products||[]));
+    const { data, error } = await supabaseClient.from('app_data').update({ value: payload, updated_at: new Date().toISOString() })
+      .eq('tenant_id', storageApi.tenantId).eq('key', STORE.products).eq('version', atual.version).select('version');
+    if(error) throw error;
+    if(data && data.length){ setProdutosAtivoBase(payload); return; }
+  }
+  throw new Error('O catálogo mudou no servidor durante a gravação. Tente de novo.');
+}
