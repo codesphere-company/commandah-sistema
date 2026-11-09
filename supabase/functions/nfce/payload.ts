@@ -89,10 +89,11 @@ export function buildNfcePayload(sale: Sale, products: Product[], opts: { ambien
   let falta = total;
   for (const p of pagos) {
     if (falta <= 0) break;
-    const tPag = TPAG[String(p.method || "").toLowerCase()] || "99";
+    // 09/11 (pedido do dono): o pagamento grava o tPag da forma; venda antiga (sem tPag) usa a tabela por método.
+    const tPag = /^\d{2}$/.test(String(p.tPag || "")) ? String(p.tPag) : (TPAG[String(p.method || "").toLowerCase()] || "99");
     const valor = cents(Math.min(Number(p.amount) || 0, falta));
     const pg: Record<string, unknown> = { IndicadorPagamento: 0, FormaPagamento: tPag, VlPago: valor };
-    if (tPag === "99") pg.Descricao = String(p.method || "Outros").slice(0, 60);
+    if (tPag === "99") pg.Descricao = String(p.label || p.method || "Outros").slice(0, 60);
     // Cartão: a NFC-e exige o grupo do cartão com o tipo de integração. No clube a maquininha
     // não é integrada (TEF existe, mas não é contratado; confirmado em 12/10) -> tpIntegra 2.
     if (tPag === "03" || tPag === "04") pg.TipoIntegracao = false;
