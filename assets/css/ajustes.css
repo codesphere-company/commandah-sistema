@@ -882,3 +882,11 @@ th.th-ordena{cursor:pointer;user-select:none;white-space:nowrap}
 th.th-ordena:hover{color:var(--c-text)}
 th.th-ordena .seta{display:inline-block;margin-left:4px;font-size:10px;min-width:8px}
 th.th-ordena.ativa{color:var(--c-primary-text)}
+
+/* 08/11: janela de novidades ao entrar (sistema/novidades.js). */
+.novidades-modal{max-width:520px}
+.novidades-data{font-size:12px;color:var(--c-text-3);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 6px}
+.novidades-dia+.novidades-dia{margin-top:14px}
+.novidades-item{border-top:1px solid var(--c-border);padding:10px 0}
+.novidades-item p{margin:2px 0 0;color:var(--c-text-2)}
+.novidades-onde{font-size:12px;color:var(--c-primary-text);margin-top:4px}

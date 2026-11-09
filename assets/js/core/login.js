@@ -175,6 +175,7 @@ function afterLogin(){
     gcRenderHome();
     // UX lote 1 (06/11): sem o aviso "Bem-vindo(a)" — o nome já aparece no topo ("Olá, …").
     logAction('Login realizado (modo garçom)');
+    setTimeout(mostrarNovidadesAoEntrar,0); // 08/11: aviso de novidades (sistema/novidades.js)
     return;
   }
   document.getElementById('app').classList.add('show');
@@ -185,6 +186,7 @@ function afterLogin(){
   // UX lote 1 (06/11): sem o aviso "Bem-vindo(a)" — o nome já aparece na barra de baixo (Usuário).
   logAction('Login realizado');
   if(currentUser.username==='admin' && currentUser.pin==='1234') setTimeout(openForcedPinModal,0);
+  else setTimeout(mostrarNovidadesAoEntrar,0); // 08/11: aviso de novidades (sistema/novidades.js)
 }
 /* Logout de verdade: derruba TAMBÉM a sessão do Supabase.
    Antes só zerava currentUser — a sessão do operador que saiu continuava viva no
