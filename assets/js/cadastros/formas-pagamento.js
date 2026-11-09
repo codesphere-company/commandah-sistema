@@ -154,3 +154,10 @@ const apagarForma = singleFlight('apagarForma', async function(method){
   toast('Forma apagada.');
   renderPaymentMethods(document.getElementById('view-pagamentos'));
 });
+
+// 09/11 (pedido do dono): listas próprias (Contas a pagar/receber e recebimento de fiado, até a Task 3)
+// acrescentam só as formas criadas pelo estabelecimento, sem repetir nome da lista fixa.
+function nomesDeFormasCriadas(fixos){
+  const vistos = new Set((fixos||[]).map(x=>String(x).toLowerCase()));
+  return listaDeFormas().filter(f=>!formaEhInicial(f.method)).map(f=>f.nome).filter(n=>{ const k=String(n).toLowerCase(); if(vistos.has(k)) return false; vistos.add(k); return true; });
+}
