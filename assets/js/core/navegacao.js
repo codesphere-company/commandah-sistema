@@ -30,9 +30,11 @@ function ribbonItemAction(it, allowed){
   // adicionado no futuro sem permissão apareça bloqueado em vez de aberto.
   // Item sem `action` e sem `view` (módulo de referência: Connect, TEF, Emissão
   // Fiscal) segue liberado — só abre um texto explicativo, não toca em dado.
-  const permitted = it.perm ? allowed.includes(it.perm)
+  const permitidoPelaLista = it.perm ? allowed.includes(it.perm)
                   : hasView ? allowed.includes(it.view)
                   : !hasAction;
+  // 09/11: item "soAdmin" (conferência de pagamentos) exige administrador mesmo se a permissão vier na lista do colaborador.
+  const permitted = permitidoPelaLista && (!it.soAdmin || isAdminUser());
   if(permitted && MODULOS_EM_CONSTRUCAO.has(it.label)) return { enabled:true, emConstrucao:true, reason:'Em construção', onclick:`avisoEmConstrucao(${jsArg(h(it.label))})` };
   const reason = !hasAction && !hasView ? 'Abrir detalhes e requisitos do módulo'
     : (!permitted ? 'Sem permissão para o seu perfil' : '');

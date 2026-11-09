@@ -132,7 +132,7 @@ const RIBBON_TABS = [
   ]},
   { id:'financeiro', label:'Financeiro', groups:[
       { label:'Organização de Contas', items:[ {label:'Formas de Pagamento', icon:ICN.card, view:'pagamentos'}, {label:'Categoria de Contas', icon:ICN.folder, view:'contascategorias'}, {label:'Fornecedores', icon:ICN.truck, view:'fornecedores'} ] },
-      { label:'Conferência', items:[ {label:'Conferência de pagamentos', icon:ICN.listCheck, perm:'conferir-pagamentos', view:'conferencia'} ] },
+      { label:'Conferência', items:[ {label:'Conferência de pagamentos', icon:ICN.listCheck, perm:'conferir-pagamentos', soAdmin:true, view:'conferencia'} ] },
       { label:'Contas a Pagar / Receber', items:[ {label:'Contas a Pagar', icon:ICN.arrowUpBox, perm:'contas', action:'openFinancialView', actionArg:'pagar'}, {label:'Contas a Receber', icon:ICN.arrowDownBox, perm:'contas', action:'openFinancialView', actionArg:'receber'} ] },
       { label:'Fiado', items:[ {label:'Conta Corrente (Fiado)', icon:ICN.idcard, perm:'receber-fiado', action:'openFinancialView', actionArg:'fiado'} ] },
       { label:'Integrações', items:[ {label:'Pix Online', icon:ICN.pix, perm:'config-sistema', action:'openPixOnlineConfig'} ] }
@@ -481,7 +481,7 @@ function linhasPorForma(porMetodo, fiadoPorMetodo){
   chaves.forEach(k=>{
     const f = lista.find(x=>x.method===k) || null;
     const nome = f ? f.nome : methodLabel(k);
-    if(f ? (f.naVenda || tem(por,k)) : tem(por,k)) linhas.push({ method:k, label:nome, valor:r2(por[k]), confere:f?f.confere:'', fiado:false });
+    if(f ? (f.naVenda || tem(por,k)) : tem(por,k)) linhas.push({ method:k, label:nome, valor:r2(por[k]), confere:f?f.confere:'', tipo:f?f.tipo:'', fiado:false });
     if(tem(fia,k) && k!=='dinheiro') linhas.push({ method:k, label:nome+' fiado', valor:r2(fia[k]), confere:'ninguem', fiado:true });
   });
   return linhas;

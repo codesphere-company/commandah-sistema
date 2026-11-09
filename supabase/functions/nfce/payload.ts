@@ -8,7 +8,7 @@ export type Product = { id: string; name?: string; code?: string; measure?: stri
 export type SaleItem = { productId?: string; name?: string; qty?: number; price?: number; canceled?: boolean;
   // venda por peso, 05/11: peça pesada (qty 1, price = valor da peça já arredondado)
   weight?: { kg: number; pricePerKg: number } };
-export type Payment = { method?: string; amount?: number; change?: number; partial?: boolean; reversed?: boolean };
+export type Payment = { method?: string; amount?: number; change?: number; partial?: boolean; reversed?: boolean; tPag?: string; label?: string };
 export type Sale = {
   id: string; status?: string; canceled?: boolean; items?: SaleItem[]; payments?: Payment[];
   discount?: number; staffDiscount?: number; creditApplied?: number; orderNumber?: number | string | null; customerName?: string; cpfNaNota?: string;

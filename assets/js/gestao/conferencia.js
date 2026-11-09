@@ -32,6 +32,17 @@ function conferenciaLinhasDoPeriodo(){
   const de = confEstado.de, ate = confEstado.ate, linhas = [];
   const dentro = at => { const d = localDay(at); return !!d && d>=de && d<=ate; };
   (state.sales||[]).forEach(sl=>{
+    // Parcial de comanda ainda aberta: a chave parcial:<id> é a mesma depois do fechamento (quando entra em payments).
+    if(sl.status==='open' && !sl.canceled){
+      (sl.partialPayments||[]).forEach(p=>{
+        const valor = Math.round((Number(p.amount)||0)*100)/100;
+        if(p.reversed || valor<=0 || !conferenciaConfere(p.method)) return;
+        const at = p.at || sl.openedAt;
+        if(!dentro(at)) return;
+        linhas.push({ chave:'parcial:'+p.id, at, valor, method:normalizarMetodo(p.method), forma:methodLabel(p.method), origem:'Comanda #'+(sl.orderNumber||sl.id), quem:p.operatorName||sl.operatorName||'' });
+      });
+      return;
+    }
     if(!saleCountsAsRevenue(sl)) return;
     const contagem = {};
     (sl.payments||[]).forEach(p=>{
@@ -40,12 +51,12 @@ function conferenciaLinhasDoPeriodo(){
       if(p.reversed || valor<=0 || !conferenciaConfere(p.method)) return;
       const at = p.at || sl.closedAt || sl.openedAt;
       if(!dentro(at)) return;
-      linhas.push({ chave:chaveDoPagamento(sl,p,i), at, valor, method:normalizarMetodo(p.method), forma:methodLabel(p.method), origem:'Comanda #'+(sl.orderNumber||sl.id), quem:p.who||sl.operatorName||'' });
+      linhas.push({ chave:chaveDoPagamento(sl,p,i), at, valor, method:normalizarMetodo(p.method), forma:methodLabel(p.method), origem:'Comanda #'+(sl.orderNumber||sl.id), quem:p.operatorName||sl.operatorName||'' });
     });
   });
   (confEstado.debitos||[]).forEach(e=>{
     const valor = Math.round((Number(e.value)||0)*100)/100;
-    if(e.reversed || e.type!=='payment' || e.sale_id || valor<=0 || !conferenciaConfere(e.method) || !dentro(e.at)) return;
+    if(e.reversed || e.type!=='payment' || valor<=0 || !conferenciaConfere(e.method) || !dentro(e.at)) return;
     const m = (state.members||[]).find(x=>x.id===e.member_id);
     linhas.push({ chave:'fiado:'+e.id, at:e.at, valor, method:normalizarMetodo(e.method), forma:methodLabel(e.method), origem:'Fiado — '+(m?m.name:'cliente'), quem:e.created_by||'' });
   });
@@ -71,7 +82,7 @@ async function conferenciaCarregar(){
   try{
     const inicio = new Date(de+'T00:00:00').toISOString(), fim = new Date(new Date(ate+'T00:00:00').getTime()+86400000).toISOString();
     const [debitos, marcas] = await Promise.all([
-      fetchAllRows(()=>supabaseClient.from('member_debt_entries').select('id,member_id,type,value,method,at,created_by,reversed,sale_id').eq('type','payment').is('sale_id',null).neq('method','salario').gte('at',inicio).lt('at',fim).order('at',{ascending:false}).order('id')),
+      fetchAllRows(()=>supabaseClient.from('member_debt_entries').select('id,member_id,type,value,method,at,created_by,reversed,sale_id').eq('type','payment').neq('method','salario').gte('at',inicio).lt('at',fim).order('at',{ascending:false}).order('id')),
       fetchAllRows(()=>supabaseClient.from('payment_checks').select('payment_key,status,note,checked_by,checked_at').order('payment_key'))
     ]);
     // Se o período mudou enquanto carregava, descarta: a tela pede de novo.
@@ -85,7 +96,7 @@ async function conferenciaCarregar(){
 }
 function renderConferencia(el){
   el = el || document.getElementById('view-conferencia'); if(!el) return;
-  if(!hasPerm('conferir-pagamentos')){ el.innerHTML = '<p class="empty">Só o administrador confere pagamentos.</p>'; return; }
+  if(!hasPerm('conferir-pagamentos') || !isAdminUser()){ el.innerHTML = '<p class="empty">Só o administrador confere pagamentos.</p>'; return; }
   conferenciaPadraoDePeriodo();
   const nuvem = typeof isCloudMode==='function' && isCloudMode() && supabaseClient;
   const precisa = nuvem && !confEstado.carregando && (confEstado.carregadoDe!==confEstado.de || confEstado.carregadoAte!==confEstado.ate) && !confEstado.erro;

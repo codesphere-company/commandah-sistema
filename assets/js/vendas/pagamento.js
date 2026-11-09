@@ -403,7 +403,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
       currentSaleDraft.items = merged.items;
       // OP-13: os parciais entram nas formas de pagamento da venda (marcados partial, já contados
       // no caixa quando foram recebidos) e o total da venda volta a ser o total cheio.
-      const parts = (cur.partialPayments||[]).filter(p=>!p.reversed).map(p=>({method:p.method, amount:Number(p.amount)||0, partial:true, partialId:p.id, at:p.at, who:p.who||''}));
+      const parts = (cur.partialPayments||[]).filter(p=>!p.reversed).map(p=>({method:p.method, amount:Number(p.amount)||0, partial:true, partialId:p.id, at:p.at, who:p.who||'', operatorName:p.operatorName||''}));
       if(parts.length){ sale.payments=[...parts, ...sale.payments]; total=arredondaCentavos(total+parts.reduce((t,p)=>t+p.amount,0)); sale.total=total; }
     }
   }

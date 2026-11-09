@@ -13,6 +13,8 @@ const FORMAS_GRUPOS = [
   { chave:'naVenda', titulo:'Na hora de pagar', sub:'Botões que o operador vê ao fechar uma venda.' },
   { chave:'noFiado', titulo:'Ao receber fiado', sub:'Formas aceitas quando o sócio paga a conta de fiado.' },
 ];
+// 09/11: só Fiado ligado não basta para vender: conta só as formas que não são Fiado.
+const formasNaVendaSemFiado = method=>formasNaVenda().filter(f=>f.method!==method && f.tipo!=='fiado');
 const FORMAS_AVISO_ULTIMA = 'Pelo menos uma forma precisa ficar ligada em "Na hora de pagar".';
 
 function formaEhInicial(method){ return FORMAS_INICIAIS.some(f=>f.method===method); }
@@ -46,7 +48,7 @@ const alternarForma = singleFlight('alternarForma', async function(method, grupo
   const atual = formaPorMetodo(method);
   if(!atual) return;
   const ligar = !atual[grupo];
-  if(!ligar && grupo==='naVenda' && formasNaVenda().filter(f=>f.method!==method).length===0){ toast(FORMAS_AVISO_ULTIMA); return; }
+  if(!ligar && grupo==='naVenda' && formasNaVendaSemFiado(method).length===0){ toast(FORMAS_AVISO_ULTIMA); return; }
   const antes = JSON.stringify(state.paymentMethods);
   gravarForma({ ...atual, [grupo]: ligar });
   if(!await save('paymentMethods')){ state.paymentMethods = JSON.parse(antes); renderPaymentMethods(document.getElementById('view-pagamentos')); return; }
@@ -60,7 +62,7 @@ function gravarForma(forma){
   const item = { id: forma.id || uid(), method: forma.method, nome: forma.nome, tipo: forma.tipo, naVenda: !!forma.naVenda, noFiado: !!forma.noFiado, confere: forma.confere };
   const lista = Array.isArray(state.paymentMethods) ? state.paymentMethods : (state.paymentMethods = []);
   const i = lista.findIndex(x=> x && (x.method ? x.method===item.method : ('outro:'+x.nome)===item.method));
-  if(i>=0){ item.id = lista[i].id || item.id; lista[i] = item; } else lista.push(item);
+  if(i>=0){ item.id = lista[i].id || item.id; lista[i] = { ...lista[i], ...item }; } else lista.push(item);
   return item;
 }
 
@@ -108,6 +110,9 @@ function abrirEdicaoForma(method){
     const linha = document.getElementById('formaNoFiadoLinha');
     linha.hidden = tipo==='fiado'; // o tipo Fiado só aparece em "Na hora de pagar"
     if(tipo==='fiado') document.getElementById('formaNoFiado').checked = false;
+    const sel = document.getElementById('formaConfere'); // 09/11: Fiado não tem o que conferir
+    if(tipo==='fiado') sel.value = 'ninguem';
+    sel.disabled = tipo==='fiado';
   };
   document.getElementById('formaTipo').onchange = ajustaFiado; ajustaFiado();
   document.getElementById('formaSalvar').onclick = ()=>salvarFormaEditada(forma ? forma.method : null);
@@ -126,9 +131,9 @@ const salvarFormaEditada = singleFlight('salvarForma', async function(method){
   if(!FORMAS_TIPOS[tipo] || (!atual && (tipo==='dinheiro' || tipo==='fiado'))) { toast('Escolha o tipo da forma.'); return; }
   const naVenda = document.getElementById('formaNaVenda').checked;
   const noFiado = tipo==='fiado' ? false : document.getElementById('formaNoFiado').checked;
-  const confere = document.getElementById('formaConfere').value;
+  const confere = tipo==='fiado' ? 'ninguem' : document.getElementById('formaConfere').value;
   if(!FORMAS_CONFERE[confere]){ toast('Escolha quem confere.'); return; }
-  if(!naVenda && formasNaVenda().filter(x=>x.method!==method).length===0){ toast(FORMAS_AVISO_ULTIMA); return; }
+  if(!naVenda && formasNaVendaSemFiado(method).length===0){ toast(FORMAS_AVISO_ULTIMA); return; }
   const antes = JSON.stringify(state.paymentMethods);
   const item = gravarForma({ ...(atual||{}), method: atual ? atual.method : 'forma:'+uid(), nome, tipo, naVenda, noFiado, confere });
   if(!await save('paymentMethods')){ state.paymentMethods = JSON.parse(antes); return; }
