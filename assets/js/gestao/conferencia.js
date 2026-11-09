@@ -100,10 +100,6 @@ function conferenciaDesenhar(el, nuvem){
   const formas = []; todas.forEach(l=>{ if(!formas.some(f=>f.method===l.method)) formas.push({ method:l.method, forma:l.forma }); });
   const totais = {}; linhas.forEach(l=>{ const t = totais[l.forma] = totais[l.forma]||{ valor:0, n:0 }; t.valor += l.valor; t.n++; });
   const totalGeral = linhas.reduce((a,l)=>a+l.valor,0);
-  const vendas = (state.sales||[]).filter(s=>s.openedAt||s.closedAt).map(s=>localDay(s.closedAt||s.openedAt)).sort();
-  const maisAntiga = vendas[0];
-  const aviso = (vendas.length && confEstado.de < maisAntiga)
-    ? `<p class="conf-aviso">As vendas carregadas neste aparelho começam em ${h(maisAntiga.split('-').reverse().join('/'))}. Pagamentos de vendas anteriores a essa data podem não aparecer.</p>` : '';
   const linhasHtml = linhas.map(l=>{
     const d = new Date(l.at), sit = conferenciaSituacao(l.chave), mk = confEstado.marcas[l.chave];
     const nota = mk && mk.note ? `<span class="conf-nota" title="${h(mk.note)}">${h(mk.note)}</span>` : '';
@@ -120,7 +116,6 @@ function conferenciaDesenhar(el, nuvem){
       <label>Situação <select id="confSituacao" onchange="conferenciaFiltro('situacao',this.value)">${opcoesSit}</select></label>
       <div class="finance-actions"><button class="op-btn" onclick="conferenciaExportar()">⇩ &nbsp; Exportar planilha</button></div>
     </div>
-    ${aviso}
     ${confEstado.erro?`<p class="conf-aviso">${h(confEstado.erro)}</p>`:''}
     ${nuvem?'':'<p class="conf-aviso">A conferência só funciona com o sistema conectado à nuvem.</p>'}
     <div class="conf-totais">${totaisHtml || '<span class="sub">Nenhum pagamento no período.</span>'}${linhas.length?`<div class="conf-total conf-total-geral"><span>Total</span><b>${fmt(totalGeral)}</b><small>${linhas.length} pagamento${linhas.length===1?'':'s'}</small></div>`:''}</div>
@@ -131,7 +126,7 @@ function conferenciaDesenhar(el, nuvem){
       <span class="sub" id="confContagem">${confEstado.selecao.size} selecionado(s)</span>
     </div>
     <div class="finance-grid conf-grid"><table><thead><tr><th><input type="checkbox" aria-label="Selecionar todos" onchange="conferenciaSelecionarTodos(this.checked)"></th><th>Data</th><th>Hora</th><th>Valor</th><th>Forma</th><th>Comanda ou cliente</th><th>Lançado por</th><th>Situação</th></tr></thead><tbody>${linhasHtml||`<tr><td colspan="8" class="empty">${confEstado.carregando?'Carregando…':'Nenhum pagamento para mostrar.'}</td></tr>`}</tbody></table></div>
-    <footer class="op-footer"><span>Pagamentos=${linhas.length}</span><span>Só registro de conferência: não altera venda, caixa nem fiado.</span></footer>
+    <footer class="op-footer"><span>Pagamentos: ${linhas.length}</span><span>Só registro de conferência: não altera venda, caixa nem fiado.</span></footer>
   </section>`;
 }
 function conferenciaFiltro(campo, valor){
@@ -158,21 +153,32 @@ function conferenciaChavesMarcadas(){
   const visiveis = new Set(conferenciaLinhasFiltradas().map(l=>l.chave));
   return [...confEstado.selecao].filter(k=>visiveis.has(k));
 }
+// Devolve true se gravou tudo. Em erro mantém a seleção (e a observação) e dá um único aviso no fim.
 const conferenciaAplicar = singleFlight('conferencia', async function(status, nota, chaves){
-  if(!requirePerm('conferir-pagamentos')) return;
-  if(!chaves.length){ toast('Marque ao menos um pagamento.'); return; }
-  if(status==='nao_recebido' && !String(nota||'').trim()){ toast('Informe a observação: o que aconteceu com esse pagamento.'); return; }
-  let feitos = 0;
+  if(!requirePerm('conferir-pagamentos')) return false;
+  if(!chaves.length){ toast('Marque ao menos um pagamento.'); return false; }
+  const texto = String(nota||'').trim();
+  if(status==='nao_recebido' && !texto){ toast('Informe a observação: o que aconteceu com esse pagamento.'); return false; }
+  if(!(typeof supabaseClient!=='undefined' && supabaseClient)){ toast('A conferência só funciona com o sistema conectado à nuvem.'); return false; }
+  let feitos = 0, falha = '';
   for(let i=0; i<chaves.length; i+=500){
     const lote = chaves.slice(i, i+500);
-    const { data, error } = await supabaseClient.rpc('payment_checks_apply', { p_keys:lote, p_status:status, p_note:status==='nao_recebido'?String(nota).trim():null, p_by:currentUser?currentUser.name:'' });
-    if(error){ toast('Não foi possível gravar a conferência: '+(error.message||'erro')+(feitos?' ('+feitos+' já gravado(s))':''), 'error'); break; }
-    feitos += Number(data&&data.n)||lote.length;
-    lote.forEach(k=>{ if(status==='a_conferir') delete confEstado.marcas[k]; else confEstado.marcas[k] = { status, note:status==='nao_recebido'?String(nota).trim():'', by:currentUser?currentUser.name:'', at:new Date().toISOString() }; });
+    try{
+      const { data, error } = await supabaseClient.rpc('payment_checks_apply', { p_keys:lote, p_status:status, p_note:status==='nao_recebido'?texto:null, p_by:currentUser?currentUser.name:'' });
+      if(error){ falha = error.message||'erro'; break; }
+      feitos += Number(data&&data.n)||lote.length;
+      lote.forEach(k=>{
+        if(status==='a_conferir') delete confEstado.marcas[k]; else confEstado.marcas[k] = { status, note:status==='nao_recebido'?texto:'', by:currentUser?currentUser.name:'', at:new Date().toISOString() };
+        confEstado.selecao.delete(k);
+      });
+    }catch(e){ falha = (e&&e.message)||'sem conexão'; break; }
   }
-  confEstado.selecao = new Set();
-  renderConferencia();
-  if(feitos) toast(feitos+' pagamento(s) '+(status==='confirmado'?'confirmado(s)':status==='nao_recebido'?'marcado(s) como não recebido':'de volta para conferir')+'.');
+  const verbo = status==='confirmado'?'confirmado(s)':status==='nao_recebido'?'marcado(s) como não recebido':'de volta para conferir';
+  if(falha){
+    toast((feitos?feitos+' pagamento(s) '+verbo+'; ':'')+'falhou o resto: '+falha+'. Os que faltam continuam selecionados.', 'error');
+  } else toast(feitos+' pagamento(s) '+verbo+'.');
+  if(typeof activeView!=='undefined' && activeView==='conferencia') renderConferencia();
+  return !falha;
 });
 function conferenciaConfirmar(){ conferenciaAplicar('confirmado', '', conferenciaChavesMarcadas()); }
 function conferenciaVoltar(){ conferenciaAplicar('a_conferir', '', conferenciaChavesMarcadas()); }
@@ -186,8 +192,8 @@ function conferenciaPedirNota(){
 async function conferenciaNaoRecebido(){
   const nota = (document.getElementById('confNota')||{}).value || '';
   if(!nota.trim()){ toast('Informe a observação: o que aconteceu com esse pagamento.'); return; }
-  closeModal();
-  await conferenciaAplicar('nao_recebido', nota, confEstado.pendente);
+  const ok = await conferenciaAplicar('nao_recebido', nota, confEstado.pendente);
+  if(ok){ confEstado.pendente = []; closeModal(); }
 }
 async function conferenciaExportar(){
   try{
