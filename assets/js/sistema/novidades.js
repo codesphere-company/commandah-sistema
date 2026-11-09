@@ -5,6 +5,23 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-09', data:'09/11/2026', itens:[
+    { titulo:'Novo perfil: Garçom',
+      texto:'Para quem atende pelo celular: lança pedido e fecha comanda. Fiado, caixa e cadastros continuam com o caixa e o administrador.',
+      onde:'Colaboradores › Editar › Acesso e Permissões', perms:['usuarios'] },
+    { titulo:'Produtos em falta',
+      texto:'Acabou um item? Pause o produto e ele sai da venda em todos os aparelhos em até 30 segundos. Ative de novo na mesma tela.',
+      onde:'Menu › Produtos em falta', perms:['pausar-produto'] },
+    { titulo:'Diária de freelancer',
+      texto:'Registre a diária como retirada, com o nome da pessoa. Ela aparece separada no fechamento do caixa.',
+      onde:'Caixa › Retirada › Diária de freelancer', perms:['caixa'] },
+    { titulo:'Conta do colaborador',
+      texto:'Cliente do tipo Colaborador tem desconto na comanda, e o consumo fica na conta dele. A comanda fecha só no caixa, e o administrador dá baixa como "Descontado do salário".',
+      onde:'Clientes › Editar › Tipo de cliente; Conta Corrente (Fiado)', perms:['associados','receber-fiado'] },
+    { titulo:'Cancelar NFC-e: só o administrador',
+      texto:'O cancelamento da nota fiscal passou a ser feito apenas pelo administrador.',
+      onde:'Comanda fechada › Cancelar NFC-e', perms:['caixa'] },
+  ] },
   { id:'2026-11-08', data:'08/11/2026', itens:[
     { titulo:'Entrada mais rápida',
       texto:'O aparelho lembra quem entrou por último ("Continuar como …", só falta o PIN). Para outra pessoa, digite o nome na busca e tecle Enter.',

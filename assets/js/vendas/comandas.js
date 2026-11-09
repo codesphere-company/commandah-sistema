@@ -80,6 +80,7 @@ function comandaDraftTotalsHtml(){
   const t = gcComandaTotals({ ...sale, items: currentSaleDraft.items });
   return `<div class="cash-order-total-breakdown">
     <div class="cash-order-subtotal-line"><span>Subtotal</span><span class="mono">${fmt(t.subtotal)}</span></div>
+    ${t.staffDiscount>TOLERANCIA_CENTAVO?`<div class="cash-order-subtotal-line"><span>${h(staffDiscountLabel(t.staffDiscountPct))}</span><span class="mono">− ${fmt(t.staffDiscount)}</span></div>`:''}
     ${t.creditApplied>TOLERANCIA_CENTAVO?`<div class="cash-order-subtotal-line"><span>(−) Crédito do sócio (abatido)</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
     ${t.service>TOLERANCIA_CENTAVO?`<div class="cash-order-service-line"><span>(+) Serviço (${serviceRatePct()}%)</span><span class="mono">${fmt(t.service)}</span></div>`:''}
     ${t.partialPaid>TOLERANCIA_CENTAVO?`<div class="cash-order-subtotal-line"><span>(−) Já pago (parcial)</span><span class="mono">− ${fmt(t.partialPaid)}</span></div>`:''}
@@ -106,6 +107,7 @@ function comandaPanelHtml(s){
     <div class="cp-items">${grouped.length?grouped.map(g=>`<div class="cp-item"><span class="cp-qty">${g.weight?h(itemQtyLabel(g)):g.qty+'×'}</span><span class="cp-iname">${h(g.name)}</span><span class="mono">${fmt(g.price*g.qty)}</span></div>`).join(''):'<p class="cp-empty">Nenhum item lançado ainda.</p>'}</div>
     <div class="cp-totals">
       <div><span>Consumo</span><span class="mono">${fmt(t.subtotal)}</span></div>
+      ${t.staffDiscount>TOLERANCIA_CENTAVO?`<div><span>${h(staffDiscountLabel(t.staffDiscountPct))}</span><span class="mono">− ${fmt(t.staffDiscount)}</span></div>`:''}
       ${t.creditApplied>TOLERANCIA_CENTAVO?`<div><span>Crédito do sócio (abatido)</span><span class="mono">− ${fmt(t.creditApplied)}</span></div>`:''}
       ${t.service>TOLERANCIA_CENTAVO?`<div><span>Serviço ${serviceRatePct()}%</span><span class="mono">${fmt(t.service)}</span></div>`:''}
       ${t.partialPaid>TOLERANCIA_CENTAVO?`<div><span>Já pago (parcial)</span><span class="mono">− ${fmt(t.partialPaid)}</span></div>`:''}

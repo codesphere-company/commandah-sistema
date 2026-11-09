@@ -110,7 +110,9 @@ const RIBBON_TABS = [
           {label:'Mesas/Comandas', icon:ICN.table, view:'comandas'},
           {label:'Caixa/PDV', icon:ICN.cart, view:'balcao'},
           {label:'Delivery', icon:ICN.delivery, view:'delivery'},
-          {label:'Monitor de Cozinha', icon:ICN.chef, view:'cozinha'}
+          {label:'Monitor de Cozinha', icon:ICN.chef, view:'cozinha'},
+          // 08/11 (pedido do dono): caixa e cozinha pausam o produto que acabou sem abrir o cadastro.
+          {label:'Produtos em falta', icon:ICN.box, perm:'pausar-produto', action:'abrirProdutosEmFalta'}
       ]},
       { label:'Clientes', items:[ {label:'Clientes', icon:ICN.users, view:'associados'} ] }
   ]},
@@ -159,7 +161,7 @@ const RIBBON_TABS = [
   ]}
 ];
 const SIMPLE_RIBBON_COZINHA = [
-  { id:'cozinha_tab', label:'Cozinha', groups:[ { label:'Preparo', items:[ {label:'Monitor de Cozinha', icon:ICN.chef, view:'cozinha'} ] } ] }
+  { id:'cozinha_tab', label:'Cozinha', groups:[ { label:'Preparo', items:[ {label:'Monitor de Cozinha', icon:ICN.chef, view:'cozinha'}, {label:'Produtos em falta', icon:ICN.box, perm:'pausar-produto', action:'abrirProdutosEmFalta'} ] } ] }
 ];
 /* ROLE_PERMS — tokens de permissão de TELA (client-side).
    ATENÇÃO: isto NÃO é a barreira de segurança. A barreira é a RLS por papel no
@@ -177,14 +179,23 @@ const SIMPLE_RIBBON_COZINHA = [
 const ROLE_PERMS = {
   admin: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','produtos','insumos','usuarios','relatorios','cozinha',
     'categorias','complementos','observacoes','perguntas','fornecedores','pagamentos','contascategorias','contas','locais','quemlevou','impressoras','estacoes','origens',
-    'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr','senha-propria','cancelar-comanda','receber-fiado','relatorios-gerencia'],
-  caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','quemlevou','impressoras','estacoes','origens','relatorios','painel-senhas','totem','ajuda','mobile-qr','senha-propria','cancelar-comanda','receber-fiado'],
-  cozinha: ['cozinha','senha-propria']
+    'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr','senha-propria','cancelar-comanda','receber-fiado','relatorios-gerencia','pausar-produto'],
+  caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','quemlevou','impressoras','estacoes','origens','relatorios','painel-senhas','totem','ajuda','mobile-qr','senha-propria','cancelar-comanda','receber-fiado','pausar-produto'],
+  // 08/11 (pedido do dono): Garçom só atende comandas pelo app (sem caixa, fiado, cancelamento ou relatórios).
+  garcom: ['comandas','senha-propria','mobile-qr'],
+  // 08/11 (pedido do dono): 'pausar-produto' = tela "Produtos em falta" (RPC product_set_active). Garçom não tem.
+  cozinha: ['cozinha','senha-propria','pausar-produto']
 };
+// Tokens que surgiram depois de a matriz de perfis já poder estar salva: matriz salva antes da versão
+// indicada recebe o padrão do papel ('receber-fiado', OP-08, versão 2; 'pausar-produto', 08/11, versão 3).
+// Matriz salva a partir da versão respeita o que o dono desmarcou.
+const ROLE_PERMS_NOVAS = [['receber-fiado',2],['pausar-produto',3]];
+const ROLE_PERMS_VERSAO = 3;
 function rolePermissions(role){const custom=state&&state.settings&&state.settings.rolePermissions&&state.settings.rolePermissions[role];if(!Array.isArray(custom))return ROLE_PERMS[role]||[];
-  // 'receber-fiado' (OP-08) surgiu depois: matriz salva antes dele (versão < 2) recebe o padrão do papel.
-  if((Number(state.settings.rolePermissionsVersion)||1)<2&&(ROLE_PERMS[role]||[]).includes('receber-fiado')&&!custom.includes('receber-fiado'))return custom.concat('receber-fiado');
-  return custom;}
+  // 'receber-fiado' (OP-08) e 'pausar-produto' (08/11) surgiram depois: matriz salva antes deles recebe o padrão do papel.
+  const versao=Number(state.settings.rolePermissionsVersion)||1;
+  const faltam=ROLE_PERMS_NOVAS.filter(([t,v])=>versao<v&&(ROLE_PERMS[role]||[]).includes(t)&&!custom.includes(t)).map(([t])=>t);
+  return faltam.length?custom.concat(faltam):custom;}
 /* Guarda de permissão pra botão que vive DENTRO de uma tela permitida (não é
    item de ribbon). Usada nos fluxos que gravam cantina2:settings, que passou a
    ser escrita exclusiva de admin/dono na RLS — sem isto o caixa clicaria em
@@ -234,7 +245,19 @@ function fmt(n){ return 'R$ ' + (Number(n)||0).toLocaleString('pt-BR',{minimumFr
 // comanda nem compra até pagar; vale para o titular e os dependentes. Só o administrador libera
 // (members.debt_release = {amount, at, by}); a liberação vale enquanto a dívida não passar do valor
 // liberado, então um fiado novo bloqueia de novo. credit_limit continua sem uso (decisão de 03/10).
+// Conta do colaborador (D2, 08/11, pedido do dono): cliente do tipo "Colaborador" (members.kind).
+// Só a grafia exata 'colaborador' conta; o resto é sócio.
+function memberIsColaborador(member){ return !!member && member.kind==='colaborador'; }
+// Desconto do colaborador em % (Configurações, só o admin altera). Padrão 20; fora de 0–100 é cortado.
+function descontoColaborador(){
+  const raw=state.settings&&state.settings.staffDiscountPct;
+  const v=raw===''||raw==null?NaN:Number(raw);
+  return Number.isFinite(v)?Math.min(100,Math.max(0,v)):20;
+}
 function memberBlockedByDebt(member){
+  // A dívida do colaborador não bloqueia o consumo (D2, 08/11, pedido do dono): ela é descontada do
+  // salário pelo administrador. O sócio com dívida continua bloqueado.
+  if(memberIsColaborador(member)) return false;
   const debt=Number(member&&member.debt)||0;
   if(debt<=TOLERANCIA_CENTAVO) return false;
   const rel=member.debtRelease;

@@ -1,5 +1,5 @@
 // ---------- t207: NFC-e da comanda (Edge Function "nfce"; por enquanto só homologação) ----------
-function nfceCanUse(sale){ return !!(sale && sale.status==='closed' && !sale.canceled && isCloudMode() && supabaseClient && ((currentUser && (currentUser.role==='admin'||currentUser.role==='caixa')) || sessionIsOwner)); }
+function nfceCanUse(sale){ return !!(sale && sale.status==='closed' && !sale.canceled && isCloudMode() && supabaseClient && ((currentUser && (currentUser.role==='admin'||currentUser.role==='caixa'||currentUser.role==='garcom')) || sessionIsOwner)); }
 async function nfceCall(action, saleId, extra){
   try{
     const { data, error } = await supabaseClient.functions.invoke('nfce', { body:{ action, sale_id:saleId, ...(extra||{}) } });
@@ -22,7 +22,7 @@ function nfceNotaHtml(n){
     const left = NFCE_CANCEL_MIN - nfceMinutesSince(n.created_at);
     return `<p style="margin:4px 0"><span class="tag tag-green">✓ Autorizada</span>${amb} nº ${h(String(n.numero||'—'))} · série ${h(String(n.serie||'—'))} · ${h(when)}<br><span class="sub mono" style="word-break:break-all">Chave ${h(n.chave||'—')}</span></p>
     ${n.id?`<button class="op-btn" onclick="printNfceDanfe(${jsArg(n.id)})">▣ &nbsp; Imprimir cupom da NFC-e</button>`:''}
-    ${left>0?`<button class="op-btn" onclick="openCancelNfce(${jsArg(n.sale_id)})">⊘ &nbsp; Cancelar NFC-e (faltam ${left} min)</button>`:'<span class="sub">Prazo de cancelamento (30 min) encerrado.</span>'}`;
+    ${left>0?(isAdminUser()?`<button class="op-btn" onclick="openCancelNfce(${jsArg(n.sale_id)})">⊘ &nbsp; Cancelar NFC-e (faltam ${left} min)</button>`:'<span class="sub">Só o administrador cancela NFC-e.</span>'):'<span class="sub">Prazo de cancelamento (30 min) encerrado.</span>'}`;
   }
   return `<p style="margin:4px 0"><span class="tag tag-red">✗ ${n.status==='rejeitada'?'Recusada pela SEFAZ':'Falha no envio'}</span>${amb} ${h(when)}<br><span class="sub">${n.cod_status?h(String(n.cod_status))+' · ':''}${h(n.motivo||'')}</span></p>`;
 }
@@ -35,7 +35,9 @@ async function loadNfceBox(saleId, flash){
     ${r.error?`<p class="sub" style="margin:4px 0">${h(r.error)}</p>`:notas.length?notas.slice(0,3).map(nfceNotaHtml).join(''):'<p class="sub" style="margin:4px 0">Nenhuma NFC-e emitida para esta comanda.</p>'}
     ${!ok&&!r.error?`<button class="op-btn" id="nfceEmitBtn" onclick="emitNfceForSale(${jsArg(saleId)})">▤ &nbsp; ${nfceSettings().ambiente===1?'Emitir NFC-e':'Emitir NFC-e de teste (homologação)'}</button>`:''}`;
 }
+// 08/11 (pedido do dono): só o administrador (ou o dono) cancela NFC-e; a função nfce também recusa.
 function openCancelNfce(saleId){
+  if(!isAdminUser()){ toast('Só o administrador cancela NFC-e.'); return; }
   openModal('Cancelar NFC-e', `
     <p class="sub" style="margin-top:0">A SEFAZ aceita o cancelamento até 30 minutos depois da autorização. Depois de cancelada, a comanda pode receber uma NFC-e nova.</p>
     <div class="field"><label for="nfceCancelMotivo">Motivo (mínimo 15 letras) *</label><input id="nfceCancelMotivo" maxlength="255" placeholder="Ex.: pagamento lançado na forma errada"></div>

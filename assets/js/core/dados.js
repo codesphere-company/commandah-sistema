@@ -9,7 +9,10 @@ async function loadAll(){
    (attemptPinLogin): antes, um admin que entrava num aparelho aberto como caixa via Contas a Pagar
    vazia, e o primeiro "salvar" gravava a lista vazia por cima da real. */
 let dadosCarregadosComo = null;
-function visaoDoPapel(papel){ return papel==='owner'||papel==='admin' ? 'total' : papel==='caixa'||papel==='cozinha' ? papel : null; }
+// Revisão final, item 2: o garçom tem visão própria (lê quase o mesmo que o caixa, mas não o fiado);
+// antes caía em null e todo login de garçom forçava carregarDados() completo, e caixa ↔ garçom no mesmo
+// aparelho ficariam com os dados da visão errada se fossem tratados como iguais.
+function visaoDoPapel(papel){ return papel==='owner'||papel==='admin' ? 'total' : papel==='caixa'||papel==='garcom'||papel==='cozinha' ? papel : null; }
 async function visaoDaSessao(){
   if(!isCloudMode()) return 'total'; // sem RLS: lê tudo
   if(sessionIsOwner) return 'total';
@@ -42,6 +45,7 @@ async function carregarDados(){
   stripIntegrationTokens(state.settings);
   setCashMovementsBase(state.cashMovements);
   setInsumosBase(state.insumos);
+  setProdutosAtivoBase(state.products); // 08/11: mescla do "active" no save('products') (caixa-multiaparelho.js)
   state.members = await membersP;
   state.orders = await ordersP;
   if(salesP) state.sales = await salesP;
@@ -64,10 +68,11 @@ async function carregarDados(){
 
   if(seedable('users') && !state.users.length){
     state.users.push({id:uid(), name:'Administrador', username:'admin', pin:'1234', role:'admin', origem:'caixa'});
-    state.users.push({id:uid(), name:'Garçom App', username:'garcom', pin:'1234', role:'caixa', origem:'app'});
+    // Revisão final, item 3: o garçom de estabelecimento novo já nasce com o perfil garcom.
+    state.users.push({id:uid(), name:'Garçom App', username:'garcom', pin:'1234', role:'garcom', origem:'app'});
     await save('users');
   } else if(seedable('users') && !state.users.some(u=>u.username==='garcom')){
-    state.users.push({id:uid(), name:'Garçom App', username:'garcom', pin:'1234', role:'caixa', origem:'app'});
+    state.users.push({id:uid(), name:'Garçom App', username:'garcom', pin:'1234', role:'garcom', origem:'app'});
     await save('users');
   }
   const usersMissingOrigem = state.users.filter(u=>!u.origem);
@@ -123,11 +128,12 @@ async function migratePendingStaffAsOwner(){
   }
   if(changed) await save('users');
 }
+// 08/11: 'products' na nuvem vai por pushProducts (mescla o "active" pausado em outro aparelho).
 async function save(key){
   if(!STORE[key]){ toast('Erro interno: conjunto de dados desconhecido.'); return false; }
   const payload = JSON.stringify(state[key]);
   const previous = saveQueues[key] || Promise.resolve(true);
-  const operation = previous.catch(()=>false).then(()=> key==='cashMovements' && isCloudMode() ? pushCashMovements() : key==='insumos' && isCloudMode() ? pushInsumos() : key==='sales' && isCloudMode() ? pushSales() : storageApi.set(STORE[key], payload));
+  const operation = previous.catch(()=>false).then(()=> key==='cashMovements' && isCloudMode() ? pushCashMovements() : key==='insumos' && isCloudMode() ? pushInsumos() : key==='sales' && isCloudMode() ? pushSales() : key==='products' && isCloudMode() ? pushProducts() : storageApi.set(STORE[key], payload));
   saveQueues[key] = operation;
   try{ await operation; clearSaveFailBanner(key); return true; }
   catch(e){ saveFailBanner(key); return false; }

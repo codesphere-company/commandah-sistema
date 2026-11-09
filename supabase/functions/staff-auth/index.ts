@@ -22,14 +22,15 @@ const ADMIN_PIN_MIN_LEN = 6;
 // staff_id vem do uid() do frontend (base36) e entra no e-mail sintético da conta;
 // PIN tem teto porque o bcrypt ignora o que passa de 72 bytes.
 const STAFF_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const ROLES = ["admin", "caixa", "cozinha"];
+// 08/11 (pedido do dono): perfil garçom passa a existir no servidor (PIN de 4 dígitos, como caixa).
+const ROLES = ["admin", "caixa", "garcom", "cozinha"];
 const PIN_MAX_LEN = 64;
 function validStaffId(v: string) { return STAFF_ID_RE.test(v); }
 function validPin(v: string) { return v.length >= 1 && v.length <= PIN_MAX_LEN; }
 
 // Auditoria 03/11 (A2): troca de perfil vai para o audit_log (aparece em Logs para o dono).
 async function logRoleChange(tenantId: string, staffId: string, from: string, to: string, by: unknown) {
-  const label = (r: string) => r === "admin" ? "Administrador" : r === "caixa" ? "Operador de caixa" : "Cozinha";
+  const label = (r: string) => r === "admin" ? "Administrador" : r === "caixa" ? "Operador de caixa" : r === "garcom" ? "Garçom" : "Cozinha";
   const { error } = await admin.from("audit_log").insert({
     tenant_id: tenantId, actor_name: String(by || "").slice(0, 120) || "Administrador", entity: "staff", entity_id: staffId,
     action: `Perfil do colaborador ${staffId} alterado: ${label(from)} → ${label(to)}`,

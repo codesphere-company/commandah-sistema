@@ -98,6 +98,7 @@ function anonymizeMember(memberId){
 async function doAnonymizeMember(memberId){
   const m=state.members.find(x=>x.id===memberId); if(!m) return 'Sócio não encontrado.';
   const tag=memberId.slice(-4).toUpperCase(), newName='Sócio anonimizado '+tag, oldNames=new Set([m.name, ...(m.dependents||[]).map(d=>d.name)].filter(Boolean)), at=new Date().toISOString();
+  // blank sem `kind` de propósito (D2, 08/11): anonimizar não muda o tipo do cliente (sócio/colaborador).
   const blank={ name:newName, code:'', phone:'', email:'', gender:'', document:'', registry:'', birthDate:'', zip:'', address:'', addressNumber:'', addressComplement:'', district:'', city:'', uf:'', reference:'', ibge:'', tags:[], notes:'', marketingOptIn:false };
   try{
     if(isCloudMode()){
