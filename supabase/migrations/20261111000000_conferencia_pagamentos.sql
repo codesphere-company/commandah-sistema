@@ -34,7 +34,7 @@ create table if not exists public.payment_checks (
 );
 
 alter table public.payment_checks enable row level security;
-revoke all on public.payment_checks from public, anon;
+revoke all on public.payment_checks from public, anon, authenticated;
 grant select on public.payment_checks to authenticated;
 
 drop policy if exists payment_checks_select on public.payment_checks;
@@ -93,9 +93,9 @@ begin
                            else 'devolvido(s) para conferir' end;
   insert into public.audit_log (actor_name, action, entity, meta)
   values (v_by,
-          'Conferência: ' || cardinality(v_keys) || ' pagamento(s) ' || v_label,
+          'Conferência: ' || v_n || ' pagamento(s) ' || v_label,
           'payment_check',
-          jsonb_build_object('keys', to_jsonb(v_keys), 'status', p_status));
+          jsonb_build_object('keys', to_jsonb(v_keys), 'status', p_status, 'n', v_n));
 
   return jsonb_build_object('ok', true, 'n', v_n);
 end;
