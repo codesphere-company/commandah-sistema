@@ -5,6 +5,20 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-09-formas', data:'09/11/2026', itens:[
+    { titulo:'Formas de pagamento você escolhe',
+      texto:'Agora dá para ligar e desligar as formas de pagamento, criar novas (como "Pago online") e dizer quem confere cada uma. O Fiado e o Vale só aparecem na venda se estiverem ligados.',
+      onde:'Financeiro › Organização de Contas › Formas de Pagamento', perms:['pagamentos'] },
+    { titulo:'Fechamento do caixa: o que contar',
+      texto:'Ao fechar, conte o dinheiro e as outras formas que o administrador marcou para você. Você digita o que contou e finaliza; quem vê o valor esperado e a diferença é o administrador.',
+      onde:'Principal › Caixa › Abrir/Fechar › Fechar Caixa', perms:['caixa'] },
+    { titulo:'Fechamento por forma de pagamento',
+      texto:'O fechamento mostra uma linha para cada forma, com o esperado, o contado e a diferença. O recebimento de fiado em Pix ou outra forma aparece separado ("Pix fiado").',
+      onde:'Relatórios › Caixa › Histórico do Caixa', perms:['relatorios-gerencia'] },
+    { titulo:'Conferência de pagamentos',
+      texto:'O administrador confere o que entrou em cartão, Pix e vales e marca vários pagamentos de uma vez.',
+      onde:'Financeiro › Conferência › Conferência de pagamentos', perms:['conferir-pagamentos'] },
+  ] },
   { id:'2026-11-09', data:'09/11/2026', itens:[
     { titulo:'Novo perfil: Garçom',
       texto:'Para quem atende pelo celular: lança pedido e fecha comanda. Fiado, caixa e cadastros continuam com o caixa e o administrador.',

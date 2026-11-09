@@ -19,20 +19,33 @@ function openAccountantExport(){if(!requirePerm('relatorios-gerencia'))return; /
     <div class="row"><button class="btn" onclick="closeModal()">Voltar</button><button class="btn btn-primary" id="accGo" onclick="generateAccountantExport()">Gerar planilha</button></div>`);
 }
 function setAccountantRange(offset){ const r=monthRange(offset); document.getElementById('accFrom').value=r.from; document.getElementById('accTo').value=r.to; }
+/* 09/11 (pedido do dono): relatórios com uma coluna/linha por forma de pagamento. Devolve só as formas
+   que têm valor em alguma das listas ({method:valor}), na ordem da lista de formas e com as formas
+   legadas (cartao, outro:Nome, formas apagadas) no fim. Só muda a apresentação: nenhum total muda. */
+function colunasDeFormas(listas){
+  const ls=(listas||[]).filter(Boolean), chaves=listaDeFormas().map(f=>f.method);
+  ls.forEach(l=>Object.keys(l).forEach(k=>{ if(!chaves.includes(k)) chaves.push(k); }));
+  return chaves.filter(k=>ls.some(l=>Math.abs(Number(l[k])||0)>=0.005)).map(k=>({ method:k, label:k==='outros'?'Outros':methodLabel(k) }));
+}
+// Totais por forma de um fechamento; sessão antiga (sem porForma) vem de totals.
+function porMetodoDoFechamento(c){
+  if(c.porForma) return c.porForma;
+  const t=c.totals||{};
+  return { dinheiro:t.dinheiro, cartao:t.cartao, pix:t.pix, fiado:t.fiado, outro:t.outro!=null?t.outro:t.outros };
+}
 function accountantSheets(from, to){
   const inP=d=>d>=from&&d<=to, round=v=>arredondaCentavos(Number(v)||0), fmtD=v=>v?dataHoraBR(v):'';
   const memberOf=id=>state.members.find(m=>m.id===id);
   const sales=state.sales.filter(sl=>saleCountsAsRevenue(sl) && inP(saleRevenueDay(sl)));
   const canceled=state.sales.filter(sl=>sl && sl.canceled && inP(localDay(sl.canceledAt||sl.closedAt||sl.openedAt)));
-  const buckets=['dinheiro','cartao','pix','fiado','outros'], bucketLabel={dinheiro:'Dinheiro',cartao:'Cartão',pix:'Pix',fiado:'Fiado (a prazo)',outros:'Outros'};
-  const byMethod=sl=>somaPorForma([sl]);
+  const somaMapa=(alvo,o)=>Object.keys(o).forEach(k=>{ alvo[k]=(alvo[k]||0)+o[k]; });
   // Revisão final, item 5: o desconto do colaborador (sl.staffDiscount) tem linha/coluna própria,
   // separado de "Descontos" (cupom, sl.discount).
-  const tot={ fat:0, n:sales.length, desc:0, colab:0, serv:0, m:totaisPorFormaVazio() };
+  const tot={ fat:0, n:sales.length, desc:0, colab:0, serv:0, m:{} };
   const days={};
-  sales.forEach(sl=>{ const d=saleRevenueDay(sl), b=byMethod(sl); tot.fat+=Number(sl.total)||0; tot.desc+=Number(sl.discount)||0; tot.colab+=Number(sl.staffDiscount)||0; tot.serv+=Number(sl.serviceCharge)||0;
-    buckets.forEach(k=>tot.m[k]+=b[k]);
-    const x=days[d]=days[d]||{n:0,fat:0,desc:0,colab:0,serv:0,m:totaisPorFormaVazio()}; x.n++; x.fat+=Number(sl.total)||0; x.desc+=Number(sl.discount)||0; x.colab+=Number(sl.staffDiscount)||0; x.serv+=Number(sl.serviceCharge)||0; buckets.forEach(k=>x.m[k]+=b[k]); });
+  sales.forEach(sl=>{ const d=saleRevenueDay(sl), b=somaPorMetodo([sl]); tot.fat+=Number(sl.total)||0; tot.desc+=Number(sl.discount)||0; tot.colab+=Number(sl.staffDiscount)||0; tot.serv+=Number(sl.serviceCharge)||0;
+    somaMapa(tot.m,b);
+    const x=days[d]=days[d]||{n:0,fat:0,desc:0,colab:0,serv:0,m:{}}; x.n++; x.fat+=Number(sl.total)||0; x.desc+=Number(sl.discount)||0; x.colab+=Number(sl.staffDiscount)||0; x.serv+=Number(sl.serviceCharge)||0; somaMapa(x.m,b); });
   // D4, 08/11 (pedido do dono): baixa "Descontado do salário" (method 'salario') não é dinheiro recebido;
   // fica fora do "Fiado recebido" e aparece numa linha própria.
   const debtRows=[]; let fiadoLanc=0, fiadoRec=0, fiadoSalario=0;
@@ -43,27 +56,31 @@ function accountantSheets(from, to){
   const moves=(state.cashMovements||[]).filter(mv=>mv.at && inP(localDay(mv.at)));
   const supr=moves.filter(mv=>mv.type==='suprimento').reduce((a,mv)=>a+(Number(mv.amount)||0),0), sang=moves.filter(mv=>mv.type==='sangria').reduce((a,mv)=>a+(Number(mv.amount)||0),0), diaria=moves.filter(mv=>mv.type==='sangria'&&mv.categoria==='diaria').reduce((a,mv)=>a+(Number(mv.amount)||0),0); // 08/11: diária de freelancer separada das retiradas
   const diffs=closings.reduce((a,c)=>a+(Number(c.diff)||0),0), dateBR=d=>new Date(d+'T12:00:00').toLocaleDateString('pt-BR');
+  const cols=colunasDeFormas([tot.m]), rotulo=c=>c.method==='fiado'?'Fiado (a prazo)':c.label;
+  const fCols=colunasDeFormas(closings.map(c=>c.fiadoPorForma)).filter(c=>c.method!=='dinheiro');
+  const fechPorForma=closings.map(porMetodoDoFechamento), fCol=colunasDeFormas(fechPorForma);
+  const temCartaoAntigo=closings.some(c=>!c.porForma&&(c.expectedCard!=null||c.countedCard!=null));
   const prod={};
   sales.forEach(sl=>(sl.items||[]).filter(i=>!i.canceled).forEach(i=>{ const pr=state.products.find(x=>x.id===i.productId); const k=i.name; prod[k]=prod[k]||{cat:pr&&pr.category||'',q:0,v:0}; prod[k].q=Math.round((prod[k].q+itemStockQty(i))*1000)/1000; /* venda por peso, 05/11: kg das peças */ prod[k].v+=(Number(i.qty)||0)*(Number(i.price)||0); }));
   return [
     ['Resumo', [
       ['Estabelecimento', (state.settings&&state.settings.clubName)||''], ['Período', dateBR(from)+' a '+dateBR(to)], ['Gerado em', new Date().toLocaleString('pt-BR')], [],
       ['Faturamento (vendas fechadas, pelo dia de abertura)', round(tot.fat)], ['Número de vendas', tot.n], ['Ticket médio', tot.n?round(tot.fat/tot.n):0], ['Descontos concedidos', round(tot.desc)], ['Desconto colaborador', round(tot.colab)], ['Taxa de serviço', round(tot.serv)], [],
-      ['Formas de pagamento das vendas do período'], ...buckets.map(k=>[bucketLabel[k], round(tot.m[k])]), [],
+      ['Formas de pagamento das vendas do período'], ...cols.map(c=>[rotulo(c), round(tot.m[c.method])]), [],
       ['Fiado lançado no período', round(fiadoLanc)], ['Fiado recebido no período', round(fiadoRec)], ['Descontado do salário', round(fiadoSalario)], [],
       ['Vendas canceladas (quantidade)', canceled.length], ['Vendas canceladas (valor)', round(canceled.reduce((a,sl)=>a+(Number(sl.total)||0),0))], [],
       ['Fechamentos de caixa', closings.length], ['Entradas (suprimentos)', round(supr)], ['Saídas (sangrias, sem diárias)', round(sang-diaria)], ['Diárias de freelancer', round(diaria)], ['Soma das diferenças de caixa (contado − esperado)', round(diffs)]
     ], [52,18]],
-    ['Vendas por dia', [['Data','Vendas','Faturamento','Dinheiro','Cartão','Pix','Fiado','Outros','Descontos','Desconto colaborador','Serviço'],
-      ...Object.keys(days).sort().map(d=>{ const x=days[d]; return [dateBR(d), x.n, round(x.fat), ...buckets.map(k=>round(x.m[k])), round(x.desc), round(x.colab), round(x.serv)]; }),
-      ['TOTAL', tot.n, round(tot.fat), ...buckets.map(k=>round(tot.m[k])), round(tot.desc), round(tot.colab), round(tot.serv)]], [12,8,14,12,12,12,12,12,12,12,12]],
+    ['Vendas por dia', [['Data','Vendas','Faturamento',...cols.map(c=>c.label),'Descontos','Desconto colaborador','Serviço'],
+      ...Object.keys(days).sort().map(d=>{ const x=days[d]; return [dateBR(d), x.n, round(x.fat), ...cols.map(c=>round(x.m[c.method])), round(x.desc), round(x.colab), round(x.serv)]; }),
+      ['TOTAL', tot.n, round(tot.fat), ...cols.map(c=>round(tot.m[c.method])), round(tot.desc), round(tot.colab), round(tot.serv)]], [12,8,14,...cols.map(()=>12),12,12,12]],
     ['Vendas', [['Pedido','Tipo','Aberta em','Fechada em','Sócio / Cliente','Cota','Subtotal','Desconto','Desconto colaborador','Serviço','Total','Pagamento','Operador'],
       ...sales.slice().sort((a,b)=>new Date(a.openedAt||a.closedAt)-new Date(b.openedAt||b.closedAt)).map(sl=>{ const m=sl.memberId?memberOf(sl.memberId):null; return [sl.orderNumber||sl.id, typeLabel(sl.type), fmtD(sl.openedAt), fmtD(sl.closedAt), m?m.name:(sl.customerName||'Avulso'), m&&m.code||'', round(sl.subtotal!=null?sl.subtotal:sl.total), round(sl.discount), round(sl.staffDiscount), round(sl.serviceCharge), round(sl.total), (sl.payments||[]).map(p=>paymentMethodLabel(p.method)+' '+round(p.amount).toFixed(2).replace('.',',')).join(' + '), sl.operatorName||'']; })],
       [9,10,19,19,32,8,11,10,12,10,11,30,16]],
     ['Produtos', [['Produto','Categoria','Quantidade','Valor total'], ...Object.keys(prod).sort((a,b)=>prod[b].v-prod[a].v).map(k=>[k, prod[k].cat, prod[k].q, round(prod[k].v)])], [36,16,12,14]],
     ['Fiado', [['Data','Sócio','Cota','Tipo','Valor','Forma','Motivo','Estornado'], ...debtRows.sort((a,b)=>String(a[0]).localeCompare(String(b[0])))], [19,32,8,11,11,12,34,10]],
-    ['Fechamentos de caixa', [['Aberto em','Fechado em','Operador','Troco inicial','Esperado (dinheiro)','Contado (dinheiro)','Diferença','Cartão esperado','Cartão informado','Ficou a receber'],
-      ...closings.map(c=>[fmtD(c.openedAt), fmtD(c.closedAt), c.operatorName||c.closedBy||'', round(c.openingAmount), round(c.expectedAmount), round(c.countedAmount), round(c.diff), round(c.expectedCard), c.countedCard==null?'':round(c.countedCard), c.openComandasTotal==null?'':round(c.openComandasTotal)])], [19,19,16,12,16,16,11,14,14,14]],
+    ['Fechamentos de caixa', [['Aberto em','Fechado em','Operador','Troco inicial','Esperado (dinheiro)','Contado (dinheiro)','Diferença',...(temCartaoAntigo?['Cartão esperado','Cartão informado']:[]),'Ficou a receber',...fCol.map(c=>c.label),...fCols.map(c=>c.label+' fiado')],
+      ...closings.map((c,i)=>[fmtD(c.openedAt), fmtD(c.closedAt), c.operatorName||c.closedBy||'', round(c.openingAmount), round(c.expectedAmount), c.countedAmount==null?'':round(c.countedAmount), c.diff==null?'':round(c.diff), ...(temCartaoAntigo?[c.porForma?'':round(c.expectedCard), c.countedCard==null?'':round(c.countedCard)]:[]), c.openComandasTotal==null?'':round(c.openComandasTotal), ...fCol.map(x=>round(fechPorForma[i][x.method])), ...fCols.map(x=>round((c.fiadoPorForma||{})[x.method]))])], [19,19,16,12,16,16,11,...(temCartaoAntigo?[14,14]:[]),14,...fCol.map(()=>14),...fCols.map(()=>14)]],
     ['Entradas e saídas', [['Data','Tipo','Valor','Forma','Descrição','Origem','Operador'],
       ...moves.slice().sort((a,b)=>new Date(a.at)-new Date(b.at)).map(mv=>[fmtD(mv.at), mv.type==='suprimento'?'Entrada':'Saída', round(mv.amount), paymentMethodLabel(mv.method||'dinheiro'), mv.description||mv.reason||'', mv.origin||'manual', mv.operatorName||''])], [19,9,11,12,44,14,16]]
   ];
@@ -134,7 +151,7 @@ function renderDailySummaryReport(){
   const closed=state.sales.filter(sl=>saleCountsAsRevenue(sl)&&saleRevenueDay(sl)===day);
   const open=state.sales.filter(sl=>sl.status==='open'&&!sl.canceled&&sl.type==='comanda'&&saleRevenueDay(sl)===day);
   const closedTotal=closed.reduce((a,sl)=>a+(Number(sl.total)||0),0), openTotal=open.reduce((a,sl)=>a+comandaDue(sl),0);
-  const byMethod=somaPorForma(closed);
+  const byMethod=somaPorForma(closed), porMetodo=somaPorMetodo(closed); // por grupo (fiado) e por forma (linhas)
   const qty={}, rev={}, kgNome={}; // venda por peso, 05/11: kgNome marca o produto vendido por peso (mostra kg)
   [...closed,...open].forEach(sl=>(sl.items||[]).filter(i=>!i.canceled).forEach(i=>{ qty[i.name]=(qty[i.name]||0)+itemStockQty(i); if(i.weight) kgNome[i.name]=true; rev[i.name]=(rev[i.name]||0)+(Number(i.qty)||0)*(Number(i.price)||0); }));
   const top=Object.keys(qty).sort((a,b)=>rev[b]-rev[a]).slice(0,8);
@@ -146,7 +163,7 @@ function renderDailySummaryReport(){
   const closings=(state.cashHistory||[]).filter(c=>localDay(c.closedAt)===day).sort((a,b)=>new Date(a.closedAt)-new Date(b.closedAt));
   const count=closed.length+open.length, ticket=count?(closedTotal+openTotal)/count:0;
   const label=new Date(day+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-  const methodRows=[['Dinheiro','dinheiro'],['Cartão','cartao'],['Pix','pix'],['Fiado (a receber)','fiado'],['Outros','outros']].filter(([,k])=>byMethod[k]>TOLERANCIA_CENTAVO).map(([l,k])=>`<tr><td>${l}</td><td class="mono">${fmt(byMethod[k])}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">Nenhuma venda fechada.</td></tr>';
+  const methodRows=colunasDeFormas([porMetodo]).map(c=>`<tr><td>${h(c.method==='fiado'?'Fiado (a receber)':c.label)}</td><td class="mono">${fmt(porMetodo[c.method])}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">Nenhuma venda fechada.</td></tr>';
   const cashNone=state.cashSession&&day===todayStr()?'Caixa ainda aberto.':'Nenhum caixa fechado neste dia.';
   el.innerHTML=`<div class="daily-summary">
   <div class="daily-summary-head"><div><h2>Resumo do dia</h2><p class="sub">${h(label)}</p></div><div class="daily-summary-nav"><button class="op-btn" onclick="shiftDailySummary(-1)">‹ &nbsp; Dia anterior</button><input type="date" aria-label="Dia do resumo" value="${day}" max="${todayStr()}" onchange="dailySummaryDay=this.value||null;renderDailySummaryReport()"><button class="op-btn" onclick="shiftDailySummary(1)" ${day>=todayStr()?'disabled':''}>Próximo dia &nbsp; ›</button><button class="op-btn" onclick="window.print()">▣ &nbsp; Imprimir</button></div></div>
@@ -160,7 +177,7 @@ function renderDailySummaryReport(){
     <div class="panel"><h2>Vendas fechadas por forma de pagamento</h2><table><tr><th>Forma</th><th>Total</th></tr>${methodRows}</table></div>
     <div class="panel"><h2>Fiado no dia</h2><table><tr><td>Vendido no fiado</td><td class="mono">${fmt(byMethod.fiado)}</td></tr><tr><td>Recebido de fiado (${fiadoIn.length})</td><td class="mono">${fmt(fiadoInTotal)}</td></tr><tr><td>Descontado do salário (${salarioIn.length})</td><td class="mono">${fmt(salarioInTotal)}</td></tr></table>${fiadoIn.length?`<p class="sub" style="margin-top:8px">${fiadoIn.map(x=>h(x.m.name)+' '+fmt(x.e.value)).join(' · ')}</p>`:''}</div>
   </div>
-  <div class="panel" style="margin-top:16px"><h2>Fechamento do caixa</h2>${closings.length?`<table><tr><th>Caixa</th><th>Esperado (dinheiro)</th><th>Contado</th><th>Diferença</th><th>Ficou a receber</th></tr>${closings.map(c=>{const d=Number(c.diff)||0;return `<tr><td>${h(c.operatorName||c.closedBy||'—')} · ${timeFmt(c.openedAt)}–${timeFmt(c.closedAt)}</td><td class="mono">${fmt(c.expectedAmount)}</td><td class="mono">${fmt(c.countedAmount)}</td><td class="mono ${Math.abs(d)<0.01?'cash-ok':d<0?'cash-short':'cash-over'}">${Math.abs(d)<0.01?'Confere':(d<0?'Falta ':'Sobra ')+fmt(Math.abs(d))}</td><td class="mono">${c.openComandasTotal!=null?fmt(c.openComandasTotal):'—'}</td></tr>`;}).join('')}</table>`:`<p class="empty">${cashNone}</p>`}</div>
+  <div class="panel" style="margin-top:16px"><h2>Fechamento do caixa</h2>${closings.length?`<table><tr><th>Caixa</th><th>Esperado (dinheiro)</th><th>Contado</th><th>Diferença</th><th>Ficou a receber</th></tr>${closings.map(c=>{const d=Number(c.diff)||0;return `<tr><td>${h(c.operatorName||c.closedBy||'—')} · ${timeFmt(c.openedAt)}–${timeFmt(c.closedAt)}</td><td class="mono">${fmt(c.expectedAmount)}</td><td class="mono">${c.countedAmount!=null?fmt(c.countedAmount):'—'}</td>${c.diff==null?'<td class="mono">—</td>':`<td class="mono ${Math.abs(d)<0.01?'cash-ok':d<0?'cash-short':'cash-over'}">${Math.abs(d)<0.01?'Confere':(d<0?'Falta ':'Sobra ')+fmt(Math.abs(d))}</td>`}<td class="mono">${c.openComandasTotal!=null?fmt(c.openComandasTotal):'—'}</td></tr>`;}).join('')}</table>`:`<p class="empty">${cashNone}</p>`}</div>
   <div class="grid2" style="margin-top:16px">
     <div class="panel"><h2>Comandas em aberto deste dia</h2>${open.length?`<table><tr><th>Comanda</th><th>Valor</th></tr>${open.map(sl=>`<tr><td>#${h(sl.orderNumber||'—')} · ${h(sl.customerName||'—')}</td><td class="mono">${fmt(comandaDue(sl))}</td></tr>`).join('')}</table>`:'<p class="empty">Nenhuma.</p>'}</div>
     <div class="panel"><h2>Mais vendidos do dia</h2>${top.length?`<table><tr><th>Produto</th><th>Qtd</th><th>Total</th></tr>${top.map(n=>`<tr><td>${h(n)}</td><td>${kgNome[n]?fmtKg(qty[n]):qty[n]}</td><td class="mono">${fmt(rev[n])}</td></tr>`).join('')}</table>`:'<p class="empty">Nenhum item.</p>'}</div>
@@ -172,7 +189,7 @@ function renderRelatoriosDashboard(){
   const el = document.getElementById('view-relatorios');
   const closedSales = state.sales.filter(saleCountsAsRevenue);
   const totalGeral = closedSales.reduce((a,s)=>a+s.total,0);
-  const byMethod = somaPorForma(closedSales);
+  const porMetodo = somaPorMetodo(closedSales);
 
   const productRevenue = {}, productQty = {}, productKg = {}; // venda por peso, 05/11: productQty em kg para peça
   closedSales.forEach(s=>s.items.forEach(i=>{ productRevenue[i.name]=(productRevenue[i.name]||0)+i.price*i.qty; productQty[i.name]=(productQty[i.name]||0)+itemStockQty(i); if(i.weight) productKg[i.name]=true; }));
@@ -199,11 +216,7 @@ function renderRelatoriosDashboard(){
   <div class="grid2" style="margin-top:18px">
     <div class="panel"><h2>Por forma de pagamento</h2>
       <table><tr><th>Forma</th><th>Total</th></tr>
-        <tr><td>Dinheiro</td><td class="mono">${fmt(byMethod.dinheiro)}</td></tr>
-        <tr><td>Cartão</td><td class="mono">${fmt(byMethod.cartao)}</td></tr>
-        <tr><td>Pix</td><td class="mono">${fmt(byMethod.pix)}</td></tr>
-        <tr><td>Fiado</td><td class="mono">${fmt(byMethod.fiado)}</td></tr>
-        <tr><td>Outros</td><td class="mono">${fmt(byMethod.outros)}</td></tr></table></div>
+        ${colunasDeFormas([porMetodo]).map(c=>`<tr><td>${h(c.label)}</td><td class="mono">${fmt(porMetodo[c.method])}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">Sem dados ainda.</td></tr>'}</table></div>
     <div class="panel"><h2>Curva ABC — mais vendidos (por faturamento)</h2>
       ${topByRevenue.length ? `<table><tr><th>Produto</th><th>Qtd.</th><th>Faturamento</th></tr>${topByRevenue.map(([n,rev])=>`<tr><td>${h(n)}</td><td class="mono">${productKg[n]?fmtKg(productQty[n]):productQty[n]}</td><td class="mono">${fmt(rev)}</td></tr>`).join('')}</table>` : `<p class="empty">Sem dados ainda.</p>`}</div>
   </div>
@@ -388,7 +401,7 @@ function renderRelatoriosInner(){
   if(report==='Histórico de Pedidos'){renderOrderHistoryReport(sales);return;}
   if(report==='Histórico de Itens Vendidos'){renderSoldItemsReport(sales);return;}
   if(report==='Ranking de Atendimentos'){renderAttendanceRankingReport(sales);return;}
-  if(report==='Histórico do Caixa'){const rows=state.cashHistory.map(c=>`<tr data-date="${reportDate(c.openedAt)}"><td>${h(c.id)}</td><td>${reportDateTime(c.openedAt)}</td><td>${reportDateTime(c.closedAt)}</td><td>${fmt(c.openingAmount)}</td><td>${c.expectedAmount!=null?fmt(c.expectedAmount):'—'}</td><td>${fmt(c.countedAmount)}</td><td>${c.diff!=null?fmt(c.diff):'—'}</td><td>${fmt(Object.values(c.totals||{}).reduce((a,b)=>a+b,0))}</td><td>${c.diarias!=null?fmt(c.diarias):'—'/* revisão final, item 7: fechamento de antes da diária não tem o campo */}</td><td>${h(c.closedBy||'—')}</td><td>Fechado</td></tr>`).join('');reportShell(report,['Id','Aberto em','Fechado em','Troco inicial','Dinheiro esperado','Dinheiro contado','Diferença','Total vendido (todas as formas)','Diárias de freelancer','Usuário','Status'],rows,{extra:'<div class="field"><label>Últimos registros</label><input type="number" value="30" min="1"></div>'});return;}
+  if(report==='Histórico do Caixa'){const rows=state.cashHistory.map(c=>`<tr data-date="${reportDate(c.openedAt)}"><td>${h(c.id)}</td><td>${reportDateTime(c.openedAt)}</td><td>${reportDateTime(c.closedAt)}</td><td>${fmt(c.openingAmount)}</td><td>${c.expectedAmount!=null?fmt(c.expectedAmount):'—'}</td><td>${c.countedAmount!=null?fmt(c.countedAmount):'—'}</td><td>${c.diff!=null?fmt(c.diff):'—'}</td><td>${fmt(Object.values(c.totals||{}).reduce((a,b)=>a+b,0))}</td><td>${c.diarias!=null?fmt(c.diarias):'—'/* revisão final, item 7: fechamento de antes da diária não tem o campo */}</td><td>${h(c.closedBy||'—')}</td><td>Fechado</td><td>${h(resumoPorForma(c))}</td></tr>`).join('');reportShell(report,['Id','Aberto em','Fechado em','Troco inicial','Dinheiro esperado','Dinheiro contado','Diferença','Total vendido (todas as formas)','Diárias de freelancer','Usuário','Status','Por forma'],rows,{extra:'<div class="field"><label>Últimos registros</label><input type="number" value="30" min="1"></div>'});return;}
   if(report==='Meu Delivery'){renderDeliveryReport(sales);return;}
   if(report==='Recebimentos (Pedidos e Fiado)'){renderReceiptsReport(sales);return;}
   if(report==='Resumo Financeiro'){renderFinancialSummaryReport(sales);return;}

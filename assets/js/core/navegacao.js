@@ -4,7 +4,7 @@ let activeViewRibbonTab = null, viewHistory = [];
 let activeRibbonAction = '';
 const VIEW_LABELS = {caixa:'Caixa',balcao:'Ficha',comandas:'Comandas',delivery:'Delivery','fila-atendimento':'Fila de Atendimento',agendamentos:'Agendamentos',cardapio:'Cardápio Digital',cozinha:'Monitor de Cozinha',produtos:'Produtos',insumos:'Insumos',associados:'Clientes',usuarios:'Colaboradores',relatorios:'Relatórios',
   categorias:'Categorias',complementos:'Complementos e Tamanhos',observacoes:'Observações',perguntas:'Perguntas',fornecedores:'Fornecedores',pagamentos:'Formas de Pagamento',
-  contascategorias:'Categorias de Contas',contas:'Contas a Pagar/Receber',locais:'Locais e Áreas do Clube',impressoras:'Impressoras',estacoes:'Estações',origens:'Origens de Pedido','config-sistema':'Configurações do Sistema',backup:'Backup',logs:'Logs',
+  contascategorias:'Categorias de Contas',conferencia:'Conferência de pagamentos',contas:'Contas a Pagar/Receber',locais:'Locais e Áreas do Clube',impressoras:'Impressoras',estacoes:'Estações',origens:'Origens de Pedido','config-sistema':'Configurações do Sistema',backup:'Backup',logs:'Logs',
   'painel-senhas':'Painel de Senhas',ajuda:'Ajuda e Suporte',diagnostico:'Diagnóstico de Serviços',totem:'Totem de Autoatendimento',cupons:'Promoções e Cupons',modulos:'Central de Módulos','mobile-qr':'Acesso Mobile — Garçom'};
 function buildNav(){
   const allowed = userPermissions(currentUser);
@@ -30,9 +30,11 @@ function ribbonItemAction(it, allowed){
   // adicionado no futuro sem permissão apareça bloqueado em vez de aberto.
   // Item sem `action` e sem `view` (módulo de referência: Connect, TEF, Emissão
   // Fiscal) segue liberado — só abre um texto explicativo, não toca em dado.
-  const permitted = it.perm ? allowed.includes(it.perm)
+  const permitidoPelaLista = it.perm ? allowed.includes(it.perm)
                   : hasView ? allowed.includes(it.view)
                   : !hasAction;
+  // 09/11: item "soAdmin" (conferência de pagamentos) exige administrador mesmo se a permissão vier na lista do colaborador.
+  const permitted = permitidoPelaLista && (!it.soAdmin || isAdminUser());
   if(permitted && MODULOS_EM_CONSTRUCAO.has(it.label)) return { enabled:true, emConstrucao:true, reason:'Em construção', onclick:`avisoEmConstrucao(${jsArg(h(it.label))})` };
   const reason = !hasAction && !hasView ? 'Abrir detalhes e requisitos do módulo'
     : (!permitted ? 'Sem permissão para o seu perfil' : '');
@@ -362,6 +364,7 @@ function renderAll(){
   if(allowed.includes('fornecedores')) renderCrudView('view-fornecedores','fornecedores');
   if(allowed.includes('pagamentos')) renderCrudView('view-pagamentos','paymentMethods');
   if(allowed.includes('contascategorias')) renderCrudView('view-contascategorias','contaCategorias');
+  if(allowed.includes('conferir-pagamentos') && activeView==='conferencia') renderConferencia(document.getElementById('view-conferencia'));
   if(allowed.includes('locais')) renderCrudView('view-locais','locais');
   if(allowed.includes('quemlevou')) renderCrudView('view-quemlevou','quemLevou');
   if(allowed.includes('impressoras')) renderImpressoras();
