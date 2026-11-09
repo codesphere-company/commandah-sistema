@@ -940,3 +940,20 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
    só ele aparece (o resto da página some). Montado e removido por imprimirFechamentoCaixa. */
 #cashPrintSheet{display:none}
 @media print{body.imprimindo-fechamento>*:not(#cashPrintSheet){display:none!important}body.imprimindo-fechamento #cashPrintSheet{display:block;font-size:11pt;color:#000}#cashPrintSheet table{width:100%;border-collapse:collapse}#cashPrintSheet th,#cashPrintSheet td{border-bottom:1px solid #999;padding:3px 6px;text-align:left}#cashPrintSheet .mono{text-align:right}}
+/* 09/11 (pedido do dono): Conferência de pagamentos. Situação sempre em texto, além da cor. */
+.conf-top{height:auto!important;min-height:60px;flex-wrap:wrap;padding:10px 14px!important;row-gap:10px;gap:14px;align-items:flex-end}
+.conf-top label{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--c-text-3)}
+.conf-top input,.conf-top select{font-size:14px;padding:6px 8px}
+.conf-aviso{margin:8px 14px;padding:8px 12px;border-radius:8px;background:var(--c-warning-soft);color:var(--c-text);font-size:13px}
+.conf-totais{display:flex;flex-wrap:wrap;gap:10px;padding:10px 14px}
+.conf-total{display:flex;flex-direction:column;min-width:130px;padding:8px 12px;border:1px solid var(--c-border);border-radius:8px;background:var(--c-surface)}
+.conf-total span,.conf-total small{font-size:12px;color:var(--c-text-3)}
+.conf-total b{font-size:16px}
+.conf-total-geral{background:var(--c-surface-2)}
+.conf-acoes{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:0 14px 10px}
+.conf-grid{overflow:auto}
+.conf-situacao{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+.conf-s-a_conferir{background:var(--c-neutral-soft);color:var(--c-text-2)}
+.conf-s-confirmado{background:var(--c-success-soft);color:var(--c-success)}
+.conf-s-nao_recebido{background:var(--c-danger-soft);color:var(--c-danger)}
+.conf-nota{display:block;margin-top:2px;max-width:240px;font-size:12px;color:var(--c-text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
