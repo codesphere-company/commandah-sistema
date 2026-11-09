@@ -149,6 +149,8 @@ const apagarForma = singleFlight('apagarForma', async function(method){
   const forma = formaPorMetodo(method);
   if(!forma) return;
   if(formaTipoTravado(forma) || formaEhInicial(method)){ toast('Esta forma não pode ser apagada; desligue-a se não quiser usá-la.'); return; }
+  // 09/11 (pedido do dono): apagar também não pode deixar "Na hora de pagar" sem forma (Fiado não conta)
+  if(forma.naVenda && formasNaVendaSemFiado(method).length===0){ toast(FORMAS_AVISO_ULTIMA); return; }
   if(await formaFoiUsada(method)){ toast('Esta forma já foi usada em vendas ou recebimentos e não pode ser apagada; desligue-a nos dois grupos.'); return; }
   if(!await confirmarAcao('Apagar a forma "'+forma.nome+'"?')) return;
   const antes = JSON.stringify(state.paymentMethods);

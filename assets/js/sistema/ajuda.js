@@ -27,7 +27,7 @@ const HELP_SHEETS = {
     <h3>Fim do turno</h3><ol>
       <li>Conte a gaveta <b>antes</b> de fechar.</li>
       <li><b>Caixa › Fechar Caixa</b>: digite o dinheiro contado e as outras formas que o administrador marcou para você contar, e toque <b>Conferir contagem</b>. Você não vê o valor esperado: só o administrador vê o esperado e a diferença.</li>
-      <li>Deu diferença? Avise o gerente antes de <b>Finalizar</b>. Use <b>Corrigir contagem</b> só se contou errado, nunca para "fazer bater".</li></ol>
+      <li>Confira o que digitou e toque <b>Finalizar</b>: a diferença, se houver, quem vê é o administrador. Use <b>Corrigir contagem</b> só se contou errado, nunca para "fazer bater".</li></ol>
     <div class="help-warn"><b>Nunca:</b> feche o navegador com a faixa vermelha <b>"Não foi possível salvar"</b> na tela (toque em <b>Tentar de novo</b>) · deixe o caixa logado ao sair (use <b>Bloquear ou trocar usuário</b>) · conte o seu PIN a ninguém.</div>` },
   garcom: { title:'Folha do Garçom', html:`
     <h3>Antes de começar</h3><ol>
