@@ -16,13 +16,37 @@ function renderLogin(){
     <div class="login-brand${clubLogo?'':' login-brand--commandah'}">${brandBadge}</div>
     ${state.settings.clubName?`<h1>${h(state.settings.clubName)}</h1>`:''}
     <p class="sub">${isDefaultOnly? 'Primeiro acesso — toque em Administrador e troque o PIN padrão em Configurações' : 'Selecione seu usuário para entrar'}</p>
-    <div class="user-pick">${state.users.filter(u=>u.active!==false).map(u=>`
-      <button onclick="startPin(${jsArg(u.id)})"><div class="un">${h(u.name)}</div><div class="ur">${h(roleLabel(u.role))}</div></button>
-    `).join('')}</div>
+    ${loginEscolhaHtml()}
     <p class="login-privacy"><button type="button" class="link-btn" onclick="openPrivacyNotice()">Aviso de privacidade</button></p>
   </div>`;
   overlay.classList.remove('hide');
   document.getElementById('app').classList.remove('show');
+  ligarBuscaDoLogin();
+}
+// 08/11 (pedido do dono): com muitos colaboradores a grade de botões ficava enorme e quebrava a tela.
+// Agora: o aparelho lembra quem entrou por último ("Continuar como …", só falta o PIN) e os demais
+// escolhem o nome num campo com busca (digitou, filtrou; Enter escolhe o primeiro), lista com rolagem.
+function chaveUltimoLogin(){ const t=(typeof storageApi!=='undefined'&&storageApi&&storageApi.tenantId)||'local'; return 'commandah:ultimo-login:'+t; }
+function lembrarUltimoLogin(id){ try{ localStorage.setItem(chaveUltimoLogin(), id); }catch(e){} }
+function ultimoLoginDoAparelho(){ let id=''; try{ id=localStorage.getItem(chaveUltimoLogin())||''; }catch(e){} return state.users.find(u=>u.id===id && u.active!==false) || null; }
+function semAcento(t){ return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
+function loginEscolhaHtml(){
+  const ativos = state.users.filter(u=>u.active!==false).sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));
+  const ultimo = ultimoLoginDoAparelho();
+  const continuar = ultimo ? `<button class="login-continuar" onclick="startPin(${jsArg(ultimo.id)})"><span>Continuar como</span><b>${h(ultimo.name)}</b><small>${h(roleLabel(ultimo.role))}</small></button>
+    <div class="login-ou">Não é você? Escolha seu nome</div>` : '';
+  return `${continuar}<div class="login-busca"><input id="loginBusca" type="search" autocomplete="off" placeholder="Digite seu nome" aria-label="Seu nome"${ultimo?'':' autofocus'}>
+    <div class="login-lista" id="loginLista" role="listbox">${ativos.map(u=>`<button role="option" data-nome="${h(semAcento(u.name))}" onclick="startPin(${jsArg(u.id)})"><span class="un">${h(u.name)}</span><span class="ur">${h(roleLabel(u.role))}</span></button>`).join('')}
+    <p class="login-nada" id="loginNada" hidden>Nenhum nome encontrado.</p></div></div>`;
+}
+function ligarBuscaDoLogin(){
+  const campo=document.getElementById('loginBusca'); if(!campo) return;
+  const filtrar=()=>{ const q=semAcento(campo.value).trim(); let n=0;
+    document.querySelectorAll('#loginLista button').forEach(b=>{ const ok=!q||b.dataset.nome.includes(q); b.hidden=!ok; if(ok) n++; });
+    document.getElementById('loginNada').hidden = n>0; };
+  campo.oninput=filtrar;
+  campo.onkeydown=e=>{ if(e.key==='Enter'){ const b=document.querySelector('#loginLista button:not([hidden])'); if(b){ e.preventDefault(); b.click(); } } };
+  if(!ultimoLoginDoAparelho()) setTimeout(()=>campo.focus(),0);
 }
 function shadeColor(hex,amount){const clean=/^#[0-9a-f]{6}$/i.test(hex)?hex:'#3568b0',n=parseInt(clean.slice(1),16),r=Math.max(0,Math.min(255,(n>>16)+amount)),g=Math.max(0,Math.min(255,((n>>8)&255)+amount)),b=Math.max(0,Math.min(255,(n&255)+amount));return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');}
 function applyBranding(){const s=state.settings||{},savedPrimary=/^#141b33$/i.test(s.brandPrimary)?'':s.brandPrimary,savedAccent=/^#0ea57e$/i.test(s.brandAccent)?'':s.brandAccent,primary=/^#[0-9a-f]{6}$/i.test(savedPrimary)?savedPrimary:'#1D2433',accent=/^#[0-9a-f]{6}$/i.test(savedAccent)?savedAccent:'#0D9E79',root=document.documentElement;root.style.setProperty('--navy',primary);root.style.setProperty('--navy2',shadeColor(primary,14));root.style.setProperty('--navy3',shadeColor(primary,28));root.style.setProperty('--amber',accent);root.style.setProperty('--amber-dark',shadeColor(accent,-22));root.style.setProperty('--gc-blue',primary);document.title=(s.clubName||'Commandah')+' — Sistema de Gestão';const logo=document.querySelector('.wb-logo');if(logo){logo.innerHTML=logoDoEstabelecimento()?`<img src="${logoDoEstabelecimento()}" alt="">`:ICN.brandmark(undefined,undefined,26);logo.style.background='transparent';}const sub=document.getElementById('wbTitle');if(sub)sub.textContent=s.clubName||'Sistema de gestão';
@@ -161,6 +185,7 @@ function updatePinDots(){
   dots.forEach((d,i)=> d.classList.toggle('filled', i<pinBuffer.length));
 }
 function afterLogin(){
+  if(currentUser) lembrarUltimoLogin(currentUser.id); // 08/11: o aparelho lembra quem entrou por último
   document.getElementById('loginOverlay').classList.add('hide');
   detectLocalPrintAgent();
   if(currentUser.role==='cozinha'){
