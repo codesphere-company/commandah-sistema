@@ -444,6 +444,47 @@ function somaPorForma(vendas, opcoes){
   (vendas||[]).forEach(v=>(v.payments||[]).forEach(p=>{ if(pularParcial && p.partial) return; total[methodBucket(p.method)] += Number(p.amount)||0; }));
   return total;
 }
+/* 09/11 (pedido do dono): totais por forma de pagamento (uma chave por `method`), para o fechamento
+   do caixa ter uma linha por forma. Usa a chave direto (normalizada), sem consultar a lista por
+   pagamento; o rótulo é resolvido uma vez por linha em linhasPorForma. */
+function somaPorMetodo(vendas, opcoes){
+  const pularParcial = !!(opcoes && opcoes.pularParcial), total = {};
+  (vendas||[]).forEach(v=>(v.payments||[]).forEach(p=>{
+    if(pularParcial && p.partial) return;
+    const k = normalizarMetodo(p.method) || 'outros';
+    total[k] = (total[k]||0) + (Number(p.amount)||0);
+  }));
+  return total;
+}
+// Recebimento de fiado por forma, exceto dinheiro (esse já soma na linha Dinheiro por cashIn):
+// entra suprimento e sai sangria dos movimentos origin 'fiado'. Fica fora do total vendido.
+function recebimentosFiadoPorMetodo(movs){
+  const total = {};
+  (movs||[]).forEach(m=>{
+    if(!m || m.origin!=='fiado') return;
+    const k = normalizarMetodo(m.method) || 'dinheiro';
+    if(k==='dinheiro') return;
+    total[k] = (total[k]||0) + (m.type==='sangria' ? -1 : m.type==='suprimento' ? 1 : 0)*(Number(m.amount)||0);
+  });
+  return total;
+}
+// Linhas do fechamento na ordem da lista de formas, legados (fora da lista) no fim. Uma linha por
+// forma ligada em "Na hora de pagar" ou desligada que teve movimento; o fiado recebido por forma
+// diferente de dinheiro vira "<forma> fiado", logo depois da linha da própria forma.
+function linhasPorForma(porMetodo, fiadoPorMetodo){
+  const por = porMetodo||{}, fia = fiadoPorMetodo||{}, tem = (o,k)=>Object.prototype.hasOwnProperty.call(o,k);
+  const r2 = n => Math.round((Number(n)||0)*100)/100;
+  const lista = listaDeFormas(), chaves = lista.map(f=>f.method);
+  [por, fia].forEach(o=>Object.keys(o).forEach(k=>{ if(!chaves.includes(k)) chaves.push(k); }));
+  const linhas = [];
+  chaves.forEach(k=>{
+    const f = lista.find(x=>x.method===k) || null;
+    const nome = f ? f.nome : methodLabel(k);
+    if(f ? (f.naVenda || tem(por,k)) : tem(por,k)) linhas.push({ method:k, label:nome, valor:r2(por[k]), confere:f?f.confere:'', fiado:false });
+    if(tem(fia,k) && k!=='dinheiro') linhas.push({ method:k, label:nome+' fiado', valor:r2(fia[k]), confere:'ninguem', fiado:true });
+  });
+  return linhas;
+}
 function timeFmt(d){ return new Date(d).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
 function h(value){ return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 /* SEG-02 (auditoria 2026-10-07): valor que vai DENTRO de um onclick="..." montado em
