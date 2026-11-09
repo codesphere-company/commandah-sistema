@@ -32,7 +32,7 @@
 
 ---
 
-### Tarefa 1: Modelo das formas
+### Task 1: Modelo das formas
 
 **Files:**
 - Create: `assets/js/core/formas.js`
@@ -80,7 +80,7 @@ git add assets/js/core/formas.js assets/js/core/config.js index.html
 git commit -m "feat(formas): modelo único das formas de pagamento"
 ```
 
-### Tarefa 2: Tela de cadastro (modelo B)
+### Task 2: Tela de cadastro (modelo B)
 
 **Files:**
 - Create: `assets/js/cadastros/formas-pagamento.js` (tag depois de `cadastros/usuarios.js`)
@@ -128,7 +128,7 @@ git add -A assets/js index.html assets/css/ajustes.css
 git commit -m "feat(formas): tela de botões no lugar de bandeiras e credenciadora"
 ```
 
-### Tarefa 3: Pontos de pagamento seguem a lista
+### Task 3: Pontos de pagamento seguem a lista
 
 **Files:**
 - Modify: `assets/js/vendas/pagamento.js:2-20,304,~394`, `assets/js/operacao/garcom.js:317,~345`, `assets/js/gestao/financeiro.js:101-108`, `assets/js/vendas/agendamento.js:8`
@@ -177,7 +177,7 @@ git add assets/js
 git commit -m "feat(formas): venda, garçom e fiado seguem a lista cadastrada"
 ```
 
-### Tarefa 4: Fechamento de caixa por forma
+### Task 4: Fechamento de caixa por forma
 
 **Files:**
 - Modify: `assets/js/core/config.js:443`, `assets/js/operacao/caixa.js:44,81-85,93,99-117,120`
@@ -225,7 +225,7 @@ git add assets/js
 git commit -m "feat(formas): fechamento de caixa com uma linha por forma"
 ```
 
-### Tarefa 5: Relatórios por forma
+### Task 5: Relatórios por forma
 
 **Files:**
 - Modify: `assets/js/gestao/relatorios.js:27-37,57,65-66,137,149,175,203`
@@ -268,7 +268,7 @@ git add assets/js/gestao/relatorios.js
 git commit -m "feat(formas): relatórios com uma coluna por forma"
 ```
 
-### Tarefa 6: Banco da conferência
+### Task 6: Banco da conferência
 
 **Files:**
 - Create: `supabase/migrations/20261111000000_conferencia_pagamentos.sql`
@@ -315,7 +315,7 @@ git add supabase/migrations/20261111000000_conferencia_pagamentos.sql
 git commit -m "feat(conferencia): tabela e RPC da conferência de pagamentos"
 ```
 
-### Tarefa 7: Tela Conferência de pagamentos
+### Task 7: Tela Conferência de pagamentos
 
 **Files:**
 - Create: `assets/js/gestao/conferencia.js` (tag depois de `gestao/financeiro.js`)
@@ -365,7 +365,7 @@ git add -A assets/js index.html assets/css/ajustes.css
 git commit -m "feat(conferencia): tela de conferência de pagamentos"
 ```
 
-### Tarefa 8: Nota fiscal, três configurações de ponta a ponta e entrega
+### Task 8: Nota fiscal, três configurações de ponta a ponta e entrega
 
 **Files:**
 - Modify: `supabase/functions/nfce/payload.ts:92-95`, `assets/js/sistema/novidades.js`, `docs/HANDOFF.md`, `index.html` (`?v=`)
