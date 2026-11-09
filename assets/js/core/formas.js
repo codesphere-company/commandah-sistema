@@ -12,6 +12,8 @@ const FORMAS_TIPOS = {
   vale_presente:    { label:'Vale-presente',                     tPag:'12' },
   deposito:         { label:'Depósito bancário',                 tPag:'16' },
   pix:              { label:'Pix',                               tPag:'17' },
+  // 09/11 (pedido do dono): chave ou QR fixo; o tPag 17 é só do QR gerado a cada venda.
+  pix_estatico:     { label:'Pix estático',                      tPag:'20' },
   transferencia:    { label:'Transferência ou carteira digital', tPag:'18' },
   fidelidade:       { label:'Programa de fidelidade ou cashback', tPag:'19' },
   outros:           { label:'Outros',                            tPag:'99' },
@@ -58,5 +60,5 @@ function tPagDoMetodo(m){
 }
 // Grupo dos totais por tipo.
 function grupoDoTipo(tipo){
-  return tipo==='credito'||tipo==='debito' ? 'cartao' : tipo==='pix' ? 'pix' : tipo==='dinheiro' ? 'dinheiro' : tipo==='fiado' ? 'fiado' : 'outros';
+  return tipo==='credito'||tipo==='debito' ? 'cartao' : (tipo==='pix'||tipo==='pix_estatico') ? 'pix' : tipo==='dinheiro' ? 'dinheiro' : tipo==='fiado' ? 'fiado' : 'outros';
 }
