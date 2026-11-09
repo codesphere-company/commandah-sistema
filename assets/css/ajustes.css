@@ -905,3 +905,34 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .login-lista .un{font-weight:600;font-size:14px}
 .login-lista .ur{font-size:12px;color:var(--c-text-3);white-space:nowrap}
 .login-nada{margin:10px 12px;font-size:13px;color:var(--c-text-3)}
+
+/* 09/11 (pedido do dono): tela Formas de Pagamento em botões de ligar e desligar (cadastros/formas-pagamento.js). */
+.formas-corpo{padding:4px 14px 18px;display:grid;gap:20px;max-width:980px}
+.formas-ajuda{margin:0;color:var(--c-text-3);font-size:13px}
+.forma-grupo h3{margin:0;font-size:15px;color:var(--c-text)}
+.forma-grupo-sub{margin:2px 0 10px;color:var(--c-text-3);font-size:12px}
+.forma-botoes{display:flex;flex-wrap:wrap;gap:10px}
+.forma-botao{display:inline-flex;align-items:stretch;border-radius:10px;overflow:hidden;border:1px solid var(--c-border-control)}
+.forma-botao.on{border-color:var(--c-primary);background:var(--c-primary)}
+.forma-botao.off{background:var(--c-surface-3)}
+.forma-chip{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;min-height:52px;min-width:150px;padding:6px 14px;border:0;background:transparent;text-align:left;cursor:pointer;color:inherit;font:inherit}
+.forma-botao.on .forma-chip{color:var(--c-text-inverse)}
+.forma-botao.off .forma-chip{color:var(--c-text-2)}
+.forma-estado{grid-row:1 / span 2;font-size:16px;font-weight:700}
+.forma-nome{font-size:14px;font-weight:600}
+.forma-situacao{font-size:11px;opacity:.85}
+.forma-lapis{border:0;border-left:1px solid var(--c-border-control);width:40px;background:transparent;color:inherit;font-size:16px;cursor:pointer}
+.forma-botao.on .forma-lapis{color:var(--c-text-inverse);border-left-color:var(--c-primary-hover)}
+.forma-botao.off .forma-lapis{color:var(--c-text-2)}
+.forma-chip:hover,.forma-lapis:hover{filter:brightness(.94)}
+.forma-chip:focus-visible,.forma-lapis:focus-visible{outline:3px solid var(--c-focus);outline-offset:-3px}
+.forma-modal{max-width:460px}
+.forma-form .field{margin-bottom:12px}
+.forma-form .field select,.forma-form .field input{width:100%}
+.forma-dica{display:block;margin-top:4px;color:var(--c-text-3);font-size:12px}
+.forma-aparece{border:1px solid var(--c-border);border-radius:8px;padding:8px 12px;margin:0 0 12px}
+.forma-aparece legend{font-size:12px;color:var(--c-text-3);padding:0 4px}
+.forma-check{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:14px}
+.forma-check input{width:auto}
+.forma-acoes{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px}
+.forma-check[hidden]{display:none}

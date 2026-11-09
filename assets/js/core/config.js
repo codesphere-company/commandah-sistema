@@ -234,8 +234,6 @@ let activeModuleReference = '';
 let marketingSub = 'cupons';
 let insumoOptionsOpen = false;
 let userOptionsOpen = false;
-let selectedPaymentMethodId = null;
-let selectedCardBrandId = null;
 let selectedCouponId = null;
 let selectedPromotionId = null;
 

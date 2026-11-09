@@ -9,7 +9,7 @@ function methodConfig(){
     {key:'F',method:'fiado',label:'Fiado',icon:ICN.doc},
   ];
   const usedKeys=new Set(base.map(b=>b.key));
-  const extras=state.paymentMethods.map((pm,i)=>{
+  const extras=state.paymentMethods.filter(pm=>!pm.method).map((pm,i)=>{
     let key = pm.nome.trim().charAt(0).toUpperCase();
     if(!key || usedKeys.has(key)) key = 'ZYXWQJK'[i%7];
     usedKeys.add(key);
