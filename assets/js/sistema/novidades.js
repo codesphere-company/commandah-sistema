@@ -14,7 +14,7 @@ const NOVIDADES = [
       onde:'Principal › Caixa › Abrir/Fechar › Fechar Caixa', perms:['caixa'] },
     { titulo:'Fechamento por forma de pagamento',
       texto:'O fechamento mostra uma linha para cada forma, com o esperado, o contado e a diferença. O recebimento de fiado em Pix ou outra forma aparece separado ("Pix fiado").',
-      onde:'Principal › Caixa › Histórico de fechamentos', perms:['relatorios-gerencia'] },
+      onde:'Relatórios › Caixa › Histórico do Caixa', perms:['relatorios-gerencia'] },
     { titulo:'Conferência de pagamentos',
       texto:'O administrador confere o que entrou em cartão, Pix e vales e marca vários pagamentos de uma vez.',
       onde:'Financeiro › Conferência › Conferência de pagamentos', perms:['conferir-pagamentos'] },
