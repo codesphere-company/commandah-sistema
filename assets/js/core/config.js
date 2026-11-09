@@ -431,12 +431,13 @@ const FORMAS_PAGAMENTO = {
   pix:      { label:'Pix',           grupo:'pix' },
   vale:     { label:'Vale Refeição', grupo:'outros' },
   fiado:    { label:'Fiado',         grupo:'fiado' },
+  outro:    { label:'Outros',        grupo:'outros' },
 };
 function formaPagamento(m){ return Object.prototype.hasOwnProperty.call(FORMAS_PAGAMENTO, m) ? FORMAS_PAGAMENTO[m] : null; }
-function methodLabel(m){ const f = formaPagamento(m); return f ? f.label : typeof m==='string' && m.startsWith('outro:') ? m.slice(6) : m; }
+function methodLabel(m){ const fc = typeof formaPorMetodo==='function' ? formaPorMetodo(m) : null; if(fc) return fc.nome; const f = formaPagamento(m); return f ? f.label : typeof m==='string' && m.startsWith('outro:') ? m.slice(6) : m; }
 // Igual a methodLabel, mas sem forma informada mostra "Outro" (caixa e movimentos).
 function paymentMethodLabel(m){ return m ? methodLabel(m) : 'Outro'; }
-function methodBucket(m){ const f = formaPagamento(m); return f ? f.grupo : 'outros'; }
+function methodBucket(m){ const fc = typeof formaPorMetodo==='function' ? formaPorMetodo(m) : null; if(fc) return grupoDoTipo(fc.tipo); const f = formaPagamento(m); return f ? f.grupo : 'outros'; }
 function totaisPorFormaVazio(){ return { dinheiro:0, cartao:0, pix:0, fiado:0, outros:0 }; }
 // Soma os pagamentos das vendas por grupo. pularParcial: o fechamento do caixa não conta de
 // novo os parciais (OP-13), que já entraram no caixa como movimento.
