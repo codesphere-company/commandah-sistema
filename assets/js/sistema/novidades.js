@@ -6,6 +6,9 @@
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
   { id:'2026-11-08', data:'08/11/2026', itens:[
+    { titulo:'Entrada mais rápida',
+      texto:'O aparelho lembra quem entrou por último ("Continuar como …", só falta o PIN). Para outra pessoa, digite o nome na busca e tecle Enter.',
+      onde:'Tela de entrada (login)' },
     { titulo:'Duplo clique abre o item certo',
       texto:'Nas listas com pesquisa ou rolagem, o duplo clique não pula mais para o primeiro item da lista.',
       onde:'Categorias, Insumos, Clientes, Fornecedores, Observações e as outras listas de cadastro',
