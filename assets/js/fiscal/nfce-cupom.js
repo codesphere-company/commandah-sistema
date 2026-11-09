@@ -3,7 +3,7 @@
    emitente, itens, totais, pagamento, chave/consulta, consumidor, número/protocolo, QR Code
    e tributos aproximados. Sai sempre em ESC/POS com o QR Code nativo da térmica (GS ( k);
    impressora USB precisa do agente 2.3 (manda os comandos "crus" para o driver). */
-const NFCE_TPAG = { '01':'Dinheiro', '02':'Cheque', '03':'Cartao de Credito', '04':'Cartao de Debito', '05':'Credito Loja', '10':'Vale Alimentacao', '11':'Vale Refeicao', '12':'Vale Presente', '15':'Boleto', '16':'Deposito', '17':'PIX', '18':'Transferencia', '19':'Fidelidade/Cashback', '90':'Sem pagamento', '99':'Outros' };
+const NFCE_TPAG = { '01':'Dinheiro', '02':'Cheque', '03':'Cartao de Credito', '04':'Cartao de Debito', '05':'Credito Loja', '10':'Vale Alimentacao', '11':'Vale Refeicao', '12':'Vale Presente', '15':'Boleto', '16':'Deposito', '17':'PIX', '18':'Transferencia', '19':'Fidelidade/Cashback', '20':'PIX Estatico', '90':'Sem pagamento', '99':'Outros' };
 function nfceXmlText(doc, tag, parent){ const el = (parent||doc).getElementsByTagName(tag)[0]; return el ? String(el.textContent||'').trim() : ''; }
 function nfceMoney(v){ return (Number(v)||0).toFixed(2).replace('.',','); }
 function nfceAscii(s){ return stripAccentsForPrint(String(s||'')).replace(/[^\x20-\x7E]/g, c=>({'–':'-','—':'-','º':'o','ª':'a','°':'o'}[c]||'?')); }

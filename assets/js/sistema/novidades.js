@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-09-pix', data:'09/11/2026', itens:[
+    { titulo:'Pix pela chave e Pix pela maquininha',
+      texto:'Quando o cliente pagar pela chave CNPJ, use o botão "Pix CNPJ". Quando pagar pelo QR Code da maquininha, use o botão "Pix".',
+      onde:'Janela de pagamento', perms:['caixa'] },
+  ] },
   { id:'2026-11-09-formas', data:'09/11/2026', itens:[
     { titulo:'Formas de pagamento você escolhe',
       texto:'Agora dá para ligar e desligar as formas de pagamento, criar novas (como "Pago online") e dizer quem confere cada uma. O Fiado e o Vale só aparecem na venda se estiverem ligados.',

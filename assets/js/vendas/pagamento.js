@@ -4,7 +4,7 @@
    usam a primeira letra livre do nome e, se não houver, a sequência de reserva. */
 const TECLAS_DAS_INICIAIS = { dinheiro:'A', pix:'P', credito:'C', debito:'B', vale:'V', fiado:'F' };
 function iconeDoTipo(tipo){
-  return tipo==='dinheiro' ? ICN.cash : tipo==='pix' ? ICN.pix : (tipo==='credito'||tipo==='debito') ? ICN.card
+  return tipo==='dinheiro' ? ICN.cash : (tipo==='pix'||tipo==='pix_estatico') ? ICN.pix : (tipo==='credito'||tipo==='debito') ? ICN.card
     : (tipo==='vale_refeicao'||tipo==='vale_alimentacao') ? ICN.meal : tipo==='fiado' ? ICN.doc : ICN.dots;
 }
 function methodConfig(){
