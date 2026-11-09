@@ -936,3 +936,7 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .forma-check input{width:auto}
 .forma-acoes{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px}
 .forma-check[hidden]{display:none}
+/* 09/11 (pedido do dono): resumo do fechamento de caixa para o papel. Fica escondido na tela; ao imprimir,
+   só ele aparece (o resto da página some). Montado e removido por imprimirFechamentoCaixa. */
+#cashPrintSheet{display:none}
+@media print{body.imprimindo-fechamento>*:not(#cashPrintSheet){display:none!important}body.imprimindo-fechamento #cashPrintSheet{display:block;font-size:11pt;color:#000}#cashPrintSheet table{width:100%;border-collapse:collapse}#cashPrintSheet th,#cashPrintSheet td{border-bottom:1px solid #999;padding:3px 6px;text-align:left}#cashPrintSheet .mono{text-align:right}}

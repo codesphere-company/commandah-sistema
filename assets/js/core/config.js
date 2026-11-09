@@ -461,7 +461,7 @@ function somaPorMetodo(vendas, opcoes){
 function recebimentosFiadoPorMetodo(movs){
   const total = {};
   (movs||[]).forEach(m=>{
-    if(!m || m.origin!=='fiado') return;
+    if(!m || (m.origin!=='fiado' && m.origin!=='fiado-estorno')) return;
     const k = normalizarMetodo(m.method) || 'dinheiro';
     if(k==='dinheiro') return;
     total[k] = (total[k]||0) + (m.type==='sangria' ? -1 : m.type==='suprimento' ? 1 : 0)*(Number(m.amount)||0);
