@@ -3,9 +3,11 @@ function typeLabel(t){ return t==='balcao'?'Balcão':t==='comanda'?'Comanda':t==
 /* Pagamento de fiado recebido com o caixa aberto vira entrada no caixa. Antes ele
    só ia pro extrato do sócio: o dinheiro entrava na gaveta e o fechamento acusava
    sobra. Sem caixa aberto (ex.: lançamento retroativo) fica só no extrato. */
-function recordFiadoPaymentInCash(member, value, methodLabel, debtEntryId){
+function recordFiadoPaymentInCash(member, value, metodo, debtEntryId){
   if(!state.cashSession) return;
-  const method = ({'Dinheiro':'dinheiro','Pix':'pix','Cartão':'cartao'})[methodLabel] || methodLabel || 'dinheiro';
+  // 09/11 (pedido do dono): o lançamento novo já traz o método estável; os antigos ('Dinheiro', 'Pix', 'Cartão') são normalizados.
+  const n = normalizarMetodo(metodo);
+  const method = (formaPorMetodo(n) || formaPagamento(n)) ? n : (metodo || 'dinheiro');
   const description = 'Recebimento de fiado — '+member.name;
   state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'suprimento', amount:arredondaCentavos(Number(value)), reason:description, description, method, note:'', origin:'fiado', debtEntryId:debtEntryId||null, operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});
   save('cashMovements');

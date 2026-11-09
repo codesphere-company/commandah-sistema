@@ -314,7 +314,10 @@ function gcRenderReview(){
    O garçom recebe na hora (dinheiro, Pix, crédito ou débito; cartão na maquininha, sem
    integração ainda) e a venda fecha pelo mesmo finalizeSale do balcão: ficha na cozinha,
    close_sale idempotente e pagamento no caixa aberto. */
-const GC_PAY_METHODS = ['dinheiro','pix','credito','debito'];
+// 09/11 (pedido do dono): o garçom cobra pelas formas da lista, exceto Fiado (fica com o caixa).
+function gcPayMethods(){ return formasNaVenda().filter(f=>f.tipo!=='fiado').map(f=>f.method); }
+function gcEhDinheiro(method){ const f = formaPorMetodo(method); return !!f && f.tipo==='dinheiro'; }
+function gcEhCartao(method){ const f = formaPorMetodo(method); return !!f && (f.tipo==='credito'||f.tipo==='debito'); }
 function gcGoCharge(){
   if(!gcCart.length){ toast('Adicione ao menos um produto.'); return; }
   gcFlow.obs = (document.getElementById('gcObs')?.value||'').trim();
@@ -324,7 +327,7 @@ function gcGoCharge(){
 }
 function gcRenderCharge(){
   const total = gcChargeTotal();
-  const methods = methodConfig().filter(m=>GC_PAY_METHODS.includes(m.method));
+  const methods = methodConfig().filter(m=>gcPayMethods().includes(m.method));
   const s = gcFlow.closeComanda ? state.sales.find(x=>x.id===gcFlow.saleId) : null;
   const t = s ? gcComandaTotals(s) : null;
   gcFlow.shownTotal = total;
@@ -336,12 +339,12 @@ function gcRenderCharge(){
       ${total<=TOLERANCIA_CENTAVO ? '<p class="sub" style="margin-top:12px">Nada a cobrar: confirme para fechar a comanda.</p>' : `
       <label class="np-label" style="display:block;margin:16px 0 8px">Forma de pagamento</label>
       <div class="gc-pay-grid">${methods.map(m=>`<button type="button" class="gc-pay-btn${gcFlow.payMethod===m.method?' active':''}" data-method="${h(m.method)}" onclick="gcSelectPay(${jsArg(m.method)})"><span class="gc-pay-icon">${m.icon}</span><span>${h(m.label)}</span></button>`).join('')}</div>
-      <div id="gcCashBox" class="np-section" ${gcFlow.payMethod==='dinheiro'?'':'hidden'}>
+      <div id="gcCashBox" class="np-section" ${gcEhDinheiro(gcFlow.payMethod)?'':'hidden'}>
         <label class="np-label">Valor recebido (vazio = valor exato)</label>
         <input id="gcCashReceived" type="number" inputmode="decimal" min="0" step="0.01" placeholder="${total.toFixed(2)}" oninput="gcUpdateChange()">
         <div class="gc-change" id="gcChange"></div>
       </div>
-      <p class="sub" id="gcCardHint" ${['credito','debito'].includes(gcFlow.payMethod)?'':'hidden'}>Passe o cartão na maquininha e confirme aqui depois de aprovado.</p>
+      <p class="sub" id="gcCardHint" ${gcEhCartao(gcFlow.payMethod)?'':'hidden'}>Passe o cartão na maquininha e confirme aqui depois de aprovado.</p>
 `}
       <div id="gcChargePending" class="sale-pending-warning" role="alert" hidden>O pedido já foi para a cozinha, mas o pagamento ainda não foi registrado. Toque em "Confirmar pagamento" de novo.</div>
     </div>
@@ -351,8 +354,8 @@ function gcRenderCharge(){
 function gcSelectPay(method){
   gcFlow.payMethod = method;
   document.querySelectorAll('.gc-pay-btn').forEach(b=>b.classList.toggle('active', b.dataset.method===method));
-  document.getElementById('gcCashBox').hidden = method!=='dinheiro';
-  document.getElementById('gcCardHint').hidden = !['credito','debito'].includes(method);  if(method==='dinheiro') setTimeout(()=>document.getElementById('gcCashReceived')?.focus(), 0);
+  document.getElementById('gcCashBox').hidden = !gcEhDinheiro(method);
+  document.getElementById('gcCardHint').hidden = !gcEhCartao(method);  if(gcEhDinheiro(method)) setTimeout(()=>document.getElementById('gcCashReceived')?.focus(), 0);
   gcUpdateChange();
 }
 function gcUpdateChange(){
@@ -373,7 +376,7 @@ function gcBackFromCharge(){
 async function gcConfirmCharge(){
   if(gcFlow.closeComanda) return gcConfirmCloseComanda();
   const method = gcFlow.payMethod;
-  if(!GC_PAY_METHODS.includes(method)){ toast('Escolha a forma de pagamento.'); return; }
+  if(!gcPayMethods().includes(method)){ toast('Escolha a forma de pagamento.'); return; }
   const total = gcCartTotal();
   if(!(total>0)){ toast('Adicione ao menos um produto.'); return; }
   const pay = gcBuildPayment(method, total); if(!pay) return;
@@ -401,7 +404,7 @@ async function gcConfirmCharge(){
 // Pagamento único do valor cheio; no dinheiro guarda recebido e troco (vazio = valor exato).
 function gcBuildPayment(method, total){
   const pay = { method, amount: total };
-  if(method==='dinheiro'){
+  if(gcEhDinheiro(method)){
     const raw = document.getElementById('gcCashReceived')?.value||'';
     const received = raw==='' ? total : arredondaCentavos(parseFloat(raw)||0);
     if(received+TOLERANCIA_CENTAVO < total){ toast('O valor recebido é menor que o total.'); return null; }
@@ -431,7 +434,7 @@ async function gcConfirmCloseComanda(){
   const method = gcFlow.payMethod;
   let payments = [];
   if(t.total>TOLERANCIA_CENTAVO){
-    if(!GC_PAY_METHODS.includes(method)){ toast('Escolha a forma de pagamento.'); return; }
+    if(!gcPayMethods().includes(method)){ toast('Escolha a forma de pagamento.'); return; }
     const pay = gcBuildPayment(method, t.total); if(!pay) return;
     payments = [pay];
   }

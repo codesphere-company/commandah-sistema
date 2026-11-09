@@ -1,22 +1,31 @@
 /* ============ PAGAMENTO ============ */
+/* 09/11 (pedido do dono): os botões da janela vêm da lista de formas (core/formas.js), na ordem dela.
+   As seis iniciais mantêm o atalho de sempre (mesmo desligadas, a tecla fica reservada); as outras
+   usam a primeira letra livre do nome e, se não houver, a sequência de reserva. */
+const TECLAS_DAS_INICIAIS = { dinheiro:'A', pix:'P', credito:'C', debito:'B', vale:'V', fiado:'F' };
+function iconeDoTipo(tipo){
+  return tipo==='dinheiro' ? ICN.cash : tipo==='pix' ? ICN.pix : (tipo==='credito'||tipo==='debito') ? ICN.card
+    : (tipo==='vale_refeicao'||tipo==='vale_alimentacao') ? ICN.meal : tipo==='fiado' ? ICN.doc : ICN.dots;
+}
 function methodConfig(){
-  const base=[
-    {key:'A',method:'dinheiro',label:'Dinheiro',icon:ICN.cash},
-    {key:'P',method:'pix',label:'Pix',icon:ICN.pix},
-    {key:'C',method:'credito',label:'Crédito',icon:ICN.card},
-    {key:'B',method:'debito',label:'Débito',icon:ICN.card},
-    {key:'V',method:'vale',label:'Vale Refeição',icon:ICN.meal},
-    {key:'F',method:'fiado',label:'Fiado',icon:ICN.doc},
-  ];
-  const usedKeys=new Set(base.map(b=>b.key));
-  const extras=state.paymentMethods.filter(pm=>!pm.method).map((pm,i)=>{
-    let key = pm.nome.trim().charAt(0).toUpperCase();
-    if(!key || usedKeys.has(key)) key = 'ZYXWQJK'[i%7];
-    usedKeys.add(key);
-    return {key,method:'outro:'+pm.nome,label:pm.nome,icon:ICN.dots};
+  const usadas = new Set(Object.values(TECLAS_DAS_INICIAIS));
+  let reserva = 0;
+  return formasNaVenda().map(f=>{
+    let key = TECLAS_DAS_INICIAIS[f.method];
+    if(!key){
+      key = String(f.nome||'').trim().charAt(0).toUpperCase();
+      if(!/^[A-Z0-9]$/.test(key) || usadas.has(key)){
+        do{ key = 'ZYXWQJK'.charAt(reserva%7) || 'Z'; reserva++; }while(usadas.has(key) && reserva<50);
+      }
+      usadas.add(key);
+    }
+    return { key, method:f.method, label:f.nome, icon:iconeDoTipo(f.tipo) };
   });
-  base.push({key:'O',method:'outro',label:'Outros',icon:ICN.dots});
-  return [...base,...extras];
+}
+// Pagamento gravado leva o nome e o código fiscal da forma na hora da venda (o relatório e a NFC-e
+// não dependem de a forma continuar na lista). Forma apagada depois: label cai no método, tPag fica null.
+function comDadosDaForma(p){
+  return { ...p, label: methodLabel(p.method), tPag: tPagDoMetodo(p.method) };
 }
 function openPaymentModal(mode, comandaId){
   // Comanda aberta sem nenhum consumo precisa poder ser fechada mesmo assim
@@ -34,6 +43,7 @@ function openPaymentModal(mode, comandaId){
   // dinheiro continua dinheiro; só o que falta vai para a conta.
   const contaColaborador = mode==='comanda' && memberIsColaborador(preselected ? state.members.find(m=>m.id===preselected) : null);
   const methods = contaColaborador ? [{key:'F',method:'fiado',label:'Conta do colaborador',icon:ICN.doc}] : methodConfig();
+  if(!methods.length){ toast('Ligue uma forma de pagamento em Formas de pagamento para receber.'); return; }
   // Visual A, etapa 3 (22/10): duas colunas (resumo e opções | forma de pagamento e confirmar),
   // para caber em 1366x768 sem rolar; até 900 px de largura viram uma coluna só.
   openModal('Pagamento', `<div class="pay-cols"><div class="pay-col">
@@ -301,7 +311,7 @@ function splitDebtFromPayments(payments, debt){
 async function recordDebtPaidWithSale(member, debtParts, saleId){
   try{
     for(const part of debtParts){
-      const entryId = await MembersStore.recordDebtEntry(member.id, 'payment', part.amount, { reason:'Pendência paga no fechamento da venda #'+saleId, method:paymentMethodLabel(part.method), saleId });
+      const entryId = await MembersStore.recordDebtEntry(member.id, 'payment', part.amount, { reason:'Pendência paga no fechamento da venda #'+saleId, method:part.method, saleId });
       recordFiadoPaymentInCash(member, part.amount, part.method, entryId);
     }
     logAction('Pendência de '+member.name+' paga junto com a venda #'+saleId+' — '+fmt(debtParts.reduce((a,p)=>a+p.amount,0)));
@@ -394,6 +404,8 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
       if(parts.length){ sale.payments=[...parts, ...sale.payments]; total=arredondaCentavos(total+parts.reduce((t,p)=>t+p.amount,0)); sale.total=total; }
     }
   }
+  // 09/11 (pedido do dono): cada pagamento (inclusive os parciais) leva label e tPag da forma.
+  sale.payments = sale.payments.map(comDadosDaForma);
   if(isCloudMode()){
     // Grava a venda no servidor via RPC close_sale — atomica (trava a linha de
     // cantina2:sales, sem last-write-wins entre dois dispositivos) e idempotente
