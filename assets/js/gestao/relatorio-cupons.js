@@ -44,9 +44,9 @@ function fiscalPackageFiles(notas, planilha){
   notas.forEach(n=>{
     if(n.status!=='autorizada'&&n.status!=='cancelada') return;
     if(n.xml) files.push({path:(n.status==='autorizada'?'autorizadas/':'canceladas/')+(n.chave||n.id)+'.xml',content:n.xml}); else semXml++;
-    if(n.status==='cancelada') canceladaSemEvento=true;
+    if(n.status==='cancelada'){ if(n.xml_cancelamento) files.push({path:'canceladas/'+(n.chave||n.id)+'-evento-cancelamento.xml',content:n.xml_cancelamento}); else canceladaSemEvento=true; }
   });
-  if(canceladaSemEvento) files.push({path:'canceladas/LEIA-ME.txt',content:'Estas notas foram canceladas: não contam como venda.\r\nO XML do evento de cancelamento deve ser baixado no portal da Brasil NFe.\r\nO protocolo de cada cancelamento está na planilha notas.xlsx.\r\n'});
+  if(canceladaSemEvento) files.push({path:'canceladas/LEIA-ME.txt',content:'Estas notas foram canceladas: não contam como venda.\r\nNota sem o arquivo -evento-cancelamento.xml: baixe o XML do evento no portal da Brasil NFe.\r\nO protocolo de cada cancelamento está na planilha notas.xlsx.\r\n'});
   return { files, semXml };
 }
 async function exportFiscalPackage(){
@@ -57,7 +57,7 @@ async function exportFiscalPackage(){
   if(p.from>p.to){ toast('Escolha um período válido.'); return; }
   if(btn) btn.disabled=true;
   try{
-    const notas=isCloudMode()?await fetchAllRows(fiscalNotesQuery(FISCAL_NOTE_COLS+',xml')):[];
+    const notas=isCloudMode()?await fetchAllRows(fiscalNotesQuery(FISCAL_NOTE_COLS+',xml,xml_cancelamento')):[];
     if(!notas.length){ if(mudou){ f.rows=[]; f.notice=''; renderFiscalNotesReport(true); } toast('Nenhuma nota nesse período.'); return; }
     const [XLSX,JSZip]=await Promise.all([loadXlsx(),loadJsZip()]), wb=XLSX.utils.book_new(), ws=XLSX.utils.aoa_to_sheet(fiscalSheetRows(notas));
     ws['!cols']=[8,6,19,9,11,12,34,48,18,19,20,34,16].map(w=>({wch:w})); XLSX.utils.book_append_sheet(wb,ws,'Notas');
