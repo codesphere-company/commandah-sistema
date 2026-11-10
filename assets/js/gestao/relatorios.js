@@ -1,6 +1,6 @@
 /* ============ RELATÓRIOS ============ */
 // PROD-06 (decisão do dono, 10/10: "eu escolho quando"): planilha para o contador do período
-// escolhido. Vendas e faturamento pelo dia em que a venda abriu (regra do OP-14); fiado e caixa
+// escolhido. Vendas e faturamento pelo dia do pagamento (saleRevenueDay, pedido do dono em 10/11); fiado e caixa
 // pela data do lançamento. Gera .xlsx com a SheetJS, baixada só nesta hora (versão fixa + SRI).
 const XLSX_SRC='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js', XLSX_SRI='sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw';
 function loadXlsx(){
@@ -15,7 +15,7 @@ function openAccountantExport(){if(!requirePerm('relatorios-gerencia'))return; /
     <p class="sub">Escolha o período e gere a planilha (Excel). Abas: Resumo, Vendas por dia, Vendas, Produtos, Fiado, Fechamentos de caixa e Entradas e saídas.</p>
     <div class="report-period-links"><button onclick="setAccountantRange(-1)">Mês anterior</button><button onclick="setAccountantRange(0)">Mês atual</button></div>
     <div class="row"><div class="field"><label>De</label><input id="accFrom" type="date" value="${r.from}"></div><div class="field"><label>Até</label><input id="accTo" type="date" value="${r.to}"></div></div>
-    <p class="sub">Vendas e faturamento contam pelo dia em que a venda abriu (comanda aberta à noite e paga no dia seguinte conta no dia da abertura). Fiado, sangrias e suprimentos contam pela data do lançamento.</p>
+    <p class="sub">Vendas e faturamento contam pelo dia do pagamento (comanda aberta à noite e paga no dia seguinte conta no dia seguinte). Fiado, sangrias e suprimentos contam pela data do lançamento.</p>
     <div class="row"><button class="btn" onclick="closeModal()">Voltar</button><button class="btn btn-primary" id="accGo" onclick="generateAccountantExport()">Gerar planilha</button></div>`);
 }
 function setAccountantRange(offset){ const r=monthRange(offset); document.getElementById('accFrom').value=r.from; document.getElementById('accTo').value=r.to; }
@@ -65,7 +65,7 @@ function accountantSheets(from, to){
   return [
     ['Resumo', [
       ['Estabelecimento', (state.settings&&state.settings.clubName)||''], ['Período', dateBR(from)+' a '+dateBR(to)], ['Gerado em', new Date().toLocaleString('pt-BR')], [],
-      ['Faturamento (vendas fechadas, pelo dia de abertura)', round(tot.fat)], ['Número de vendas', tot.n], ['Ticket médio', tot.n?round(tot.fat/tot.n):0], ['Descontos concedidos', round(tot.desc)], ['Desconto colaborador', round(tot.colab)], ['Taxa de serviço', round(tot.serv)], [],
+      ['Faturamento (vendas fechadas, pelo dia do pagamento)', round(tot.fat)], ['Número de vendas', tot.n], ['Ticket médio', tot.n?round(tot.fat/tot.n):0], ['Descontos concedidos', round(tot.desc)], ['Desconto colaborador', round(tot.colab)], ['Taxa de serviço', round(tot.serv)], [],
       ['Formas de pagamento das vendas do período'], ...cols.map(c=>[rotulo(c), round(tot.m[c.method])]), [],
       ['Fiado lançado no período', round(fiadoLanc)], ['Fiado recebido no período', round(fiadoRec)], ['Descontado do salário', round(fiadoSalario)], [],
       ['Vendas canceladas (quantidade)', canceled.length], ['Vendas canceladas (valor)', round(canceled.reduce((a,sl)=>a+(Number(sl.total)||0),0))], [],
@@ -99,8 +99,8 @@ async function generateAccountantExport(){
   }catch(e){ console.error(e); toast('Não foi possível gerar: '+(e.message||e),'error'); btn.disabled=false; btn.textContent='Gerar planilha'; }
 }
 // PROD-18 (decisão do dono, 10/10): em vez de e-mail, o resumo diário fica no próprio sistema.
-// Faturamento pelo dia em que a venda abriu (OP-14): vendas fechadas + comandas ainda abertas
-// daquele dia (a receber). Fiado e caixa pelo que aconteceu no dia.
+// Faturamento pelo dia do pagamento: vendas fechadas naquele dia + comandas ainda abertas
+// que abriram naquele dia (a receber). Fiado e caixa pelo que aconteceu no dia.
 // Relatório de movimentações por usuário (pedido do dono, 10/10): tudo o que cada colaborador
 // fez no período, direto do audit_log (carimbado pelo servidor; só admin/dono lê).
 const userActivity={from:null,to:null,user:'',q:'',rows:null,loading:false,error:''};
