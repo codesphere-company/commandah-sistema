@@ -36,8 +36,9 @@ async function exportCustomerAccountReport(){
   await exportAoaXlsx('commandah-clientes-devedores-'+todayStr()+'.xlsx',[['Clientes',[['Cliente','Cota','Telefone','Saldo devedor','Última compra','Último pagamento','Devendo desde','Dias em aberto'],...d.rows.map(r=>[r.m.name||'',r.m.code||'',r.m.phone||'',arredondaCentavos(r.debt),dt(r.lastPurchase),dt(r.lastPayment),dt(r.oldest),r.oldest?r.days:''])],[32,8,16,14,14,16,14,10]]]);
 }
 
-// Conta aberta: tudo do cliente em ordem do mais recente para o mais antigo. Lançamento ligado a uma venda
-// (saleId) é absorvido pelo cartão da venda, para a compra não aparecer duas vezes. Sem período escolhido,
+// Conta aberta: tudo do cliente em ordem do mais recente para o mais antigo. Só o fiado da própria compra é
+// absorvido pelo cartão da venda, para não aparecer duas vezes; pagamento, estorno e uso de crédito ligados à
+// venda continuam na lista, senão o saldo não fecha. Sem período escolhido,
 // mostra a conta inteira. Os indicadores não mudam com as caixas de marcar: elas só escolhem o que listar.
 const customerAccountDetail={id:null,from:'',to:'',fiado:true,paid:true,payments:true};
 function customerTimeline(member, f){
@@ -45,7 +46,7 @@ function customerTimeline(member, f){
   const vendas=state.sales.filter(s=>s.memberId===member.id&&saleCountsAsRevenue(s));
   const ids=new Set(vendas.map(s=>s.id)), periodo=vendas.filter(s=>dentro(saleRevenueDay(s)));
   const saldos=new Map(fiadoStatementData(member,'','').lines.map(l=>[l.e.id,l.bal]));
-  const lanc=(member.debtHistory||[]).filter(e=>!(e.saleId&&ids.has(e.saleId))&&reportValidDate(e.at)&&dentro(localDay(e.at)));
+  const lanc=(member.debtHistory||[]).filter(e=>!(e.saleId&&ids.has(e.saleId)&&e.type==='debt'&&!e.reversed&&!/uso de crédito/i.test(e.reason||''))&&reportValidDate(e.at)&&dentro(localDay(e.at)));
   const pagamentos=lanc.filter(e=>e.type!=='debt');
   const dinheiroNaHora=periodo.reduce((a,s)=>a+(s.payments||[]).filter(p=>!salePayIsFiado(p)).reduce((b,p)=>b+(Number(p.amount)||0),0),0);
   const fiadoPago=pagamentos.filter(e=>e.type==='payment'&&!e.reversed&&!/crédito de troco/i.test(e.reason||'')).reduce((a,e)=>a+(Number(e.value)||0),0);

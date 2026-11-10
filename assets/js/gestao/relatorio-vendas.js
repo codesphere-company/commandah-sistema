@@ -9,7 +9,7 @@ function salesReportData(f){
   const sales=state.sales.filter(s=>{
     if(!s||!(saleCountsAsRevenue(s)||(f.showCanceled&&s.canceled))) return false;
     const d=saleRevenueDay(s); if(d<from||d>to) return false;
-    if(f.method&&!(s.payments||[]).some(p=>p.method===f.method)) return false;
+    if(f.method&&!(s.payments||[]).some(p=>normalizarMetodo(p.method)===normalizarMetodo(f.method))) return false;
     if(f.type&&s.type!==f.type) return false;
     if(prod&&!(s.items||[]).some(i=>!i.canceled&&String(i.name||'').toLowerCase().includes(prod))) return false;
     if(cli){ const m=s.memberId?state.members.find(x=>x.id===s.memberId):null; if(!(reportSaleWho(s).toLowerCase().includes(cli)||(m&&String(m.code||'').toLowerCase()===cli))) return false; }
@@ -26,7 +26,7 @@ function applySalesDetailFilter(){
 }
 function renderSalesDetailReport(){
   const f=salesDetailFilter, d=salesReportData(f), LIMITE=1000, from=f.from||reportMonthStart(), to=f.to||todayStr();
-  const metodos=[...new Set([...listaDeFormas().map(x=>x.method),...state.sales.flatMap(s=>(s&&s.payments||[]).map(p=>p.method)).filter(Boolean)])];
+  const metodos=[...new Set([...listaDeFormas().map(x=>x.method),...state.sales.flatMap(s=>(s&&s.payments||[]).map(p=>normalizarMetodo(p.method))).filter(Boolean)])];
   const tipos=[...new Set(state.sales.map(s=>s&&s.type).filter(Boolean))];
   const enter=`onkeydown="if(event.key==='Enter')applySalesDetailFilter()"`;
   const filtros=`<div class="field"><label for="sdFrom">De</label><input id="sdFrom" type="date" value="${h(from)}"></div><div class="field"><label for="sdTo">Até</label><input id="sdTo" type="date" value="${h(to)}"></div><div class="field"><label for="sdMethod">Forma de pagamento</label><select id="sdMethod"><option value="">Todas</option>${metodos.map(m=>`<option value="${h(m)}" ${m===f.method?'selected':''}>${h(paymentMethodLabel(m))}</option>`).join('')}</select></div><div class="field"><label for="sdType">Tipo</label><select id="sdType"><option value="">Todos</option>${tipos.map(t=>`<option value="${h(t)}" ${t===f.type?'selected':''}>${h(typeLabel(t))}</option>`).join('')}</select></div><div class="field"><label for="sdProduct">Produto</label><input id="sdProduct" value="${h(f.product)}" ${enter}></div><div class="field"><label for="sdCustomer">Cliente (nome ou cota)</label><input id="sdCustomer" value="${h(f.customer)}" ${enter}></div><label class="det-check"><input id="sdCanceled" type="checkbox" ${f.showCanceled?'checked':''}> Mostrar canceladas</label><button class="op-btn primary" onclick="applySalesDetailFilter()">⌕ &nbsp; Pesquisar</button>`;

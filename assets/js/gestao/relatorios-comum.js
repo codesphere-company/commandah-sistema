@@ -9,7 +9,7 @@ function reportItemValue(i){ return (Number(i.qty)||0)*(Number(i.price)||0); }
 function reportItemQty(i){ return i.weight?fmtKg(i.weight.kg):String(Number(i.qty)||0); }
 function reportSaleWho(s){ const m=s.memberId?state.members.find(x=>x.id===s.memberId):null; return m?m.name:(s.customerName||'Avulso'); }
 function reportSalePayments(s){ return (s.payments||[]).map(p=>paymentMethodLabel(p.method)+' '+fmt(p.amount)).join(' + ')||'—'; }
-function salePayIsFiado(p){ return methodBucket(p.method)==='fiado'; }
+function salePayIsFiado(p){ return methodBucket(normalizarMetodo(p.method))==='fiado'; }
 function reportItemDetails(i, sale){
   const c=i.customization||{}, linhas=customizationLines(i).slice(), obs=c.v===2?c.notes:(i.notes||c.notes);
   if(obs) linhas.push('Obs.: '+obs);
@@ -20,7 +20,7 @@ function reportItemDetails(i, sale){
 }
 function saleCardHtml(sale, opts){
   const o=opts||{}, items=sale.items||[], when=sale.closedAt||sale.openedAt;
-  const extras=[['Desconto',-(Number(sale.discount)||0)],['Desconto colaborador',-(Number(sale.staffDiscount)||0)],['Serviço',Number(sale.serviceCharge)||0]].filter(x=>Math.abs(x[1])>=0.005);
+  const extras=[['Desconto',-(Number(sale.discount)||0)],['Desconto colaborador',-(Number(sale.staffDiscount)||0)],['Crédito usado',-(Number(sale.creditApplied)||0)],['Serviço',Number(sale.serviceCharge)||0]].filter(x=>Math.abs(x[1])>=0.005);
   const titulo=[reportWhen(when), (typeLabel(sale.type)||'Pedido')+' #'+(sale.orderNumber||sale.id||'—')].concat(o.showCustomer?[reportSaleWho(sale)]:[]).join(' · ');
   const linhas=items.map(i=>`<li class="${i.canceled?'canceled':''}"><span>${h(reportItemQty(i))} × ${h(i.name||'—')}${reportItemDetails(i,sale).map(l=>`<small>${h(l)}</small>`).join('')}</span><span class="mono">${fmt(reportItemValue(i))}</span></li>`).join('')||'<li class="sub">Sem itens registrados.</li>';
   return `<article class="det-sale"><header><b>${h(titulo)}${sale.canceled?' <span class="tag tag-red">Cancelada</span>':''}<span class="det-tag">${h(reportSalePayments(sale))}</span></b><b class="mono">${fmt(Number(sale.total)||0)}</b></header><ul>${linhas}${extras.map(x=>`<li class="det-sale-extra"><span>${h(x[0])}</span><span class="mono">${fmt(x[1])}</span></li>`).join('')}</ul></article>`;
