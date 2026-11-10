@@ -5,6 +5,14 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-10-relatorios', data:'10/11/2026', itens:[
+    { titulo:'Relatórios detalhados',
+      texto:'Novos relatórios: Conta do Cliente (quem deve, última compra e tudo o que comprou), Relatório de Vendas (com filtro por forma de pagamento e itens), Vendas dos Garçons e Cupons Fiscais, com pacote de planilha e XMLs para a contabilidade.',
+      onde:'Relatórios', perms:['relatorios-gerencia'] },
+    { titulo:'Vendas contam pela data do pagamento',
+      texto:'Comanda aberta à noite e paga no dia seguinte agora conta no dia seguinte. Mais Vendidos passou a mostrar os números do período escolhido.',
+      onde:'Relatórios', perms:['relatorios-gerencia'] },
+  ] },
   { id:'2026-11-09-pix', data:'09/11/2026', itens:[
     { titulo:'Pix pela chave e Pix pela maquininha',
       texto:'Quando o cliente pagar pela chave CNPJ, use o botão "Pix CNPJ". Quando pagar pelo QR Code da maquininha, use o botão "Pix".',
