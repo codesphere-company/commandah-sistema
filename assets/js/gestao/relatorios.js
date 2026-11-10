@@ -398,6 +398,8 @@ function renderRelatoriosInner(){
   if(report==='Resumo do Dia'){renderDailySummaryReport();return;}
   if(report==='Movimentações por Usuário'){renderUserActivityReport();return;}
   if(report==='Conta do Cliente'){renderCustomerAccountReport();return;}
+  if(report==='Relatório de Vendas'){renderSalesDetailReport();return;}
+  if(report==='Vendas dos Garçons'){renderWaiterReport();return;}
   if(report==='Mais Vendidos'){renderBestSellersReport(sales);return;}
   if(report==='Histórico de Pedidos'){renderOrderHistoryReport(sales);return;}
   if(report==='Histórico de Itens Vendidos'){renderSoldItemsReport(sales);return;}
