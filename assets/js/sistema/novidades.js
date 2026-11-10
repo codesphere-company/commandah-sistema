@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-10-xml-cancelamento', data:'10/11/2026', itens:[
+    { titulo:'XML do cancelamento no pacote da contabilidade',
+      texto:'Ao cancelar uma NFC-e, o sistema guarda o XML do evento de cancelamento. O pacote de Cupons Fiscais passa a levar esse arquivo junto da nota.',
+      onde:'Relatórios › Cupons Fiscais', perms:['relatorios-gerencia'] },
+  ] },
   { id:'2026-11-10-relatorios', data:'10/11/2026', itens:[
     { titulo:'Relatórios detalhados',
       texto:'Novos relatórios: Conta do Cliente (quem deve, última compra e tudo o que comprou), Relatório de Vendas (com filtro por forma de pagamento e itens), Vendas dos Garçons e Cupons Fiscais, com pacote de planilha e XMLs para a contabilidade.',

@@ -14,6 +14,7 @@
 // por estabelecimento (t215), então nunca há dois envios ao mesmo tempo na série.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildNfcePayload, type Product, type Sale } from "./payload.ts";
+import { buscarXmlCancelamento } from "./cancelamento.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -67,7 +68,7 @@ async function brasilNfe(path: string, body: unknown) {
   const text = await res.text();
   let parsed: Record<string, unknown> | null = null;
   try { parsed = JSON.parse(text); } catch { /* resposta não-JSON */ }
-  return { ok: res.ok, status: res.status, body: parsed, text: text.slice(0, 500) };
+  return { ok: res.ok, status: res.status, body: parsed, text: text.slice(0, 500), raw: text };
 }
 
 // t215: trava de emissão (tabela nfce_trava). O prazo cobre a consulta e o envio (45 s cada) com
@@ -97,7 +98,7 @@ function b64ToText(b64: unknown) {
 }
 
 function publicRow(r: Record<string, unknown>) {
-  const { xml: _xml, tenant_id: _t, ...rest } = r;
+  const { xml: _xml, xml_cancelamento: _xc, tenant_id: _t, ...rest } = r;
   return rest;
 }
 
@@ -137,14 +138,15 @@ Deno.serve(async (req) => {
         ? "Passou o prazo de 30 minutos para cancelar esta NFC-e. Fale com o contador (nota de devolução)."
         : `A SEFAZ não aceitou o cancelamento${cod ? " (" + cod + ")" : ""}: ${motivo}` }, 422);
     }
+    const evento = await buscarXmlCancelamento(brasilNfe, nota, b);
     const upd = { status: "cancelada", cancelada_em: new Date().toISOString(), cancel_protocolo: (b.NuProtocolo as string) || null,
-      cancel_motivo: just.slice(0, 500), cancelada_por: who.name };
+      cancel_motivo: just.slice(0, 500), cancelada_por: who.name, xml_cancelamento: evento.xml };
     const { data: saved, error: updErr } = await admin.from("nfce_notas").update(upd).eq("id", nota.id).select("*").single();
     if (updErr) console.error("[nfce] cancelada na SEFAZ, mas falhou ao gravar:", updErr);
     await admin.from("audit_log").insert({
       tenant_id: who.tenantId, actor_name: who.name, entity: "sale", entity_id: saleId,
       action: `NFC-e cancelada${nota.ambiente === 2 ? " (homologação)" : ""}: nº ${nota.numero} série ${nota.serie} — ${just.slice(0, 120)}`,
-      meta: { chave: nota.chave, protocolo: upd.cancel_protocolo },
+      meta: { chave: nota.chave, protocolo: upd.cancel_protocolo, xml_evento: evento.origem, campos: evento.campos },
     });
     return json({ nota: publicRow(saved || { ...nota, ...upd }) });
   }
