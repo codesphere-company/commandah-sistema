@@ -957,3 +957,30 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .conf-s-confirmado{background:var(--c-success-soft);color:var(--c-success)}
 .conf-s-nao_recebido{background:var(--c-danger-soft);color:var(--c-danger)}
 .conf-nota{display:block;margin-top:2px;max-width:240px;font-size:12px;color:var(--c-text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 10/11 (pedido da Vanessa): relatórios detalhados (Conta do Cliente, Vendas, Garçons, Cupons) */
+.det-report{padding:4px 0;color:var(--c-text-2)}
+.det-report-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.det-report-head h2{margin:0;font-size:20px;color:var(--c-text)}
+.det-report-actions{display:flex;flex-wrap:wrap;gap:8px}
+.det-filtros{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;margin-bottom:14px}
+.det-filtros .field{margin:0;min-width:150px}
+.det-filtros .det-campo-curto{min-width:0;width:110px}
+.det-check{display:flex;align-items:center;gap:6px;min-height:38px;font-size:14px}
+.det-check input{width:auto;height:auto}
+.det-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px}
+.det-grid{margin-bottom:14px;max-height:none}
+.det-aviso{margin:0 0 12px;font-size:13px;color:var(--c-text-3)}
+.det-sale{border:1px solid var(--c-border-strong);border-radius:8px;background:var(--c-surface);margin-bottom:8px;overflow:hidden;break-inside:avoid}
+.det-sale header{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:8px 12px;background:var(--c-surface-3);color:var(--c-text)}
+.det-tag{margin-left:8px;padding:1px 8px;border:1px solid var(--c-border-control);border-radius:10px;font-size:12px;font-weight:500}
+.det-sale ul{list-style:none;margin:0;padding:6px 12px}
+.det-sale li{display:flex;justify-content:space-between;gap:12px;padding:3px 0;font-size:14px}
+.det-sale li small{display:block;color:var(--c-text-3);font-size:12px}
+.det-sale li.canceled>span{text-decoration:line-through;color:var(--c-text-3)}
+.det-sale li.det-sale-extra{border-top:1px dashed var(--c-border);color:var(--c-text-3)}
+@media print{.det-filtros,.det-report-actions{display:none!important}}
+.det-link{background:none;border:0;padding:0;font:inherit;color:var(--c-primary-text);text-decoration:underline;cursor:pointer;text-align:left}
+.det-report h3{margin:16px 0 8px;font-size:16px;color:var(--c-text)}
+.det-small{display:block;color:var(--c-text-3);font-size:12px}
+.det-chave{font-size:12px;word-break:break-all}

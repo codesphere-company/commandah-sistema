@@ -7,9 +7,10 @@ function saleTotal(items){ return (items||[]).filter(i=>!i.canceled).reduce((a,i
    como delivery (deliveryStatus) e não cancelada como comanda inteira (s.canceled, ver
    confirmCancelComanda). Todo relatório novo deve usar isto em vez de repetir a condição. */
 function saleCountsAsRevenue(s){ return !!s && s.status==='closed' && s.deliveryStatus!=='cancelado' && !s.canceled; }
-// OP-14: o faturamento de uma venda é do dia em que ela abriu (comanda aberta à noite e paga no dia
-// seguinte conta no dia da abertura). Recebimentos (formas de pagamento, caixa) seguem pela data do pagamento.
-function saleRevenueDay(s){ return localDay(s.openedAt||s.closedAt); }
+// 10/11 (pedido do dono): o faturamento de uma venda é do dia do pagamento, ou seja, do dia em que ela fechou
+// (comanda aberta à noite e paga no dia seguinte conta no dia seguinte). Comanda ainda aberta não tem
+// closedAt e continua no dia em que abriu, como "a receber". O fechamento de caixa (OP-14) não usa esta regra.
+function saleRevenueDay(s){ return localDay(s.closedAt||s.openedAt); }
 // Rótulo da linha do desconto do colaborador, igual no caixa, no pagamento e no garçom.
 function staffDiscountLabel(pct){ return 'Desconto colaborador ('+String(pct).replace('.',',')+'%)'; }
 // Total da comanda, igual no caixa, no garçom e no painel. Ordem: cupom; crédito do sócio (até o que
