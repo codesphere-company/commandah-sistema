@@ -982,3 +982,5 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 @media print{.det-filtros,.det-report-actions{display:none!important}}
 .det-link{background:none;border:0;padding:0;font:inherit;color:var(--c-primary-text);text-decoration:underline;cursor:pointer;text-align:left}
 .det-report h3{margin:16px 0 8px;font-size:16px;color:var(--c-text)}
+.det-small{display:block;color:var(--c-text-3);font-size:12px}
+.det-chave{font-size:12px;word-break:break-all}
