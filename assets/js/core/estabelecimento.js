@@ -12,8 +12,10 @@ function renderTenantSetup(){
     <div id="tsTurnstile" style="margin:10px 0"></div>
     <button class="btn btn-primary btn-block" id="tsSignInBtn" onclick="tenantSignIn()">Entrar</button>
     <hr style="border:none;border-top:1px solid var(--line);margin:18px 0">
-    <p class="sub" style="text-align:left;margin-bottom:8px"><b>Ainda não tem conta? Crie o estabelecimento:</b></p>
-    <div class="field" style="text-align:left"><label>Nome do estabelecimento</label><input id="tsBusinessName" placeholder="Ex: Clube Olímpico Maringá"></div>
+    <p class="sub" style="text-align:left;margin-bottom:8px"><b>Contratou o Commandah? Crie o estabelecimento:</b></p>
+    <p class="sub" style="text-align:left;margin-bottom:8px">Use o código de convite que você recebeu ao contratar, mais o e-mail e a senha acima (senha com pelo menos 8 caracteres).</p>
+    <div class="field" style="text-align:left"><label>Código de convite</label><input id="tsInvite" placeholder="XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20"></div>
+    <div class="field" style="text-align:left"><label>Nome do estabelecimento</label><input id="tsBusinessName" placeholder="Ex: Bar do Centro" maxlength="80"></div>
     <button class="btn btn-block" id="tsSignUpBtn" onclick="tenantSignUp()">Criar novo estabelecimento</button>
   </div>`;
   renderTurnstileWidget();
@@ -47,7 +49,6 @@ function resetTurnstile(){
   tsCaptchaToken = null;
   try{ if(window.turnstile && tsTurnstileWidgetId!=null) window.turnstile.reset(tsTurnstileWidgetId); }catch(e){}
 }
-function slugifyTenant(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,60); }
 function showTenantError(msg){ const el=document.getElementById('tsError'); if(el){ el.style.display='block'; el.textContent=msg; } }
 function copyTenantCode(){
   const code = getTenantId();
@@ -81,21 +82,30 @@ async function tenantSignIn(){
   } finally { btn.disabled=false; btn.textContent='Entrar'; resetTurnstile(); }
 }
 async function tenantSignUp(){
+  // Auditoria 11/11 (A1): o cadastro público do Auth fica desligado. Quem cria o dono e o
+  // estabelecimento é a Edge Function "cadastro", e só com código de convite; o tenant_id
+  // vem do servidor (antes o navegador escolhia e inseria direto em tenant_owners).
   const email = (document.getElementById('tsEmail').value||'').trim();
   const password = document.getElementById('tsPassword').value||'';
   const name = (document.getElementById('tsBusinessName').value||'').trim();
+  const codigo = (document.getElementById('tsInvite').value||'').trim();
+  if(!codigo){ showTenantError('Digite o código de convite que você recebeu ao contratar o Commandah.'); return; }
   if(!email || !password || !name){ showTenantError('Preencha nome do estabelecimento, e-mail e senha.'); return; }
-  if(password.length<6){ showTenantError('A senha precisa ter pelo menos 6 caracteres.'); return; }
+  if(password.length<8){ showTenantError('A senha precisa ter pelo menos 8 caracteres.'); return; }
   if(!tsCaptchaToken && !tsCaptchaFailed){ showTenantError('Aguarde a verificação "não sou robô" (alguns segundos) e tente de novo.'); return; }
   const btn=document.getElementById('tsSignUpBtn'); btn.disabled=true; btn.textContent='Criando...';
   try{
-    const { data, error } = await supabaseClient.auth.signUp({ email, password, options: tsCaptchaToken ? { captchaToken: tsCaptchaToken } : {} });
-    if(error){ showTenantError(/captcha/i.test(error.message||'') ? 'A verificação "não sou robô" falhou. Recarregue a página e tente de novo.' : error.message); resetTurnstile(); return; }
-    if(!data.user){ showTenantError('Conta criada — verifique seu e-mail pra confirmar antes de continuar.'); return; }
-    const tenantId = slugifyTenant(name) + '-' + Math.random().toString(36).slice(2,6);
-    const { error: insertErr } = await supabaseClient.from('tenant_owners').insert({ user_id: data.user.id, tenant_id: tenantId, business_name: name });
-    if(insertErr){ showTenantError('Conta criada, mas houve erro ao vincular o estabelecimento: '+insertErr.message); return; }
-    sessionIsOwner = true; // acabou de criar a linha em tenant_owners: é o dono
+    const { data, error } = await supabaseClient.functions.invoke('cadastro', { body:{ codigo, nome:name, email, senha:password } });
+    if(error || !data || data.error || !data.tenant_id){
+      let msg = data && data.error;
+      if(!msg && error && error.context && typeof error.context.json==='function'){ try{ const b = await error.context.json(); msg = b && b.error; }catch(e){} }
+      showTenantError(msg || 'Não foi possível criar o estabelecimento agora. Confira a internet e tente de novo.');
+      return;
+    }
+    const tenantId = data.tenant_id;
+    const { error: signErr } = await supabaseClient.auth.signInWithPassword({ email, password, options: tsCaptchaToken ? { captchaToken: tsCaptchaToken } : {} });
+    if(signErr){ showTenantError('Estabelecimento criado. Agora entre com o e-mail e a senha (botão Entrar).'); return; }
+    sessionIsOwner = true; // a função acabou de criar a linha em tenant_owners: é o dono
     setTenantId(tenantId);
     storageApi = buildSupabaseStorageApi(supabaseClient, tenantId);
     document.getElementById('tenantSetupOverlay').style.display = 'none';

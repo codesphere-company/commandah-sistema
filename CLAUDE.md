@@ -30,7 +30,7 @@ assets/js/impressao/  impressoras e impressão automática (agente local)
 assets/js/gestao/     relatórios, logs, contas, financeiro/fiado, cupons, alterar em lote
 assets/js/sistema/    configurações, backup, ajuda, LGPD, central de módulos
 supabase/migrations/  SQL versionado (AAAAMMDDhhmmss_nome.sql)
-supabase/functions/   nfce (Brasil NFe), staff-auth (login por PIN)
+supabase/functions/   nfce (Brasil NFe), staff-auth (login por PIN), cadastro (estabelecimento novo com convite)
 agente-impressao/     código C# do agente; build.cmd gera o .exe
 downloads/            .exe do agente servido pelo site (URL pública: não mover)
 scripts/              checagens do app e bump de versão (CI e hooks usam)

@@ -10,7 +10,7 @@ Navegador (PC do caixa, celular do garçom, TV da cozinha, totem)
 Supabase (projeto ezfoymdesmarpunmixbs)
   Auth (e-mail/senha + Turnstile) · Postgres com RLS por tenant e papel
   RPCs SECURITY DEFINER com trava (vendas, caixa, insumos, impressão)
-  Edge Functions: staff-auth (PIN de operador) · nfce (Brasil NFe → SEFAZ)
+  Edge Functions: staff-auth (PIN de operador) · nfce (Brasil NFe → SEFAZ) · cadastro (estabelecimento novo com convite)
       │  fila print_jobs (polling)
       ▼
 Agente de impressão (C#, PC da rede das impressoras) → ESC/POS na porta 9100 ou driver USB
@@ -18,7 +18,7 @@ Agente de impressão (C#, PC da rede das impressoras) → ESC/POS na porta 9100 
 
 ## Fluxo principal dos dados
 1. **Boot** (`core/boot.js`): carrega o SDK (com reserva jsdelivr → unpkg), cria o cliente, confere a sessão. Sem servidor, mostra a tela de "sem conexão" e tenta de novo sozinho.
-2. **Estabelecimento e login** (`core/estabelecimento.js`, `core/login.js`): o dono entra por e-mail/senha (o tenant vem de `tenant_owners`). Operadores entram por PIN pela Edge Function `staff-auth`, com bloqueio progressivo.
+2. **Estabelecimento e login** (`core/estabelecimento.js`, `core/login.js`): o dono entra por e-mail/senha (o tenant vem de `tenant_owners`). Estabelecimento novo só nasce pela Edge Function `cadastro`, com código de convite (`convites`, `assinaturas`); o navegador não insere mais em `tenant_owners`. Operadores entram por PIN pela Edge Function `staff-auth`, com bloqueio progressivo.
 3. **Carga** (`core/dados.js` → `loadAll`): o estado vive em memória no objeto global `state`. A origem é:
    - **tabelas próprias**: `members` (+ dependentes e extrato de fiado), `orders` (cozinha), `sales` (vendas);
    - **blob JSON** em `app_data` por `(tenant_id, chave)`: configurações, produtos, insumos, caixa etc.;
