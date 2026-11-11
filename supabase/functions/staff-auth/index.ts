@@ -26,6 +26,16 @@ const STAFF_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const ROLES = ["admin", "caixa", "garcom", "cozinha"];
 const PIN_MAX_LEN = 64;
 function validStaffId(v: string) { return STAFF_ID_RE.test(v); }
+// Auditoria de lançamento 11/11: PIN padrão (1234) e PINs óbvios. Estabelecimento novo nascia com
+// Administrador e Garçom App de PIN 1234, e a troca obrigatória só conferia o PIN guardado no
+// aparelho, que na nuvem não existe. Agora o servidor recusa PIN óbvio ao criar/redefinir e, no
+// login com PIN óbvio, devolve trocar_pin para o site exigir a troca (action change_own_pin).
+function pinFraco(pin: string) {
+  if (!/^\d+$/.test(pin)) return false;
+  if (/^(\d)\1+$/.test(pin)) return true; // 0000, 111111
+  return "01234567890".includes(pin) || "09876543210".includes(pin); // 1234, 123456, 4321...
+}
+const PIN_FRACO_MSG = "PIN fácil demais de adivinhar (como 1234, 0000 ou sequência). Escolha outro.";
 function validPin(v: string) { return v.length >= 1 && v.length <= PIN_MAX_LEN; }
 
 // Auditoria 03/11 (A2): troca de perfil vai para o audit_log (aparece em Logs para o dono).
@@ -211,11 +221,40 @@ Deno.serve(async (req) => {
       });
       if (verifyErr || !sessionData?.session) return internalError("Falha ao autenticar", verifyErr);
 
-      return json({ session: sessionData.session });
+      return json({ session: sessionData.session, trocar_pin: pinFraco(pin) });
     }
 
     // Confirmação de senha antes de uma alteração sensível (ex.: reabrir comanda fechada).
     // Não devolve sessão: só diz se o PIN confere e o perfil de quem digitou.
+    // Troca do próprio PIN (11/11): confere o PIN atual com o mesmo controle de tentativas do login.
+    // Serve para a troca obrigatória de PIN óbvio, sem precisar de outro administrador.
+    if (action === "change_own_pin") {
+      const staffId = String(body.staff_id || "");
+      const pin = String(body.pin || "");
+      const newPin = String(body.new_pin || "");
+      if (!staffId || !pin || !newPin) return json({ error: "Campos obrigatórios faltando" }, 400);
+      if (!validStaffId(staffId) || !validPin(pin)) return json({ error: "PIN incorreto" }, 401);
+      if (!/^\d+$/.test(newPin) || newPin.length > 8) return json({ error: "O PIN novo deve ter só números." }, 400);
+      const checked = await checkStaffPin(staffId, pin);
+      if ("resp" in checked) return checked.resp;
+      const staff = checked.staff;
+      const min = staff.role === "admin" ? ADMIN_PIN_MIN_LEN : 4;
+      if (newPin.length < min) return json({ error: `O PIN novo precisa ter ${min} dígitos.` }, 400);
+      if (newPin === pin) return json({ error: "O PIN novo deve ser diferente do atual." }, 400);
+      if (pinFraco(newPin)) return json({ error: PIN_FRACO_MSG }, 400);
+      const { error: updErr } = await admin.from("tenant_staff").update({
+        pin_hash: bcrypt.hashSync(newPin, 10), failed_attempts: 0, lock_count: 0, locked_until: null, updated_at: new Date().toISOString(),
+      }).eq("id", staffId);
+      if (updErr) return internalError("Falha ao trocar o PIN", updErr);
+      const name = await staffName(staff);
+      const { error: logErr } = await admin.from("audit_log").insert({
+        tenant_id: staff.tenant_id, actor_name: name, entity: "staff", entity_id: staffId,
+        action: `PIN trocado pelo próprio colaborador: ${name}`, meta: { pin_length: newPin.length },
+      });
+      if (logErr) console.error("[staff-auth] falha ao registrar troca de PIN:", logErr);
+      return json({ ok: true, pin_length: newPin.length });
+    }
+
     if (action === "verify" || action === "release_debt" || action === "price_override") {
       const staffId = String(body.staff_id || "");
       const pin = String(body.pin || "");
@@ -286,6 +325,7 @@ Deno.serve(async (req) => {
         return json({ error: `PIN de administrador precisa ter ${ADMIN_PIN_MIN_LEN} dígitos` }, 400);
       }
       if (name.length > 120) return json({ error: "Nome muito longo" }, 400);
+      if (pinFraco(pin)) return json({ error: PIN_FRACO_MSG }, 400);
 
       const email = `staff-${staffId}@${tenantId}.commandah.internal`;
       const randomPassword = crypto.randomUUID() + crypto.randomUUID();
@@ -320,6 +360,7 @@ Deno.serve(async (req) => {
         return json({ error: `PIN de administrador precisa ter ${ADMIN_PIN_MIN_LEN} dígitos` }, 400);
       }
       if (!ROLES.includes(role)) return json({ error: "Perfil inválido" }, 400);
+      if (pinFraco(pin)) return json({ error: PIN_FRACO_MSG }, 400);
       const pinHash = bcrypt.hashSync(pin, 10);
       // Auditoria 03/11 (A2): o perfil do formulário passa a valer no servidor junto com o PIN novo.
       // Antes só validava o tamanho do PIN e o papel ficava o antigo (a RLS usa tenant_staff.role).
