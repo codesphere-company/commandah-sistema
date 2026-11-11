@@ -51,13 +51,23 @@ function renderNfceEmissor(e){
     ? '<b>Sem emissor.</b> Este estabelecimento ainda não emite NFC-e, nem em teste. Cadastre abaixo o token da conta do estabelecimento na Brasil NFe.'
     : e.origem==='proprio'
       ? `<b>Emissor configurado</b>: conta do estabelecimento na Brasil NFe (token terminado em ••••${h(e.final||'')}).`
-      : '<b>Emissor provisório</b>: usando a conta da Brasil NFe já instalada no servidor. Cadastre o token da conta do estabelecimento para passar a usar a sua.';
+      : '<b>Emissor provisório</b>: usando a conta da Brasil NFe já instalada no servidor, ainda não salva neste estabelecimento. Clique em "Salvar como emissor deste estabelecimento" para guardá-la aqui, ou cadastre outro token abaixo.';
+  // 11/11 (pedido do dono): o provisório se salva com um clique, sem colar o token (ação emissor_adotar).
+  const adotar = e.origem==='servidor' ? '<button type="button" class="btn btn-primary" id="nfceAdotar" style="margin-top:8px">Salvar como emissor deste estabelecimento</button>' : '';
   const producao = e.producao_liberada
     ? 'Produção (nota de verdade) <b>liberada</b> pela equipe do Commandah para este estabelecimento.'
     : 'Produção <b>ainda não liberada</b>: mesmo escolhendo "Produção" abaixo, as notas saem em teste (homologação). A equipe do Commandah libera depois de conferir a série e os códigos fiscais com o contador.';
   const edicao = `<div class="field" style="margin-top:8px"><label for="nfceToken">${e.origem==='proprio'?'Trocar o token da Brasil NFe':'Token da Brasil NFe'}</label><input id="nfceToken" type="password" autocomplete="off" spellcheck="false" maxlength="512" placeholder="Cole aqui o token da conta do estabelecimento"></div>
        <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-primary" id="nfceTokenSave">Salvar token</button>${e.origem==='proprio'?'<button type="button" class="btn btn-danger" id="nfceTokenDel">Apagar token</button>':''}</div>`;
-  box.innerHTML = `<p class="sub" style="margin:0 0 4px">${situacao}</p><p class="sub" style="margin:0">${producao}</p>${edicao}`;
+  box.innerHTML = `<p class="sub" style="margin:0 0 4px">${situacao}</p>${adotar}<p class="sub" style="margin:8px 0 0">${producao}</p>${edicao}`;
+  const adotarBtn = document.getElementById('nfceAdotar');
+  if(adotarBtn) adotarBtn.onclick = async ()=>{
+    adotarBtn.disabled = true; adotarBtn.textContent = 'Salvando...';
+    const r = await nfceCall('emissor_adotar');
+    if(r.error){ adotarBtn.disabled = false; adotarBtn.textContent = 'Salvar como emissor deste estabelecimento'; toast(r.error, 'erro'); return; }
+    toast('Emissor salvo neste estabelecimento.');
+    renderNfceEmissor(r.emissor);
+  };
   const save = document.getElementById('nfceTokenSave');
   if(save) save.onclick = async ()=>{
     const token = document.getElementById('nfceToken').value.trim();

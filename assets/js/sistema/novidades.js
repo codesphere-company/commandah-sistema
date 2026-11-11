@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-11-nfce-salvar-emissor', data:'11/11/2026', itens:[
+    { titulo:'Salvar o emissor provisório da NFC-e',
+      texto:'Quem aparece com "Emissor provisório" agora salva esse emissor no próprio estabelecimento com um clique, sem colar o token. Outro estabelecimento continua começando sem emissor, com o campo vazio para cadastrar o dele.',
+      onde:'Configurações › NFC-e (nota fiscal)', perms:['config-sistema'] },
+  ] },
   { id:'2026-11-11-pin-obvio', data:'11/11/2026', itens:[
     { titulo:'PIN fácil de adivinhar precisa ser trocado',
       texto:'Quem entra com um PIN óbvio (1234, 0000, 123456 ou outra sequência) troca o PIN logo ao entrar, antes de operar. Administrador passa a usar 6 dígitos. Ao cadastrar ou redefinir um colaborador, esses PINs não são mais aceitos.',
