@@ -11,6 +11,9 @@
 // POST { action: "emissor" }                 -> situação do emissor do estabelecimento (administrador)
 // POST { action: "emissor_salvar", token }   -> cadastra/troca o token da Brasil NFe (administrador)
 // POST { action: "emissor_remover" }         -> apaga o token (administrador)
+// POST { action: "emissor_adotar" }          -> salva o emissor provisório (token do servidor) como emissor
+//                                               próprio do estabelecimento (administrador; só quem está
+//                                               marcado com usa_token_do_servidor, hoje só o clube)
 //
 // Ambiente: homologação (2) por padrão. Produção (1) só se as DUAS travas do estabelecimento estiverem
 // ligadas: settings.nfce.ambiente = 1 (o dono escolhe na tela) E nfce_emissores.producao_liberada
@@ -146,7 +149,7 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { return json({ error: "Pedido inválido." }, 400); }
 
   // ---- Emissor do estabelecimento (11/11). Não depende de comanda.
-  if (body.action === "emissor" || body.action === "emissor_salvar" || body.action === "emissor_remover") {
+  if (body.action === "emissor" || body.action === "emissor_salvar" || body.action === "emissor_remover" || body.action === "emissor_adotar") {
     if (!who.isAdmin) return json({ error: "Só o administrador vê e configura o emissor de NFC-e." }, 403);
     try {
       if (body.action === "emissor_salvar") {
@@ -165,6 +168,25 @@ Deno.serve(async (req) => {
         await admin.from("audit_log").insert({
           tenant_id: who.tenantId, actor_name: who.name, entity: "nfce", entity_id: null,
           action: `NFC-e: token do emissor (Brasil NFe) cadastrado, termina em ${token.slice(-4)}`, meta: {},
+        });
+      } else if (body.action === "emissor_adotar") {
+        // 11/11 (pedido do dono): o clube aparecia como "Emissor provisório" (token do servidor) e não
+        // havia como salvar sem colar o token. Isto grava o token do servidor no Vault, como emissor
+        // próprio do estabelecimento, e desmarca usa_token_do_servidor (nfce_emissor_salvar_token).
+        // Só vale para quem já está marcado: nenhum outro estabelecimento consegue pegar esse token.
+        // Depois disso o secret BRASILNFE_TOKEN pode ser apagado (supabase secrets unset).
+        const linha = await lerEmissor(who.tenantId);
+        if (!linha || !linha.usa_token_do_servidor || linha.token) {
+          return json({ error: "Este estabelecimento não está usando o emissor provisório. Cadastre o token da Brasil NFe no campo abaixo." }, 409);
+        }
+        if (!TOKEN_DO_SERVIDOR) {
+          return json({ error: "O emissor provisório não está mais disponível no servidor. Cadastre o token da Brasil NFe no campo abaixo." }, 409);
+        }
+        const { error } = await admin.rpc("nfce_emissor_salvar_token", { p_tenant: who.tenantId, p_token: TOKEN_DO_SERVIDOR, p_por: who.name });
+        if (error) throw error;
+        await admin.from("audit_log").insert({
+          tenant_id: who.tenantId, actor_name: who.name, entity: "nfce", entity_id: null,
+          action: `NFC-e: emissor provisório salvo como emissor do estabelecimento, token termina em ${TOKEN_DO_SERVIDOR.slice(-4)}`, meta: {},
         });
       } else if (body.action === "emissor_remover") {
         const { error } = await admin.rpc("nfce_emissor_remover_token", { p_tenant: who.tenantId, p_por: who.name });
