@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-11-cadastro-convite', data:'11/11/2026', itens:[
+    { titulo:'Estabelecimento novo só com convite',
+      texto:'Criar um estabelecimento novo no Commandah passou a exigir o código de convite que o cliente recebe ao contratar. Ninguém de fora consegue mais abrir uma conta sozinho. Quem já usa o sistema não precisa fazer nada.',
+      onde:'Tela de entrada › Criar novo estabelecimento', perms:['config-sistema'] },
+  ] },
   { id:'2026-11-11-nfce-emissor', data:'11/11/2026', itens:[
     { titulo:'Emissor de NFC-e de cada estabelecimento',
       texto:'Cada estabelecimento emite a NFC-e pela própria conta na Brasil NFe. O dono cadastra o token da conta na tela da NFC-e; o token fica guardado só no servidor. A nota de verdade (produção) só sai depois que a equipe do Commandah libera o estabelecimento.',
