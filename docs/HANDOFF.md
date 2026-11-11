@@ -53,6 +53,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - `clube-demo-mdqz`: as contas semeadas continuam com PIN óbvio. Desativar ou apagar o estabelecimento fica para o dono decidir.
   - Produção da NFC-e do clube: `nfce_liberar_producao('clube-olimpico-maringa-y8mt', true, ...)` com o "sim", depois dos testes de Pix e da série 3 em produção na Brasil NFe.
   - Teste prático no clube: sexta, 13/11.
+- **Item 1 da auditoria (primeiro acesso), em andamento:** design escrito em `docs/superpowers/specs/2026-11-11-primeiro-acesso-design.md` (conta nova limpa, tela obrigatória "Como você atende?" com sócios/mesas/balcão + "Onde os pedidos são preparados?", cartão "Primeiros passos" com 6 passos). Respostas do dono já incorporadas. **Falta:** o dono aprovar o documento; depois, plano (superpowers:writing-plans) e construção. Esboço visual local em `.superpowers/brainstorm/487-1794440585/`.
 - **Próximos itens da auditoria (por ordem):**
   1. conta nova ainda herda locais, estações e impressoras do clube (`dados.js`: Churrasqueira, Piscina...), e não há guia de primeiro uso;
   2. 12 módulos "Em construção" visíveis;
