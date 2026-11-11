@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-11-nfce-emissor', data:'11/11/2026', itens:[
+    { titulo:'Emissor de NFC-e de cada estabelecimento',
+      texto:'Cada estabelecimento emite a NFC-e pela própria conta na Brasil NFe. O dono cadastra o token da conta na tela da NFC-e; o token fica guardado só no servidor. A nota de verdade (produção) só sai depois que a equipe do Commandah libera o estabelecimento.',
+      onde:'Configurações › NFC-e (nota fiscal)', perms:['config-sistema'] },
+  ] },
   { id:'2026-11-10-xml-cancelamento', data:'10/11/2026', itens:[
     { titulo:'XML do cancelamento no pacote da contabilidade',
       texto:'Ao cancelar uma NFC-e, o sistema guarda o XML do evento de cancelamento. O pacote de Cupons Fiscais passa a levar esse arquivo junto da nota.',

@@ -1,14 +1,21 @@
 // Edge Function: nfce (t207)
 // Emite a NFC-e de uma comanda fechada pela Brasil NFe e guarda o resultado em nfce_notas.
-// O token da Brasil NFe fica só aqui (secret BRASILNFE_TOKEN), nunca no navegador.
+// 11/11/2026 (auditoria de lançamento): cada estabelecimento usa o PRÓPRIO emissor (tabela nfce_emissores,
+// token da Brasil NFe cifrado no Vault). O token nunca vai para o navegador. Sem emissor configurado,
+// o estabelecimento não emite nada, nem em homologação. O secret BRASILNFE_TOKEN (o da lanchonete do
+// clube) só vale para o estabelecimento marcado com usa_token_do_servidor (transição).
 //
 // POST { action: "emitir", sale_id }      -> emite (ou devolve a que já foi autorizada)
 // POST { action: "consultar", sale_id }   -> últimas tentativas dessa comanda
 // POST { action: "cancelar", sale_id, justificativa } -> cancela a autorizada (até 30 min, regra da SEFAZ)
+// POST { action: "emissor" }                 -> situação do emissor do estabelecimento (administrador)
+// POST { action: "emissor_salvar", token }   -> cadastra/troca o token da Brasil NFe (administrador)
+// POST { action: "emissor_remover" }         -> apaga o token (administrador)
 //
-// Ambiente: homologação (2) por padrão. Produção (1) só se as DUAS travas estiverem ligadas:
-// settings.nfce.ambiente = 1 no Commandah E o secret NFCE_PRODUCAO = "liberada". Assim nenhum
-// clique no site, sozinho, emite nota de verdade.
+// Ambiente: homologação (2) por padrão. Produção (1) só se as DUAS travas do estabelecimento estiverem
+// ligadas: settings.nfce.ambiente = 1 (o dono escolhe na tela) E nfce_emissores.producao_liberada
+// (a equipe do Commandah liga pelo CLI, função nfce_liberar_producao). Assim nenhum clique no site,
+// sozinho, emite nota de verdade, e um estabelecimento nunca libera a produção de outro.
 //
 // Série: uma só para todos os aparelhos (settings.nfce.serie). A emissão passa por uma trava
 // por estabelecimento (t215), então nunca há dois envios ao mesmo tempo na série.
@@ -18,8 +25,7 @@ import { buscarXmlCancelamento } from "./cancelamento.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const BRASILNFE_TOKEN = Deno.env.get("BRASILNFE_TOKEN") || "";
-const PRODUCAO_LIBERADA = Deno.env.get("NFCE_PRODUCAO") === "liberada";
+const TOKEN_DO_SERVIDOR = Deno.env.get("BRASILNFE_TOKEN") || "";
 const API = "https://api.brasilnfe.com.br/services/fiscal";
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -37,6 +43,9 @@ function json(body: unknown, status = 200) {
 
 // Quem chama: dono (tenant_owners) ou colaborador ativo administrador/caixa/garçom.
 // isAdmin (dono ou perfil admin): só ele cancela NFC-e (08/11, pedido do dono).
+// O token do emissor também é do administrador (11/11): depois do PIN a sessão do aparelho é sempre a do
+// colaborador (login.js), então o dono opera pelo perfil Administrador. O token só vale para o próprio
+// estabelecimento e a nota de verdade continua dependendo da liberação da equipe do Commandah.
 async function caller(req: Request) {
   const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   if (!jwt) return null;
@@ -58,10 +67,35 @@ async function appData(tenantId: string, key: string) {
   return data ? data.value : null;
 }
 
-async function brasilNfe(path: string, body: unknown) {
+// Emissor do estabelecimento (nfce_emissores + Vault). Erro de leitura sobe (vira 503 no chamador).
+type LinhaEmissor = { token: string | null; usa_token_do_servidor: boolean; producao_liberada: boolean; token_final: string | null };
+async function lerEmissor(tenantId: string): Promise<LinhaEmissor | null> {
+  const { data, error } = await admin.rpc("nfce_emissor_ler", { p_tenant: tenantId });
+  if (error) throw error;
+  return ((Array.isArray(data) ? data[0] : data) as LinhaEmissor | undefined) || null;
+}
+function tokenDo(linha: LinhaEmissor | null): { token: string; origem: "proprio" | "servidor" } | null {
+  if (!linha) return null;
+  if (linha.token) return { token: linha.token, origem: "proprio" };
+  if (linha.usa_token_do_servidor && TOKEN_DO_SERVIDOR) return { token: TOKEN_DO_SERVIDOR, origem: "servidor" };
+  return null;
+}
+function situacaoEmissor(linha: LinhaEmissor | null) {
+  const t = tokenDo(linha);
+  return {
+    configurado: !!t,
+    origem: t ? t.origem : null,
+    final: t && t.origem === "proprio" && linha ? linha.token_final : null,
+    producao_liberada: !!(linha && linha.producao_liberada),
+  };
+}
+const SEM_EMISSOR = "Este estabelecimento ainda não tem emissor de NFC-e. O administrador cadastra o token da Brasil NFe em Configurações › NFC-e.";
+const FALHA_EMISSOR = "Não foi possível ler o emissor de NFC-e agora. Tente de novo em alguns segundos.";
+
+async function brasilNfe(token: string, path: string, body: unknown) {
   const res = await fetch(`${API}/${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Token: BRASILNFE_TOKEN },
+    headers: { "Content-Type": "application/json", Token: token },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(45000),
   });
@@ -108,8 +142,45 @@ Deno.serve(async (req) => {
   const who = await caller(req);
   if (!who) return json({ error: "Só o administrador, o caixa ou o garçom emitem NFC-e. Entre de novo e tente outra vez." }, 403);
 
-  let body: { action?: string; sale_id?: string; justificativa?: string };
+  let body: { action?: string; sale_id?: string; justificativa?: string; token?: string };
   try { body = await req.json(); } catch { return json({ error: "Pedido inválido." }, 400); }
+
+  // ---- Emissor do estabelecimento (11/11). Não depende de comanda.
+  if (body.action === "emissor" || body.action === "emissor_salvar" || body.action === "emissor_remover") {
+    if (!who.isAdmin) return json({ error: "Só o administrador vê e configura o emissor de NFC-e." }, 403);
+    try {
+      if (body.action === "emissor_salvar") {
+        const token = String(body.token || "").trim();
+        if (!/^\S{8,512}$/.test(token)) return json({ error: "Cole o token inteiro da Brasil NFe, sem espaços." }, 400);
+        // Confere com a Brasil NFe antes de guardar: uma consulta em homologação, que não emite nada.
+        const t = await brasilNfe(token, "ConsultarNotaFiscal", { IdentificadorInterno: "commandah-confere-token", TipoAmbiente: 2, ModeloDocumento: 65 })
+          .catch((e) => ({ ok: false, status: 0, body: null as Record<string, unknown> | null, text: String(e), raw: "" }));
+        const msg = String((t.body && (t.body.Error || t.body.Message)) || "");
+        if (t.status === 0) return json({ error: "Não foi possível falar com a Brasil NFe para conferir o token. Tente de novo." }, 503);
+        if (t.status === 401 || t.status === 403 || /token/i.test(msg)) {
+          return json({ error: "A Brasil NFe recusou este token. Confira se copiou o token inteiro da conta do estabelecimento." }, 422);
+        }
+        const { error } = await admin.rpc("nfce_emissor_salvar_token", { p_tenant: who.tenantId, p_token: token, p_por: who.name });
+        if (error) throw error;
+        await admin.from("audit_log").insert({
+          tenant_id: who.tenantId, actor_name: who.name, entity: "nfce", entity_id: null,
+          action: `NFC-e: token do emissor (Brasil NFe) cadastrado, termina em ${token.slice(-4)}`, meta: {},
+        });
+      } else if (body.action === "emissor_remover") {
+        const { error } = await admin.rpc("nfce_emissor_remover_token", { p_tenant: who.tenantId, p_por: who.name });
+        if (error) throw error;
+        await admin.from("audit_log").insert({
+          tenant_id: who.tenantId, actor_name: who.name, entity: "nfce", entity_id: null,
+          action: "NFC-e: token do emissor (Brasil NFe) apagado", meta: {},
+        });
+      }
+      return json({ emissor: situacaoEmissor(await lerEmissor(who.tenantId)) });
+    } catch (e) {
+      console.error("[nfce] emissor:", e);
+      return json({ error: FALHA_EMISSOR }, 503);
+    }
+  }
+
   const saleId = String(body.sale_id || "");
   if (!/^[A-Za-z0-9_-]{1,80}$/.test(saleId)) return json({ error: "Comanda inválida." }, 400);
 
@@ -120,13 +191,17 @@ Deno.serve(async (req) => {
   }
   if (body.action === "cancelar") {
     if (!who.isAdmin) return json({ error: "Só o administrador cancela NFC-e." }, 403);
-    if (!BRASILNFE_TOKEN) return json({ error: "O emissor de NFC-e ainda não está configurado no servidor." }, 503);
+    let emC: { token: string } | null;
+    try { emC = tokenDo(await lerEmissor(who.tenantId)); } catch (e) { console.error("[nfce] emissor:", e); return json({ error: FALHA_EMISSOR }, 503); }
+    if (!emC) return json({ error: SEM_EMISSOR }, 503);
+    const tokenC = emC.token;
+    const chamarC = (path: string, b: unknown) => brasilNfe(tokenC, path, b);
     const just = String(body.justificativa || "").trim().replace(/\s+/g, " ");
     if (just.length < 15) return json({ error: "Escreva o motivo do cancelamento com pelo menos 15 letras." }, 400);
     const { data: nota } = await admin.from("nfce_notas").select("*").eq("tenant_id", who.tenantId).eq("sale_id", saleId)
       .eq("status", "autorizada").order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (!nota) return json({ error: "Esta comanda não tem NFC-e autorizada para cancelar." }, 404);
-    const r = await brasilNfe("CancelarNotaFiscal", { ChaveNF: nota.chave, Justificativa: just.slice(0, 1000), TipoAmbiente: nota.ambiente })
+    const r = await chamarC("CancelarNotaFiscal", { ChaveNF: nota.chave, Justificativa: just.slice(0, 1000), TipoAmbiente: nota.ambiente })
       .catch((e) => ({ ok: false, status: 0, body: null, text: String(e) }));
     const b = (r.body || {}) as Record<string, unknown>;
     const cod = Number(b.CodStatusRespostaSefaz) || null;
@@ -138,7 +213,7 @@ Deno.serve(async (req) => {
         ? "Passou o prazo de 30 minutos para cancelar esta NFC-e. Fale com o contador (nota de devolução)."
         : `A SEFAZ não aceitou o cancelamento${cod ? " (" + cod + ")" : ""}: ${motivo}` }, 422);
     }
-    const evento = await buscarXmlCancelamento(brasilNfe, nota, b);
+    const evento = await buscarXmlCancelamento(chamarC, nota, b);
     const upd = { status: "cancelada", cancelada_em: new Date().toISOString(), cancel_protocolo: (b.NuProtocolo as string) || null,
       cancel_motivo: just.slice(0, 500), cancelada_por: who.name, xml_cancelamento: evento.xml };
     const { data: saved, error: updErr } = await admin.from("nfce_notas").update(upd).eq("id", nota.id).select("*").single();
@@ -151,11 +226,17 @@ Deno.serve(async (req) => {
     return json({ nota: publicRow(saved || { ...nota, ...upd }) });
   }
   if (body.action !== "emitir") return json({ error: "Ação inválida." }, 400);
-  if (!BRASILNFE_TOKEN) return json({ error: "O emissor de NFC-e ainda não está configurado no servidor (falta o token da Brasil NFe)." }, 503);
+  let linha: LinhaEmissor | null;
+  try { linha = await lerEmissor(who.tenantId); } catch (e) { console.error("[nfce] emissor:", e); return json({ error: FALHA_EMISSOR }, 503); }
+  const em = tokenDo(linha);
+  if (!em) return json({ error: SEM_EMISSOR }, 503);
+  const tokenE = em.token;
+  const chamar = (path: string, b: unknown) => brasilNfe(tokenE, path, b);
 
   const settings = (await appData(who.tenantId, "cantina2:settings")) as Record<string, unknown> | null;
   const cfg = (settings && (settings.nfce as Record<string, unknown>)) || {};
-  const ambiente: 1 | 2 = Number(cfg.ambiente) === 1 && PRODUCAO_LIBERADA ? 1 : 2;
+  // Produção só com as duas travas DESTE estabelecimento (a da tela e a liberação da equipe).
+  const ambiente: 1 | 2 = Number(cfg.ambiente) === 1 && !!(linha && linha.producao_liberada) ? 1 : 2;
   const serie = Number(cfg.serie) > 0 ? Number(cfg.serie) : undefined;
   const baseId = ambiente === 1 ? saleId : saleId + "-h";
 
@@ -185,7 +266,7 @@ Deno.serve(async (req) => {
     if (!built.payload) return json({ error: "A NFC-e não pode ser emitida ainda.", problemas: built.problems }, 422);
 
     // Antes de emitir: a Brasil NFe já tem uma nota com este identificador? (resposta perdida numa tentativa anterior)
-    const prev = await brasilNfe("ConsultarNotaFiscal", { IdentificadorInterno: identificador, TipoAmbiente: ambiente, ModeloDocumento: 65, RetornarArquivos: true });
+    const prev = await chamar("ConsultarNotaFiscal", { IdentificadorInterno: identificador, TipoAmbiente: ambiente, ModeloDocumento: 65, RetornarArquivos: true });
     let prevNota = prev.body && prev.body.Encontrada ? (prev.body.Nota as Record<string, unknown> | undefined) : undefined;
     if (prevNota && chavesCanceladas.has(String(prevNota.Chave || ""))) prevNota = undefined;
 
@@ -198,7 +279,7 @@ Deno.serve(async (req) => {
       };
       xml = b64ToText(prevNota.Base64Xml);
     } else {
-      const r = await brasilNfe("EnviarNotaFiscal", built.payload).catch((e) => ({ ok: false, status: 0, body: null, text: String(e) }));
+      const r = await chamar("EnviarNotaFiscal", built.payload).catch((e) => ({ ok: false, status: 0, body: null, text: String(e) }));
       if (r.body && r.body.ReturnNF) {
         ret = r.body.ReturnNF as Record<string, unknown>;
         xml = b64ToText(r.body.Base64Xml);

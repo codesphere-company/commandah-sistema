@@ -26,7 +26,7 @@ Agente de impressão (C#, PC da rede das impressoras) → ESC/POS na porta 9100 
 4. **Gravação**: vendas, caixa e insumos gravam por RPCs atômicas com controle de versão (`sales_apply`, `close_sale`, `cash_session_*`, `insumos_apply`...). As ações de tela passam por `singleFlight` (`core/travas.js`) contra o duplo clique. Uma falha mostra um aviso persistente (`core/avisos.js`).
 5. **Sincronização entre aparelhos**: não há realtime. A cada 6 s, `startApp` busca só o que mudou em `orders` e `sales` e redesenha cozinha, garçom e placar. Outros timers conferem o agente de impressão, a fila travada e a versão nova do site.
 6. **Impressão**: o site insere em `print_jobs`; o agente busca os pendentes (`print_agent_fetch_pending`) e imprime. O computador é pareado por código (`print_agent_pair_confirm`), e as impressoras são escolhidas em Configurações › Impressoras. Se o agente estiver no mesmo PC, o site também conversa com ele em `localhost:9123`.
-7. **NFC-e**: `fiscal/nfce-comanda.js` chama a Edge Function `nfce` (emitir/consultar/cancelar). O token do emissor fica só no servidor. O resultado vai para `nfce_notas`, e o cupom (DANFE) é montado em `fiscal/nfce-cupom.js`.
+7. **NFC-e**: `fiscal/nfce-comanda.js` chama a Edge Function `nfce` (emitir/consultar/cancelar). Cada estabelecimento tem o próprio emissor (`nfce_emissores`): o token da conta dele na Brasil NFe fica cifrado no Supabase Vault e nunca volta ao navegador, e a produção só sai com a liberação daquele estabelecimento (`nfce_liberar_producao`, só pelo CLI). O resultado vai para `nfce_notas`, e o cupom (DANFE) é montado em `fiscal/nfce-cupom.js`.
 8. **Auditoria e erros**: `audit_log` é append-only. Erros do navegador e violações de CSP vão para `client_errors`.
 
 ## Integrações externas
