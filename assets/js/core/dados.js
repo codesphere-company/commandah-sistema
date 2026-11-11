@@ -66,12 +66,17 @@ async function carregarDados(){
   const canSeed = !isCloudMode() || sessionIsOwner;
   const seedable = (key)=> canSeed && !readFailed[key];
 
-  if(seedable('users') && !state.users.length){
+  // Auditoria 11/11: na nuvem ninguém nasce mais com PIN 1234. O Administrador e o Garçom App
+  // semeados aqui iam para o servidor com 1234 (migratePendingStaffAsOwner) e a troca obrigatória
+  // nunca abria (ela só conferia o PIN do aparelho). Agora, sem colaboradores, a tela de entrada
+  // pede ao dono para criar o Administrador com PIN próprio (renderLogin → criarPrimeiroAdmin).
+  // Só o modo local (sem servidor) continua semeando, e lá a troca obrigatória funciona.
+  if(seedable('users') && !state.users.length && !isCloudMode()){
     state.users.push({id:uid(), name:'Administrador', username:'admin', pin:'1234', role:'admin', origem:'caixa'});
     // Revisão final, item 3: o garçom de estabelecimento novo já nasce com o perfil garcom.
     state.users.push({id:uid(), name:'Garçom App', username:'garcom', pin:'1234', role:'garcom', origem:'app'});
     await save('users');
-  } else if(seedable('users') && !state.users.some(u=>u.username==='garcom')){
+  } else if(seedable('users') && state.users.length && !isCloudMode() && !state.users.some(u=>u.username==='garcom')){
     state.users.push({id:uid(), name:'Garçom App', username:'garcom', pin:'1234', role:'garcom', origem:'app'});
     await save('users');
   }

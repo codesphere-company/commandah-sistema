@@ -327,15 +327,37 @@ function openChangePinModal(){
   };
 }
 function openForcedPinModal(){
+  // Auditoria 11/11: na nuvem o PIN não fica no aparelho, então a troca vai pelo servidor
+  // (staff-auth change_own_pin, que confere o PIN atual digitado no login). Administrador
+  // passa a ter 6 dígitos. No modo local continua como antes (4 dígitos no cadastro).
+  const nuvem = !!(currentUser && currentUser.migratedAuth && pinTrocaObrigatoria);
+  const len = nuvem && currentUser.role==='admin' ? 6 : 4;
   openModal('Troca obrigatória do PIN', `
-    <p class="sub">O PIN padrão 1234 não pode ser usado na operação. Defina um novo PIN numérico.</p>
-    <div class="field"><label>Novo PIN (4 dígitos)</label><input id="forcedPin" inputmode="numeric" maxlength="4" autocomplete="new-password"></div>
+    <p class="sub">Este PIN é fácil de adivinhar (como 1234, 0000 ou uma sequência) e não pode ser usado na operação. Escolha um PIN novo de ${len} dígitos.</p>
+    <div class="field"><label for="forcedPin">Novo PIN (${len} dígitos)</label><input id="forcedPin" type="password" inputmode="numeric" maxlength="${len}" autocomplete="new-password"></div>
+    <div class="field"><label for="forcedPin2">Repita o novo PIN</label><input id="forcedPin2" type="password" inputmode="numeric" maxlength="${len}" autocomplete="new-password"></div>
     <button class="btn btn-primary btn-block" id="forcedPinSave">Salvar novo PIN</button>`, false, true);
+  setTimeout(()=>{ const f=document.getElementById('forcedPin'); if(f) f.focus(); }, 50);
   document.getElementById('forcedPinSave').onclick = async ()=>{
     const pin=document.getElementById('forcedPin').value.trim();
-    if(!validPin(pin) || pin==='1234'){ toast('Escolha quatro dígitos diferentes do PIN padrão.'); return; }
-    currentUser.pin=pin;
-    if(await save('users')){ document.getElementById('modalRoot').dataset.locked='false'; closeModal(); toast('PIN alterado com sucesso.'); }
+    const pin2=document.getElementById('forcedPin2').value.trim();
+    if(!validPin(pin,len)){ toast(`O PIN novo deve ter ${len} dígitos numéricos.`); return; }
+    if(pin!==pin2){ toast('Os dois PINs não conferem.'); return; }
+    if(pinFraco(pin)){ toast('Esse PIN também é fácil de adivinhar. Evite 1234, 0000 e sequências.'); return; }
+    const fechar = ()=>{ document.getElementById('modalRoot').dataset.locked='false'; closeModal(); toast('PIN alterado com sucesso.'); };
+    if(!nuvem){
+      currentUser.pin=pin;
+      if(await save('users')) fechar();
+      return;
+    }
+    const btn=document.getElementById('forcedPinSave'); btn.disabled=true;
+    const r = await staffAuthCall({ action:'change_own_pin', staff_id:currentUser.id, pin:pinTrocaObrigatoria, new_pin:pin });
+    btn.disabled=false;
+    if(r.error){ toast(r.error); return; }
+    pinTrocaObrigatoria = null;
+    // O teclado do login usa pinLength do cadastro: administrador que tinha 4 dígitos passa a 6.
+    if(pinLengthFor(currentUser)!==len){ currentUser.pinLength=len; await save('users'); }
+    fechar();
   };
 }
 

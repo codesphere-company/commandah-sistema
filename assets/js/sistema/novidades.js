@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-11-pin-obvio', data:'11/11/2026', itens:[
+    { titulo:'PIN fácil de adivinhar precisa ser trocado',
+      texto:'Quem entra com um PIN óbvio (1234, 0000, 123456 ou outra sequência) troca o PIN logo ao entrar, antes de operar. Administrador passa a usar 6 dígitos. Ao cadastrar ou redefinir um colaborador, esses PINs não são mais aceitos.',
+      onde:'Tela de entrada (PIN)' },
+  ] },
   { id:'2026-11-11-cadastro-convite', data:'11/11/2026', itens:[
     { titulo:'Estabelecimento novo só com convite',
       texto:'Criar um estabelecimento novo no Commandah passou a exigir o código de convite que o cliente recebe ao contratar. Ninguém de fora consegue mais abrir uma conta sozinho. Quem já usa o sistema não precisa fazer nada.',

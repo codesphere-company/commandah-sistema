@@ -496,6 +496,8 @@ function h(value){ return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;',
    onclick="openComanda(${jsArg(s.id)})" (sem aspas em volta). */
 function jsArg(v){ return h(JSON.stringify(v==null ? '' : String(v))); }
 function validPin(value, len){ return new RegExp('^\\d{'+(len===6?6:4)+'}$').test(String(value)); }
+// Auditoria 11/11: mesma regra da staff-auth (pinFraco): 1234, 0000, 123456, 4321... não valem.
+function pinFraco(p){ p=String(p||''); if(!/^\d+$/.test(p)) return false; if(/^(\d)\1+$/.test(p)) return true; return '01234567890'.includes(p) || '09876543210'.includes(p); }
 // Tamanho do PIN de cada colaborador. Quem já tinha PIN de 4 continua com 4 até redefinir.
 function pinLengthFor(u){ return Number(u&&u.pinLength)===6 ? 6 : 4; }
 const saveQueues = {};
@@ -505,6 +507,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_m56iV0j3aIHlj_jth44jyw_CIw7CmyG';
 const TENANT_KEY = 'commandah:tenant_id';
 const TURNSTILE_SITE_KEY = '0x4AAAAAAFTbsXihCdq8uC0z'; // widget "Commandah" (10/10), hostname codesphere-company.github.io
 let tsCaptchaToken = null, tsCaptchaFailed = false;
+let pinTrocaObrigatoria = null; // 11/11: PIN atual (óbvio) do login, só até a troca obrigatória
 let tsTurnstileWidgetId = null;
 function getTenantId(){ try{ return localStorage.getItem(TENANT_KEY)||''; }catch(e){ return ''; } }
 function setTenantId(id){ try{ localStorage.setItem(TENANT_KEY, id); }catch(e){} }

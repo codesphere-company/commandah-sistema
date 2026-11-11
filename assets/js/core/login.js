@@ -15,13 +15,46 @@ function renderLogin(){
     ${clubLogo?`<div class="login-powered">${ICN.brandmark(undefined,undefined,18)}<span>Commandah</span></div>`:''}
     <div class="login-brand${clubLogo?'':' login-brand--commandah'}">${brandBadge}</div>
     ${state.settings.clubName?`<h1>${h(state.settings.clubName)}</h1>`:''}
-    <p class="sub">${isDefaultOnly? 'Primeiro acesso — toque em Administrador e troque o PIN padrão em Configurações' : 'Selecione seu usuário para entrar'}</p>
-    ${loginEscolhaHtml()}
+    ${semColaboradoresNaNuvem() ? primeiroAcessoHtml() : `<p class="sub">${isDefaultOnly? 'Primeiro acesso — toque em Administrador e troque o PIN padrão em Configurações' : 'Selecione seu usuário para entrar'}</p>
+    ${loginEscolhaHtml()}`}
     <p class="login-privacy"><button type="button" class="link-btn" onclick="openPrivacyNotice()">Aviso de privacidade</button></p>
   </div>`;
   overlay.classList.remove('hide');
   document.getElementById('app').classList.remove('show');
   ligarBuscaDoLogin();
+}
+/* Auditoria 11/11: estabelecimento novo na nuvem não ganha mais Administrador com PIN 1234.
+   Sem colaborador ativo, a sessão do dono cria o Administrador aqui, já com PIN próprio de
+   6 dígitos validado no servidor (create_operator recusa PIN óbvio). */
+function semColaboradoresNaNuvem(){ return isCloudMode() && !state.users.some(u=>u.active!==false); }
+function primeiroAcessoHtml(){
+  if(!sessionIsOwner) return `<p class="sub">Nenhum colaborador cadastrado ainda. Entre neste aparelho com o e-mail e a senha do dono do estabelecimento para criar o Administrador.</p>
+    <button class="btn btn-block" onclick="changeTenantSetup()">Entrar com o e-mail do dono</button>`;
+  return `<p class="sub"><b>Primeiro acesso:</b> crie o Administrador. Ele entra com o PIN e cadastra os outros colaboradores.</p>
+    <div class="field" style="text-align:left"><label for="paNome">Nome</label><input id="paNome" value="Administrador" maxlength="60" autocomplete="off"></div>
+    <div class="field" style="text-align:left"><label for="paPin">PIN (6 dígitos)</label><input id="paPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
+    <div class="field" style="text-align:left"><label for="paPin2">Repita o PIN</label><input id="paPin2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
+    <p class="sub" style="text-align:left">Não use 1234, 000000 nem sequências. Não conte o PIN a ninguém.</p>
+    <button class="btn btn-primary btn-block" id="paSalvar" onclick="criarPrimeiroAdmin()">Criar Administrador</button>`;
+}
+async function criarPrimeiroAdmin(){
+  const name=(document.getElementById('paNome').value||'').trim();
+  const pin=(document.getElementById('paPin').value||'').trim();
+  const pin2=(document.getElementById('paPin2').value||'').trim();
+  if(!name){ toast('Informe o nome do Administrador.'); return; }
+  if(!validPin(pin,6)){ toast('O PIN do Administrador precisa ter 6 dígitos numéricos.'); return; }
+  if(pin!==pin2){ toast('Os dois PINs não conferem.'); return; }
+  if(pinFraco(pin)){ toast('Esse PIN é fácil de adivinhar. Evite 1234, 000000 e sequências.'); return; }
+  const btn=document.getElementById('paSalvar'); btn.disabled=true; btn.textContent='Criando...';
+  try{
+    const id=uid();
+    const r=await staffAuthCall({ action:'create_operator', staff_id:id, name, role:'admin', pin });
+    if(r.error){ toast(r.error==='Não foi possível conferir a senha agora.'?'Não foi possível criar o Administrador agora. Confira a internet e tente de novo.':r.error); return; }
+    state.users.push({ id, name, username:'admin', role:'admin', origem:'caixa', migratedAuth:true, pinLength:6, active:true });
+    if(!await save('users')){ toast('O Administrador foi criado, mas o cadastro não foi salvo. Tente de novo.'); return; }
+    renderLogin();
+    toast('Administrador criado. Toque no nome e digite o PIN.');
+  } finally { const b=document.getElementById('paSalvar'); if(b){ b.disabled=false; b.textContent='Criar Administrador'; } }
 }
 // 08/11 (pedido do dono): com muitos colaboradores a grade de botões ficava enorme e quebrava a tela.
 // Agora: o aparelho lembra quem entrou por último ("Continuar como …", só falta o PIN) e os demais
@@ -119,6 +152,7 @@ function logPinFail(){
 }
 async function attemptPinLogin(){
   const pin = pinBuffer;
+  pinTrocaObrigatoria = null;
   // Colaborador já migrado pro acesso seguro: o PIN é validado pela Edge Function
   // (staff-auth), que também controla tentativas erradas com bloqueio de verdade.
   if(supabaseClient && pinTargetUser.migratedAuth){
@@ -135,6 +169,9 @@ async function attemptPinLogin(){
         return;
       }
       await supabaseClient.auth.setSession(data.session);
+      // Auditoria 11/11: PIN óbvio (1234, 0000, sequência) → troca obrigatória logo ao entrar.
+      // O PIN digitado fica só nesta variável até a troca (change_own_pin confere o atual).
+      pinTrocaObrigatoria = data.trocar_pin ? pin : null;
       // Auditoria 03/11 (M1): a sessão agora é do colaborador, nunca do dono. Antes o "é o dono" da
       // entrada por e-mail continuava ligado e um caixa passava nas travas "só administrador" da tela.
       sessionIsOwner = false;
@@ -203,7 +240,8 @@ function afterLogin(){
     gcRenderHome();
     // UX lote 1 (06/11): sem o aviso "Bem-vindo(a)" — o nome já aparece no topo ("Olá, …").
     logAction('Login realizado (modo garçom)');
-    setTimeout(mostrarNovidadesAoEntrar,0); // 08/11: aviso de novidades (sistema/novidades.js)
+    if(pinTrocaObrigatoria) setTimeout(openForcedPinModal,0); // 11/11: PIN óbvio troca antes de operar
+    else setTimeout(mostrarNovidadesAoEntrar,0); // 08/11: aviso de novidades (sistema/novidades.js)
     return;
   }
   document.getElementById('app').classList.add('show');
@@ -213,7 +251,7 @@ function afterLogin(){
   renderAll();
   // UX lote 1 (06/11): sem o aviso "Bem-vindo(a)" — o nome já aparece na barra de baixo (Usuário).
   logAction('Login realizado');
-  if(currentUser.username==='admin' && currentUser.pin==='1234') setTimeout(openForcedPinModal,0);
+  if(pinTrocaObrigatoria || (currentUser.username==='admin' && currentUser.pin==='1234')) setTimeout(openForcedPinModal,0);
   else setTimeout(mostrarNovidadesAoEntrar,0); // 08/11: aviso de novidades (sistema/novidades.js)
 }
 /* Logout de verdade: derruba TAMBÉM a sessão do Supabase.
