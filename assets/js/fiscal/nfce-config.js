@@ -1,17 +1,20 @@
 /* ============ NFC-e: CONFIGURAÇÃO (t207) ============
    state.settings.nfce = { ambiente: 2|1, serie, autoEmitir, autoImprimir }. A Edge Function "nfce"
-   lê ambiente e série daqui; produção ainda exige o secret NFCE_PRODUCAO=liberada no servidor. */
+   lê ambiente e série daqui. 11/11 (auditoria de lançamento): cada estabelecimento tem o próprio emissor
+   (token da Brasil NFe cifrado no servidor, cadastrado aqui pelo administrador) e a produção só sai se a equipe do
+   Commandah tiver liberado ESTE estabelecimento (nfce_emissores.producao_liberada). */
 function nfceSettings(){ const c=(state.settings&&state.settings.nfce)||{}; return { ambiente: Number(c.ambiente)===1?1:2, serie: Number(c.serie)>0?Number(c.serie):'', autoEmitir: !!c.autoEmitir, autoImprimir: c.autoImprimir!==false }; }
 function openNfceSettings(){
   if(!requirePerm('config-sistema')) return;
   const c = nfceSettings();
   openModal('NFC-e (nota fiscal)', `
-    <p class="sub" style="margin-top:0">A nota é emitida pela Brasil NFe, no CNPJ da lanchonete. Os códigos fiscais de cada produto ficam em Produtos › Editar › aba Fiscal.</p>
+    <p class="sub" style="margin-top:0">A nota é emitida pela Brasil NFe, no CNPJ da conta do estabelecimento. Os códigos fiscais de cada produto ficam em Produtos › Editar › aba Fiscal.</p>
+    <div id="nfceEmissorBox" class="nfce-emissor" aria-live="polite" style="margin:12px 0 16px;padding:12px 14px;border:1px solid var(--c-border);border-radius:10px;background:var(--c-surface-2)"><p class="sub">Conferindo o emissor…</p></div>
     <div class="row">
       <div class="field"><label for="nfceAmb">Ambiente</label><select id="nfceAmb"><option value="2" ${c.ambiente===2?'selected':''}>Teste (homologação) — sem valor fiscal</option><option value="1" ${c.ambiente===1?'selected':''}>Produção — nota de verdade</option></select></div>
       <div class="field"><label for="nfceSerie">Série da NFC-e do Commandah</label><input id="nfceSerie" type="number" min="1" max="999" value="${c.serie}" placeholder="definida pelo contador"></div>
     </div>
-    <p class="sub">A série precisa ser <b>diferente da do Saipos</b>, porque os dois emitem no mesmo CNPJ durante o piloto. Sem série, a produção não emite. Produção também precisa estar liberada no servidor (proteção contra nota de verdade por engano).</p>
+    <p class="sub">Se outro sistema também emite NFC-e neste CNPJ (por exemplo, o sistema antigo durante a troca), a série precisa ser <b>diferente da dele</b>. Sem série, a produção não emite. Produção também precisa estar liberada pela equipe do Commandah para este estabelecimento (proteção contra nota de verdade por engano).</p>
     <label class="comp-switch" style="margin:10px 0"><input type="checkbox" id="nfceAuto" ${c.autoEmitir?'checked':''}><span></span> <b style="font-weight:400">Emitir a NFC-e sozinha ao fechar a comanda (pagamento)</b></label>
     <label class="comp-switch" style="margin:0 0 10px"><input type="checkbox" id="nfceAutoPrint" ${c.autoImprimir?'checked':''}><span></span> <b style="font-weight:400">Imprimir o cupom da NFC-e no caixa quando ela for autorizada</b></label>
     <p class="sub">Desligado, a nota é emitida pelo botão "Emitir NFC-e" no detalhe da comanda (Relatórios › Histórico de Pedidos). Cancelamento: até 30 minutos depois da autorização, no mesmo lugar.</p>
@@ -22,13 +25,58 @@ function openNfceSettings(){
     if(serieRaw && !(serie>=1 && serie<=999)){ toast('A série é um número de 1 a 999.'); return; }
     if(ambiente===1 && !serie){ toast('Para produção, informe a série do Commandah (pedir ao contador).'); return; }
     if(ambiente===1 && c.ambiente!==1){
-      const ok = await askConfirm({ title:'Passar a NFC-e para produção?', message:'A partir daqui as notas têm valor fiscal, no CNPJ da lanchonete, na série '+serie+'. Confirme que o contador aprovou os códigos fiscais e a série.', confirmLabel:'Passar para produção', cancelLabel:'Continuar em teste' });
+      const ok = await askConfirm({ title:'Passar a NFC-e para produção?', message:'A partir daqui as notas têm valor fiscal, no CNPJ do estabelecimento, na série '+serie+'. Confirme que o contador aprovou os códigos fiscais e a série.', confirmLabel:'Passar para produção', cancelLabel:'Continuar em teste' });
       if(!ok) return;
     }
     state.settings.nfce = { ambiente, serie: serie||null, autoEmitir: document.getElementById('nfceAuto').checked, autoImprimir: document.getElementById('nfceAutoPrint').checked };
     await save('settings');
     logAction('NFC-e: ambiente '+(ambiente===1?'PRODUÇÃO':'teste')+', série '+(serie||'—')+', emissão '+(state.settings.nfce.autoEmitir?'automática':'manual'));
     closeModal(); toast('Configuração da NFC-e salva.');
+  };
+  loadNfceEmissor();
+}
+// 11/11 (auditoria de lançamento): emissor do estabelecimento. O token nunca volta do servidor; a tela
+// mostra só a situação e o campo para cadastrar, trocar ou apagar (só administrador, conferido no servidor).
+async function loadNfceEmissor(){
+  const box = document.getElementById('nfceEmissorBox'); if(!box) return;
+  if(!isCloudMode() || !supabaseClient){ box.innerHTML = '<p class="sub">O emissor de NFC-e só funciona com o sistema conectado à nuvem.</p>'; return; }
+  const r = await nfceCall('emissor');
+  if(!document.body.contains(box)) return; // janela fechada enquanto esperava
+  if(r.error || !r.emissor){ box.innerHTML = `<p class="sub">Não foi possível conferir o emissor: ${h(r.error||'sem resposta')}</p>`; return; }
+  renderNfceEmissor(r.emissor);
+}
+function renderNfceEmissor(e){
+  const box = document.getElementById('nfceEmissorBox'); if(!box) return;
+  const situacao = !e.configurado
+    ? '<b>Sem emissor.</b> Este estabelecimento ainda não emite NFC-e, nem em teste. Cadastre abaixo o token da conta do estabelecimento na Brasil NFe.'
+    : e.origem==='proprio'
+      ? `<b>Emissor configurado</b>: conta do estabelecimento na Brasil NFe (token terminado em ••••${h(e.final||'')}).`
+      : '<b>Emissor provisório</b>: usando a conta da Brasil NFe já instalada no servidor. Cadastre o token da conta do estabelecimento para passar a usar a sua.';
+  const producao = e.producao_liberada
+    ? 'Produção (nota de verdade) <b>liberada</b> pela equipe do Commandah para este estabelecimento.'
+    : 'Produção <b>ainda não liberada</b>: mesmo escolhendo "Produção" abaixo, as notas saem em teste (homologação). A equipe do Commandah libera depois de conferir a série e os códigos fiscais com o contador.';
+  const edicao = `<div class="field" style="margin-top:8px"><label for="nfceToken">${e.origem==='proprio'?'Trocar o token da Brasil NFe':'Token da Brasil NFe'}</label><input id="nfceToken" type="password" autocomplete="off" spellcheck="false" maxlength="512" placeholder="Cole aqui o token da conta do estabelecimento"></div>
+       <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-primary" id="nfceTokenSave">Salvar token</button>${e.origem==='proprio'?'<button type="button" class="btn btn-danger" id="nfceTokenDel">Apagar token</button>':''}</div>`;
+  box.innerHTML = `<p class="sub" style="margin:0 0 4px">${situacao}</p><p class="sub" style="margin:0">${producao}</p>${edicao}`;
+  const save = document.getElementById('nfceTokenSave');
+  if(save) save.onclick = async ()=>{
+    const token = document.getElementById('nfceToken').value.trim();
+    if(!token){ toast('Cole o token da Brasil NFe.'); return; }
+    save.disabled = true; save.textContent = 'Conferindo com a Brasil NFe...';
+    const r = await nfceCall('emissor_salvar', undefined, { token });
+    if(r.error){ save.disabled = false; save.textContent = 'Salvar token'; toast(r.error, 'erro'); return; }
+    toast('Token da Brasil NFe salvo.');
+    renderNfceEmissor(r.emissor);
+  };
+  const del = document.getElementById('nfceTokenDel');
+  if(del) del.onclick = async ()=>{
+    const ok = await askConfirm({ title:'Apagar o token da Brasil NFe?', message:'Sem o token, este estabelecimento para de emitir NFC-e até um token novo ser cadastrado.', confirmLabel:'Apagar token', cancelLabel:'Manter' });
+    if(!ok) return;
+    del.disabled = true;
+    const r = await nfceCall('emissor_remover');
+    if(r.error){ del.disabled = false; toast(r.error, 'erro'); return; }
+    toast('Token apagado.');
+    renderNfceEmissor(r.emissor);
   };
 }
 // Depois do pagamento (t207): emite sozinha se estiver ligado, e imprime o cupom no caixa.
