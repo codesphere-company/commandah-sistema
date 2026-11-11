@@ -43,6 +43,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - #270: emissor de NFC-e por estabelecimento (`nfce` v11, migration `20261113000000`);
   - #272: cadastro de estabelecimento só com código de convite (função `cadastro`, migration `20261114000000`). O dono **desligou** "Allow new users to sign up" no painel do Supabase;
   - #274: fim do PIN padrão 1234 e troca obrigatória de PIN óbvio (`staff-auth` v10).
+  - #277: botão "Salvar como emissor deste estabelecimento" na tela NFC-e (`nfce` v12, ação `emissor_adotar`). Grava o token do servidor como emissor próprio de quem está marcado com `usa_token_do_servidor` (só o clube); qualquer outro recebe 409 e segue "Sem emissor". **Falta:** o dono clicar no botão no clube, conferir "Emissor configurado ••••xxxx" e emitir uma nota de teste; depois, com o "sim", `npx supabase secrets unset BRASILNFE_TOKEN --project-ref ezfoymdesmarpunmixbs`.
   - Os HANDOFFs foram registrados em #271, #273 e #275. Relatório da auditoria: https://claude.ai/artifact/4rHCe8zRNhBKW5PBBw81Hr
 - **Ajuste direto no banco do clube (11/11, com o "sim"):**
   - As contas que o sistema semeou no começo ("Administrador" e "Garçom App", PIN 1234) foram **desativadas** em `tenant_staff` e no cadastro (`cantina2:users`). Cópia anterior em `backup:cantina2:users:2026-11-11-pin`.
