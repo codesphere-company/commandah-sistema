@@ -5,7 +5,7 @@ function renderTenantSetup(){
   overlay.innerHTML = `<div class="login-box" style="max-width:440px">
     <div class="login-brand login-brand--commandah"><img class="login-mark" src="assets/marca/horizontal-cor.svg" alt="Commandah"><img class="login-mark-dk" src="assets/marca/horizontal-cor-escuro.svg" alt=""></div>
     <h1>Entrar no Commandah</h1>
-    <p class="sub">Uma conta por estabelecimento. Compartilhe esse login (e-mail/senha) com quem for configurar outros computadores e celulares do mesmo lugar.</p>
+    <p class="sub">Entrada do dono do estabelecimento. Para configurar um computador ou celular, o dono entra aqui; garçom, caixa e cozinha usam o próprio PIN. Não compartilhe esta senha.</p>
     <div class="field" style="text-align:left"><label>E-mail</label><input id="tsEmail" type="email" placeholder="seu@email.com" autocomplete="username"></div>
     <div class="field" style="text-align:left"><label>Senha</label><input id="tsPassword" type="password" placeholder="Mínimo 6 caracteres" autocomplete="current-password"></div>
     <p id="tsError" class="sub" style="display:none;color:var(--red);text-align:left"></p>
@@ -69,6 +69,8 @@ async function tenantSignIn(){
   try{
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password, options: tsCaptchaToken ? { captchaToken: tsCaptchaToken } : {} });
     if(error){ showTenantError(/captcha/i.test(error.message||'') ? 'A verificação "não sou robô" falhou. Recarregue a página e tente de novo.' : 'E-mail ou senha incorretos.'); resetTurnstile(); return; }
+    // Auditoria 11/11, item 3: conta do dono com verificação em duas etapas pede o código antes de seguir.
+    if(await donoPrecisaCodigo() && !await pedirCodigoDoDono()){ showTenantError('Entrada cancelada. Digite a senha de novo para tentar outra vez.'); return; }
     const resolved = await resolveTenantSession(data.user.id);
     if(resolved && resolved.networkError){ showTenantError('Não foi possível falar com o servidor. Confira a internet e tente de novo.'); return; }
     if(!resolved){ showTenantError('Essa conta ainda não tem um estabelecimento vinculado.'); return; }

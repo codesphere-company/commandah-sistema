@@ -44,6 +44,18 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders() });
 }
 
+// 12/11 (auditoria, item 3): dono com verificação em duas etapas ligada só vale como dono numa sessão aal2
+// (senha + código). Mesma regra de public.dono_sessao_ok() no banco. Erro na consulta fecha (false).
+async function donoSessaoOk(jwt: string, uid: string): Promise<boolean> {
+  try {
+    const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0))));
+    if (payload && payload.aal === "aal2") return true;
+  } catch { /* JWT sem payload legível: segue para a lista de fatores */ }
+  const { data, error } = await admin.auth.admin.mfa.listFactors({ userId: uid });
+  if (error) { console.error("[dono-aal] listFactors:", error); return false; }
+  return !(data?.factors || []).some((f: { status?: string }) => f.status === "verified");
+}
+
 // Quem chama: dono (tenant_owners) ou colaborador ativo administrador/caixa/garçom.
 // isAdmin (dono ou perfil admin): só ele cancela NFC-e (08/11, pedido do dono).
 // O token do emissor também é do administrador (11/11): depois do PIN a sessão do aparelho é sempre a do
@@ -56,7 +68,7 @@ async function caller(req: Request) {
   if (error || !data?.user) return null;
   const uid = data.user.id;
   const { data: owner } = await admin.from("tenant_owners").select("tenant_id").eq("user_id", uid).maybeSingle();
-  if (owner) return { tenantId: owner.tenant_id as string, name: "Dono", isAdmin: true };
+  if (owner) return (await donoSessaoOk(jwt, uid)) ? { tenantId: owner.tenant_id as string, name: "Dono", isAdmin: true } : null;
   const { data: staff } = await admin.from("tenant_staff").select("tenant_id, role, active").eq("auth_user_id", uid).maybeSingle();
   if (staff && staff.active && (staff.role === "admin" || staff.role === "caixa" || staff.role === "garcom")) {
     const meta = data.user.user_metadata as { staff_name?: string } | undefined;

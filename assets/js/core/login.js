@@ -17,6 +17,7 @@ function renderLogin(){
     ${state.settings.clubName?`<h1>${h(state.settings.clubName)}</h1>`:''}
     ${semColaboradoresNaNuvem() ? primeiroAcessoHtml() : `<p class="sub">${isDefaultOnly? 'Primeiro acesso — toque em Administrador e troque o PIN padrão em Configurações' : 'Selecione seu usuário para entrar'}</p>
     ${loginEscolhaHtml()}`}
+    ${donoProtecaoLinkHtml()}
     <p class="login-privacy"><button type="button" class="link-btn" onclick="openPrivacyNotice()">Aviso de privacidade</button></p>
   </div>`;
   overlay.classList.remove('hide');
