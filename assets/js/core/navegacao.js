@@ -406,6 +406,7 @@ function renderAll(){
   enhanceOperationalControls();
   const archivedMembersToggle=document.querySelector('#view-associados .op-footer input[type="checkbox"]');if(archivedMembersToggle){archivedMembersToggle.disabled=false;archivedMembersToggle.title='Abrir clientes arquivados';}
   applyBackgroundImage();
+  if(typeof renderPrimeirosPassos==='function') renderPrimeirosPassos(); // auditoria 11/11, item 1
 }
 
 function enhanceOperationalControls(){document.querySelectorAll('.op-controls span').forEach(control=>{const text=control.textContent.trim();if(!['×','□','▢'].includes(text))return;control.setAttribute('role','button');control.tabIndex=0;control.title=text==='×'?'Fechar janela':text==='□'?'Maximizar janela':'Restaurar janela';control.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();control.click();}};});}

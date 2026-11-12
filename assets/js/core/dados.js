@@ -9,6 +9,9 @@ async function loadAll(){
    (attemptPinLogin): antes, um admin que entrava num aparelho aberto como caixa via Contas a Pagar
    vazia, e o primeiro "salvar" gravava a lista vazia por cima da real. */
 let dadosCarregadosComo = null;
+// Auditoria 11/11, item 1: chaves cuja última leitura falhou. A tela de primeiro acesso não abre com falha
+// (lista vazia por erro imitaria conta nova). Atualizada a cada carregarDados().
+let falhasDeLeitura = [];
 // Revisão final, item 2: o garçom tem visão própria (lê quase o mesmo que o caixa, mas não o fiado);
 // antes caía em null e todo login de garçom forçava carregarDados() completo, e caixa ↔ garçom no mesmo
 // aparelho ficariam com os dados da visão errada se fossem tratados como iguais.
@@ -85,24 +88,9 @@ async function carregarDados(){
     usersMissingOrigem.forEach(u=>{ u.origem = u.username==='garcom' ? 'app' : 'caixa'; });
     await save('users');
   }
-  if(seedable('locais') && !state.locais.length){
-    ['Churrasqueira 1','Churrasqueira 2','Churrasqueira 3','Churrasqueira 4','Churrasqueira 5','Sinuca','Bolão','Quadra de Tênis','Salão de Festas','Piscina'].forEach(nome=>state.locais.push({id:uid(), nome}));
-    await save('locais');
-  }
-  if(seedable('impressoras') && !state.impressoras.length){
-    state.impressoras.push({id:uid(), nome:'Impressora Cozinha', estacao:'cozinha', origem:'ambos'});
-    state.impressoras.push({id:uid(), nome:'Impressora Bar — Caixa', estacao:'bar', origem:'caixa'});
-    state.impressoras.push({id:uid(), nome:'Impressora Bar — App', estacao:'bar', origem:'app'});
-    state.impressoras.push({id:uid(), nome:'Impressora Churrasqueira — Caixa', estacao:'churrasqueira', origem:'caixa'});
-    state.impressoras.push({id:uid(), nome:'Impressora Churrasqueira — App', estacao:'churrasqueira', origem:'app'});
-    await save('impressoras');
-  }
-  if(seedable('estacoes') && !state.estacoes.length){
-    state.estacoes.push({id:uid(), chave:'cozinha', nome:'Cozinha', saida:'ambos'});
-    state.estacoes.push({id:uid(), chave:'bar', nome:'Bar', saida:'imprime'});
-    state.estacoes.push({id:uid(), chave:'churrasqueira', nome:'Churrasqueira', saida:'imprime'});
-    await save('estacoes');
-  }
+  // Auditoria 11/11, item 1: aqui nasciam os 10 locais do clube (Churrasqueira 1 a 5, Piscina...), 5 impressoras
+  // e as estações Cozinha, Bar e Churrasqueira em TODO estabelecimento novo. Agora a conta nasce sem eles e a
+  // tela "Como você atende?" (sistema/primeiro-acesso.js) cria só as mesas e estações que o dono marcar.
   if(seedable('origens') && !state.origens.length){
     state.origens.push({id:uid(), chave:'caixa', nome:'Caixa'});
     state.origens.push({id:uid(), chave:'app', nome:'App do Garçom'});
@@ -111,7 +99,8 @@ async function carregarDados(){
   await migratePendingStaffAsOwner();
   applyBranding();
   dadosCarregadosComo = await visaoP;
-  return Object.keys(readFailed);
+  falhasDeLeitura = Object.keys(readFailed);
+  return falhasDeLeitura;
 }
 /* Estabelecimento recém-criado: os usuários semeados acima (Administrador /
    Garçom App) nascem sem acesso seguro, e na nuvem o login por PIN de quem não
