@@ -450,7 +450,7 @@ function openImpressoraModal(id){
     </select></div>
     <div class="field"><label>Endereço do agente na rede (opcional, modo antigo)</label><input id="impAgentUrl" value="${p?h(p.agentUrl||''):''}" placeholder="Deixe em branco — não é mais necessário"><p class="sub">Com a fila de impressão via nuvem ativa, isso não é mais necessário — o agente encontra os pedidos sozinho, de qualquer aparelho. Só preencha se estiver usando o modo antigo sem Supabase.</p></div>
     <div class="field"><label>Estação</label><select id="impEstacao">
-      ${state.estacoes.map(e=>`<option value="${h(e.chave)}" ${(p&&p.estacao===e.chave)||(!p&&e.chave==='cozinha')?'selected':''}>${h(e.nome)}</option>`).join('')}
+      ${state.estacoes.map(e=>`<option value="${h(e.chave)}" ${(p&&p.estacao===e.chave)||(!p&&e.chave===estacaoPadraoProduto(state.estacoes))?'selected':''}>${h(e.nome)}</option>`).join('')}
     </select></div>
     <div class="field"><label>Origem atendida</label><select id="impOrigem">
       ${state.origens.map(o=>`<option value="${h(o.chave)}" ${p&&p.origem===o.chave?'selected':''}>Só pedidos: ${h(o.nome)}</option>`).join('')}

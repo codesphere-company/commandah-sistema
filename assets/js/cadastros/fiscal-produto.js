@@ -141,7 +141,7 @@ function openProductModal(id){
         <div class="field" style="margin-top:12px"><label>Descrição</label><textarea id="pDescription" rows="2">${h(p?p.description||'':'')}</textarea></div>
         <div class="field"><label>Código personalizado / PDV</label><input id="pCustomCode" value="${h(p?p.pdvCode||'':'')}"></div>
         <div class="field"><label>Estação de preparo</label><select id="pEstacao">
-          ${state.estacoes.map(e=>`<option value="${h(e.chave)}" ${(p&&p.estacao===e.chave)||(!p&&e.chave==='cozinha')?'selected':''}>${h(e.nome)}</option>`).join('')}
+          ${state.estacoes.map(e=>`<option value="${h(e.chave)}" ${(p&&p.estacao===e.chave)||(!p&&e.chave===estacaoPadraoProduto(state.estacoes))?'selected':''}>${h(e.nome)}</option>`).join('')}
           <option value="nenhuma" ${p&&p.estacao==='nenhuma'?'selected':''}>Não exige preparo (ex: água, refrigerante lacrado)</option>
         </select><p class="sub">Define pra qual impressora o pedido vai (Cozinha usa impressora única; Bar e Churrasqueira têm impressora diferente por origem do pedido).</p></div>
         <div class="field"><label>Perguntar quantidade de copos</label><select id="pAskCopos"><option value="auto" ${!p||!p.askCopos||p.askCopos==='auto'?'selected':''}>Automático (toda bebida)</option><option value="sim" ${p&&p.askCopos==='sim'?'selected':''}>Sim, sempre</option><option value="nao" ${p&&p.askCopos==='nao'?'selected':''}>Não</option></select><p class="sub">Automático reconhece bebida pela estação Bar, pela categoria ou pelo nome (cerveja, refrigerante, água, suco, drinks…).</p></div>

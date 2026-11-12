@@ -85,24 +85,9 @@ async function carregarDados(){
     usersMissingOrigem.forEach(u=>{ u.origem = u.username==='garcom' ? 'app' : 'caixa'; });
     await save('users');
   }
-  if(seedable('locais') && !state.locais.length){
-    ['Churrasqueira 1','Churrasqueira 2','Churrasqueira 3','Churrasqueira 4','Churrasqueira 5','Sinuca','Bolão','Quadra de Tênis','Salão de Festas','Piscina'].forEach(nome=>state.locais.push({id:uid(), nome}));
-    await save('locais');
-  }
-  if(seedable('impressoras') && !state.impressoras.length){
-    state.impressoras.push({id:uid(), nome:'Impressora Cozinha', estacao:'cozinha', origem:'ambos'});
-    state.impressoras.push({id:uid(), nome:'Impressora Bar — Caixa', estacao:'bar', origem:'caixa'});
-    state.impressoras.push({id:uid(), nome:'Impressora Bar — App', estacao:'bar', origem:'app'});
-    state.impressoras.push({id:uid(), nome:'Impressora Churrasqueira — Caixa', estacao:'churrasqueira', origem:'caixa'});
-    state.impressoras.push({id:uid(), nome:'Impressora Churrasqueira — App', estacao:'churrasqueira', origem:'app'});
-    await save('impressoras');
-  }
-  if(seedable('estacoes') && !state.estacoes.length){
-    state.estacoes.push({id:uid(), chave:'cozinha', nome:'Cozinha', saida:'ambos'});
-    state.estacoes.push({id:uid(), chave:'bar', nome:'Bar', saida:'imprime'});
-    state.estacoes.push({id:uid(), chave:'churrasqueira', nome:'Churrasqueira', saida:'imprime'});
-    await save('estacoes');
-  }
+  // Auditoria 11/11, item 1: aqui nasciam os 10 locais do clube (Churrasqueira 1 a 5, Piscina...), 5 impressoras
+  // e as estações Cozinha, Bar e Churrasqueira em TODO estabelecimento novo. Agora a conta nasce sem eles e a
+  // tela "Como você atende?" (sistema/primeiro-acesso.js) cria só as mesas e estações que o dono marcar.
   if(seedable('origens') && !state.origens.length){
     state.origens.push({id:uid(), chave:'caixa', nome:'Caixa'});
     state.origens.push({id:uid(), chave:'app', nome:'App do Garçom'});
