@@ -101,6 +101,18 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders() });
 }
 
+// 12/11 (auditoria, item 3): dono com verificação em duas etapas ligada só vale como dono numa sessão aal2
+// (senha + código). Mesma regra de public.dono_sessao_ok() no banco. Erro na consulta fecha (false).
+async function donoSessaoOk(jwt: string, uid: string): Promise<boolean> {
+  try {
+    const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0))));
+    if (payload && payload.aal === "aal2") return true;
+  } catch { /* JWT sem payload legível: segue para a lista de fatores */ }
+  const { data, error } = await admin.auth.admin.mfa.listFactors({ userId: uid });
+  if (error) { console.error("[dono-aal] listFactors:", error); return false; }
+  return !(data?.factors || []).some((f: { status?: string }) => f.status === "verified");
+}
+
 // Identifica quem está chamando (pelo JWT da sessão atual) e se pode gerenciar colaboradores:
 // o dono de verdade (tenant_owners), ou um operador com role=admin ativo (mesmo padrão de hoje,
 // onde o PIN de administrador já gerencia colaboradores).
@@ -113,7 +125,7 @@ async function callerContext(req: Request) {
   const uid = userData.user.id;
 
   const { data: ownerRow } = await admin.from("tenant_owners").select("tenant_id").eq("user_id", uid).maybeSingle();
-  if (ownerRow) return { tenantId: ownerRow.tenant_id as string, canManage: true };
+  if (ownerRow) return (await donoSessaoOk(jwt, uid)) ? { tenantId: ownerRow.tenant_id as string, canManage: true } : { tenantId: null, canManage: false };
 
   const { data: staffRow } = await admin.from("tenant_staff").select("tenant_id, role, active").eq("auth_user_id", uid).maybeSingle();
   if (staffRow && staffRow.active && staffRow.role === "admin") {
