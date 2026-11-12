@@ -8,7 +8,11 @@ const DONO_CODIGO_ERRADO = 'Código incorreto. Confira o app e tente de novo.';
 
 async function donoPrecisaCodigo(){
   try{
-    const { data, error } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+    // Com o token, o supabase-js consulta os fatores no servidor; sem ele, usa a lista guardada na sessão do
+    // aparelho, que fica velha quando o dono liga o código em outro aparelho (revisão final).
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if(!session) return false;
+    const { data, error } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel(session.access_token);
     return !error && !!data && data.currentLevel==='aal1' && data.nextLevel==='aal2';
   }catch(e){ return false; }
 }
