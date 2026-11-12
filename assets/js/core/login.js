@@ -254,8 +254,13 @@ function afterLogin(){
   // Auditoria 11/11, item 1: conta nova responde "Como você atende?" antes de qualquer outra tela.
   if(abrirPrimeiroAcessoSeNecessario()) return;
   if(currentUser.role==='admin' && telaInicialDoAdmin(state.settings)==='balcao') switchView('balcao');
+  avisosAoEntrar();
+}
+// PIN óbvio troca antes de operar; senão, aviso de novidades (08/11, sistema/novidades.js).
+// Auditoria 11/11, item 1: também chamado ao terminar a tela "Como você atende?", que antes pulava a troca.
+function avisosAoEntrar(){
   if(pinTrocaObrigatoria || (currentUser.username==='admin' && currentUser.pin==='1234')) setTimeout(openForcedPinModal,0);
-  else setTimeout(mostrarNovidadesAoEntrar,0); // 08/11: aviso de novidades (sistema/novidades.js)
+  else setTimeout(mostrarNovidadesAoEntrar,0);
 }
 /* Logout de verdade: derruba TAMBÉM a sessão do Supabase.
    Antes só zerava currentUser — a sessão do operador que saiu continuava viva no

@@ -464,6 +464,9 @@ function mergeImportedProducts(incoming,fileName){
         return;
       }
       const normalized={...clean,id:existing?existing.id:(raw.id||uid()),name:String(raw.name).trim(),code,pdvCode,kind:['produto','tamanho','combo'].includes(raw.kind)?raw.kind:'produto',category:String(raw.category||''),measure:String(raw.measure||'un'),price:Math.max(0,Number(raw.price)||0),minStock:Math.max(0,Number(raw.minStock)||0),active:raw.active!==false,recipe:Array.isArray(raw.recipe)?raw.recipe:(existing&&existing.recipe||[])};
+      // Auditoria 11/11, item 1: produto NOVO sem coluna Estação ia para "cozinha" em todo o fluxo
+      // (estacao||'cozinha'), mesmo em conta só com Bar, onde ninguém recebia o pedido.
+      if(!existing && !normalized.estacao) normalized.estacao = estacaoPadraoProduto(state.estacoes);
       if(normalized.estacao) normalized.kitchenItem = normalized.estacao==='cozinha';
       if(existing)Object.assign(existing,normalized);else state.products.push(normalized);
     });

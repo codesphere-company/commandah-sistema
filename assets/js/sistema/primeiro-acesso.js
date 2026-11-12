@@ -65,6 +65,9 @@ const salvarPrimeiroAcesso = singleFlight('primeiro-acesso', async function(){
   if(typeof applyBranding==='function') applyBranding();
   buildNav();
   switchView(telaInicialDoAdmin(state.settings));
+  // Conta nova: o histórico de mudanças do sistema não é novidade para quem acabou de chegar.
+  if(typeof marcarNovidadesVistas==='function') marcarNovidadesVistas(novidadesDoUsuario().map(n=>n.id));
+  avisosAoEntrar(); // troca de PIN óbvio continua valendo (revisão final)
 });
 
 /* ---- Cartão "Primeiros passos" (só administrador de conta que passou pela tela acima) ---- */
