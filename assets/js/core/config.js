@@ -102,7 +102,10 @@ const HIDDEN_MODULES = new Set(['Emissão Fiscal']); // a NFC-e de verdade fica 
 // "Em construção" e, no clique, só avisam (não abrem a tela que finge funcionar). A Fidelidade
 // voltou normal: funciona (cupons.js). Para liberar um módulo quando ficar pronto, tire o nome daqui.
 const MODULOS_EM_CONSTRUCAO = new Set(['Connect','TEF','SMS','Disparador Inteligente','Bot WhatsApp','Pix Online','Bina','Mapas','Balança','Minha Assinatura','Meu Delivery','Delivery']);
-function avisoEmConstrucao(label){ toast(label+' está em construção. Em breve vai funcionar.'); }
+// 12/11 (decisão do dono): em vez de "Em construção", os recursos aparecem como do plano Pro, com "em breve"
+// porque ainda não funcionam (quem pagar não pode achar que já usa). Minha Assinatura é a cobrança, não um recurso Pro.
+function seloEmBreve(label){ return label==='Minha Assinatura' ? 'Em breve' : 'Pro · em breve'; }
+function avisoEmConstrucao(label){ toast(label==='Minha Assinatura' ? label+' chega em breve.' : label+' faz parte do plano Pro e chega em breve.'); }
 const RIBBON_TABS = [
   { id:'principal', label:'Principal', groups:[
       { label:'Caixa', items:[ {label:'Abrir/Fechar', icon:ICN.lock, view:'caixa'} ] },

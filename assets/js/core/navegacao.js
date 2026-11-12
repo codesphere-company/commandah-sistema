@@ -35,7 +35,7 @@ function ribbonItemAction(it, allowed){
                   : !hasAction;
   // 09/11: item "soAdmin" (conferência de pagamentos) exige administrador mesmo se a permissão vier na lista do colaborador.
   const permitted = permitidoPelaLista && (!it.soAdmin || isAdminUser());
-  if(permitted && MODULOS_EM_CONSTRUCAO.has(it.label)) return { enabled:true, emConstrucao:true, reason:'Em construção', onclick:`avisoEmConstrucao(${jsArg(h(it.label))})` };
+  if(permitted && MODULOS_EM_CONSTRUCAO.has(it.label)) return { enabled:true, emConstrucao:true, reason:seloEmBreve(it.label), onclick:`avisoEmConstrucao(${jsArg(h(it.label))})` };
   const reason = !hasAction && !hasView ? 'Abrir detalhes e requisitos do módulo'
     : (!permitted ? 'Sem permissão para o seu perfil' : '');
   const onclick = permitted ? (hasAction ? `${it.action}(${it.actionArg?`${jsArg(it.actionArg)}`:''})` : hasView ? `openRibbonView(${jsArg(it.view)},${jsArg(h(it.label))})` : `openReferenceModule(${jsArg(h(it.label))})`) : `toast(${jsArg(reason)})`;
@@ -80,7 +80,7 @@ function renderRibbonTabs(){
   const links = homeItems.map(it=>{
     const a = ribbonItemAction(it, allowed);
     const active = activeRibbonTab===home.id && it.view && it.view===activeView;
-    return `<button class="sb-link ${a.enabled?'':'disabled'} ${a.emConstrucao?'em-construcao':''} ${active?'active':''}" title="${a.reason}" onclick="activeRibbonTab=${jsArg(home.id)};${a.onclick}"><span class="ic">${it.icon||''}</span>${SIDEBAR_LABELS[it.view]||it.label}${a.emConstrucao?'<span class="selo-obra">Em construção</span>':''}</button>`;
+    return `<button class="sb-link ${a.enabled?'':'disabled'} ${a.emConstrucao?'em-construcao':''} ${active?'active':''}" title="${a.reason}" onclick="activeRibbonTab=${jsArg(home.id)};${a.onclick}"><span class="ic">${it.icon||''}</span>${SIDEBAR_LABELS[it.view]||it.label}${a.emConstrucao?`<span class="selo-obra">${seloEmBreve(it.label)}</span>`:''}</button>`;
   }).join('');
   const areaLinks = areas.map(t=>{
     const first = t.groups[0] && t.groups[0].items[0];
@@ -110,7 +110,7 @@ function renderRibbonToolbar(){
         const abre = a.enabled && !a.emConstrucao && (it.view || (it.action && !/^toggle|^openChangePinModal$/.test(it.action)));
         return `<button class="${a.enabled?'':'disabled'} ${a.emConstrucao?'em-construcao':''} ${(it.view && it.view===activeView)||it.label===activeRibbonAction?'active':''}" title="${a.reason}"${abre?' data-abre':''}
           onclick="${a.onclick}">
-          <span class="ic">${it.icon}</span><span class="lb">${it.label}</span>${a.emConstrucao?'<span class="selo-obra">Em construção</span>':''}</button>`;
+          <span class="ic">${it.icon}</span><span class="lb">${it.label}</span>${a.emConstrucao?`<span class="selo-obra">${seloEmBreve(it.label)}</span>`:''}</button>`;
       }).join('')}</div>
       <div class="rb-caption">${g.label}</div>
     </div>`).join('');
