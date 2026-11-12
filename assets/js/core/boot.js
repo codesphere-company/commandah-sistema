@@ -53,6 +53,8 @@ async function boot(){
   if(!supabaseClient) supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data: { session } } = await supabaseClient.auth.getSession();
   if(session){
+    // Auditoria 11/11, item 3: sessão só de senha de um dono com duas etapas ligada pede o código ao reabrir.
+    if(await donoPrecisaCodigo() && !await pedirCodigoDoDono()){ renderTenantSetup(); return; }
     const resolved = await resolveTenantSession(session.user.id);
     if(resolved && resolved.networkError){
       // Sessão salva e válida, só o servidor não respondeu: mandar pra tela de

@@ -1023,3 +1023,14 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .pp-acoes{display:flex;gap:6px;flex:none}
 .pp-ok{font-size:12px;color:var(--c-success);flex:none}
 @media (max-width:480px){.pp-cartao{margin:8px 8px 0;padding:12px}.pp-lista{grid-template-columns:1fr}.pp-passo{flex-wrap:wrap}.pp-acoes{width:100%;justify-content:flex-end}}
+
+/* Conta do dono, duas etapas (auditoria 11/11, item 3): camada por cima das telas de entrada. */
+.dono-camada{position:fixed;inset:0;z-index:1000;background:var(--c-overlay);display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto}
+.dono-caixa{max-width:440px}
+.dono-caixa h1{text-align:left}
+.dono-caixa p.sub{text-align:left;margin:0 0 12px}
+.dono-erro{color:var(--c-danger);font-size:13px;min-height:18px;margin:0 0 8px}
+.dono-passos{margin:0 0 12px;padding-left:20px;font-size:14px;color:var(--c-text-2);line-height:1.5}
+.dono-qr{display:flex;justify-content:center;margin:8px 0 12px}
+.dono-qr img,.dono-qr canvas{background:#fff;padding:8px;border-radius:var(--r-sm)}
+#donoMfaChave{font-family:var(--font-mono,monospace);word-break:break-all;background:var(--c-surface-3);padding:2px 6px;border-radius:6px}
