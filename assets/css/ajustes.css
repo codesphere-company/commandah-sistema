@@ -984,3 +984,22 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .det-report h3{margin:16px 0 8px;font-size:16px;color:var(--c-text)}
 .det-small{display:block;color:var(--c-text-3);font-size:12px}
 .det-chave{font-size:12px;word-break:break-all}
+
+/* Primeiro acesso (auditoria 11/11, item 1): tela "Como você atende?" por cima do app, sem fechar. */
+.pa-camada{position:fixed;inset:0;z-index:250;background:var(--c-bg);display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto}
+.pa-caixa{background:var(--c-surface);border:1px solid var(--c-border);box-shadow:var(--sh-3);border-radius:var(--r-lg);padding:28px;max-width:520px;width:100%}
+.pa-caixa h1{font-family:var(--font-brand);font-size:22px;margin:0 0 4px;color:var(--c-text)}
+.pa-caixa .sub{color:var(--c-text-3);font-size:13px;margin:0 0 18px}
+.pa-grupo{font-weight:600;font-size:14px;color:var(--c-text);margin:18px 0 8px}
+.pa-opcao{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--c-border-control);border-radius:var(--r-md,10px);margin-bottom:8px;cursor:pointer;background:var(--c-surface)}
+.pa-opcao:has(input:checked){border-color:var(--c-primary);background:var(--c-primary-soft)}
+.pa-opcao input{margin-top:3px;flex:none;width:18px;height:18px;accent-color:var(--c-primary)}
+.pa-opcao-texto{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pa-opcao-texto b{font-weight:600;color:var(--c-text)}
+.pa-opcao-texto small{color:var(--c-text-3);font-size:13px}
+.pa-qtd{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px;color:var(--c-text-2)}
+.pa-qtd input{width:90px}
+.pa-preparo{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.pa-preparo label{display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid var(--c-border-control);border-radius:var(--r-md,10px);cursor:pointer;color:var(--c-text)}
+.pa-preparo label:has(input:checked){border-color:var(--c-primary);background:var(--c-primary-soft)}
+.pa-preparo input{width:18px;height:18px;accent-color:var(--c-primary)}

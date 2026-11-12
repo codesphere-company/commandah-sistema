@@ -9,6 +9,9 @@ async function loadAll(){
    (attemptPinLogin): antes, um admin que entrava num aparelho aberto como caixa via Contas a Pagar
    vazia, e o primeiro "salvar" gravava a lista vazia por cima da real. */
 let dadosCarregadosComo = null;
+// Auditoria 11/11, item 1: chaves cuja última leitura falhou. A tela de primeiro acesso não abre com falha
+// (lista vazia por erro imitaria conta nova). Atualizada a cada carregarDados().
+let falhasDeLeitura = [];
 // Revisão final, item 2: o garçom tem visão própria (lê quase o mesmo que o caixa, mas não o fiado);
 // antes caía em null e todo login de garçom forçava carregarDados() completo, e caixa ↔ garçom no mesmo
 // aparelho ficariam com os dados da visão errada se fossem tratados como iguais.
@@ -96,7 +99,8 @@ async function carregarDados(){
   await migratePendingStaffAsOwner();
   applyBranding();
   dadosCarregadosComo = await visaoP;
-  return Object.keys(readFailed);
+  falhasDeLeitura = Object.keys(readFailed);
+  return falhasDeLeitura;
 }
 /* Estabelecimento recém-criado: os usuários semeados acima (Administrador /
    Garçom App) nascem sem acesso seguro, e na nuvem o login por PIN de quem não

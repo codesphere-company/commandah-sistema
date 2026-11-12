@@ -251,6 +251,9 @@ function afterLogin(){
   renderAll();
   // UX lote 1 (06/11): sem o aviso "Bem-vindo(a)" — o nome já aparece na barra de baixo (Usuário).
   logAction('Login realizado');
+  // Auditoria 11/11, item 1: conta nova responde "Como você atende?" antes de qualquer outra tela.
+  if(abrirPrimeiroAcessoSeNecessario()) return;
+  if(currentUser.role==='admin' && telaInicialDoAdmin(state.settings)==='balcao') switchView('balcao');
   if(pinTrocaObrigatoria || (currentUser.username==='admin' && currentUser.pin==='1234')) setTimeout(openForcedPinModal,0);
   else setTimeout(mostrarNovidadesAoEntrar,0); // 08/11: aviso de novidades (sistema/novidades.js)
 }
