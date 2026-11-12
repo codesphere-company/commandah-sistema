@@ -66,3 +66,70 @@ const salvarPrimeiroAcesso = singleFlight('primeiro-acesso', async function(){
   buildNav();
   switchView(telaInicialDoAdmin(state.settings));
 });
+
+/* ---- Cartão "Primeiros passos" (só administrador de conta que passou pela tela acima) ---- */
+// Fica no topo das telas de operação (Comandas, Ficha, Caixa), não nas de gestão, para não atrapalhar
+// quem já está configurando. Some quando os seis passos estiverem feitos ou se for escondido neste aparelho.
+const TELAS_DO_CARTAO = new Set(['comandas','balcao','caixa']);
+let emissorConferido = null; // null = ainda não perguntou nesta sessão; depois, true/false
+let emissorPerguntando = false;
+function chavePassosEscondidos(){ return 'commandah:passos-escondidos:'+((typeof getTenantId==='function'&&getTenantId())||'local'); }
+function passosEscondidos(){ try{ return localStorage.getItem(chavePassosEscondidos())==='1'; }catch(e){ return false; } }
+function conferirEmissorUmaVez(){
+  if(emissorConferido!==null || emissorPerguntando) return;
+  if(!isCloudMode() || typeof nfceCall!=='function'){ emissorConferido = false; return; }
+  emissorPerguntando = true;
+  nfceCall('emissor').then(r=>{ emissorConferido = !!(r && r.emissor && r.emissor.configurado); })
+    .catch(()=>{ emissorConferido = false; })
+    .finally(()=>{ emissorPerguntando = false; renderPrimeirosPassos(); });
+}
+function renderPrimeirosPassos(){
+  const box = document.getElementById('primeirosPassosBox'); if(!box) return;
+  const s = (state && state.settings) || {};
+  const mostra = currentUser && currentUser.role==='admin' && s.atendimento && !(s.primeirosPassos && s.primeirosPassos.concluidoEm)
+    && TELAS_DO_CARTAO.has(activeView) && !passosEscondidos();
+  if(!mostra){ box.innerHTML = ''; return; }
+  conferirEmissorUmaVez();
+  const passos = passosPrimeirosPassos(state, { emissorConfigurado:emissorConferido===true });
+  const feitos = passos.filter(p=>p.feito).length;
+  if(feitos===passos.length){
+    state.settings.primeirosPassos = { ...(s.primeirosPassos||{}), concluidoEm:new Date().toISOString() };
+    save('settings'); logAction('Primeiros passos concluídos');
+    box.innerHTML = ''; return;
+  }
+  const proximo = passos.find(p=>!p.feito);
+  box.innerHTML = `<section class="pp-cartao" aria-labelledby="ppTitulo">
+    <div class="pp-topo"><div><h2 id="ppTitulo">Deixe o Commandah pronto para vender</h2><p id="ppContador">${feitos} de ${passos.length} feitos</p></div>
+      <button type="button" class="btn btn-sm" id="ppEsconder" onclick="esconderPrimeirosPassos()">Esconder por enquanto</button></div>
+    <ol class="pp-lista">${passos.map(p=>`<li class="pp-passo${p.feito?' feito':''}${p===proximo?' proximo':''}" data-pp-passo="${h(p.id)}">
+      <span class="pp-marca" aria-hidden="true">${p.feito?'✓':''}</span>
+      <span class="pp-texto"><b>${h(p.titulo)}</b><small>${h(p.detalhe)}</small></span>
+      ${p.feito?'<span class="pp-ok">Feito</span>':`<span class="pp-acoes">${(p.id==='nfce'||p.id==='impressoras')?`<button type="button" class="btn btn-sm" data-pp-feito="${h(p.id)}" onclick="marcarPassoFeito(${jsArg(p.id)})">Já fiz</button>`:''}<button type="button" class="btn btn-sm ${p===proximo?'btn-primary':''}" data-pp-abrir="${h(p.id)}" onclick="abrirPassoPrimeirosPassos(${jsArg(p.id)})">Abrir</button></span>`}
+    </li>`).join('')}</ol></section>`;
+}
+function abrirPassoPrimeirosPassos(id){
+  if(id==='dados') return openSystemSettings();
+  if(id==='colaboradores') return openRibbonView('usuarios','Colaboradores');
+  if(id==='produtos') return openRibbonView('produtos','Produtos');
+  if(id==='nfce') return openNfceSettings();
+  if(id==='impressoras') return openRibbonView('impressoras','Impressoras');
+  if(id==='venda') return switchView(telaInicialDoAdmin(state.settings));
+}
+async function marcarPassoFeito(id){
+  const s = state.settings || {};
+  const pp = s.primeirosPassos || {};
+  state.settings = { ...s, primeirosPassos: { ...pp, feitos: { ...(pp.feitos||{}), [id]:true } } };
+  if(!await save('settings')){ toast('Não foi possível salvar agora. Confira a internet e tente de novo.', 'erro'); return; }
+  renderPrimeirosPassos();
+}
+function esconderPrimeirosPassos(){ try{ localStorage.setItem(chavePassosEscondidos(),'1'); }catch(e){} renderPrimeirosPassos(); toast('Você reabre os primeiros passos em Ajuda.'); }
+function reabrirPrimeirosPassos(){
+  try{ localStorage.removeItem(chavePassosEscondidos()); }catch(e){}
+  if(state.settings && state.settings.primeirosPassos && state.settings.primeirosPassos.concluidoEm){ toast('Os primeiros passos já foram concluídos.'); return; }
+  switchView(telaInicialDoAdmin(state.settings));
+}
+function botaoPrimeirosPassosAjuda(){
+  const s = (state && state.settings) || {};
+  if(!currentUser || currentUser.role!=='admin' || !s.atendimento) return '';
+  return `<button type="button" id="ajudaPrimeirosPassos" onclick="reabrirPrimeirosPassos()">Primeiros passos</button>`;
+}
