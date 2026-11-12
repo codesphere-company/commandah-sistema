@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-12-selo-pro', data:'12/11/2026', itens:[
+    { titulo:'Recursos do plano Pro',
+      texto:'Os recursos que ainda estão chegando (Delivery, SMS, Pix Online, Bot WhatsApp e outros) aparecem no menu com o selo "Pro · em breve", no lugar de "Em construção". Eles continuam sem funcionar por enquanto.',
+      onde:'Menu' },
+  ] },
   { id:'2026-11-12-primeiro-acesso', data:'12/11/2026', itens:[
     { titulo:'Estabelecimento novo começa do zero',
       texto:'Quem cria um estabelecimento novo responde como atende (sócios, mesas, balcão e onde os pedidos são preparados) e segue uma lista de primeiros passos até a primeira venda. Nada muda para quem já usa o sistema.',

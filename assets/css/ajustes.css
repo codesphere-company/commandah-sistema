@@ -643,9 +643,9 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
    min-width de 110 px com flex:1. */
 @media(min-width:761px){.op-toolbar .op-btn{min-width:0;padding:0 14px}.op-toolbar .op-search{min-width:200px}}
 /* Módulos em construção (31/10): aparecem no menu, mas apagados e com selo; o clique só avisa. */
-.rb-icons button.em-construcao,.ribbon-tabs .sb-link.em-construcao{opacity:.62}
-.rb-icons button.em-construcao:hover,.ribbon-tabs .sb-link.em-construcao:hover{opacity:.85}
-.selo-obra{display:inline-block;font-size:10px;line-height:1.4;font-weight:700;padding:0 6px;border-radius:999px;background:var(--c-warning-soft);color:var(--c-warning);white-space:nowrap}
+.rb-icons button.em-construcao,.ribbon-tabs .sb-link.em-construcao{opacity:.85} /* 12/11: plano Pro, não defeito */
+.rb-icons button.em-construcao:hover,.ribbon-tabs .sb-link.em-construcao:hover{opacity:1}
+.selo-obra{display:inline-block;font-size:10px;line-height:1.4;font-weight:700;padding:0 6px;border-radius:999px;background:var(--c-primary-soft);color:var(--c-primary-text);white-space:nowrap}
 .ribbon-tabs .sb-link .selo-obra{margin-left:auto}
 
 /* Marca do estabelecimento (31/10): com nome cadastrado, o topo do menu mostra logo + nome no lugar
