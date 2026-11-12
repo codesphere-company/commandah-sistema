@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-12-primeiro-acesso', data:'12/11/2026', itens:[
+    { titulo:'Estabelecimento novo começa do zero',
+      texto:'Quem cria um estabelecimento novo responde como atende (sócios, mesas, balcão e onde os pedidos são preparados) e segue uma lista de primeiros passos até a primeira venda. Nada muda para quem já usa o sistema.',
+      onde:'Primeiro acesso do administrador', perms:['config-sistema'] },
+  ] },
   { id:'2026-11-11-nfce-salvar-emissor', data:'11/11/2026', itens:[
     { titulo:'Salvar o emissor provisório da NFC-e',
       texto:'Quem aparece com "Emissor provisório" agora salva esse emissor no próprio estabelecimento com um clique, sem colar o token. Outro estabelecimento continua começando sem emissor, com o campo vazio para cadastrar o dele.',
