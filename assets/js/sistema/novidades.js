@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-12-dono-duas-etapas', data:'12/11/2026', itens:[
+    { titulo:'Verificação em duas etapas para o dono',
+      texto:'O dono pode proteger a conta com um código de 6 números de um aplicativo no celular (Google Authenticator ou parecido). Com ela ligada, quem souber só a senha não entra como dono. Garçom, caixa e cozinha continuam entrando só com o PIN.',
+      onde:'Tela do PIN › Proteger a conta do dono', perms:['config-sistema'] },
+  ] },
   { id:'2026-11-12-selo-pro', data:'12/11/2026', itens:[
     { titulo:'Recursos do plano Pro',
       texto:'Os recursos que ainda estão chegando (Delivery, SMS, Pix Online, Bot WhatsApp e outros) aparecem no menu com o selo "Pro · em breve", no lugar de "Em construção". Eles continuam sem funcionar por enquanto.',
