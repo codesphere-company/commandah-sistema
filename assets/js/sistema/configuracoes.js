@@ -68,7 +68,9 @@ function marcarEsteComputadorComoCaixa(id){
 function adicionarCaixaNaLista(){
   if(!isAdminUser()) return;
   const campos=[...document.querySelectorAll('.cfg-caixa-nome')];
-  const n=campos.reduce((m,el)=>{ const x=/^cx(d+)$/.exec(el.dataset.id); return x?Math.max(m,Number(x[1])):m; }, campos.length)+1, id='cx'+n, nome='Caixa '+n;
+  let n=campos.reduce((m,el)=>{ const x=/^cx(\d+)$/.exec(el.dataset.id); return x?Math.max(m,Number(x[1])):m; }, 0)+1; // maior cxN + 1: nunca reaproveita id
+  while(campos.some(el=>el.dataset.id==='cx'+n)) n++;
+  const id='cx'+n, nome='Caixa '+n;
   const grade=campos.length&&campos[campos.length-1].closest('.grid3'); if(!grade) return;
   grade.insertAdjacentHTML('beforeend',`<div class="field"><label>Nome do caixa (${h(id)})</label><input class="cfg-caixa-nome" data-id="${h(id)}" value="${h(nome)}"></div>`);
   ['cfgCaixaDoApp','cfgEsteComputador'].forEach(sid=>{ const sel=document.getElementById(sid); if(sel) sel.insertAdjacentHTML('beforeend',`<option value="${h(id)}">${h(nome)}</option>`); });
