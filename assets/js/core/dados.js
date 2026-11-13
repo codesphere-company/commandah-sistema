@@ -45,6 +45,11 @@ async function carregarDados(){
     }catch(e){ readFailed[key] = true; state[key] = (key in scalarDefaults ? scalarDefaults[key] : []); }
   }));
   await blobsP;
+  // Caixa por operador (13/11): com o ajuste ligado o turno vem de cash_turnos (RPC redigida), não de cantina2:cashSession.
+  if(isCloudMode() && modoCaixaPorOperador()){
+    try{ aplicarTurnosNoEstado(await lerTurnosDoServidor()); }
+    catch(e){ readFailed.cashSession = true; state.cashTurnos = {}; state.cashSession = null; }
+  }
   stripIntegrationTokens(state.settings);
   setCashMovementsBase(state.cashMovements);
   setInsumosBase(state.insumos);

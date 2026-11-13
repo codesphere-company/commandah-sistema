@@ -189,18 +189,74 @@ async function pushSales(){
   }
 }
 function parseAppDataValue(r, fallback){ if(!r) return fallback; const v = JSON.parse(r.value); return v===null ? null : v; }
+/* ---- Caixa por operador (13/11): vários caixas, cada um com o seu turno em public.cash_turnos. ----
+   Ajuste state.settings.caixaPorOperador (liga/desliga no admin). Desligado, tudo segue como antes
+   (um caixa só, cantina2:cashSession). Ligado, state.cashTurnos guarda o turno de cada caixa e
+   state.cashSession fica resolvido para o caixa DESTE aparelho: o código antigo que confere
+   state.cashSession.status!=='open' para barrar pagamento continua valendo sem mudança. */
+const CAIXA_DO_APARELHO_KEY = 'commandah:caixaDoAparelho';
+function modoCaixaPorOperador(){ return !!(state.settings && state.settings.caixaPorOperador); }
+function listaDeCaixas(){
+  const l = state.settings && state.settings.caixas;
+  const ok = Array.isArray(l) ? l.filter(c=>c && typeof c.id==='string' && c.id) : [];
+  return ok.length ? ok.map(c=>({ id:c.id, nome:String(c.nome||'').trim() || c.id })) : [{ id:'cx1', nome:'Caixa 1' }, { id:'cx2', nome:'Caixa 2' }];
+}
+function caixaDoAparelho(){ try{ return localStorage.getItem(CAIXA_DO_APARELHO_KEY) || null; }catch(e){ return null; } }
+function marcarCaixaDoAparelho(id){ try{ if(id) localStorage.setItem(CAIXA_DO_APARELHO_KEY, String(id)); else localStorage.removeItem(CAIXA_DO_APARELHO_KEY); }catch(e){} }
+// Sem marcação neste aparelho vale o "caixa do app" (celular do garçom etc.), padrão cx1.
+function caixaQueVale(){ return caixaDoAparelho() || (state.settings && state.settings.caixaDoApp) || 'cx1'; }
+function nomeDoCaixa(id){ const c = listaDeCaixas().find(x=>x.id===id); return c ? c.nome : String(id||''); }
+// Lê os turnos pela RPC cash_turnos_ler (redigida para quem não é admin/dono; leitura direta da tabela
+// só vale para admin/dono). Devolve { turnos:{[caixaId]:turno}, contagens:{[caixaId]:ultima_contagem} }.
+async function lerTurnosDoServidor(){
+  const { data, error } = await supabaseClient.rpc('cash_turnos_ler');
+  if(error) throw error;
+  const turnos = {}, contagens = {};
+  (Array.isArray(data) ? data : []).forEach(r=>{ if(r && r.caixa_id){ turnos[r.caixa_id] = r.turno || null; if(r.ultima_contagem!=null) contagens[r.caixa_id] = r.ultima_contagem; } });
+  return { turnos, contagens };
+}
+function aplicarTurnosNoEstado(lidos){
+  state.cashTurnos = lidos.turnos; state.cashUltimaContagem = lidos.contagens;
+  state.cashSession = lidos.turnos[caixaQueVale()] || null;
+}
+// Polling do caixa por operador (sem realtime, decisão do plano): 5 s enquanto o turno deste aparelho
+// está travado ou, na sessão do dono, há pendência com pedido ao dono; senão 30 s. Desligado ou fora
+// da nuvem não faz nada (o setInterval de 30 s de estabelecimento.js cuida do caminho antigo).
+let caixaPollingUltimo = 0;
+function caixaPollingIntervalo(){
+  const travado = state.cashSession && /^travado/.test(String(state.cashSession.status||''));
+  const pedidoAoDono = sessionIsOwner && Object.values(state.cashTurnos||{}).some(t=>t && t.pendencia && t.pendencia.pedidoDono);
+  return travado || pedidoAoDono ? 5000 : 30000;
+}
+function iniciarPollingCaixa(){
+  setInterval(()=>{
+    if(!modoCaixaPorOperador() || !isCloudMode() || !currentUser) return;
+    if(Date.now() - caixaPollingUltimo < caixaPollingIntervalo() - 500) return;
+    caixaPollingUltimo = Date.now();
+    refreshCashState().then(changed=>{ if(changed && !document.querySelector('#modalRoot .modal')) renderAll(); else if(changed) renderScoreboard(); });
+  }, 1000);
+}
 // Traz o caixa (sessão, lançamentos e, se a sessão mudou, o histórico) feito em outro aparelho.
 async function refreshCashState(){
   if(!isCloudMode() || !currentUser) return false;
   try{
     await (saveQueues.cashMovements||Promise.resolve()).catch(()=>{});
-    const [rs, rm] = await Promise.all([storageApi.get(STORE.cashSession), storageApi.get(STORE.cashMovements)]);
-    const session = parseAppDataValue(rs, null);
+    const porOperador = modoCaixaPorOperador();
+    const [rs, rm, rt] = await Promise.all([porOperador ? null : storageApi.get(STORE.cashSession), storageApi.get(STORE.cashMovements), porOperador ? lerTurnosDoServidor() : null]);
     let changed = false;
-    if(JSON.stringify(session) !== JSON.stringify(state.cashSession)){
+    if(porOperador){
+      const antes = JSON.stringify([state.cashTurnos||null, state.cashSession||null]);
       const before = state.cashSession && state.cashSession.id;
-      state.cashSession = session; changed = true;
-      if((session && session.id) !== before){ const rh = await storageApi.get(STORE.cashHistory); state.cashHistory = parseAppDataValue(rh, []) || []; }
+      aplicarTurnosNoEstado(rt);
+      if(JSON.stringify([state.cashTurnos, state.cashSession]) !== antes) changed = true;
+      if((state.cashSession && state.cashSession.id) !== before){ const rh = await storageApi.get(STORE.cashHistory); state.cashHistory = parseAppDataValue(rh, []) || []; }
+    }else{
+      const session = parseAppDataValue(rs, null);
+      if(JSON.stringify(session) !== JSON.stringify(state.cashSession)){
+        const before = state.cashSession && state.cashSession.id;
+        state.cashSession = session; changed = true;
+        if((session && session.id) !== before){ const rh = await storageApi.get(STORE.cashHistory); state.cashHistory = parseAppDataValue(rh, []) || []; }
+      }
     }
     const pending = cashMovementsDiff(cashMovementsBase, state.cashMovements||[]);
     if(!pending.upserts.length && !pending.deletes.length){
