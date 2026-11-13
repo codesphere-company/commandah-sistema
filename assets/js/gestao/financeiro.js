@@ -107,6 +107,8 @@ function openFiadoEntry(type,preset){if(type==='debt'?!hasPerm('contas'):!(hasPe
   /* OP-07 (decisão do dono: bloquear): dinheiro recebido com o caixa fechado não entrava em nenhum fechamento. */
   if(method==='salario'&&!podeBaixaSalario(m)){toast('Só o administrador dá baixa no salário, e só de colaborador.');return;}
   if(type==='payment'&&method!=='salario'&&(formaPorMetodo(method)||{}).tipo==='dinheiro'&&!state.cashSession){toast('Abra o caixa para receber em dinheiro. Pix ou cartão podem ser lançados com o caixa fechado.');return;}
+  /* caixa por operador (13/11): recebimento entra no turno do caixa; turno travado não recebe (em nenhuma forma) */
+  if(type==='payment'&&method!=='salario'&&caixaTravadoAqui()){toast(textoCaixaTravado());return;}
   saveBtn.disabled=true;
   try{const savedId=await MembersStore.recordDebtEntry(m.id,type,value,{id:entryId,reason:reason||(method==='salario'?'Descontado do salário':type==='payment'?'Pagamento':''),info:document.getElementById('fiadoInfo').value.trim(),method,at:new Date(at).toISOString()});if(!savedId){toast('Cliente não encontrado. Recarregue a tela.');return;}
     // D4: descontado do salário não é dinheiro recebido: fica só no extrato, fora do caixa.
@@ -114,7 +116,7 @@ function openFiadoEntry(type,preset){if(type==='debt'?!hasPerm('contas'):!(hasPe
   }catch(e){console.error('Falha ao gravar lançamento de fiado',e);toast('Não foi possível gravar agora. Confira a internet e tente de novo.');return;}
   finally{saveBtn.disabled=false;}
   logAction(`${type==='debt'?'Dívida':method==='salario'?'Descontado do salário':'Pagamento de fiado'}: ${m.name} — ${fmt(value)}`);closeModal();renderAll();toast('Conta corrente atualizada.');runAfterFiadoPaid(m,type);};}
-async function reverseFiadoEntry(memberId,entryId){if(!hasPerm('contas')){toast('Só o administrador estorna lançamento de fiado.');return;}const m=state.members.find(x=>x.id===memberId),entry=m&&Array.isArray(m.debtHistory)?m.debtHistory.find(x=>x.id===entryId):null;if(!entry||entry.reversed)return;if(!await confirmarAcao('Estornar este lançamento?'))return;
+async function reverseFiadoEntry(memberId,entryId){if(!hasPerm('contas')){toast('Só o administrador estorna lançamento de fiado.');return;}const m=state.members.find(x=>x.id===memberId),entry=m&&Array.isArray(m.debtHistory)?m.debtHistory.find(x=>x.id===entryId):null;if(!entry||entry.reversed)return;/* caixa por operador (13/11): o estorno mexe no caixa; travado não */if(entry.type==='payment'&&entry.method!=='salario'&&caixaTravadoAqui()){toast(textoCaixaTravado());return;}if(!await confirmarAcao('Estornar este lançamento?'))return;
   try{await MembersStore.reverseDebtEntry(memberId,entryId,currentUser.name);}
   catch(e){console.error('Falha ao estornar fiado',e);toast('Não foi possível estornar agora. Confira a internet e tente de novo.');return;}
   // D4: a baixa no salário nunca entrou no caixa; o estorno também não mexe nele.
