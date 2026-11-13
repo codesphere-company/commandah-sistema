@@ -173,7 +173,7 @@ function checkLocalModeLeftovers(){
    dono) é quem chama atualizarFaixaDoDono. Admin e demais colaboradores nunca veem: sessionIsOwner é false
    depois do PIN. O modal tem raiz própria porque a tela de entrada (z-index 200) cobre o #modalRoot. */
 function pendenciasAoDono(){
-  if(!sessionIsOwner || !isCloudMode() || typeof modoCaixaPorOperador!=='function' || !modoCaixaPorOperador()) return [];
+  if(!isCloudMode() || typeof donoDeLonge!=='function' || !donoDeLonge()) return [];
   return Object.entries(state.cashTurnos||{})
     .filter(([,t])=>t && t.pendencia && t.pendencia.pedidoDono)
     .map(([cx,t])=>({ cx, turno:t, p:t.pendencia }));
@@ -216,15 +216,47 @@ function abrirLiberacaoDoDono(cx){
     + (p.esperado!=null?'<div class="cash-summary-line">Esperado: <b class="mono">'+h(fmt(p.esperado))+'</b></div>':'')
     + '<div class="cash-summary-line">Contado: <b class="mono">'+h(fmt(p.contado))+'</b></div>'
     + (dif!==null?'<div class="cash-summary-line">Diferença: <b class="mono '+(dif<0?'cash-short':'cash-over')+'">'+(dif<0?'Falta ':'Sobra ')+h(fmt(Math.abs(dif)))+'</b></div>':'')
+    + '<div class="field" style="text-align:left;margin-top:12px"><label for="donoSenha">Senha do dono</label><input id="donoSenha" type="password" autocomplete="current-password"><small class="sub">Digite a senha para confirmar que é você.</small></div>'
+    + '<div id="donoTurnstile"></div><p id="donoLiberaErro" class="dono-erro" role="alert"></p>'
     + '<div class="cash-close-actions"><button class="op-btn" id="donoRecusar" onclick="decidirLiberacaoDoDono('+jsArg(cx)+',false)">Recusar</button>'
     + '<button class="op-btn primary" id="donoLiberar" onclick="decidirLiberacaoDoDono('+jsArg(cx)+',true)">Liberar</button></div></div></div>';
   m.addEventListener('click', e=>{ if(e.target===m) fecharLiberacaoDoDono(); });
   document.body.appendChild(m);
   document.getElementById('donoFechar').onclick = fecharLiberacaoDoDono;
+  donoMontarCaptcha();
+  setTimeout(()=>{ const i = document.getElementById('donoSenha'); if(i) i.focus(); }, 50);
+}
+// A senha é conferida de novo por signInWithPassword, que no servidor pede o captcha: widget próprio na janela.
+let donoCaptchaToken = null, donoCaptchaId = null;
+function donoMontarCaptcha(){
+  donoCaptchaToken = null; donoCaptchaId = null;
+  let tries = 0;
+  const mount = ()=>{
+    const box = document.getElementById('donoTurnstile'); if(!box) return;
+    if(!window.turnstile){ if(++tries<=66) setTimeout(mount, 300); return; }
+    donoCaptchaId = window.turnstile.render('#donoTurnstile', { sitekey:TURNSTILE_SITE_KEY, callback:t=>{ donoCaptchaToken = t; }, 'expired-callback':()=>{ donoCaptchaToken = null; }, 'error-callback':()=>{ donoCaptchaToken = null; } });
+  };
+  mount();
+}
+// Confere a senha do dono (mesma conta da sessão): devolve null se vale, ou o texto do erro. Com duas etapas
+// ligadas o novo login volta como aal1: pede o código (dono-mfa.js) antes de chamar a RPC.
+async function donoConferirSenha(senha){
+  const { data:{ session } } = await supabaseClient.auth.getSession();
+  if(!session || !session.user || !session.user.email) return 'Sessão do dono não encontrada. Entre de novo com o e-mail.';
+  if(!senha) return 'Digite a senha do dono.';
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email:session.user.email, password:senha, options: donoCaptchaToken ? { captchaToken:donoCaptchaToken } : {} });
+  donoCaptchaToken = null; try{ if(window.turnstile && donoCaptchaId!=null) window.turnstile.reset(donoCaptchaId); }catch(e){}
+  if(error) return /captcha/i.test(error.message||'') ? 'A verificação "não sou robô" falhou. Tente de novo.' : 'Senha do dono incorreta.';
+  if(!data || !data.user || data.user.id!==session.user.id) return 'Senha do dono incorreta.';
+  if(await donoPrecisaCodigo() && !await pedirCodigoDoDono()) return 'Verificação em duas etapas cancelada.';
+  return null;
 }
 const decidirLiberacaoDoDono = singleFlight('decidirLiberacaoDoDono', async function(cx, aprovar){
   const t = (state.cashTurnos||{})[cx], p = t && t.pendencia;
   if(!p){ fecharLiberacaoDoDono(); atualizarFaixaDoDono(); return; }
+  // Controle do dono (13/11): o aparelho pode estar com o e-mail do dono mas na mão de um operador; a senha confirma.
+  const erroSenha = await donoConferirSenha((document.getElementById('donoSenha')||{}).value||'');
+  if(erroSenha){ const e = document.getElementById('donoLiberaErro'); if(e) e.textContent = erroSenha; else toast(erroSenha, 'error'); const i = document.getElementById('donoSenha'); if(i){ i.value=''; i.focus(); } return; }
   const { data, error } = await supabaseClient.rpc('cash_turno_liberar_dono', { p_caixa:cx, p_turno_id:t.id, p_pendencia_id:p.id, p_aprovar:!!aprovar });
   if(error || !data){ toast('Não foi possível '+(aprovar?'liberar':'recusar')+': '+((error&&error.message)||'erro no servidor')+'. Tente de novo.', 'error'); return; }
   if(!data.ok) toast(textoMotivoDoTurno(data.motivo), 'error');

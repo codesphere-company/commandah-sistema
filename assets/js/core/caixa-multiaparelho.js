@@ -233,12 +233,15 @@ function aplicarTurnosNoEstado(lidos){
 // Polling do caixa por operador (sem realtime, decisão do plano): 5 s enquanto o turno deste aparelho
 // está travado ou, na sessão do dono, há pendência com pedido ao dono; senão 30 s. Desligado ou fora
 // da nuvem não faz nada (o setInterval de 30 s de estabelecimento.js cuida do caminho antigo).
+// Dono de longe (13/11): sessão do dono (e-mail e senha) parada na tela do PIN, num aparelho que NÃO é caixa marcado
+// e com o modo ligado. Só aí a faixa de liberação aparece e o polling roda sem currentUser.
+function donoDeLonge(){ return sessionIsOwner && modoCaixaPorOperador() && !caixaDoAparelho(); }
 let caixaPollingUltimo = 0;
 function caixaPollingIntervalo(){
   const travado = state.cashSession && /^travado/.test(String(state.cashSession.status||''));
   const pedidoAoDono = sessionIsOwner && Object.values(state.cashTurnos||{}).some(t=>t && t.pendencia && t.pendencia.pedidoDono);
   // Dono de longe (13/11): a sessão do dono olha a cada 7 s mesmo sem pedido, para a faixa aparecer logo.
-  return travado || pedidoAoDono ? 5000 : (sessionIsOwner ? 7000 : 30000);
+  return travado || pedidoAoDono ? 5000 : (donoDeLonge() ? 7000 : 30000);
 }
 let caixaPollingIniciado = false; // startApp() pode rodar mais de uma vez: o timer não empilha
 function iniciarPollingCaixa(){
@@ -246,7 +249,7 @@ function iniciarPollingCaixa(){
   setInterval(()=>{
     // Dono de longe (13/11): a sessão do dono (e-mail e senha, sem PIN) não tem currentUser, mas precisa ver o
     // pedido de liberação; por isso entra aqui também. Saiu da sessão do dono (entrou com PIN): a faixa some.
-    if(!currentUser && !sessionIsOwner){ if(typeof atualizarFaixaDoDono==='function') atualizarFaixaDoDono(); return; }
+    if(!currentUser && !donoDeLonge()){ if(typeof atualizarFaixaDoDono==='function') atualizarFaixaDoDono(); return; }
     if(!modoCaixaPorOperador() || !isCloudMode()) return;
     if(Date.now() - caixaPollingUltimo < caixaPollingIntervalo() - 500) return;
     caixaPollingUltimo = Date.now();
@@ -259,7 +262,7 @@ function iniciarPollingCaixa(){
 }
 // Traz o caixa (sessão, lançamentos e, se a sessão mudou, o histórico) feito em outro aparelho.
 async function refreshCashState(){
-  if(!isCloudMode() || (!currentUser && !sessionIsOwner)) return false; // sessionIsOwner: dono de longe (13/11)
+  if(!isCloudMode() || (!currentUser && !donoDeLonge())) return false; // dono de longe (13/11); modo desligado fica como antes
   try{
     await (saveQueues.cashMovements||Promise.resolve()).catch(()=>{});
     const porOperador = modoCaixaPorOperador();
