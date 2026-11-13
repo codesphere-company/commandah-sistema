@@ -49,6 +49,9 @@ as $function$
 begin
   if new.role = 'caixa' then
     new.opera_caixa := true;
+  elsif tg_op = 'UPDATE' and old.role = 'caixa' and new.role in ('garcom', 'cozinha') then
+    -- caixa por operador (13/11): rebaixar caixa a garçom/cozinha zera a marcação (o 'true' vinha do perfil, não de escolha do dono).
+    new.opera_caixa := false;
   end if;
   return new;
 end;
@@ -463,6 +466,29 @@ $function$;
 revoke all on function public.cash_turno_abrir(text, numeric, text, jsonb) from public, anon;
 grant execute on function public.cash_turno_abrir(text, numeric, text, jsonb) to authenticated;
 
+-- caixa por operador (13/11): aplica a recontagem do dinheiro em closed: countedAmount/diff e a linha
+-- 'dinheiro' de closed.contagens (contado/diff), para o histórico não mostrar a contagem antiga.
+create or replace function public.cash_turno_closed_contado(p_closed jsonb, p_contado numeric, p_dif numeric)
+returns jsonb
+language plpgsql
+immutable
+set search_path to ''
+as $function$
+declare
+  v jsonb := p_closed || jsonb_build_object('countedAmount', p_contado, 'diff', p_dif);
+begin
+  if jsonb_typeof(v->'contagens') = 'array' then
+    v := jsonb_set(v, '{contagens}', coalesce((
+      select jsonb_agg(case when e->>'method' = 'dinheiro'
+                            then e || jsonb_build_object('contado', p_contado, 'diff', p_dif)
+                            else e end order by ord)
+        from jsonb_array_elements(v->'contagens') with ordinality as t(e, ord)), '[]'::jsonb));
+  end if;
+  return v;
+end;
+$function$;
+revoke all on function public.cash_turno_closed_contado(jsonb, numeric, numeric) from public, anon, authenticated;
+
 create or replace function public.cash_turno_recontar(p_caixa text, p_turno_id text, p_contado numeric)
 returns jsonb
 language plpgsql
@@ -505,7 +531,7 @@ begin
       return public.cash_turno_resp(true, v_turno, null);
     end if;
     perform public.cash_turno_concluir_fechamento(v_tenant, p_caixa, v_turno,
-      (v_p->'closed') || jsonb_build_object('countedAmount', p_contado, 'diff', 0));
+      public.cash_turno_closed_contado(v_p->'closed', p_contado, 0));
     return public.cash_turno_resp(true, null, null);
   end if;
 
@@ -516,7 +542,7 @@ begin
     'contouId', v_me, 'contouNome', public.cash_turno_nome(v_tenant, v_me),
     'contado', p_contado, 'diferenca', v_dif, 'at', public.cash_turno_agora());
   if v_p->>'tipo' = 'fechamento' then
-    v_p := jsonb_set(v_p, '{closed}', (v_p->'closed') || jsonb_build_object('countedAmount', p_contado, 'diff', v_dif));
+    v_p := jsonb_set(v_p, '{closed}', public.cash_turno_closed_contado(v_p->'closed', p_contado, v_dif));
   end if;
   v_turno := jsonb_set(v_turno, '{pendencia}', v_p);
   update public.cash_turnos set turno = v_turno, updated_at = now()
@@ -839,6 +865,7 @@ grant execute on function public.cash_session_close(text, jsonb) to authenticate
 -- drop function if exists public.cash_turno_pedir_dono(text, text);
 -- drop function if exists public.cash_turno_fechar(text, text, jsonb);
 -- drop function if exists public.cash_turno_recontar(text, text, numeric);
+-- drop function if exists public.cash_turno_closed_contado(jsonb, numeric, numeric);
 -- drop function if exists public.cash_turno_abrir(text, numeric, text, jsonb);
 -- drop function if exists public.cash_turnos_ler();
 -- drop function if exists public.cash_turno_checar();
@@ -858,5 +885,6 @@ grant execute on function public.cash_session_close(text, jsonb) to authenticate
 -- drop function if exists public.current_staff_id();
 -- drop trigger if exists tenant_staff_caixa_opera_caixa on public.tenant_staff;
 -- drop function if exists public.tenant_staff_caixa_opera_caixa();
+-- ATENÇÃO: reverta a Edge Function staff-auth (que escreve opera_caixa) ANTES de dropar a coluna.
 -- alter table public.tenant_staff drop column if exists opera_caixa;
 -- =====================================================================

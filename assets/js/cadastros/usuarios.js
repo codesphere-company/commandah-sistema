@@ -108,7 +108,8 @@ function blocoPermissoesProprias(u){
 function atualizarOperaCaixa(){
   const box = document.getElementById('uOperaCaixaBox'), cb = document.getElementById('uOperaCaixa'), role = document.getElementById('uRole');
   if(!box || !cb || !role) return;
-  box.style.display = role.value==='admin' ? 'none' : '';
+  // Caixa por operador (13/11): com o ajuste desligado a marcação não tem efeito na tela; esconde.
+  box.style.display = (role.value==='admin' || !modoCaixaPorOperador()) ? 'none' : '';
   if(role.value==='caixa'){ cb.checked = true; cb.disabled = true; }
   else { if(cb.disabled) cb.checked = false; cb.disabled = false; }
 }

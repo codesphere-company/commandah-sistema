@@ -410,7 +410,7 @@ Deno.serve(async (req) => {
       // Auditoria 03/11 (A2): o perfil do formulário passa a valer no servidor junto com o PIN novo.
       // Antes só validava o tamanho do PIN e o papel ficava o antigo (a RLS usa tenant_staff.role).
       const { error: updErr } = await admin.from("tenant_staff").update({
-        pin_hash: pinHash, role, ...(role === "garcom" || role === "cozinha" ? { opera_caixa: false } : {}), failed_attempts: 0, lock_count: 0, locked_until: null, updated_at: new Date().toISOString(),
+        pin_hash: pinHash, role, ...(role !== staff.role && (role === "garcom" || role === "cozinha") ? { opera_caixa: false } : {}), failed_attempts: 0, lock_count: 0, locked_until: null, updated_at: new Date().toISOString(),
       }).eq("id", staffId);
       if (updErr) return internalError("Falha ao redefinir PIN", updErr);
       if (role !== staff.role) await logRoleChange(tenantId, staffId, String(staff.role), role, body.by);

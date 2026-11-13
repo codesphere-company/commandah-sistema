@@ -50,7 +50,8 @@ async function carregarDados(){
     try{ aplicarTurnosNoEstado(await lerTurnosDoServidor()); }
     catch(e){
       // Leitura que falhou NÃO é caixa fechado: com o flag true a tela (Task 4) não oferece "Abrir"; o próximo polling certo limpa.
-      readFailed.cashSession = true; state.cashTurnosFalhou = true; state.cashTurnos = null; state.cashSession = null;
+      // Não entra em readFailed (abortaria o login por PIN): a tela do Caixa mostra o aviso via cashTurnosFalhou (caixa por operador, 13/11).
+      state.cashTurnosFalhou = true; state.cashTurnos = null; state.cashSession = null;
     }
   }
   stripIntegrationTokens(state.settings);

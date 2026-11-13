@@ -35,7 +35,20 @@ function renderConfigSistema(){
     ${getTenantId()?`<div class="panel" style="margin-top:14px;background:var(--cream)"><b>Código deste estabelecimento</b><p class="sub">Use este mesmo código pra configurar qualquer outro computador/celular que precise ver os mesmos dados. Guarde em local seguro.</p><div class="row" style="align-items:center"><input readonly value="${h(getTenantId())}" class="mono" style="font-weight:700" onclick="this.select()"><button class="btn btn-sm" onclick="copyTenantCode()">Copiar</button></div><button class="btn btn-sm btn-danger" style="margin-top:10px" onclick="changeTenantSetup()">Trocar/reconfigurar este aparelho</button></div>`:''}
   </section>
   <div class="settings-save"><button class="op-btn primary" id="cfgSaveBtn">Salvar</button></div></div></div></section></div>`;
-  document.getElementById('cfgSaveBtn').onclick = ()=>{
+  document.getElementById('cfgSaveBtn').onclick = async ()=>{
+    // Caixa por operador (13/11): mudar o modo com caixa aberto deixaria sessão órfã (liga) ou turno preso (desliga).
+    // Relê do servidor antes: ligar exige o caixa único fechado; desligar exige todos os turnos fechados.
+    const cbModo = document.getElementById('cfgCaixaPorOperador');
+    if(cbModo && isAdminUser() && cbModo.checked !== modoCaixaPorOperador()){
+      let aberto = true;
+      try{
+        if(isCloudMode()){
+          if(cbModo.checked){ const r = await storageApi.get(STORE.cashSession); const ses = r && r.value ? JSON.parse(r.value) : null; aberto = !!(ses && ses.status!=='closed'); }
+          else { const l = await lerTurnosDoServidor(); aberto = Object.values(l.turnos).some(t=>t); }
+        } else aberto = cbModo.checked ? !!state.cashSession : Object.values(state.cashTurnos||{}).some(t=>t);
+      }catch(e){ aberto = true; }
+      if(aberto){ cbModo.checked = modoCaixaPorOperador(); toast('Feche o caixa antes de mudar o modo do caixa.','erro'); return; }
+    }
     const val=(id,fallback='')=>document.getElementById(id)?document.getElementById(id).value.trim():fallback;const checked=(id,fallback=false)=>document.getElementById(id)?document.getElementById(id).checked:fallback;
     state.settings = {...s,operationMode:val('cfgOperationMode',s.operationMode||'clube'),clubName:val('cfgName',s.clubName||'')||'',brandPrimary:val('cfgBrandPrimary',s.brandPrimary||''),brandAccent:val('cfgBrandAccent',s.brandAccent||''),cnpj:val('cfgCnpj',s.cnpj||''),phone:val('cfgPhone',s.phone||''),zip:val('cfgZip',s.zip||''),address:val('cfgAddress',s.address||''),addressNumber:val('cfgNumber',s.addressNumber||''),district:val('cfgDistrict',s.district||''),city:val('cfgCity',s.city||''),uf:val('cfgUf',s.uf||'').toUpperCase(),tableCount:Math.max(1,Math.min(200,parseInt(val('cfgTables',s.tableCount||20),10)||20)),serviceRate:Math.max(0,parseFloat(val('cfgServiceRate',s.serviceRate||0))||0),compactMode:checked('cfgCompact',s.compactMode),receiptFooter:val('cfgFooter',s.receiptFooter||''),pixKey:val('cfgPix',s.pixKey||'')};
     // Horário da cozinha (31/10): uma linha por dia; desmarcado = fechada o dia todo.
