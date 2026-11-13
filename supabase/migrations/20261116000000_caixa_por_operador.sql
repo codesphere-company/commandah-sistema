@@ -698,13 +698,13 @@ begin
    for update;
 
   if v_turno is null or v_turno->>'id' is distinct from p_turno_id then
-    return jsonb_build_object('ok', false, 'turno', v_turno, 'motivo', 'turno_mudou');
+    return public.cash_turno_resp(false, v_turno, 'turno_mudou');
   end if;
   if jsonb_typeof(v_turno->'pendencia') is distinct from 'object' then
-    return jsonb_build_object('ok', false, 'turno', v_turno, 'motivo', 'nao_travado');
+    return public.cash_turno_resp(false, v_turno, 'nao_travado');
   end if;
   if v_turno->'pendencia'->>'id' is distinct from p_pendencia_id then
-    return jsonb_build_object('ok', false, 'turno', v_turno, 'motivo', 'pendencia_mudou');
+    return public.cash_turno_resp(false, v_turno, 'pendencia_mudou');
   end if;
   if v_turno->'pendencia'->>'contouId' = p_admin_id then
     raise exception 'quem contou nao pode liberar a propria contagem';
