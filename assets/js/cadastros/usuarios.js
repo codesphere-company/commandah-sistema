@@ -35,12 +35,13 @@ function openUserModal(id){
       <div class="field"><label>PIN (4 dígitos; administrador: 6)</label><input id="uPin" inputmode="numeric" maxlength="6" autocomplete="off" value="${isMigrated?'':h(u?u.pin:'')}" placeholder="${isMigrated?'Manter atual':''}"></div>
     </div>
     ${isMigrated?'<p class="sub">🔒 O PIN deste colaborador é verificado pelo servidor e não fica guardado aqui. Deixe o campo em branco pra manter o PIN atual — preencha só se quiser definir um PIN novo.</p>':''}
-    <div class="field"><label>Perfil</label><select id="uRole" onchange="atualizarBlocoPermissoesProprias();escolherOrigemDoPerfil()">
+    <div class="field"><label>Perfil</label><select id="uRole" onchange="atualizarBlocoPermissoesProprias();escolherOrigemDoPerfil();atualizarOperaCaixa()">
       <option value="admin" ${u&&u.role==='admin'?'selected':''}>Administrador</option>
       <option value="caixa" ${u&&u.role==='caixa'?'selected':''}>Caixa</option>
       <option value="garcom" ${u&&u.role==='garcom'?'selected':''}>Garçom</option>
       <option value="cozinha" ${u&&u.role==='cozinha'?'selected':''}>Cozinha</option>
     </select></div>
+    <div class="field" id="uOperaCaixaBox"><label class="item-line"><span>Pode operar caixa</span><input id="uOperaCaixa" type="checkbox" ${u&&(u.role==='caixa'||u.operaCaixa===true)?'checked':''}></label><p class="sub" id="uOperaCaixaNota">Caixa por operador (13/11): com a marcação, este colaborador abre e fecha turno de caixa. O perfil Caixa sempre pode; Administrador também (não precisa marcar).</p></div>
     ${blocoPermissoesProprias(u)}
     <div class="field"><label>Origem dos pedidos deste usuário</label><select id="uOrigem" onchange="document.getElementById('uCaixaPrinterBox').style.display=this.value!=='app'?'block':'none'">
       ${state.origens.map(o=>`<option value="${h(o.chave)}" ${(u&&u.origem===o.chave)||(!u&&o.chave==='caixa')?'selected':''}>${h(o.nome)}</option>`).join('')}
@@ -49,6 +50,7 @@ function openUserModal(id){
     <label class="item-line"><span>Colaborador ativo</span><input id="uActive" type="checkbox" ${!u||u.active!==false?'checked':''}></label><p class="sub">O perfil define quais módulos podem ser acessados. O PIN é usado para entrar e trocar de operador.</p></section><div class="record-actions"><button class="op-btn" onclick="closeModal()">Voltar</button><button class="op-btn primary" id="uSaveBtn">Salvar e Voltar</button></div></div>`,true);
   document.querySelector('#modalRoot .modal').classList.add('record-modal');
   atualizarBlocoPermissoesProprias();
+  atualizarOperaCaixa();
   document.getElementById('uSaveBtn').onclick = async ()=>{
     const name = document.getElementById('uName').value.trim();
     const username = document.getElementById('uUsername').value.trim();
@@ -61,6 +63,8 @@ function openUserModal(id){
     if(changingPin && !validPin(pin, pinLen)){ toast(pinLen===6?'Administrador precisa de um PIN numérico de 6 dígitos.':'Informe um PIN numérico de 4 dígitos.'); return; }
     const data = { name, username, role:document.getElementById('uRole').value, origem:document.getElementById('uOrigem').value, caixaPrinterOsName:document.getElementById('uCaixaPrinter').value.trim(), email:document.getElementById('uEmail').value.trim(), phone:document.getElementById('uPhone').value.trim(), active:document.getElementById('uActive').checked };
     if(changingPin){ data.pin = pin; data.pinLength = pin.length; }
+    // Caixa por operador (13/11): caixa sempre opera; admin não usa a marcação; garçom/cozinha seguem a caixa de seleção.
+    data.operaCaixa = data.role==='caixa' ? true : data.role==='admin' ? false : document.getElementById('uOperaCaixa').checked;
     const proprias = permissoesPropriasDoFormulario(data.role);
     if(proprias) data.permissions = proprias;
     if(state.users.some(x=>x.id!==(u&&u.id)&&String(x.username).toLowerCase()===username.toLowerCase())){toast('Já existe um colaborador com este usuário.');return;}
@@ -98,6 +102,15 @@ function blocoPermissoesProprias(u){
       <option value="proprias" ${proprias?'selected':''}>Personalizar só para este colaborador</option>
     </select><div id="uPermList" class="perm-proprias-lista" data-ocultas="${h(ocultas.join(','))}">${lista}</div>
     <p class="sub" id="uPermNota">Vale para as telas e botões do sistema. Gravar cadastros e configurações continua só para o administrador: com a permissão marcada, o operador abre a tela só para consulta.</p></div>`;
+}
+// Caixa por operador (13/11): caixa = marcada e travada; admin = não aparece; garçom/cozinha = caixa de seleção livre.
+// Saindo do perfil Caixa a marcação travada some (não vira marcação escolhida sem querer).
+function atualizarOperaCaixa(){
+  const box = document.getElementById('uOperaCaixaBox'), cb = document.getElementById('uOperaCaixa'), role = document.getElementById('uRole');
+  if(!box || !cb || !role) return;
+  box.style.display = role.value==='admin' ? 'none' : '';
+  if(role.value==='caixa'){ cb.checked = true; cb.disabled = true; }
+  else { if(cb.disabled) cb.checked = false; cb.disabled = false; }
 }
 function atualizarBlocoPermissoesProprias(){
   const box = document.getElementById('uPermBox'); if(!box) return;
@@ -138,6 +151,15 @@ async function syncStaffAuth(id, existing, data){
     toast('O perfil não mudou: o servidor não confirmou. Os outros dados foram salvos; tente de novo.','erro');
     data.role = existing.role;
   }
+  // Caixa por operador (13/11): garçom/cozinha com marcação. O servidor zera a marcação ao virar garçom/cozinha,
+  // então depois de uma troca de perfil a base do servidor é "falso". Se ele não confirmar, o cadastro fica como o servidor.
+  if(data.role==='garcom' || data.role==='cozinha'){
+    const noServidor = !!(existing && existing.migratedAuth && existing.role===data.role && existing.operaCaixa===true);
+    const quer = data.operaCaixa===true && data.migratedAuth===true;
+    if(quer !== noServidor && data.migratedAuth){
+      if(!await staffSetOperaCaixa(id, quer)){ toast('O cadastro foi salvo, mas o servidor não confirmou "Pode operar caixa". Abra o colaborador e salve de novo.','erro'); data.operaCaixa = noServidor; }
+    } else data.operaCaixa = quer;
+  }
   if(existing && existing.migratedAuth && (existing.active!==false) !== (data.active!==false)){
     if(!await staffSetActive(id, data.active!==false)) toast('O cadastro foi salvo, mas o servidor não '+(data.active!==false?'reativou':'desativou')+' o acesso agora. Abra o colaborador e salve de novo.','erro');
   }
@@ -146,6 +168,13 @@ async function syncStaffAuth(id, existing, data){
 async function staffSetRole(id, role){
   try{
     const { data, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action:'set_role', staff_id:id, role, by:currentUser&&currentUser.name } });
+    return !error && !!data && !data.error;
+  }catch(e){ return false; }
+}
+// Caixa por operador (13/11): marca/desmarca "Pode operar caixa" no servidor (staff-auth set_opera_caixa). true = o servidor confirmou.
+async function staffSetOperaCaixa(id, operaCaixa){
+  try{
+    const { data, error } = await supabaseClient.functions.invoke('staff-auth', { body:{ action:'set_opera_caixa', staff_id:id, opera_caixa:!!operaCaixa, by:currentUser&&currentUser.name } });
     return !error && !!data && !data.error;
   }catch(e){ return false; }
 }
