@@ -334,7 +334,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   // Venda paga com o caixa já fechado não entrava em nenhum fechamento: confere antes de gravar.
   if(isCloudMode()){
     await refreshCashState();
-    if(!state.cashSession || state.cashSession.status!=='open'){ renderScoreboard(); toast('O caixa foi fechado em outro aparelho. Abra o caixa para receber este pagamento.','erro'); return false; }
+    if(!state.cashSession || state.cashSession.status!=='open'){ renderScoreboard(); toast(caixaTravadoAqui()?textoCaixaTravado():'O caixa foi fechado em outro aparelho. Abra o caixa para receber este pagamento.','erro'); return false; } // caixa por operador (13/11): travado tem aviso próprio
   }
   const saleMember = memberId ? state.members.find(m=>m.id===memberId) : null;
   const who = memberId ? (saleMember||{}).name : (currentSaleDraft.customerName||'Cliente avulso');

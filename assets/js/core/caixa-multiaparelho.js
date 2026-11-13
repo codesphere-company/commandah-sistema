@@ -206,6 +206,10 @@ function marcarCaixaDoAparelho(id){ try{ if(id) localStorage.setItem(CAIXA_DO_AP
 // Sem marcação neste aparelho vale o "caixa do app" (celular do garçom etc.), padrão cx1.
 function caixaQueVale(){ return caixaDoAparelho() || (state.settings && state.settings.caixaDoApp) || 'cx1'; }
 function nomeDoCaixa(id){ const c = listaDeCaixas().find(x=>x.id===id); return c ? c.nome : String(id||''); }
+// Caixa por operador (13/11): turno deste aparelho travado (contagem não confere). Travado não recebe
+// pagamento nem lançamento; as telas e avisos dizem "travado" em vez de "fechado". Desligado: sempre false.
+function caixaTravadoAqui(){ return modoCaixaPorOperador() && !!state.cashSession && /^travado/.test(String(state.cashSession.status||'')); }
+function textoCaixaTravado(){ return 'Caixa travado: a contagem não confere. Veja a tela do Caixa.'; }
 // Lê os turnos pela RPC cash_turnos_ler (redigida para quem não é admin/dono; leitura direta da tabela
 // só vale para admin/dono). Devolve { turnos:{[caixaId]:turno}, contagens:{[caixaId]:ultima_contagem} }.
 async function lerTurnosDoServidor(){
