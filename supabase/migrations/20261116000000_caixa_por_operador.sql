@@ -16,8 +16,9 @@
 --   Perfil caixa sempre tem (trigger); admin/dono sempre podem (cash_can_write).
 -- * Tabela cash_turnos: uma linha por (estabelecimento, caixa) com o turno
 --   aberto/travado (jsonb) e a última contagem de fechamento daquele caixa (o
---   esperado da próxima abertura). Só leitura pelo navegador; escrita só pelas
---   RPCs abaixo, que travam a linha (select ... for update).
+--   esperado da próxima abertura). Leitura direta só admin/dono; os demais leem
+--   por cash_turnos_ler() (redigido). Escrita só pelas RPCs abaixo, que travam
+--   a linha (select ... for update).
 -- * Diferença em centavos inteiros: round(contado*100) - round(esperado*100).
 --   Sem margem: qualquer diferença trava. Nunca compara em ponto flutuante.
 -- * Para quem não é admin/dono, as RPCs devolvem a pendência sem esperado e
@@ -140,11 +141,14 @@ create table if not exists public.cash_turnos (
 );
 alter table public.cash_turnos enable row level security;
 
--- Só leitura, do próprio estabelecimento. Sem policy de escrita: só as RPCs gravam.
+-- Leitura direta só para admin/dono do próprio estabelecimento: a linha guarda o esperado
+-- (ultima_contagem, pendencia.esperado) e a conferência às cegas tem de valer também contra
+-- leitura direta pela API. Os demais leem por cash_turnos_ler(), já redigido.
+-- Sem policy de escrita: só as RPCs gravam.
 drop policy if exists cash_turnos_select on public.cash_turnos;
 create policy cash_turnos_select on public.cash_turnos
   as permissive for select to authenticated
-  using (tenant_id = (select public.current_tenant_id()));
+  using (tenant_id = (select public.current_tenant_id()) and (select public.is_admin_like()));
 
 revoke all on table public.cash_turnos from public, anon, authenticated;
 grant select on table public.cash_turnos to authenticated;
@@ -334,6 +338,34 @@ revoke all on function public.cash_turno_checar() from public, anon, authenticat
 -- ---------------------------------------------------------------------
 -- RPCs
 -- ---------------------------------------------------------------------
+-- Leitura dos turnos do estabelecimento (caixa por operador, 13/11): para quem não é
+-- admin/dono, sem esperado/diferença e sem ultima_contagem (conferência às cegas).
+create or replace function public.cash_turnos_ler()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path to ''
+as $function$
+declare
+  v_tenant text := public.current_tenant_id();
+  v_admin boolean := public.is_admin_like();
+begin
+  if v_tenant is null then
+    raise exception 'sem permissao para ler o caixa';
+  end if;
+  return coalesce((
+    select jsonb_agg(
+             jsonb_build_object('caixa_id', t.caixa_id, 'turno', public.cash_turno_visivel(t.turno))
+             || case when v_admin then jsonb_build_object('ultima_contagem', t.ultima_contagem) else '{}'::jsonb end
+             order by t.caixa_id)
+      from public.cash_turnos t
+     where t.tenant_id = v_tenant), '[]'::jsonb);
+end;
+$function$;
+revoke all on function public.cash_turnos_ler() from public, anon;
+grant execute on function public.cash_turnos_ler() to authenticated;
+
 create or replace function public.cash_turno_abrir(p_caixa text, p_contado numeric, p_nota text, p_turno jsonb)
 returns jsonb
 language plpgsql
@@ -808,6 +840,7 @@ grant execute on function public.cash_session_close(text, jsonb) to authenticate
 -- drop function if exists public.cash_turno_fechar(text, text, jsonb);
 -- drop function if exists public.cash_turno_recontar(text, text, numeric);
 -- drop function if exists public.cash_turno_abrir(text, numeric, text, jsonb);
+-- drop function if exists public.cash_turnos_ler();
 -- drop function if exists public.cash_turno_checar();
 -- drop function if exists public.cash_turno_aplicar_liberacao(text, text, jsonb, text, text, text);
 -- drop function if exists public.cash_turno_concluir_fechamento(text, text, jsonb, jsonb);
