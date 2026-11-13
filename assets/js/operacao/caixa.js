@@ -408,14 +408,18 @@ function openCashMovementModal(initialType,movementId){
     const label=isDiaria?'Diária':type==='suprimento'?'Entrada':'Saída';save('cashMovements');closeModal();selectedCashMovementId=null;logAction((item?'Edição de ':'')+label.toLowerCase()+' de caixa — '+fmt(amount));renderAll();toast(item?'Lançamento atualizado.':label+' registrada.');
   };
 }
+// caixa por operador (13/11): "PIN: Ana 21:10" / "Dono 21:12"; vazio nos fechamentos sem liberação (e nos antigos).
+function textoLiberacoes(fc){
+  return (Array.isArray(fc&&fc.liberacoes)?fc.liberacoes:[]).map(l=>(l.como==='dono'?'Dono':'PIN: '+(l.porNome||'—'))+(l.at?' '+timeFmt(l.at):'')).join('; ');
+}
 function renderCashHistoryPanel(){
   if(!state.cashHistory.length || !podeVerTotaisDoCaixa()) return ''; // 06/11: vendido/contado/diferença só para admin/dono
   const rows = state.cashHistory.slice(0,10).map(fc=>`
-    <tr><td>${new Date(fc.openedAt).toLocaleDateString('pt-BR')}</td><td class="mono">${fmt(fc.openingAmount)}</td>
+    <tr><td>${new Date(fc.openedAt).toLocaleDateString('pt-BR')}</td><td>${fc.caixaId?h(nomeDoCaixa(fc.caixaId)):'—'}</td><td class="mono">${fmt(fc.openingAmount)}</td>
     <td class="mono">${fmt(Object.values(fc.totals||{}).reduce((a,b)=>a+b,0))}</td><td class="mono">${fc.countedAmount!=null?fmt(fc.countedAmount):'—'}</td>
     <td class="mono" style="color:${fc.diff==null||Math.abs(fc.diff)<0.01?'var(--green)':'var(--red)'}">${fc.diff!=null?fmt(fc.diff):'—'}</td>
-    <td>${h(fc.closedBy||'—')}</td><td class="sub">${h(resumoPorForma(fc))}</td></tr>`).join('');
+    <td>${h(fc.closedBy||'—')}</td><td>${h(textoLiberacoes(fc))}</td><td class="sub">${h(resumoPorForma(fc))}</td></tr>`).join('');
   return `<div class="panel"><h2>Histórico de fechamentos</h2>
-    <table><tr><th>Data</th><th>Abertura</th><th>Vendido</th><th>Contado</th><th>Diferença</th><th>Fechado por</th><th>Por forma</th></tr>${rows}</table></div>`;
+    <table><tr><th>Data</th><th>Caixa</th><th>Abertura</th><th>Vendido</th><th>Contado</th><th>Diferença</th><th>Fechado por</th><th>Liberação</th><th>Por forma</th></tr>${rows}</table></div>`;
 }
 
