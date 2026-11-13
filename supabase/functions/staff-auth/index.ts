@@ -233,7 +233,7 @@ Deno.serve(async (req) => {
       });
       if (verifyErr || !sessionData?.session) return internalError("Falha ao autenticar", verifyErr);
 
-      return json({ session: sessionData.session, trocar_pin: pinFraco(pin) });
+      return json({ session: sessionData.session, trocar_pin: pinFraco(pin), opera_caixa: staff.opera_caixa === true });
     }
 
     // Confirmação de senha antes de uma alteração sensível (ex.: reabrir comanda fechada).
@@ -267,7 +267,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, pin_length: newPin.length });
     }
 
-    if (action === "verify" || action === "release_debt" || action === "price_override") {
+    if (action === "verify" || action === "release_debt" || action === "price_override" || action === "cash_release") {
       const staffId = String(body.staff_id || "");
       const pin = String(body.pin || "");
       if (!staffId || !pin) return json({ error: "staff_id e pin são obrigatórios" }, 400);
@@ -276,7 +276,7 @@ Deno.serve(async (req) => {
       if ("resp" in checked) return checked.resp;
       const staff = checked.staff;
       const name = await staffName(staff);
-      if (action === "verify") return json({ ok: true, staff_id: staff.id, role: staff.role, name });
+      if (action === "verify") return json({ ok: true, staff_id: staff.id, role: staff.role, name, opera_caixa: staff.opera_caixa === true });
 
       // Venda por peso, 05/11: o caixa não muda o preço do quilo sozinho; um administrador digita o
       // PIN na janela da venda (sem trocar de usuário). Só confere PIN + perfil e grava o audit_log.
@@ -297,6 +297,39 @@ Deno.serve(async (req) => {
         });
         if (pErr) return internalError("Falha ao registrar a alteração de preço", pErr);
         return json({ ok: true, name });
+      }
+
+      // Caixa por operador (13/11): administrador libera a divergência de outro caixa com o PIN dele.
+      // A regra "quem contou não libera a própria contagem" mora no banco (cash_turno_liberar_admin);
+      // aqui só mapeamos a recusa e gravamos o audit_log com o valor da diferença.
+      if (action === "cash_release") {
+        if (staff.role !== "admin") return json({ error: "Só administrador libera o caixa." }, 403);
+        const caixaId = String(body.caixa_id || ""), turnoId = String(body.turno_id || ""), pendId = String(body.pendencia_id || "");
+        if (!validStaffId(caixaId) || !validStaffId(turnoId) || !validStaffId(pendId)) return json({ error: "Dados inválidos" }, 400);
+        const { data: row } = await admin.from("cash_turnos").select("turno").eq("tenant_id", staff.tenant_id).eq("caixa_id", caixaId).maybeSingle();
+        const pend = (row?.turno as Record<string, unknown> | null)?.pendencia as Record<string, unknown> | undefined;
+        const { data: rpcData, error: rpcErr } = await admin.rpc("cash_turno_liberar_admin", {
+          p_tenant: staff.tenant_id, p_caixa: caixaId, p_turno_id: turnoId, p_pendencia_id: pendId,
+          p_admin_id: staff.id, p_admin_nome: name,
+        });
+        if (rpcErr) {
+          const msg = String(rpcErr.message || "");
+          if (/propria contagem/.test(msg)) return json({ error: "Quem contou não pode liberar a própria contagem. Chame outro administrador ou peça ao dono." }, 403);
+          if (/so administrador/.test(msg)) return json({ error: "Só administrador libera o caixa." }, 403);
+          if (/desligado/.test(msg)) return json({ error: "Caixa por operador desligado." }, 409);
+          return internalError("Falha ao liberar o caixa", rpcErr);
+        }
+        const r = (rpcData || {}) as { ok?: boolean; turno?: unknown; motivo?: string };
+        if (!r.ok) return json({ error: "A situação do caixa mudou. Atualize a tela.", motivo: r.motivo || "turno_mudou" }, 409);
+        const dif = Number(pend?.diferenca);
+        const fmt = (n: number) => n.toFixed(2).replace(".", ",");
+        const { error: aErr } = await admin.from("audit_log").insert({
+          tenant_id: staff.tenant_id, actor_name: name, entity: "cash_turno", entity_id: caixaId,
+          action: `Divergência do caixa liberada: ${caixaId} ${String(pend?.tipo || "")} R$ ${Number.isFinite(dif) ? fmt(dif) : "?"} (contou: ${String(pend?.contouNome || pend?.contouId || "")}, liberou: ${name})`,
+          meta: { caixa_id: caixaId, turno_id: turnoId, pendencia_id: pendId, tipo: pend?.tipo ?? null, diferenca: Number.isFinite(dif) ? dif : null, contou_id: pend?.contouId ?? null },
+        });
+        if (aErr) console.error("[staff-auth] audit_log cash_release:", aErr);
+        return json({ ok: true, turno: r.turno ?? null });
       }
 
       // OP-14: liberar sócio bloqueado por fiado exige a senha de um administrador, mesmo
@@ -377,7 +410,7 @@ Deno.serve(async (req) => {
       // Auditoria 03/11 (A2): o perfil do formulário passa a valer no servidor junto com o PIN novo.
       // Antes só validava o tamanho do PIN e o papel ficava o antigo (a RLS usa tenant_staff.role).
       const { error: updErr } = await admin.from("tenant_staff").update({
-        pin_hash: pinHash, role, failed_attempts: 0, lock_count: 0, locked_until: null, updated_at: new Date().toISOString(),
+        pin_hash: pinHash, role, ...(role === "garcom" || role === "cozinha" ? { opera_caixa: false } : {}), failed_attempts: 0, lock_count: 0, locked_until: null, updated_at: new Date().toISOString(),
       }).eq("id", staffId);
       if (updErr) return internalError("Falha ao redefinir PIN", updErr);
       if (role !== staff.role) await logRoleChange(tenantId, staffId, String(staff.role), role, body.by);
@@ -394,11 +427,32 @@ Deno.serve(async (req) => {
       if (selErr) return internalError("Falha ao consultar colaborador", selErr);
       if (!staff || staff.tenant_id !== tenantId) return json({ error: "Colaborador não encontrado" }, 404);
       if (staff.role !== role) {
-        const { error: updErr } = await admin.from("tenant_staff").update({ role, updated_at: new Date().toISOString() }).eq("id", staffId);
+        // Garçom/cozinha não operam caixa: trocar o perfil não pode manter o acesso ao caixa.
+        const patch: Record<string, unknown> = { role, updated_at: new Date().toISOString() };
+        if (role === "garcom" || role === "cozinha") patch.opera_caixa = false;
+        const { error: updErr } = await admin.from("tenant_staff").update(patch).eq("id", staffId);
         if (updErr) return internalError("Falha ao alterar o perfil", updErr);
         await logRoleChange(tenantId, staffId, String(staff.role), role, body.by);
       }
       return json({ ok: true, role });
+    }
+
+    // Caixa por operador (13/11): marca quem opera caixa (garçom/admin com gaveta própria).
+    if (action === "set_opera_caixa") {
+      const staffId = String(body.staff_id || "");
+      if (!staffId || !validStaffId(staffId) || typeof body.opera_caixa !== "boolean") return json({ error: "Dados inválidos" }, 400);
+      const operaCaixa = body.opera_caixa;
+      const { data: staff, error: selErr } = await admin.from("tenant_staff").select("tenant_id, role").eq("id", staffId).maybeSingle();
+      if (selErr) return internalError("Falha ao consultar colaborador", selErr);
+      if (!staff || staff.tenant_id !== tenantId) return json({ error: "Colaborador não encontrado" }, 404);
+      const { error: updErr } = await admin.from("tenant_staff").update({ opera_caixa: operaCaixa, updated_at: new Date().toISOString() }).eq("id", staffId);
+      if (updErr) return internalError("Falha ao alterar a marcação de caixa", updErr);
+      const { error: aErr } = await admin.from("audit_log").insert({
+        tenant_id: tenantId, actor_name: String(body.by || "").slice(0, 120) || "Administrador", entity: "staff", entity_id: staffId,
+        action: `Opera caixa ${operaCaixa ? "ligado" : "desligado"}`, meta: { opera_caixa: operaCaixa },
+      });
+      if (aErr) console.error("[staff-auth] audit_log opera_caixa:", aErr);
+      return json({ ok: true, opera_caixa: operaCaixa });
     }
 
     if (action === "set_active") {
