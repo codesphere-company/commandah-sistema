@@ -214,7 +214,8 @@ function userPermissions(user){
   if(!user) return [];
   const base = userHasOwnPermissions(user) ? user.permissions : rolePermissions(user.role);
   // Caixa por operador (13/11): garçom marcado como "Pode operar caixa" soma o que o perfil Caixa libera.
-  if(user.role==='garcom' && user.operaCaixa===true) return [...new Set([...base, ...rolePermissions('caixa')])];
+  // Só com o ajuste ligado: desligado = comportamento de hoje.
+  if(user.role==='garcom' && user.operaCaixa===true && typeof modoCaixaPorOperador==='function' && modoCaixaPorOperador()) return [...new Set([...base, ...rolePermissions('caixa')])];
   return base;
 }
 function hasPerm(token){ return !!currentUser && userPermissions(currentUser).includes(token); }
