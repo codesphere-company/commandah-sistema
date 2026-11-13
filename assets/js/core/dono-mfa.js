@@ -37,7 +37,10 @@ async function donoVerificar(factorId, code){
 }
 
 // Depois da senha (ou ao reabrir com sessão só de senha): pede o código. true = sessão virou aal2.
-function pedirCodigoDoDono(){
+// opts.semSair (liberação do caixa pelo dono, 13/11): Cancelar só fecha a janela e NÃO encerra a sessão do aparelho;
+// quem chamou restaura a sessão anterior. Sem a opção (entrada normal) Cancelar continua saindo da conta.
+function pedirCodigoDoDono(opts){
+  const semSair = !!(opts && opts.semSair);
   return new Promise(async (resolve)=>{
     let fator = null;
     try{ const { data } = await supabaseClient.auth.mfa.listFactors(); fator = data && data.totp && data.totp[0]; }catch(e){}
@@ -62,7 +65,7 @@ function pedirCodigoDoDono(){
     ok.onclick = tentar;
     input.onkeydown = (ev)=>{ if(ev.key==='Enter') tentar(); };
     document.getElementById('donoCodigoCancelar').onclick = async ()=>{
-      try{ await supabaseClient.auth.signOut(); }catch(e){}
+      if(!semSair){ try{ await supabaseClient.auth.signOut(); }catch(e){} }
       donoFecharCamada(); resolve(false);
     };
   });

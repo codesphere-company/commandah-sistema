@@ -212,7 +212,11 @@ function podeVerTotaisDoCaixa(){ return !!currentUser && (currentUser.role==='ad
 function userHasOwnPermissions(user){ return !!user && user.role==='caixa' && Array.isArray(user.permissions); }
 function userPermissions(user){
   if(!user) return [];
-  return userHasOwnPermissions(user) ? user.permissions : rolePermissions(user.role);
+  const base = userHasOwnPermissions(user) ? user.permissions : rolePermissions(user.role);
+  // Caixa por operador (13/11): garçom marcado como "Pode operar caixa" soma o que o perfil Caixa libera.
+  // Só com o ajuste ligado: desligado = comportamento de hoje.
+  if(user.role==='garcom' && user.operaCaixa===true && typeof modoCaixaPorOperador==='function' && modoCaixaPorOperador()) return [...new Set([...base, ...rolePermissions('caixa')])];
+  return base;
 }
 function hasPerm(token){ return !!currentUser && userPermissions(currentUser).includes(token); }
 // Auditoria 03/11 (M5): cadastros (locais, estações, origens, quem levou e os outros) só o administrador

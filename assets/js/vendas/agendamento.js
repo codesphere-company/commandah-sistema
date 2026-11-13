@@ -5,6 +5,8 @@ function typeLabel(t){ return t==='balcao'?'Balcão':t==='comanda'?'Comanda':t==
    sobra. Sem caixa aberto (ex.: lançamento retroativo) fica só no extrato. */
 function recordFiadoPaymentInCash(member, value, metodo, debtEntryId){
   if(!state.cashSession) return;
+  // Caixa por operador (13/11): turno travado não recebe. Quem chama já recusa antes; aqui é a última barreira.
+  if(caixaTravadoAqui()){ toast(textoCaixaTravado()); return; }
   // 09/11 (pedido do dono): o lançamento novo já traz o método estável; os antigos ('Dinheiro', 'Pix', 'Cartão') são normalizados.
   const n = normalizarMetodo(metodo);
   const method = (formaPorMetodo(n) || formaPagamento(n)) ? n : (metodo || 'dinheiro');
@@ -16,6 +18,7 @@ function recordFiadoPaymentInCash(member, value, metodo, debtEntryId){
 // do recebimento ainda aberto, a entrada sai; se ele já fechou, entra uma saída de
 // mesmo valor no caixa aberto agora (sem caixa aberto, avisa).
 function reverseFiadoPaymentInCash(member, entry){
+  if(caixaTravadoAqui()){ toast(textoCaixaTravado()); return; } // caixa por operador (13/11)
   const value = arredondaCentavos(Number(entry.value));
   const desc = 'Recebimento de fiado — '+member.name;
   let mv = state.cashMovements.find(x=>x.origin==='fiado' && x.debtEntryId===entry.id);
@@ -43,6 +46,7 @@ function recordChangeOutInCash(list, saleId){
   const total = Math.round((list||[]).reduce((a,x)=>a+(Number(x.amount)||0),0)*100)/100;
   if(total<=TOLERANCIA_CENTAVO) return;
   if(!state.cashSession){ toast('Troco de '+fmt(total)+' em dinheiro sem caixa aberto: não entrou em nenhum fechamento.'); return; }
+  if(caixaTravadoAqui()){ toast(textoCaixaTravado()); return; } // caixa por operador (13/11)
   const methods = [...new Set(list.map(x=>paymentMethodLabel(x.method)))].join(', ');
   const description = 'Troco em dinheiro de excedente pago em '+methods;
   state.cashMovements.unshift({id:uid(), cashSessionId:state.cashSession.id, type:'sangria', amount:total, reason:description, description, method:'dinheiro', note:'', origin:'troco', saleId:saleId||null, operatorId:currentUser.id, operatorName:currentUser.name, at:new Date().toISOString()});

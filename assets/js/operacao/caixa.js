@@ -11,6 +11,8 @@ function enhanceCashMovementGrid(){
 }
 function renderCaixa(){
   const el = document.getElementById('view-caixa');
+  // Caixa por operador (13/11): ligado, a tela vem do turno do caixa deste computador.
+  if(modoCaixaPorOperador()) return renderCaixaPorOperador(el);
   const s = state.cashSession;
   if(!s || s.status==='closed'){
     // Pedido do dono (10/10): a abertura vem com o dinheiro contado no último fechamento.
@@ -36,7 +38,20 @@ function renderCaixa(){
     };
     return;
   }
-  const salesInSession = state.sales.filter(sl=>saleCountsAsRevenue(sl) && new Date(sl.closedAt) >= new Date(s.openedAt));
+  renderCaixaAberto(el, s);
+}
+// Caixa por operador (13/11): venda do turno. Ligado, a venda que tem cashSessionId é do turno com esse id
+// (dois caixas abertos ao mesmo tempo não somam a venda um do outro); venda sem cashSessionId (antiga) e o
+// modo desligado seguem a regra da hora: fechou depois da abertura.
+function vendaEntraNoCaixa(sl, s){
+  if(!saleCountsAsRevenue(sl)) return false;
+  if(modoCaixaPorOperador() && sl.cashSessionId) return sl.cashSessionId===s.id;
+  return new Date(sl.closedAt) >= new Date(s.openedAt);
+}
+// Tela do caixa aberto (a de sempre). Ligado, o título é "<caixa> — <operador>" e o botão "Fechar / passar o caixa".
+function renderCaixaAberto(el, s){
+  const porOperador = modoCaixaPorOperador();
+  const salesInSession = state.sales.filter(sl=>vendaEntraNoCaixa(sl, s));
   const movements = state.cashMovements.filter(m=>m.cashSessionId===s.id);
   // Pagamento parcial (OP-13) conta uma vez só, como no fechamento: pelo movimento que entrou no
   // caixa na hora, e não de novo pela linha partial:true da venda. Antes a tela somava os dois e o
@@ -65,7 +80,181 @@ function renderCaixa(){
   // 06/11 (pedido do dono): o operador também não vê as linhas de venda da Movimentação — somando
   // à mão dava para chegar no esperado. Ele vê só o saldo inicial e as entradas/saídas manuais
   // (sangria e reforço) que ele mesmo lança; vendas, parciais, troco e fiado ficam para o admin.
-  el.innerHTML=`<div class="consumer-workspace"><section class="cash-window"><header class="cash-title">Caixa de ${h(s.operatorName||currentUser.name)} — Id: ${h(caixaId)}</header><div class="cash-open-layout"><aside class="cash-open-side"><div class="cash-state opened">Caixa Aberto</div><div class="cash-readonly-label">Saldo inicial (dinheiro):</div><div class="cash-readonly-value">${fmt(s.openingAmount)}</div><div class="cash-readonly-label" style="margin-top:20px">Observação:</div><div class="cash-open-note">${h(s.openingNote||`Aberto às ${timeFmt(s.openedAt)} por ${s.operatorName||currentUser.name}`)}</div><div class="cash-open-date"><b>Data / Hora de abertura:</b><br>${dataHoraBR(s.openedAt)}</div></aside><main class="cash-movement-area"><h2>Caixa de ${h(s.operatorName||currentUser.name)}</h2><div class="cash-section-title">Movimentação</div>${veTotaisCaixa?'<label class="cash-movement-filter"><input type="checkbox" id="cashShowReversed"> Exibir pagamentos estornados e descontos de pedidos</label>':'<p class="cash-movement-filter sub">Conferência às cegas: as vendas aparecem para o administrador e no fechamento, depois da contagem.</p>'}<div class="cash-movement-table"><table><thead><tr><th>Data / Hora</th><th>Descrição</th><th>Entrada</th><th>Saída</th><th>Forma Pagto.</th></tr></thead><tbody>${(veTotaisCaixa?movementRows:movementRows.filter(r=>r.visivelOperador)).map(r=>`<tr><td>${dataHoraBR(r.at)}</td><td>${h(r.description)}</td><td class="mono">${r.entry?fmt(r.entry):''}</td><td class="mono">${r.exit?fmt(r.exit):''}</td><td>${h(r.method)}</td></tr>`).join('')}</tbody>${veTotaisCaixa?`<tfoot><tr><td colspan="2"></td><td class="mono">${fmt((Number(s.openingAmount)||0)+totalVendido+suprimentos)}</td><td class="mono">${fmt(sangrias)}</td><td></td></tr></tfoot>`:''}</table></div></main><aside class="cash-summary"><div class="cash-section-title">Resumo</div><div class="cash-summary-line">Saldo inicial: <b class="mono">${fmt(s.openingAmount)}</b></div><div class="cash-summary-line">Entradas no caixa</div>${totalVendido+suprimentos?(veTotaisCaixa?`<div class="cash-summary-empty">Vendas recebidas: ${fmt(totalVendido)}<br>Entradas: ${fmt(suprimentos)}</div>`:'<div class="cash-summary-empty">Veja cada lançamento em Movimentação.</div>'):'<div class="cash-summary-empty">Não há registros de entrada</div>'}${totals.fiado&&veTotaisCaixa?`<div class="cash-summary-empty">Vendido no fiado (a receber, fora do caixa): ${fmt(totals.fiado)}</div>`:''}<div class="cash-summary-line">Saídas do caixa</div>${sangrias?(veTotaisCaixa?`<div class="cash-summary-empty">${[sangrias-diarias>TOLERANCIA_CENTAVO?`Saídas: ${fmt(sangrias-diarias)}`:'', diarias?`Diárias de freelancer: ${fmt(diarias)}`:''].filter(Boolean).join('<br>')/* revisão final, item 7: só diárias não mostra "Saídas: R$ 0,00" */}</div>`:'<div class="cash-summary-empty">Veja cada lançamento em Movimentação.</div>'):'<div class="cash-summary-empty">Não há registros de saída</div>'}<div class="cash-summary-total"><div class="cash-summary-line">Saldo final</div>${veTotaisCaixa?`<div class="cash-summary-line">Dinheiro esperado na gaveta: <b class="mono">${fmt(esperadoDinheiro)}</b></div><div class="cash-summary-line">Total (todas as formas): <b class="mono">${fmt((Number(s.openingAmount)||0)+totalVendido+suprimentos-sangrias)}</b></div>`:`<div class="cash-summary-empty">Conferência às cegas: o esperado aparece no fechamento, depois que você informar o que contou.</div>`}</div></aside><footer class="cash-window-actions"><button class="op-btn" onclick="openCashMovementModal()">＋ Novo Lançamento</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button><button class="op-btn" disabled>Excluir Lançamento</button><button class="op-btn primary" onclick="openCloseCashModal()">Fechar Caixa</button></footer></div></section>${renderCashHistoryPanel()}</div>`;
+  el.innerHTML=`<div class="consumer-workspace"><section class="cash-window"><header class="cash-title">${porOperador?h(nomeDoCaixa(s.caixaId||caixaQueVale()))+' — '+h(s.operatorName||currentUser.name):`Caixa de ${h(s.operatorName||currentUser.name)} — Id: ${h(caixaId)}`}</header><div class="cash-open-layout"><aside class="cash-open-side"><div class="cash-state opened">Caixa Aberto</div><div class="cash-readonly-label">Saldo inicial (dinheiro):</div><div class="cash-readonly-value">${fmt(s.openingAmount)}</div><div class="cash-readonly-label" style="margin-top:20px">Observação:</div><div class="cash-open-note">${h(s.openingNote||`Aberto às ${timeFmt(s.openedAt)} por ${s.operatorName||currentUser.name}`)}</div><div class="cash-open-date"><b>Data / Hora de abertura:</b><br>${dataHoraBR(s.openedAt)}</div></aside><main class="cash-movement-area"><h2>Caixa de ${h(s.operatorName||currentUser.name)}</h2><div class="cash-section-title">Movimentação</div>${veTotaisCaixa?'<label class="cash-movement-filter"><input type="checkbox" id="cashShowReversed"> Exibir pagamentos estornados e descontos de pedidos</label>':'<p class="cash-movement-filter sub">Conferência às cegas: as vendas aparecem para o administrador e no fechamento, depois da contagem.</p>'}<div class="cash-movement-table"><table><thead><tr><th>Data / Hora</th><th>Descrição</th><th>Entrada</th><th>Saída</th><th>Forma Pagto.</th></tr></thead><tbody>${(veTotaisCaixa?movementRows:movementRows.filter(r=>r.visivelOperador)).map(r=>`<tr><td>${dataHoraBR(r.at)}</td><td>${h(r.description)}</td><td class="mono">${r.entry?fmt(r.entry):''}</td><td class="mono">${r.exit?fmt(r.exit):''}</td><td>${h(r.method)}</td></tr>`).join('')}</tbody>${veTotaisCaixa?`<tfoot><tr><td colspan="2"></td><td class="mono">${fmt((Number(s.openingAmount)||0)+totalVendido+suprimentos)}</td><td class="mono">${fmt(sangrias)}</td><td></td></tr></tfoot>`:''}</table></div></main><aside class="cash-summary"><div class="cash-section-title">Resumo</div><div class="cash-summary-line">Saldo inicial: <b class="mono">${fmt(s.openingAmount)}</b></div><div class="cash-summary-line">Entradas no caixa</div>${totalVendido+suprimentos?(veTotaisCaixa?`<div class="cash-summary-empty">Vendas recebidas: ${fmt(totalVendido)}<br>Entradas: ${fmt(suprimentos)}</div>`:'<div class="cash-summary-empty">Veja cada lançamento em Movimentação.</div>'):'<div class="cash-summary-empty">Não há registros de entrada</div>'}${totals.fiado&&veTotaisCaixa?`<div class="cash-summary-empty">Vendido no fiado (a receber, fora do caixa): ${fmt(totals.fiado)}</div>`:''}<div class="cash-summary-line">Saídas do caixa</div>${sangrias?(veTotaisCaixa?`<div class="cash-summary-empty">${[sangrias-diarias>TOLERANCIA_CENTAVO?`Saídas: ${fmt(sangrias-diarias)}`:'', diarias?`Diárias de freelancer: ${fmt(diarias)}`:''].filter(Boolean).join('<br>')/* revisão final, item 7: só diárias não mostra "Saídas: R$ 0,00" */}</div>`:'<div class="cash-summary-empty">Veja cada lançamento em Movimentação.</div>'):'<div class="cash-summary-empty">Não há registros de saída</div>'}<div class="cash-summary-total"><div class="cash-summary-line">Saldo final</div>${veTotaisCaixa?`<div class="cash-summary-line">Dinheiro esperado na gaveta: <b class="mono">${fmt(esperadoDinheiro)}</b></div><div class="cash-summary-line">Total (todas as formas): <b class="mono">${fmt((Number(s.openingAmount)||0)+totalVendido+suprimentos-sangrias)}</b></div>`:`<div class="cash-summary-empty">Conferência às cegas: o esperado aparece no fechamento, depois que você informar o que contou.</div>`}</div></aside><footer class="cash-window-actions"><button class="op-btn" onclick="openCashMovementModal()">＋ Novo Lançamento</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button><button class="op-btn" disabled>Excluir Lançamento</button><button class="op-btn primary" onclick="openCloseCashModal()">${porOperador?'Fechar / passar o caixa':'Fechar Caixa'}</button></footer></div></section>${renderCashHistoryPanel()}</div>`;
+}
+
+/* ---- Caixa por operador (13/11): abrir com contagem, trava, liberar e fechar ----
+   Cada computador marcado é um caixa (caixaDoAparelho). Abrir pede a contagem do dinheiro da gaveta
+   às cegas (campo vazio, sem o esperado); o servidor (cash_turno_abrir) compara com a última contagem
+   do caixa em centavos inteiros e, se não bater, o turno nasce travado. Travado não recebe pagamento
+   (status ≠ 'open'). Destrava: contar de novo, PIN de um administrador que não contou (staff-auth
+   cash_release) ou o dono. Esperado e diferença só para quem passa em podeVerTotaisDoCaixa(). */
+function aplicarTurnoDoCaixa(cx, turno){
+  state.cashTurnos = Object.assign({}, state.cashTurnos||{}, { [cx]: turno||null });
+  state.cashTurnosFalhou = false;
+  if(cx===caixaQueVale()) state.cashSession = turno||null;
+}
+async function recarregarHistoricoDoCaixa(){
+  try{ const rh = await storageApi.get(STORE.cashHistory); state.cashHistory = parseAppDataValue(rh, []) || []; }catch(e){}
+}
+function textoMotivoDoTurno(motivo){
+  return ({
+    nao_travado:'Este caixa já não está travado. A tela foi atualizada.',
+    nao_aberto:'Este caixa não está aberto. A tela foi atualizada.',
+    outro_operador:'Só quem abriu o turno ou um administrador pode fazer isso.',
+    pendencia_mudou:'A contagem mudou. Confira de novo.'
+  })[motivo] || 'A situação do caixa mudou em outro aparelho. A tela foi atualizada.';
+}
+// Resposta {ok, turno, motivo?} das RPCs: guarda o turno do caixa (null = fechamento concluído) e redesenha.
+async function aplicarRespostaDoTurno(cx, data){
+  if(!data.ok) toast(textoMotivoDoTurno(data.motivo), 'error');
+  aplicarTurnoDoCaixa(cx, data.turno||null);
+  if(!data.turno) await recarregarHistoricoDoCaixa();
+  renderAll();
+}
+function lerValorContado(id){
+  const el = document.getElementById(id), raw = el ? String(el.value||'').trim() : '', v = parseFloat(raw.replace(',', '.'));
+  if(!raw || !Number.isFinite(v) || v<0){ toast('Informe o dinheiro contado na gaveta.'); if(el) el.focus(); return null; }
+  return arredondaCentavos(v);
+}
+function cascaDoCaixaPorOperador(titulo, corpo){
+  return `<div class="consumer-workspace"><section class="cash-window"><header class="cash-title">${h(titulo)}</header>${corpo}</section>${renderCashHistoryPanel()}</div>`;
+}
+function renderCaixaPorOperador(el){
+  const cx = caixaDoAparelho();
+  const aviso = (titulo, texto) => cascaDoCaixaPorOperador(titulo, `<div class="cash-layout"><div class="cash-main"><div class="cash-empty">${h(texto)}</div></div></div>`);
+  if(!isCloudMode()){ el.innerHTML = aviso('Caixa', 'O caixa por operador precisa da conexão com o servidor.'); return; }
+  if(!cx){ el.innerHTML = aviso('Caixa', 'Este computador não é um caixa. Peça a um administrador para marcar em Configurações.'); return; }
+  if(state.cashTurnosFalhou && !state.cashTurnos){ el.innerHTML = aviso(nomeDoCaixa(cx), 'Não foi possível ler o caixa. Tentando de novo…'); return; }
+  const s = state.cashSession;
+  if(s && s.status==='open') return renderCaixaAberto(el, s);
+  if(s && /^travado/.test(String(s.status||''))) return renderCaixaTravado(el, cx, s);
+  // Sem turno: contagem às cegas. Campo sempre vazio e nenhum valor do último fechamento na tela.
+  // O polling redesenha quando outro caixa muda: o que a pessoa já digitou aqui continua.
+  const digitado = el.querySelector('#openAmount') && el.querySelector('#btnOpenCash') && el.dataset.caixa===cx+'|'+currentUser.id ? { v:el.querySelector('#openAmount').value, n:(el.querySelector('#openNote')||{}).value||'' } : null;
+  el.dataset.caixa = cx+'|'+currentUser.id;
+  el.innerHTML = cascaDoCaixaPorOperador(nomeDoCaixa(cx), `<div class="cash-layout"><aside class="cash-side"><div class="cash-state">Caixa Fechado</div><div class="field"><label for="openAmount">Conte o dinheiro da gaveta</label><input type="number" id="openAmount" min="0" step="0.01" inputmode="decimal" placeholder="0,00" autocomplete="off" value=""><small class="sub">Conte as notas e moedas e digite o total.</small></div><div class="field"><label for="openNote">Observação</label><textarea id="openNote" rows="5"></textarea></div><button class="op-btn primary" id="btnOpenCash" style="width:100%"><span class="op-ico">▷</span> Abrir caixa</button></aside><div class="cash-main"><div class="cash-id">ID do Caixa: <b>[Fechado]</b></div><h2 style="text-transform:none">${h(nomeDoCaixa(cx))} — ${h(currentUser.name)}</h2><div class="cash-empty">Conte o dinheiro da gaveta e digite o total.<br>Se não bater com o último fechamento deste caixa, ele fica travado até um administrador ou o dono liberar.</div></div></div>`);
+  if(digitado){ document.getElementById('openAmount').value = digitado.v; document.getElementById('openNote').value = digitado.n; }
+  document.getElementById('btnOpenCash').onclick = ()=>abrirTurnoDoCaixa(cx);
+}
+const abrirTurnoDoCaixa = singleFlight('abrirTurnoDoCaixa', async function(cx){
+  const contado = lerValorContado('openAmount'); if(contado===null) return;
+  const nota = (document.getElementById('openNote')||{}).value || '';
+  const { data, error } = await supabaseClient.rpc('cash_turno_abrir', { p_caixa:cx, p_contado:contado, p_nota:nota.trim(), p_turno:{ id:uid(), operatorName:currentUser.name, status:'open' } });
+  if(error || !data){ toast('Não foi possível abrir o caixa: '+((error&&error.message)||'erro no servidor')+'. Tente de novo.', 'error'); return; }
+  if(!data.ok && data.motivo==='outro_turno'){
+    // Uma pessoa, um turno: o turno devolvido é o do outro caixa (não é deste).
+    toast('Você já tem um turno aberto no '+nomeDoCaixa(data.turno&&data.turno.caixaId)+'. Feche ou passe aquele caixa antes de abrir este.', 'error');
+    return;
+  }
+  if(!data.ok){
+    const o = data.turno||{};
+    toast('O '+nomeDoCaixa(cx)+' já foi aberto'+(o.operatorName?' por '+o.operatorName:'')+'. Este computador passou a mostrar o mesmo turno.');
+    aplicarTurnoDoCaixa(cx, data.turno||null); renderAll(); return;
+  }
+  aplicarTurnoDoCaixa(cx, data.turno);
+  if(data.turno && data.turno.status==='open'){ toast('Caixa aberto.'); logAction('Caixa aberto — '+nomeDoCaixa(cx)); }
+  else { toast('A contagem não confere com o último fechamento. O caixa fica travado até liberar.', 'error'); logAction('Abertura do caixa travada — '+nomeDoCaixa(cx)+' (contado '+fmt(contado)+')'); }
+  renderAll();
+});
+// Estado 3: turno travado (abertura ou fechamento). O operador vê só o que contou.
+function renderCaixaTravado(el, cx, s){
+  const p = s.pendencia || {}, ve = podeVerTotaisDoCaixa(), fechamento = p.tipo==='fechamento';
+  const dif = ve && p.diferenca!=null ? Number(p.diferenca) : null;
+  const linhas = [
+    ve && p.esperado!=null ? `<div class="cash-summary-line">Esperado: <b class="mono">${fmt(p.esperado)}</b></div>` : '',
+    `<div class="cash-summary-line">Contado: <b class="mono">${fmt(p.contado)}</b></div>`,
+    dif!==null ? `<div class="cash-summary-line">Diferença: <b class="mono ${dif<0?'cash-short':'cash-over'}">${dif<0?'Falta ':'Sobra '}${fmt(Math.abs(dif))}</b></div>` : ''
+  ].join('');
+  const situacao = p.recusada ? 'O dono recusou. Conte de novo.' : (p.pedidoDono ? 'Aguardando o dono…' : '');
+  const quando = p.at ? ' às '+timeFmt(p.at) : '';
+  el.innerHTML = cascaDoCaixaPorOperador(nomeDoCaixa(cx), `<div class="cash-layout"><aside class="cash-side"><div class="cash-state">Caixa travado</div><div class="cash-readonly-label">${fechamento?'Fechamento':'Abertura'} do turno de ${h(s.operatorName||'—')}</div><div class="cash-readonly-label">Contou: ${h(p.contouNome||'—')}${h(quando)}</div><div style="margin-top:12px">${linhas}</div></aside><div class="cash-main"><h2 style="text-transform:none">Contagem não confere</h2><p class="sub">${fechamento?'A contagem do fechamento não bate com o esperado do turno.':'A contagem da gaveta não bate com o último fechamento deste caixa.'} O caixa não recebe pagamento até a contagem bater ou alguém liberar.</p>${situacao?`<p class="cash-close-note" id="cxSituacao"><b>${h(situacao)}</b></p>`:''}<div class="cash-close-actions" style="flex-wrap:wrap;justify-content:flex-start"><button class="op-btn primary" id="cxRecontar" onclick="abrirRecontagemDoCaixa(${jsArg(cx)})">Contar de novo</button><button class="op-btn" id="cxLiberarPin" onclick="liberarTurnoComPin(${jsArg(cx)})">Liberar com PIN de administrador</button>${p.pedidoDono?'':`<button class="op-btn" id="cxPedirDono" onclick="pedirLiberacaoAoDono(${jsArg(cx)})">Pedir liberação ao dono</button>`}</div></div></div>`);
+}
+function abrirRecontagemDoCaixa(cx){
+  const s = state.cashSession; if(!s || !s.pendencia) return;
+  openModal('Contar de novo', `<div class="cash-close-body"><p class="sub">Conte de novo o dinheiro da gaveta e digite o total.</p><div class="cash-count-grid"><div class="field"><label for="cxRecontarValor">Dinheiro contado na gaveta *</label><input id="cxRecontarValor" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" autocomplete="off"></div></div><div class="cash-close-actions"><button onclick="closeModal()">‹ &nbsp; Voltar</button><button class="primary" id="cxRecontarOk" onclick="recontarTurnoDoCaixa(${jsArg(cx)})">Conferir contagem</button></div></div>`);
+  const input = document.getElementById('cxRecontarValor');
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); recontarTurnoDoCaixa(cx); } });
+  setTimeout(()=>input.focus(), 50);
+}
+const recontarTurnoDoCaixa = singleFlight('recontarTurnoDoCaixa', async function(cx){
+  const s = state.cashSession; if(!s || !s.pendencia){ closeModal(); renderAll(); return; }
+  const contado = lerValorContado('cxRecontarValor'); if(contado===null) return;
+  const { data, error } = await supabaseClient.rpc('cash_turno_recontar', { p_caixa:cx, p_turno_id:s.id, p_contado:contado });
+  if(error || !data){ toast('Não foi possível conferir a contagem: '+((error&&error.message)||'erro no servidor')+'. Tente de novo.', 'error'); return; }
+  closeModal();
+  await aplicarRespostaDoTurno(cx, data);
+  if(!data.ok) return;
+  if(!data.turno){ toast('Contagem confere. Caixa fechado.'); logAction('Caixa fechado na recontagem — '+nomeDoCaixa(cx)); }
+  else if(data.turno.status==='open'){ toast('Contagem confere. Caixa aberto.'); logAction('Caixa aberto na recontagem — '+nomeDoCaixa(cx)); }
+  else toast('A contagem ainda não confere.', 'error');
+});
+// Liberar com PIN de administrador: como a troca de preço do quilo, escolhe o admin numa lista e digita o
+// PIN. Quem contou não aparece na lista (o servidor recusa a autoliberação de qualquer jeito).
+function liberarTurnoComPin(cx){
+  const s = state.cashSession, p = s && s.pendencia; if(!p) return;
+  const admins = (state.users||[]).filter(u=>u && u.role==='admin' && u.active!==false && u.id!==p.contouId);
+  askStaffPin({
+    title: 'Liberar o '+nomeDoCaixa(cx),
+    message: h('Um administrador que não fez a contagem digita o PIN para liberar.'),
+    whoLabel: 'Administrador', staff: admins,
+    defaultId: currentUser && currentUser.role==='admin' ? currentUser.id : null,
+    emptyMessage: 'Não há outro administrador para liberar. Peça liberação ao dono.',
+    confirmLabel: 'Liberar caixa',
+    onSubmit: singleFlight('liberarTurnoComPin', async function(staffId, pin){
+      const atual = state.cashSession;
+      if(!atual || !atual.pendencia || atual.id!==s.id){ closeModal(); renderAll(); return null; }
+      const r = await staffAuthCall({ action:'cash_release', staff_id:staffId, pin, caixa_id:cx, turno_id:atual.id, pendencia_id:atual.pendencia.id });
+      if(r.error){ if(/mudou|desligado/i.test(r.error)) await refreshCashState(); return r.error; }
+      closeModal();
+      const turno = r.data && r.data.turno || null, admin = admins.find(u=>u.id===staffId);
+      aplicarTurnoDoCaixa(cx, turno);
+      if(!turno) await recarregarHistoricoDoCaixa();
+      logAction('Divergência do caixa liberada por PIN — '+nomeDoCaixa(cx)+' (liberou: '+(admin?admin.name:staffId)+')');
+      renderAll();
+      toast(turno ? 'Caixa liberado.' : 'Fechamento liberado.');
+      return null;
+    })
+  });
+}
+const pedirLiberacaoAoDono = singleFlight('pedirLiberacaoAoDono', async function(cx){
+  const s = state.cashSession; if(!s || !s.pendencia) return;
+  const { data, error } = await supabaseClient.rpc('cash_turno_pedir_dono', { p_caixa:cx, p_turno_id:s.id });
+  if(error || !data){ toast('Não foi possível pedir a liberação: '+((error&&error.message)||'erro no servidor')+'. Tente de novo.', 'error'); return; }
+  await aplicarRespostaDoTurno(cx, data);
+  if(data.ok){ toast('Pedido enviado ao dono.'); logAction('Liberação do caixa pedida ao dono — '+nomeDoCaixa(cx)); }
+});
+// OP-14 no caixa por operador: comanda avulsa aberta só barra o fechamento do último turno aberto
+// (outro caixa ainda aberto pode receber a comanda depois).
+function esteEOUltimoTurnoAberto(){
+  if(!modoCaixaPorOperador()) return true;
+  const cx = caixaQueVale();
+  return !Object.entries(state.cashTurnos||{}).some(([id,t])=>id!==cx && t && t.status!=='closed' && t.status!=='travado_fechamento');
+}
+// Fechamento no caixa por operador (chamado por finalizeCashSession, que já tem a trava de duplo toque):
+// cash_turno_fechar compara contado x esperado em centavos. Bate → vai para o histórico e devolve 'fechado';
+// não bate → o turno fica travado (tipo fechamento) e a tela vai para "Contagem não confere".
+async function fecharTurnoDoCaixa(closed){
+  if(!isCloudMode()){ toast('O caixa por operador precisa da conexão com o servidor.', 'error'); return 'erro'; }
+  if(typeof closed.countedAmount!=='number'){ toast('Informe o dinheiro contado na gaveta.'); return 'erro'; }
+  const cx = caixaQueVale();
+  // Comandas abertas (a receber) vão só no fechamento do último turno aberto; nos outros o campo nem existe.
+  if(!esteEOUltimoTurnoAberto()){ delete closed.openComandas; delete closed.openComandasTotal; }
+  await save('cashMovements');
+  const { data, error } = await supabaseClient.rpc('cash_turno_fechar', { p_caixa:cx, p_turno_id:closed.id, p_closed:closed });
+  if(error || !data){ toast('Não foi possível fechar o caixa: '+((error&&error.message)||'erro no servidor')+'. Tente de novo.', 'error'); return 'erro'; }
+  document.getElementById('modalRoot').innerHTML = '';
+  if(!data.ok){ await aplicarRespostaDoTurno(cx, data); return 'erro'; }
+  if(data.turno){
+    aplicarTurnoDoCaixa(cx, data.turno);
+    logAction('Fechamento do caixa travado — '+nomeDoCaixa(cx)+' (contado '+fmt(closed.countedAmount)+')');
+    renderAll();
+    toast('A contagem não confere. O caixa fica travado até liberar.', 'error');
+    return 'travado';
+  }
+  state.cashHistory.unshift({ ...closed, caixaId:cx });
+  aplicarTurnoDoCaixa(cx, null);
+  return 'fechado';
 }
 
 // OP-13: pagamento parcial de comanda entra no caixa na hora (movimento origin 'parcial'), por
@@ -95,7 +284,9 @@ function cashPorMetodo(sales, movements){
 // 09/11: forma tipo Fiado nunca pede contagem, mesmo com confere=operador.
 function cashCountFields(snap){
   const campos=[];
-  snap.linhas.forEach((l,i)=>{ if(l.fiado||l.tipo==='fiado'||l.confere!=='operador') return; campos.push({id:l.method==='dinheiro'?'cashCountedAmount':'cashCounted-'+i,method:l.method,label:l.label}); });
+  // Caixa por operador (13/11): a trava do fechamento compara o dinheiro, então o dinheiro sempre é contado.
+  const dinheiroSempre = modoCaixaPorOperador();
+  snap.linhas.forEach((l,i)=>{ if(l.fiado||l.tipo==='fiado') return; if(l.confere!=='operador' && !(dinheiroSempre && l.method==='dinheiro')) return; campos.push({id:l.method==='dinheiro'?'cashCountedAmount':'cashCounted-'+i,method:l.method,label:l.label}); });
   return campos;
 }
 // Lê os campos de contagem; devolve {method:valor} ou null (com aviso) se algum faltar.
@@ -146,13 +337,13 @@ function cashOpenComandas(){ return state.sales.filter(sl=>sl.status==='open'&&!
 function comandaDue(sl){ return comandaOpenDue(sl); }
 function lastCashCloseBefore(session){ const opened=new Date(session.openedAt).getTime(); let last=null; (state.cashHistory||[]).forEach(c=>{ const t=new Date(c.closedAt).getTime(); if(Number.isFinite(t)&&t<=opened&&(last===null||t>last)) last=t; }); return last; }
 function saleOpenedBeforeClose(sl,lastClose){ return lastClose!==null && !!sl.openedAt && new Date(sl.openedAt).getTime()<lastClose; }
-function cashClosingSnapshot(){const s=state.cashSession;if(!s)return null;const sales=state.sales.filter(sl=>saleCountsAsRevenue(sl)&&new Date(sl.closedAt)>=new Date(s.openedAt));const movements=state.cashMovements.filter(m=>m.cashSessionId===s.id),totals=cashSessionTotals(sales,movements),manual=movements.filter(m=>!isPartialMovement(m));const suprimentos=manual.filter(m=>m.type==='suprimento').reduce((a,m)=>a+(Number(m.amount)||0),0),sangrias=manual.filter(m=>m.type==='sangria').reduce((a,m)=>a+(Number(m.amount)||0),0),cashIn=manual.filter(m=>m.type==='suprimento'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+(Number(m.amount)||0),0),diarias=manual.filter(m=>m.type==='sangria'&&m.categoria==='diaria').reduce((a,m)=>a+(Number(m.amount)||0),0),cashOut=manual.filter(m=>m.type==='sangria'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+(Number(m.amount)||0),0),totalVendido=Object.values(totals).reduce((a,b)=>a+b,0),money=(Number(s.openingAmount)||0)+totals.dinheiro+cashIn-cashOut,final=(Number(s.openingAmount)||0)+totalVendido+suprimentos-sangrias;const lastClose=lastCashCloseBefore(s),earlier=sales.filter(sl=>saleOpenedBeforeClose(sl,lastClose)),earlierReceived=Math.round(earlier.reduce((a,sl)=>a+(sl.payments||[]).filter(p=>!p.partial&&methodBucket(p.method)!=='fiado').reduce((b,p)=>b+(Number(p.amount)||0),0),0)*100)/100,open=cashOpenComandas(),openToday=open.filter(sl=>!saleOpenedBeforeClose(sl,lastClose)),openEarlier=open.filter(sl=>saleOpenedBeforeClose(sl,lastClose)),openTotal=Math.round(openToday.reduce((a,sl)=>a+comandaDue(sl),0)*100)/100;const porForma=cashPorMetodo(sales,movements),fiadoPorForma=recebimentosFiadoPorMetodo(movements),linhas=linhasPorForma({...porForma,dinheiro:money},fiadoPorForma);return{s,totals,porForma,fiadoPorForma,linhas,suprimentos,sangrias,diarias,totalVendido,money,final,earlierReceived,earlierCount:earlier.length,openToday,openEarlier,openTotal};}
+function cashClosingSnapshot(){const s=state.cashSession;if(!s)return null;const sales=state.sales.filter(sl=>vendaEntraNoCaixa(sl,s));const movements=state.cashMovements.filter(m=>m.cashSessionId===s.id),totals=cashSessionTotals(sales,movements),manual=movements.filter(m=>!isPartialMovement(m));const suprimentos=manual.filter(m=>m.type==='suprimento').reduce((a,m)=>a+(Number(m.amount)||0),0),sangrias=manual.filter(m=>m.type==='sangria').reduce((a,m)=>a+(Number(m.amount)||0),0),cashIn=manual.filter(m=>m.type==='suprimento'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+(Number(m.amount)||0),0),diarias=manual.filter(m=>m.type==='sangria'&&m.categoria==='diaria').reduce((a,m)=>a+(Number(m.amount)||0),0),cashOut=manual.filter(m=>m.type==='sangria'&&(!m.method||m.method==='dinheiro')).reduce((a,m)=>a+(Number(m.amount)||0),0),totalVendido=Object.values(totals).reduce((a,b)=>a+b,0),money=(Number(s.openingAmount)||0)+totals.dinheiro+cashIn-cashOut,final=(Number(s.openingAmount)||0)+totalVendido+suprimentos-sangrias;const lastClose=lastCashCloseBefore(s),earlier=sales.filter(sl=>saleOpenedBeforeClose(sl,lastClose)),earlierReceived=Math.round(earlier.reduce((a,sl)=>a+(sl.payments||[]).filter(p=>!p.partial&&methodBucket(p.method)!=='fiado').reduce((b,p)=>b+(Number(p.amount)||0),0),0)*100)/100,open=esteEOUltimoTurnoAberto()?cashOpenComandas():[]/* caixa por operador (13/11): comandas abertas só no fechamento do último turno aberto, para não contar duas vezes */,openToday=open.filter(sl=>!saleOpenedBeforeClose(sl,lastClose)),openEarlier=open.filter(sl=>saleOpenedBeforeClose(sl,lastClose)),openTotal=Math.round(openToday.reduce((a,sl)=>a+comandaDue(sl),0)*100)/100;const porForma=cashPorMetodo(sales,movements),fiadoPorForma=recebimentosFiadoPorMetodo(movements),linhas=linhasPorForma({...porForma,dinheiro:money},fiadoPorForma);return{s,totals,porForma,fiadoPorForma,linhas,suprimentos,sangrias,diarias,totalVendido,money,final,earlierReceived,earlierCount:earlier.length,openToday,openEarlier,openTotal};}
 // PROD-05 (decisão do dono: conferência às cegas obrigatória). Antes o "dinheiro esperado"
 // aparecia antes da contagem e o operador tendia a "achar" o valor esperado. Agora: 1) conta
 // a gaveta e as formas que o administrador marcou como "operador" (09/11: uma linha por forma, no lugar
 // do total da maquininha) sem ver o esperado; 2) "Conferir" mostra esperado x contado por forma
 // (o operador às cegas vê só o que contou); 3) só então finaliza. As contagens ficam no histórico.
-async function openCloseCashModal(){if(isCloudMode()){await refreshCashState();if(!state.cashSession){renderAll();toast('Este caixa já foi fechado em outro aparelho.','error');return;}}await fetchFreshSales();const avulsas=cashOpenComandas().filter(sl=>!sl.memberId);if(avulsas.length){openModal('Comandas avulsas em aberto',`<p class="sub">Cliente avulso só paga à vista. Receba ou cancele ${avulsas.length===1?'esta comanda':'estas '+avulsas.length+' comandas'} antes de fechar o caixa.</p><div class="cash-open-list">${avulsas.map(sl=>`<button type="button" class="cash-open-row" onclick="closeModal();openComanda(${jsArg(sl.id)})"><span>#${h(sl.orderNumber||'—')} · ${h(sl.customerName||'Avulso')}</span><span class="mono">${fmt(comandaDue(sl))}</span></button>`).join('')}</div><div class="cash-close-actions"><button onclick="closeModal()">‹ &nbsp; Voltar</button></div>`);return;}const snap=cashClosingSnapshot();if(!snap)return;const campos=cashCountFields(snap);openModal('Fechamento do Caixa',`<div class="cash-close-body"><h2>Conte o caixa antes de conferir</h2><p class="sub">${campos.length?'Informe o que você contou. Quem pode ver os totais do caixa vê o esperado e a diferença depois de conferir; o operador às cegas vê só o que contou.':'Não há contagem a informar neste fechamento. Toque em Conferir contagem para seguir.'}</p><div class="cash-count-grid">${campos.map(c=>`<div class="field"><label>${c.method==='dinheiro'?'Dinheiro contado na gaveta':h(c.label)+' contado'} *</label><input id="${c.id}" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></div>`).join('')}</div><div id="cashCheckResult" hidden></div><div class="cash-close-actions" id="cashCloseStep1"><button onclick="closeModal()">‹ &nbsp; Voltar</button><button class="primary" onclick="checkCashCount()">Conferir contagem</button></div><div class="cash-close-actions" id="cashCloseStep2" hidden><button onclick="editCashCount()">‹ &nbsp; Corrigir contagem</button><button onclick="finalizeCashSession(true)">▣ &nbsp; Finalizar e imprimir</button><button class="primary" onclick="finalizeCashSession(false)">✓ &nbsp; Finalizar</button></div></div>`);document.querySelector('#modalRoot .modal').classList.add('cash-close-modal');setTimeout(()=>document.querySelector('.cash-count-grid input')?.focus(),50);}
+async function openCloseCashModal(){if(isCloudMode()){await refreshCashState();if(!state.cashSession){renderAll();toast('Este caixa já foi fechado em outro aparelho.','error');return;}}/* caixa por operador (13/11): turno travado não fecha por aqui */if(modoCaixaPorOperador()&&(!state.cashSession||state.cashSession.status!=='open')){renderAll();toast('Este caixa está travado. Resolva a contagem antes de fechar.','error');return;}await fetchFreshSales();const avulsas=cashOpenComandas().filter(sl=>!sl.memberId);if(avulsas.length&&esteEOUltimoTurnoAberto()){openModal('Comandas avulsas em aberto',`<p class="sub">Cliente avulso só paga à vista. Receba ou cancele ${avulsas.length===1?'esta comanda':'estas '+avulsas.length+' comandas'} antes de fechar o caixa.</p><div class="cash-open-list">${avulsas.map(sl=>`<button type="button" class="cash-open-row" onclick="closeModal();openComanda(${jsArg(sl.id)})"><span>#${h(sl.orderNumber||'—')} · ${h(sl.customerName||'Avulso')}</span><span class="mono">${fmt(comandaDue(sl))}</span></button>`).join('')}</div><div class="cash-close-actions"><button onclick="closeModal()">‹ &nbsp; Voltar</button></div>`);return;}const snap=cashClosingSnapshot();if(!snap)return;const campos=cashCountFields(snap);openModal('Fechamento do Caixa',`<div class="cash-close-body"><h2>Conte o caixa antes de conferir</h2><p class="sub">${campos.length?'Informe o que você contou. Quem pode ver os totais do caixa vê o esperado e a diferença depois de conferir; o operador às cegas vê só o que contou.':'Não há contagem a informar neste fechamento. Toque em Conferir contagem para seguir.'}</p><div class="cash-count-grid">${campos.map(c=>`<div class="field"><label>${c.method==='dinheiro'?'Dinheiro contado na gaveta':h(c.label)+' contado'} *</label><input id="${c.id}" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></div>`).join('')}</div><div id="cashCheckResult" hidden></div><div class="cash-close-actions" id="cashCloseStep1"><button onclick="closeModal()">‹ &nbsp; Voltar</button><button class="primary" onclick="checkCashCount()">Conferir contagem</button></div><div class="cash-close-actions" id="cashCloseStep2" hidden><button onclick="editCashCount()">‹ &nbsp; Corrigir contagem</button><button onclick="finalizeCashSession(true)">▣ &nbsp; Finalizar e imprimir</button><button class="primary" onclick="finalizeCashSession(false)">✓ &nbsp; Finalizar</button></div></div>`);document.querySelector('#modalRoot .modal').classList.add('cash-close-modal');setTimeout(()=>document.querySelector('.cash-count-grid input')?.focus(),50);}
 function checkCashCount(){
   const snap=cashClosingSnapshot(); if(!snap) return;
   const lidos=lerContagensCaixa(snap); if(!lidos) return;
@@ -182,7 +373,7 @@ function editCashCount(){
   document.getElementById('cashCloseStep1').hidden=false; document.getElementById('cashCloseStep2').hidden=true;
   document.querySelector('.cash-count-grid input')?.focus();
 }
-async function finalizeCashSession(printAfter){const snap=cashClosingSnapshot();if(!snap)return;const step2=document.getElementById('cashCloseStep2');if(step2&&step2.hidden){checkCashCount();return;}const lidos=lerContagensCaixa(snap);if(!lidos)return;const contagens=montarContagens(snap,lidos),countedAmount=Object.prototype.hasOwnProperty.call(lidos,'dinheiro')?lidos.dinheiro:null,countedCard=null,diff=countedAmount===null?null:countedAmount-snap.money;const closed={...snap.s,status:'closed',closedAt:new Date().toISOString(),totals:snap.totals,porForma:snap.porForma,fiadoPorForma:snap.fiadoPorForma,contagens,suprimentos:snap.suprimentos,sangrias:snap.sangrias,diarias:snap.diarias,countedAmount,expectedAmount:snap.money,diff,countedCard,expectedCard:snap.totals.cartao,blindCount:true,closedBy:currentUser.name,earlierReceived:snap.earlierReceived,openComandas:snap.openToday.map(sl=>({id:sl.id,orderNumber:sl.orderNumber||null,name:sl.customerName||'',memberId:sl.memberId||null,due:comandaDue(sl),openedAt:sl.openedAt})),openComandasTotal:snap.openTotal};if(isCloudMode()){/* BD-03: fecha só se o caixa aberto no servidor ainda for este; o histórico dos outros não é regravado */await save('cashMovements');const {data,error}=await supabaseClient.rpc('cash_session_close',{p_session_id:closed.id,p_closed:closed});if(error||!data){toast('Não foi possível fechar o caixa: '+((error&&error.message)||'erro no servidor')+'. Tente de novo.','error');return;}if(!data.ok){document.getElementById('modalRoot').innerHTML='';await refreshCashState();renderAll();toast('Este caixa já foi fechado em outro aparelho. Confira em Relatórios › Histórico do Caixa.','error');return;}state.cashHistory.unshift(closed);state.cashSession=null;}else{state.cashHistory.unshift(closed);state.cashSession=null;save('cashHistory');save('cashSession');}document.getElementById('modalRoot').innerHTML='';const temDiff=diff!==null&&Math.abs(diff)>=0.01;logAction('Caixa fechado'+(countedAmount!==null?' — contado '+fmt(countedAmount):'')+(temDiff?' (diferença '+fmt(diff)+')':''));renderAll();toast(temDiff&&podeVerTotaisDoCaixa()?'Caixa fechado com diferença de '+fmt(diff)+'.':'Caixa fechado.');if(printAfter)setTimeout(()=>imprimirFechamentoCaixa(closed),100);}
+async function finalizeCashSession(printAfter){const snap=cashClosingSnapshot();if(!snap)return;const step2=document.getElementById('cashCloseStep2');if(step2&&step2.hidden){checkCashCount();return;}const lidos=lerContagensCaixa(snap);if(!lidos)return;const contagens=montarContagens(snap,lidos),countedAmount=Object.prototype.hasOwnProperty.call(lidos,'dinheiro')?lidos.dinheiro:null,countedCard=null,diff=countedAmount===null?null:countedAmount-snap.money;const closed={...snap.s,status:'closed',closedAt:new Date().toISOString(),totals:snap.totals,porForma:snap.porForma,fiadoPorForma:snap.fiadoPorForma,contagens,suprimentos:snap.suprimentos,sangrias:snap.sangrias,diarias:snap.diarias,countedAmount,expectedAmount:snap.money,diff,countedCard,expectedCard:snap.totals.cartao,blindCount:true,closedBy:currentUser.name,earlierReceived:snap.earlierReceived,openComandas:snap.openToday.map(sl=>({id:sl.id,orderNumber:sl.orderNumber||null,name:sl.customerName||'',memberId:sl.memberId||null,due:comandaDue(sl),openedAt:sl.openedAt})),openComandasTotal:snap.openTotal};if(modoCaixaPorOperador()){if(await fecharTurnoDoCaixa(closed)!=='fechado')return;}else if(isCloudMode()){/* BD-03: fecha só se o caixa aberto no servidor ainda for este; o histórico dos outros não é regravado */await save('cashMovements');const {data,error}=await supabaseClient.rpc('cash_session_close',{p_session_id:closed.id,p_closed:closed});if(error||!data){toast('Não foi possível fechar o caixa: '+((error&&error.message)||'erro no servidor')+'. Tente de novo.','error');return;}if(!data.ok){document.getElementById('modalRoot').innerHTML='';await refreshCashState();renderAll();toast('Este caixa já foi fechado em outro aparelho. Confira em Relatórios › Histórico do Caixa.','error');return;}state.cashHistory.unshift(closed);state.cashSession=null;}else{state.cashHistory.unshift(closed);state.cashSession=null;save('cashHistory');save('cashSession');}document.getElementById('modalRoot').innerHTML='';const temDiff=diff!==null&&Math.abs(diff)>=0.01;logAction('Caixa fechado'+(countedAmount!==null?' — contado '+fmt(countedAmount):'')+(temDiff?' (diferença '+fmt(diff)+')':''));renderAll();toast(temDiff&&podeVerTotaisDoCaixa()?'Caixa fechado com diferença de '+fmt(diff)+'.':'Caixa fechado.');if(printAfter)setTimeout(()=>imprimirFechamentoCaixa(closed),100);}
 // Dois toques em Finalizar: o segundo esperaria a resposta do primeiro e diria "já fechado em outro aparelho".
 const _finalizeCashSessionOnce=finalizeCashSession;let _closingCash=false;
 finalizeCashSession=async function(printAfter){if(_closingCash)return;_closingCash=true;try{return await _finalizeCashSessionOnce(printAfter);}finally{_closingCash=false;}};
@@ -196,6 +387,7 @@ function cashMovementEditable(m){
 }
 function openCashMovementModal(initialType,movementId){
   if(!state.cashSession){ toast('Abra o caixa primeiro.'); return; }
+  if(caixaTravadoAqui()){ toast(textoCaixaTravado()); return; } // caixa por operador (13/11): travado não recebe lançamento
   if(currentUser && currentUser.role==='garcom'){ toast('Garçom não mexe no caixa.'); return; } // 08/11 (pedido do dono): garçom nunca lança dinheiro
   if(movementId){ const m=state.cashMovements.find(x=>x.id===movementId); if(m && !cashMovementEditable(m)) return; }
   const item=movementId?state.cashMovements.find(x=>x.id===movementId&&x.cashSessionId===state.cashSession.id):null,now=item?new Date(item.at):new Date(),local=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16),selected=item?(item.categoria==='diaria'?'diaria':item.type):(initialType==='sangria'||initialType==='diaria'?initialType:'suprimento');
@@ -216,14 +408,18 @@ function openCashMovementModal(initialType,movementId){
     const label=isDiaria?'Diária':type==='suprimento'?'Entrada':'Saída';save('cashMovements');closeModal();selectedCashMovementId=null;logAction((item?'Edição de ':'')+label.toLowerCase()+' de caixa — '+fmt(amount));renderAll();toast(item?'Lançamento atualizado.':label+' registrada.');
   };
 }
+// caixa por operador (13/11): "PIN: Ana 21:10" / "Dono 21:12"; vazio nos fechamentos sem liberação (e nos antigos).
+function textoLiberacoes(fc){
+  return (Array.isArray(fc&&fc.liberacoes)?fc.liberacoes:[]).map(l=>(l.como==='dono'?'Dono':'PIN: '+(l.porNome||'—'))+(l.at?' '+timeFmt(l.at):'')).join('; ');
+}
 function renderCashHistoryPanel(){
   if(!state.cashHistory.length || !podeVerTotaisDoCaixa()) return ''; // 06/11: vendido/contado/diferença só para admin/dono
   const rows = state.cashHistory.slice(0,10).map(fc=>`
-    <tr><td>${new Date(fc.openedAt).toLocaleDateString('pt-BR')}</td><td class="mono">${fmt(fc.openingAmount)}</td>
+    <tr><td>${new Date(fc.openedAt).toLocaleDateString('pt-BR')}</td><td>${fc.caixaId?h(nomeDoCaixa(fc.caixaId)):'—'}</td><td class="mono">${fmt(fc.openingAmount)}</td>
     <td class="mono">${fmt(Object.values(fc.totals||{}).reduce((a,b)=>a+b,0))}</td><td class="mono">${fc.countedAmount!=null?fmt(fc.countedAmount):'—'}</td>
     <td class="mono" style="color:${fc.diff==null||Math.abs(fc.diff)<0.01?'var(--green)':'var(--red)'}">${fc.diff!=null?fmt(fc.diff):'—'}</td>
-    <td>${h(fc.closedBy||'—')}</td><td class="sub">${h(resumoPorForma(fc))}</td></tr>`).join('');
+    <td>${h(fc.closedBy||'—')}</td><td>${h(textoLiberacoes(fc))}</td><td class="sub">${h(resumoPorForma(fc))}</td></tr>`).join('');
   return `<div class="panel"><h2>Histórico de fechamentos</h2>
-    <table><tr><th>Data</th><th>Abertura</th><th>Vendido</th><th>Contado</th><th>Diferença</th><th>Fechado por</th><th>Por forma</th></tr>${rows}</table></div>`;
+    <table><tr><th>Data</th><th>Caixa</th><th>Abertura</th><th>Vendido</th><th>Contado</th><th>Diferença</th><th>Fechado por</th><th>Liberação</th><th>Por forma</th></tr>${rows}</table></div>`;
 }
 

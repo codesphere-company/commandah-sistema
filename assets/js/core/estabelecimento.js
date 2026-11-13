@@ -152,10 +152,12 @@ function startApp(){
     // OP-14: fiado lançado em outro aparelho bloqueia o sócio aqui também.
     MembersStore.refreshDebts().then(changed=>{ if(changed && !document.querySelector('#modalRoot .modal')) renderAll(); }).catch(()=>{});
     // BD-03: caixa aberto/fechado/lançado em outro aparelho aparece aqui também.
-    refreshCashState().then(changed=>{ if(changed && !document.querySelector('#modalRoot .modal')) renderAll(); else if(changed) renderScoreboard(); });
+    // Caixa por operador (13/11): ligado, o polling próprio (iniciarPollingCaixa) cuida do refresh.
+    if(!modoCaixaPorOperador()) refreshCashState().then(changed=>{ if(changed && !document.querySelector('#modalRoot .modal')) renderAll(); else if(changed) renderScoreboard(); });
     // Revisão B2 (08/11): produto pausado/ativado ou catálogo editado em outro aparelho (caixa-multiaparelho.js).
     atualizarCatalogoSeMudou().then(changed=>{ if(changed) redesenharDepoisDoCatalogo(); });
   }, 30000);
+  iniciarPollingCaixa(); // caixa por operador (13/11): 5 s travado / 30 s normal, só com o ajuste ligado
   // Computador de caixa (impressão de tudo que for lançado aqui): descobre qual computador é.
   setTimeout(detectLocalPrintAgent, 3000);
   setInterval(detectLocalPrintAgent, 5*60*1000);

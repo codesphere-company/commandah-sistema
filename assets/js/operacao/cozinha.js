@@ -119,6 +119,7 @@ function comandaPartialPaid(s){ return Math.round(((s&&s.partialPayments)||[]).f
 function openPartialPayment(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
   if(!state.cashSession){ toast('Abra o caixa para receber pagamento.'); return; }
+  if(caixaTravadoAqui()){ toast(textoCaixaTravado()); return; } // caixa por operador (13/11): travado não recebe pagamento
   const items = (currentSaleDraft && currentSaleDraft.id===saleId) ? currentSaleDraft.items : s.items;
   const due = comandaOpenDue(s, items);
   if(due<=TOLERANCIA_CENTAVO){ toast('Não há saldo a receber nesta comanda.'); return; }
@@ -136,6 +137,7 @@ async function savePartialPayment(saleId){
   const method = document.getElementById('ppMethod').value, who = document.getElementById('ppWho').value.trim();
   if(!Number.isFinite(amount)||amount<=0){ toast('Informe o valor recebido.'); return; }
   if(!state.cashSession){ toast('Abra o caixa para receber pagamento.'); return; }
+  if(caixaTravadoAqui()){ toast(textoCaixaTravado()); return; }
   const pay = { id:uid(), method, amount, who, at:new Date().toISOString(), operatorId:currentUser.id, operatorName:currentUser.name, cashSessionId:state.cashSession.id };
   let refused = '';
   const cur = await commitSaleChange(saleId, c=>{
@@ -156,6 +158,7 @@ async function savePartialPayment(saleId){
 async function reversePartialPayment(saleId, pid){
   if(!(currentUser && (currentUser.role==='admin' || sessionIsOwner))){ toast('Só o administrador estorna pagamento parcial.'); return; }
   if(!state.cashSession){ toast('Abra o caixa para estornar (o valor sai do caixa).'); return; }
+  if(caixaTravadoAqui()){ toast(textoCaixaTravado()); return; }
   const s = state.sales.find(x=>x.id===saleId); const pay = s && (s.partialPayments||[]).find(p=>p.id===pid); if(!pay||pay.reversed) return;
   if(!await askConfirm({title:'Estornar pagamento parcial de '+fmt(pay.amount)+'?', message:'O valor volta a ficar em aberto na comanda e sai do caixa.', confirmLabel:'Estornar pagamento'})) return;
   const cur = await commitSaleChange(saleId, c=>{ const p=(c.partialPayments||[]).find(x=>x.id===pid); if(!p||p.reversed) return false; p.reversed=true; p.reversedAt=new Date().toISOString(); p.reversedBy=currentUser.name; });

@@ -747,6 +747,7 @@ async function openReopenComanda(saleId){
   const fiado=(s.payments||[]).filter(p=>methodBucket(p.method)==='fiado');
   const sameSession=!!(state.cashSession&&s.closedAt&&new Date(s.closedAt)>=new Date(state.cashSession.openedAt));
   if(paid.length && !state.cashSession){ toast('Abra o caixa para reabrir: o valor pago volta a sair do caixa.'); return; }
+  if(paid.length && caixaTravadoAqui()){ toast(textoCaixaTravado()); return; } // caixa por operador (13/11): o valor sairia do turno travado
   const other=s.memberId&&state.sales.find(x=>x.status==='open'&&!x.canceled&&x.memberId===s.memberId&&x.id!==s.id);
   if(other){ toast('Este sócio já tem outra comanda aberta (#'+(other.orderNumber||'—')+'). Feche ou transfira antes de reabrir esta.'); return; }
   const lines=[];

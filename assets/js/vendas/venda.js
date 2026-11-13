@@ -163,6 +163,9 @@ let pdvShowClosed = false;
 let pdvOptionsOpen = false;
 function renderBalcao(){
   const el = document.getElementById('view-balcao');
+  if(caixaTravadoAqui()){ // caixa por operador (13/11): turno travado não é "caixa fechado"
+    el.innerHTML = `<div class="consumer-workspace"><section class="free-cash"><h2>Caixa travado</h2><div class="free-cash-actions free-cash-single"><button class="op-btn primary" onclick="switchView('caixa')">Ver o caixa</button></div><p class="sub" style="margin-top:25px">${h(textoCaixaTravado())}</p></section></div>`; return;
+  }
   if(!state.cashSession || state.cashSession.status!=='open'){
     el.innerHTML = `<div class="consumer-workspace"><section class="free-cash"><h2>Caixa fechado</h2><div class="free-cash-actions free-cash-single"><button class="op-btn primary" onclick="switchView('caixa')">Abrir caixa</button></div><p class="sub" style="margin-top:25px">Abra o caixa para começar a vender na Ficha.</p></section></div>`; return;
   }

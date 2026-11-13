@@ -183,6 +183,11 @@ async function attemptPinLogin(){
         if(avisoCarregando) avisoCarregando.remove(); // UX lote 1: não sobra por cima da tela já aberta
         if(falhou.length){ toast('Não foi possível carregar os dados agora. Confira a internet e tente de novo.'); pinBuffer=''; updatePinDots(); return; }
       }
+      // Caixa por operador (13/11): quem manda na marcação é o servidor (o cadastro do blob pode estar atrasado).
+      if(typeof data.opera_caixa==='boolean'){
+        pinTargetUser.operaCaixa = data.opera_caixa;
+        const naLista = state.users.find(u=>u.id===pinTargetUser.id); if(naLista) naLista.operaCaixa = data.opera_caixa;
+      }
       currentUser = pinTargetUser; afterLogin();
     }catch(e){
       toast('Não foi possível verificar o PIN agora. Tente de novo.'); pinBuffer=''; updatePinDots();
@@ -235,7 +240,9 @@ function afterLogin(){
   }
   // 08/11 (pedido do dono): perfil Garçom entra no app do garçom; origem 'app' segue valendo para quem
   // ainda está como Caixa (compatibilidade até a troca dos perfis).
-  if(currentUser.role==='garcom' || (currentUser.origem==='app' && currentUser.role!=='admin')){
+  // Caixa por operador (13/11): garçom marcado "Pode operar caixa" num aparelho que é um caixa entra no desktop, na tela de caixa.
+  const garcomNoCaixa = currentUser.role==='garcom' && currentUser.operaCaixa===true && modoCaixaPorOperador() && !!caixaDoAparelho();
+  if(!garcomNoCaixa && (currentUser.role==='garcom' || (currentUser.origem==='app' && currentUser.role!=='admin'))){
     document.getElementById('garcomApp').classList.add('show');
     gcApplyDeviceTheme();
     gcRenderHome();
@@ -254,7 +261,8 @@ function afterLogin(){
   logAction('Login realizado');
   // Auditoria 11/11, item 1: conta nova responde "Como você atende?" antes de qualquer outra tela.
   if(abrirPrimeiroAcessoSeNecessario()) return;
-  if(currentUser.role==='admin' && telaInicialDoAdmin(state.settings)==='balcao') switchView('balcao');
+  if(garcomNoCaixa) switchView('caixa');
+  else if(currentUser.role==='admin' && telaInicialDoAdmin(state.settings)==='balcao') switchView('balcao');
   avisosAoEntrar();
 }
 // PIN óbvio troca antes de operar; senão, aviso de novidades (08/11, sistema/novidades.js).

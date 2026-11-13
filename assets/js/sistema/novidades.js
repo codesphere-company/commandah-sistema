@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-13-caixa-por-operador', data:'13/11/2026', itens:[
+    { titulo:'Caixa por operador',
+      texto:'Caixa por operador: cada computador tem o seu caixa, com contagem na abertura e no fechamento. Diferença trava até um administrador ou o dono liberar.',
+      onde:'Caixa', perms:['caixa'] },
+  ] },
   { id:'2026-11-12-dono-duas-etapas', data:'12/11/2026', itens:[
     { titulo:'Verificação em duas etapas para o dono',
       texto:'O dono pode proteger a conta com um código de 6 números de um aplicativo no celular (Google Authenticator ou parecido). Com ela ligada, quem souber só a senha não entra como dono. Garçom, caixa e cozinha continuam entrando só com o PIN.',

@@ -192,6 +192,7 @@ function comandaListOrder(){ try{ return localStorage.getItem('cantina2:comandaO
 function setComandaListOrder(v){ try{ localStorage.setItem('cantina2:comandaOrder', v); }catch(e){} renderComandas(); }
 function renderComandas(){
   const el=document.getElementById('view-comandas');
+  if(caixaTravadoAqui()){comandaAbertaId=null;el.innerHTML=`<div class="consumer-workspace"><section class="free-cash"><h2>Caixa travado</h2><div class="free-cash-actions free-cash-single"><button class="op-btn primary" onclick="switchView('caixa')">Ver o caixa</button></div><p class="sub" style="margin-top:25px">${h(textoCaixaTravado())}</p></section></div>`;return;} // caixa por operador (13/11)
   if(!state.cashSession||state.cashSession.status!=='open'){comandaAbertaId=null;el.innerHTML=`<div class="consumer-workspace"><section class="free-cash"><h2>Caixa fechado</h2><div class="free-cash-actions free-cash-single"><button class="op-btn primary" onclick="switchView('caixa')">Abrir caixa</button></div><p class="sub" style="margin-top:25px">Abra o caixa para liberar mesas e comandas.</p></section></div>`;return;}
   // Comanda aberta na tela (openComanda): a atualização periódica não redesenha por cima do que
   // o caixa está digitando; se ela foi fechada, cancelada ou apagada, volta para a lista.

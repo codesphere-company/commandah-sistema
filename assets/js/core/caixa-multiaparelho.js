@@ -189,18 +189,98 @@ async function pushSales(){
   }
 }
 function parseAppDataValue(r, fallback){ if(!r) return fallback; const v = JSON.parse(r.value); return v===null ? null : v; }
+/* ---- Caixa por operador (13/11): vários caixas, cada um com o seu turno em public.cash_turnos. ----
+   Ajuste state.settings.caixaPorOperador (liga/desliga no admin). Desligado, tudo segue como antes
+   (um caixa só, cantina2:cashSession). Ligado, state.cashTurnos guarda o turno de cada caixa e
+   state.cashSession fica resolvido para o caixa DESTE aparelho: o código antigo que confere
+   state.cashSession.status!=='open' para barrar pagamento continua valendo sem mudança. */
+const CAIXA_DO_APARELHO_KEY = 'commandah:caixaDoAparelho';
+function modoCaixaPorOperador(){ return !!(state.settings && state.settings.caixaPorOperador); }
+function listaDeCaixas(){
+  const l = state.settings && state.settings.caixas;
+  const ok = Array.isArray(l) ? l.filter(c=>c && typeof c.id==='string' && c.id) : [];
+  return ok.length ? ok.map(c=>({ id:c.id, nome:String(c.nome||'').trim() || c.id })) : [{ id:'cx1', nome:'Caixa 1' }, { id:'cx2', nome:'Caixa 2' }];
+}
+function caixaDoAparelho(){ try{ return localStorage.getItem(CAIXA_DO_APARELHO_KEY) || null; }catch(e){ return null; } }
+function marcarCaixaDoAparelho(id){ try{ if(id) localStorage.setItem(CAIXA_DO_APARELHO_KEY, String(id)); else localStorage.removeItem(CAIXA_DO_APARELHO_KEY); }catch(e){} }
+// Sem marcação neste aparelho vale o "caixa do app" (celular do garçom etc.), padrão cx1.
+function caixaQueVale(){ return caixaDoAparelho() || (state.settings && state.settings.caixaDoApp) || 'cx1'; }
+// Caixa por operador (13/11): dinheiro recebido fora de um caixa fica proibido nesse modo. Só o aparelho
+// marcado como caixa (computador do caixa) oferece a forma Dinheiro; celular do garçom, cozinha, notebook
+// do admin e computador sem marcação só recebem em cartão, Pix etc. Desligado: sempre true (como antes).
+function dinheiroPermitidoAqui(){ return !modoCaixaPorOperador() || !!caixaDoAparelho(); }
+// Tira da lista de formas a de dinheiro quando este aparelho não pode receber dinheiro.
+function formasSemDinheiroSePreciso(lista){ return dinheiroPermitidoAqui() ? lista : lista.filter(f=>methodBucket(f.method)!=='dinheiro'); }
+function nomeDoCaixa(id){ const c = listaDeCaixas().find(x=>x.id===id); return c ? c.nome : String(id||''); }
+// Caixa por operador (13/11): turno deste aparelho travado (contagem não confere). Travado não recebe
+// pagamento nem lançamento; as telas e avisos dizem "travado" em vez de "fechado". Desligado: sempre false.
+function caixaTravadoAqui(){ return modoCaixaPorOperador() && !!state.cashSession && /^travado/.test(String(state.cashSession.status||'')); }
+function textoCaixaTravado(){ return 'Caixa travado: a contagem não confere. Veja a tela do Caixa.'; }
+// Lê os turnos pela RPC cash_turnos_ler (redigida para quem não é admin/dono; leitura direta da tabela
+// só vale para admin/dono). Devolve { turnos:{[caixaId]:turno}, contagens:{[caixaId]:ultima_contagem} }.
+async function lerTurnosDoServidor(){
+  const { data, error } = await supabaseClient.rpc('cash_turnos_ler');
+  if(error) throw error;
+  const turnos = {}, contagens = {};
+  (Array.isArray(data) ? data : []).forEach(r=>{ if(r && r.caixa_id){ turnos[r.caixa_id] = r.turno || null; if(r.ultima_contagem!=null) contagens[r.caixa_id] = r.ultima_contagem; } });
+  return { turnos, contagens };
+}
+function aplicarTurnosNoEstado(lidos){
+  state.cashTurnosFalhou = false; // leitura deu certo: limpa o aviso (Task 4 mostra "Não foi possível ler o caixa. Tentando de novo…" enquanto true)
+  state.cashTurnos = lidos.turnos; state.cashUltimaContagem = lidos.contagens;
+  state.cashSession = lidos.turnos[caixaQueVale()] || null;
+}
+// Polling do caixa por operador (sem realtime, decisão do plano): 5 s enquanto o turno deste aparelho
+// está travado ou, na sessão do dono, há pendência com pedido ao dono; senão 30 s. Desligado ou fora
+// da nuvem não faz nada (o setInterval de 30 s de estabelecimento.js cuida do caminho antigo).
+// Dono de longe (13/11): sessão do dono (e-mail e senha) parada na tela do PIN, num aparelho que NÃO é caixa marcado
+// e com o modo ligado. Só aí a faixa de liberação aparece e o polling roda sem currentUser.
+function donoDeLonge(){ return sessionIsOwner && modoCaixaPorOperador() && !caixaDoAparelho(); }
+let caixaPollingUltimo = 0;
+function caixaPollingIntervalo(){
+  const travado = state.cashSession && /^travado/.test(String(state.cashSession.status||''));
+  const pedidoAoDono = sessionIsOwner && Object.values(state.cashTurnos||{}).some(t=>t && t.pendencia && t.pendencia.pedidoDono);
+  // Dono de longe (13/11): a sessão do dono olha a cada 7 s mesmo sem pedido, para a faixa aparecer logo.
+  return travado || pedidoAoDono ? 5000 : (donoDeLonge() ? 7000 : 30000);
+}
+let caixaPollingIniciado = false; // startApp() pode rodar mais de uma vez: o timer não empilha
+function iniciarPollingCaixa(){
+  if(caixaPollingIniciado) return; caixaPollingIniciado = true;
+  setInterval(()=>{
+    // Dono de longe (13/11): a sessão do dono (e-mail e senha, sem PIN) não tem currentUser, mas precisa ver o
+    // pedido de liberação; por isso entra aqui também. Saiu da sessão do dono (entrou com PIN): a faixa some.
+    if(!currentUser && !donoDeLonge()){ if(typeof atualizarFaixaDoDono==='function') atualizarFaixaDoDono(); return; }
+    if(!modoCaixaPorOperador() || !isCloudMode()) return;
+    if(Date.now() - caixaPollingUltimo < caixaPollingIntervalo() - 500) return;
+    caixaPollingUltimo = Date.now();
+    refreshCashState().then(changed=>{
+      if(typeof atualizarFaixaDoDono==='function') atualizarFaixaDoDono();
+      if(!currentUser) return; // sessão do dono sem PIN: não há tela para redesenhar
+      if(changed && !document.querySelector('#modalRoot .modal')) renderAll(); else if(changed) renderScoreboard();
+    });
+  }, 1000);
+}
 // Traz o caixa (sessão, lançamentos e, se a sessão mudou, o histórico) feito em outro aparelho.
 async function refreshCashState(){
-  if(!isCloudMode() || !currentUser) return false;
+  if(!isCloudMode() || (!currentUser && !donoDeLonge())) return false; // dono de longe (13/11); modo desligado fica como antes
   try{
     await (saveQueues.cashMovements||Promise.resolve()).catch(()=>{});
-    const [rs, rm] = await Promise.all([storageApi.get(STORE.cashSession), storageApi.get(STORE.cashMovements)]);
-    const session = parseAppDataValue(rs, null);
+    const porOperador = modoCaixaPorOperador();
+    const [rs, rm, rt] = await Promise.all([porOperador ? null : storageApi.get(STORE.cashSession), storageApi.get(STORE.cashMovements), porOperador ? lerTurnosDoServidor() : null]);
     let changed = false;
-    if(JSON.stringify(session) !== JSON.stringify(state.cashSession)){
+    if(porOperador){
+      const antes = JSON.stringify([state.cashTurnos||null, state.cashSession||null]);
       const before = state.cashSession && state.cashSession.id;
-      state.cashSession = session; changed = true;
-      if((session && session.id) !== before){ const rh = await storageApi.get(STORE.cashHistory); state.cashHistory = parseAppDataValue(rh, []) || []; }
+      aplicarTurnosNoEstado(rt);
+      if(JSON.stringify([state.cashTurnos, state.cashSession]) !== antes) changed = true;
+      if((state.cashSession && state.cashSession.id) !== before){ const rh = await storageApi.get(STORE.cashHistory); state.cashHistory = parseAppDataValue(rh, []) || []; }
+    }else{
+      const session = parseAppDataValue(rs, null);
+      if(JSON.stringify(session) !== JSON.stringify(state.cashSession)){
+        const before = state.cashSession && state.cashSession.id;
+        state.cashSession = session; changed = true;
+        if((session && session.id) !== before){ const rh = await storageApi.get(STORE.cashHistory); state.cashHistory = parseAppDataValue(rh, []) || []; }
+      }
     }
     const pending = cashMovementsDiff(cashMovementsBase, state.cashMovements||[]);
     if(!pending.upserts.length && !pending.deletes.length){
@@ -208,7 +288,7 @@ async function refreshCashState(){
       if(JSON.stringify(movements) !== JSON.stringify(state.cashMovements)){ state.cashMovements = movements; setCashMovementsBase(movements); changed = true; }
     }
     return changed;
-  }catch(e){ return false; }
+  }catch(e){ if(modoCaixaPorOperador() && !state.cashTurnos) state.cashTurnosFalhou = true; return false; }
 }
 
 /* 08/11 (pedido do dono): "Produtos em falta". Caixa e cozinha pausam produto pela RPC
