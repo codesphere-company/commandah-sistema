@@ -144,7 +144,8 @@ Cada turno tem as próprias vendas, entradas, saídas, contagens e diferença.
    R$ X para o cofre"**, onde X = contado − troco do caixa.
 3. Os R$ X viram uma **transferência do Caixa 1 para o cofre**, com o status "a recolher".
 4. Um administrador recolhe o dinheiro e confirma a transferência no cofre, contando o valor recebido. Se não
-   bater com X, trava e pede liberação de outro administrador ou do dono.
+   bater com X, **não trava**: a diferença fica registrada no extrato do cofre (o cofre não tem contagem
+   travada, decisão do dono, 13/11).
 5. O esperado da próxima abertura daquele caixa é o troco que ficou.
 
 Se o contado for menor que o troco, nada vai para o cofre e o esperado da próxima abertura é o contado (palpite
@@ -168,8 +169,8 @@ o cofre (pagamento a alguém) continuam como saída comum do caixa.
   fim de noite, devolução do campo) menos as que saíram (abastecer caixa).
 - **Abastecer caixa** (troco, reforço, campo): o administrador lança "Cofre → Caixa X, R$ Y". A transferência
   soma no esperado do próximo turno daquele caixa, ou do turno aberto, se houver.
-- **Contar o cofre**: o administrador conta quando quiser. Divergência trava e pede liberação de outro
-  administrador ou do dono, como nos caixas (palpite do Claude).
+- **Contar o cofre**: o administrador conta quando quiser. **Não trava** (decisão do dono, 13/11): a
+  diferença fica só registrada (quem contou, esperado, contado, diferença) e aparece no extrato do cofre.
 - **Saldo inicial**: na primeira vez, o administrador informa o saldo atual do cofre (palpite do Claude).
 - Retirada do dono ou depósito no banco: saída do cofre com motivo, registrada.
 
