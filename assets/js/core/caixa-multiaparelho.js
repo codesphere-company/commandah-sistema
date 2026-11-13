@@ -205,6 +205,12 @@ function caixaDoAparelho(){ try{ return localStorage.getItem(CAIXA_DO_APARELHO_K
 function marcarCaixaDoAparelho(id){ try{ if(id) localStorage.setItem(CAIXA_DO_APARELHO_KEY, String(id)); else localStorage.removeItem(CAIXA_DO_APARELHO_KEY); }catch(e){} }
 // Sem marcação neste aparelho vale o "caixa do app" (celular do garçom etc.), padrão cx1.
 function caixaQueVale(){ return caixaDoAparelho() || (state.settings && state.settings.caixaDoApp) || 'cx1'; }
+// Caixa por operador (13/11): dinheiro recebido fora de um caixa fica proibido nesse modo. Só o aparelho
+// marcado como caixa (computador do caixa) oferece a forma Dinheiro; celular do garçom, cozinha, notebook
+// do admin e computador sem marcação só recebem em cartão, Pix etc. Desligado: sempre true (como antes).
+function dinheiroPermitidoAqui(){ return !modoCaixaPorOperador() || !!caixaDoAparelho(); }
+// Tira da lista de formas a de dinheiro quando este aparelho não pode receber dinheiro.
+function formasSemDinheiroSePreciso(lista){ return dinheiroPermitidoAqui() ? lista : lista.filter(f=>methodBucket(f.method)!=='dinheiro'); }
 function nomeDoCaixa(id){ const c = listaDeCaixas().find(x=>x.id===id); return c ? c.nome : String(id||''); }
 // Caixa por operador (13/11): turno deste aparelho travado (contagem não confere). Travado não recebe
 // pagamento nem lançamento; as telas e avisos dizem "travado" em vez de "fechado". Desligado: sempre false.

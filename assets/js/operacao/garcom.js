@@ -315,7 +315,8 @@ function gcRenderReview(){
    integração ainda) e a venda fecha pelo mesmo finalizeSale do balcão: ficha na cozinha,
    close_sale idempotente e pagamento no caixa aberto. */
 // 09/11 (pedido do dono): o garçom cobra pelas formas da lista, exceto Fiado (fica com o caixa).
-function gcPayMethods(){ return formasNaVenda().filter(f=>f.tipo!=='fiado').map(f=>f.method); }
+// Caixa por operador (13/11): celular do garçom (aparelho sem marcação) não cobra em dinheiro.
+function gcPayMethods(){ return formasSemDinheiroSePreciso(formasNaVenda()).filter(f=>f.tipo!=='fiado').map(f=>f.method); }
 function gcEhDinheiro(method){ const f = formaPorMetodo(method); return !!f && f.tipo==='dinheiro'; }
 function gcEhCartao(method){ const f = formaPorMetodo(method); return !!f && (f.tipo==='credito'||f.tipo==='debito'); }
 function gcGoCharge(){
@@ -373,6 +374,8 @@ function gcBackFromCharge(){
   gcChargeDraft = null; gcFlow.step = 'review';
   gcRenderReview();
 }
+// Caixa por operador (13/11): diz qual caixa do app está fechado ou travado. Desligado: texto de hoje.
+function gcMsgCaixaFechado(){ return modoCaixaPorOperador() ? 'O '+nomeDoCaixa(caixaQueVale())+' está fechado ou travado. Peça para abrirem o caixa.' : 'O caixa está fechado. Peça para abrirem o caixa antes de cobrar.'; }
 async function gcConfirmCharge(){
   if(gcFlow.closeComanda) return gcConfirmCloseComanda();
   const method = gcFlow.payMethod;
@@ -381,7 +384,7 @@ async function gcConfirmCharge(){
   if(!(total>0)){ toast('Adicione ao menos um produto.'); return; }
   const pay = gcBuildPayment(method, total); if(!pay) return;
   await refreshCashState();
-  if(!state.cashSession || state.cashSession.status!=='open'){ toast('O caixa está fechado. Peça para abrirem o caixa antes de cobrar.'); return; }
+  if(!state.cashSession || state.cashSession.status!=='open'){ toast(gcMsgCaixaFechado()); return; }
   if(!gcChargeDraft){
     const local = gcFlow.local||'';
     const items = gcCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local, requesterId:null, requesterName:gcFlow.avulso, requesterType:'avulso'}));
@@ -419,7 +422,7 @@ function gcBuildPayment(method, total){
 async function gcConfirmCloseComanda(){
   const saleId = gcFlow.saleId;
   await refreshCashState();
-  if(!state.cashSession || state.cashSession.status!=='open'){ toast('O caixa está fechado. Peça para abrirem o caixa antes de cobrar.'); return; }
+  if(!state.cashSession || state.cashSession.status!=='open'){ toast(gcMsgCaixaFechado()); return; }
   const fresh = await fetchFreshSales(); if(fresh) state.sales = fresh;
   const s = state.sales.find(x=>x.id===saleId);
   if(!s || s.status!=='open' || s.canceled){ toast('Esta comanda já foi fechada ou cancelada em outro aparelho.'); gcRenderHome(); return; }

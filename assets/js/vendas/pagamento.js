@@ -10,7 +10,7 @@ function iconeDoTipo(tipo){
 function methodConfig(){
   const usadas = new Set(Object.values(TECLAS_DAS_INICIAIS));
   let reserva = 0;
-  return formasNaVenda().map(f=>{
+  return formasSemDinheiroSePreciso(formasNaVenda()).map(f=>{
     let key = TECLAS_DAS_INICIAIS[f.method];
     if(!key){
       key = String(f.nome||'').trim().charAt(0).toUpperCase();
