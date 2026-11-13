@@ -201,7 +201,12 @@ function atualizarFaixaDoDono(){
   el.querySelector('.local-mode-sub').textContent = lista.length>1 ? 'e mais '+(lista.length-1)+' caixa(s) esperando. Toque para ver.' : 'A contagem não confere. Toque para ver e decidir.';
   applyTopBannerOffset();
 }
-function fecharLiberacaoDoDono(){ const m = document.getElementById('donoLiberaRoot'); if(m) m.remove(); }
+function fecharLiberacaoDoDono(){
+  const m = document.getElementById('donoLiberaRoot');
+  try{ if(window.turnstile && typeof donoCaptchaId!=='undefined' && donoCaptchaId!=null) window.turnstile.remove(donoCaptchaId); }catch(e){}
+  if(typeof donoCaptchaId!=='undefined'){ donoCaptchaId = null; donoCaptchaToken = null; }
+  if(m) m.remove();
+}
 function abrirLiberacaoDoDono(cx){
   const t = (state.cashTurnos||{})[cx], p = t && t.pendencia; if(!p) return;
   fecharLiberacaoDoDono();
@@ -244,12 +249,23 @@ async function donoConferirSenha(senha){
   const { data:{ session } } = await supabaseClient.auth.getSession();
   if(!session || !session.user || !session.user.email) return 'Sessão do dono não encontrada. Entre de novo com o e-mail.';
   if(!senha) return 'Digite a senha do dono.';
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email:session.user.email, password:senha, options: donoCaptchaToken ? { captchaToken:donoCaptchaToken } : {} });
-  donoCaptchaToken = null; try{ if(window.turnstile && donoCaptchaId!=null) window.turnstile.reset(donoCaptchaId); }catch(e){}
-  if(error) return /captcha/i.test(error.message||'') ? 'A verificação "não sou robô" falhou. Tente de novo.' : 'Senha do dono incorreta.';
-  if(!data || !data.user || data.user.id!==session.user.id) return 'Senha do dono incorreta.';
-  if(await donoPrecisaCodigo() && !await pedirCodigoDoDono()) return 'Verificação em duas etapas cancelada.';
-  return null;
+  // O novo login troca a sessão do aparelho (com duas etapas, por uma aal1). Guarda a de antes e devolve ela se o
+  // código for cancelado ou algo falhar: nunca deixar o aparelho deslogado com a tela de pé.
+  const antes = { access_token:session.access_token, refresh_token:session.refresh_token };
+  const restaurar = async ()=>{ try{ await supabaseClient.auth.setSession(antes); }catch(e){} };
+  let trocou = false;
+  try{
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email:session.user.email, password:senha, options: donoCaptchaToken ? { captchaToken:donoCaptchaToken } : {} });
+    donoCaptchaToken = null; try{ if(window.turnstile && donoCaptchaId!=null) window.turnstile.reset(donoCaptchaId); }catch(e){}
+    if(error) return /captcha/i.test(error.message||'') ? 'A verificação "não sou robô" falhou. Tente de novo.' : 'Senha do dono incorreta.';
+    trocou = true;
+    if(!data || !data.user || data.user.id!==session.user.id){ await restaurar(); return 'Senha do dono incorreta.'; }
+    if(await donoPrecisaCodigo() && !await pedirCodigoDoDono({ semSair:true })){ await restaurar(); return 'Verificação em duas etapas cancelada.'; }
+    return null;
+  }catch(e){
+    if(trocou) await restaurar();
+    return 'Não foi possível conferir a senha agora. Tente de novo.';
+  }
 }
 const decidirLiberacaoDoDono = singleFlight('decidirLiberacaoDoDono', async function(cx, aprovar){
   const t = (state.cashTurnos||{})[cx], p = t && t.pendencia;
