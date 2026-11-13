@@ -45,7 +45,7 @@ function renderConfigSistema(){
     // Caixa por operador (13/11): só admin/dono vê e grava (a RLS de settings já é só do admin).
     if(document.getElementById('cfgCaixaPorOperador') && isAdminUser()){
       state.settings.caixaPorOperador = document.getElementById('cfgCaixaPorOperador').checked;
-      state.settings.caixas = listaDeCaixas().map(c=>{ const el=document.querySelector('.cfg-caixa-nome[data-id="'+c.id+'"]'); return { id:c.id, nome:(el&&el.value.trim())||c.nome }; });
+      state.settings.caixas = [...document.querySelectorAll('.cfg-caixa-nome')].map(el=>({ id:el.dataset.id, nome:el.value.trim()||el.dataset.id }));
       const cdp = document.getElementById('cfgCaixaDoApp'); if(cdp) state.settings.caixaDoApp = cdp.value || 'cx1';
     }
     save('settings');applyBranding();
@@ -64,11 +64,14 @@ function marcarEsteComputadorComoCaixa(id){
   if(modoCaixaPorOperador() && state.cashTurnos) state.cashSession = state.cashTurnos[caixaQueVale()] || null;
   toast(id?'Este computador agora é o '+nomeDoCaixa(id)+'.':'Marcação deste computador removida.');
 }
+// Só acrescenta no formulário (campo + opções dos selects); tudo é gravado no Salvar, sem perder o que já foi editado.
 function adicionarCaixaNaLista(){
   if(!isAdminUser()) return;
-  const l = listaDeCaixas(); const n = l.reduce((m,c)=>{ const x=/^cx(\d+)$/.exec(c.id); return x?Math.max(m,Number(x[1])):m; }, l.length) + 1;
-  state.settings.caixas = [...l, { id:'cx'+n, nome:'Caixa '+n }];
-  save('settings'); renderConfigSistema();
+  const campos=[...document.querySelectorAll('.cfg-caixa-nome')];
+  const n=campos.reduce((m,el)=>{ const x=/^cx(d+)$/.exec(el.dataset.id); return x?Math.max(m,Number(x[1])):m; }, campos.length)+1, id='cx'+n, nome='Caixa '+n;
+  const grade=campos.length&&campos[campos.length-1].closest('.grid3'); if(!grade) return;
+  grade.insertAdjacentHTML('beforeend',`<div class="field"><label>Nome do caixa (${h(id)})</label><input class="cfg-caixa-nome" data-id="${h(id)}" value="${h(nome)}"></div>`);
+  ['cfgCaixaDoApp','cfgEsteComputador'].forEach(sid=>{ const sel=document.getElementById(sid); if(sel) sel.insertAdjacentHTML('beforeend',`<option value="${h(id)}">${h(nome)}</option>`); });
 }
 async function resetOrderCounter(){ if(!await confirmarAcao('Reiniciar a numeração de pedidos para #1?')) return; if(!await setOrderCounter(0,true)) return; renderAll(); toast('Numeração reiniciada.'); }
 function openDeliveryAreaModal(id){const item=(state.settings.deliveryAreas||[]).find(x=>x.id===id);openModal(item?'Editar Área de Entrega':'Nova Área de Entrega',`<div class="consumer-form-frame"><div class="row"><div class="field"><label>Bairro / Região</label><input id="areaName" value="${h(item&&item.name||'')}"></div><div class="field"><label>Cidade</label><input id="areaCity" value="${h(item&&item.city||state.settings.city||'')}"></div></div><div class="row"><div class="field"><label>Taxa de entrega</label><input id="areaFee" type="number" min="0" step="0.01" value="${Number(item&&item.fee)||0}"></div><div class="field"><label>Prazo estimado (min)</label><input id="areaMinutes" type="number" min="1" value="${Number(item&&item.minutes)||40}"></div></div><div class="field"><label>Pedido mínimo</label><input id="areaMinimum" type="number" min="0" step="0.01" value="${Number(item&&item.minimum)||0}"></div><label><input id="areaActive" type="checkbox" ${!item||item.active!==false?'checked':''}> Área ativa</label></div><div class="consumer-modal-actions"><button onclick="closeModal()">〈 Voltar</button><button class="consumer-save" onclick="saveDeliveryArea(${jsArg(id||'')})">✓ Salvar</button></div>`);document.querySelector('#modalRoot .modal').classList.add('finance-record-modal');}

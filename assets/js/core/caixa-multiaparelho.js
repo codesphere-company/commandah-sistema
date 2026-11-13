@@ -216,6 +216,7 @@ async function lerTurnosDoServidor(){
   return { turnos, contagens };
 }
 function aplicarTurnosNoEstado(lidos){
+  state.cashTurnosFalhou = false; // leitura deu certo: limpa o aviso (Task 4 mostra "Não foi possível ler o caixa. Tentando de novo…" enquanto true)
   state.cashTurnos = lidos.turnos; state.cashUltimaContagem = lidos.contagens;
   state.cashSession = lidos.turnos[caixaQueVale()] || null;
 }
@@ -228,7 +229,9 @@ function caixaPollingIntervalo(){
   const pedidoAoDono = sessionIsOwner && Object.values(state.cashTurnos||{}).some(t=>t && t.pendencia && t.pendencia.pedidoDono);
   return travado || pedidoAoDono ? 5000 : 30000;
 }
+let caixaPollingIniciado = false; // startApp() pode rodar mais de uma vez: o timer não empilha
 function iniciarPollingCaixa(){
+  if(caixaPollingIniciado) return; caixaPollingIniciado = true;
   setInterval(()=>{
     if(!modoCaixaPorOperador() || !isCloudMode() || !currentUser) return;
     if(Date.now() - caixaPollingUltimo < caixaPollingIntervalo() - 500) return;
@@ -264,7 +267,7 @@ async function refreshCashState(){
       if(JSON.stringify(movements) !== JSON.stringify(state.cashMovements)){ state.cashMovements = movements; setCashMovementsBase(movements); changed = true; }
     }
     return changed;
-  }catch(e){ return false; }
+  }catch(e){ if(modoCaixaPorOperador() && !state.cashTurnos) state.cashTurnosFalhou = true; return false; }
 }
 
 /* 08/11 (pedido do dono): "Produtos em falta". Caixa e cozinha pausam produto pela RPC

@@ -48,7 +48,10 @@ async function carregarDados(){
   // Caixa por operador (13/11): com o ajuste ligado o turno vem de cash_turnos (RPC redigida), não de cantina2:cashSession.
   if(isCloudMode() && modoCaixaPorOperador()){
     try{ aplicarTurnosNoEstado(await lerTurnosDoServidor()); }
-    catch(e){ readFailed.cashSession = true; state.cashTurnos = {}; state.cashSession = null; }
+    catch(e){
+      // Leitura que falhou NÃO é caixa fechado: com o flag true a tela (Task 4) não oferece "Abrir"; o próximo polling certo limpa.
+      readFailed.cashSession = true; state.cashTurnosFalhou = true; state.cashTurnos = null; state.cashSession = null;
+    }
   }
   stripIntegrationTokens(state.settings);
   setCashMovementsBase(state.cashMovements);
