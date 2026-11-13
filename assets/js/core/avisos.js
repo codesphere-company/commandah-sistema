@@ -166,6 +166,79 @@ function checkLocalModeLeftovers(){
   applyTopBannerOffset();
 }
 
+/* ============ DONO DE LONGE: LIBERAÇÃO DO CAIXA (caixa por operador, 13/11) ============
+   Contagem que não bate e o operador pediu liberação ao dono: na sessão do dono (e-mail e senha, no celular
+   dele, sem PIN) aparece esta faixa. Tocar abre a pendência (tipo, esperado, contado, diferença, hora) com
+   Liberar e Recusar (cash_turno_liberar_dono, só dono). O polling de refreshCashState (5 s com pedido ao
+   dono) é quem chama atualizarFaixaDoDono. Admin e demais colaboradores nunca veem: sessionIsOwner é false
+   depois do PIN. O modal tem raiz própria porque a tela de entrada (z-index 200) cobre o #modalRoot. */
+function pendenciasAoDono(){
+  if(!sessionIsOwner || !isCloudMode() || typeof modoCaixaPorOperador!=='function' || !modoCaixaPorOperador()) return [];
+  return Object.entries(state.cashTurnos||{})
+    .filter(([,t])=>t && t.pendencia && t.pendencia.pedidoDono)
+    .map(([cx,t])=>({ cx, turno:t, p:t.pendencia }));
+}
+function atualizarFaixaDoDono(){
+  const root = document.getElementById('localModeRoot'); if(!root) return;
+  const lista = pendenciasAoDono();
+  let el = root.querySelector('.dono-libera');
+  const modal = document.getElementById('donoLiberaRoot');
+  if(modal && !lista.some(x=>x.p.id===modal.dataset.pendencia)) fecharLiberacaoDoDono();
+  if(!lista.length){ if(el){ el.remove(); applyTopBannerOffset(); } return; }
+  if(!el){
+    el = document.createElement('div');
+    el.className = 'local-mode dono-libera';
+    el.setAttribute('role','alert');
+    el.style.cursor = 'pointer';
+    el.innerHTML = '<div class="local-mode-ico" aria-hidden="true">!</div>'
+      + '<div class="local-mode-txt"><span class="local-mode-title"></span><span class="local-mode-sub"></span></div>'
+      + '<button type="button" class="local-mode-btn">Ver</button>';
+    el.addEventListener('click', ()=>{ const l = pendenciasAoDono(); if(l.length) abrirLiberacaoDoDono(l[0].cx); });
+    root.appendChild(el);
+  }
+  const x = lista[0];
+  el.querySelector('.local-mode-title').textContent = 'Liberação pendente: '+nomeDoCaixa(x.cx)+' — '+(x.p.contouNome||'—');
+  el.querySelector('.local-mode-sub').textContent = lista.length>1 ? 'e mais '+(lista.length-1)+' caixa(s) esperando. Toque para ver.' : 'A contagem não confere. Toque para ver e decidir.';
+  applyTopBannerOffset();
+}
+function fecharLiberacaoDoDono(){ const m = document.getElementById('donoLiberaRoot'); if(m) m.remove(); }
+function abrirLiberacaoDoDono(cx){
+  const t = (state.cashTurnos||{})[cx], p = t && t.pendencia; if(!p) return;
+  fecharLiberacaoDoDono();
+  const fechamento = p.tipo==='fechamento', dif = p.diferenca!=null ? Number(p.diferenca) : null;
+  const m = document.createElement('div');
+  m.id = 'donoLiberaRoot'; m.dataset.pendencia = String(p.id);
+  m.className = 'modal-overlay'; m.style.zIndex = '450';
+  m.innerHTML = '<div class="modal" role="dialog" aria-modal="true"><button class="modal-close" id="donoFechar" aria-label="Fechar">&times;</button>'
+    + '<h3 class="modal-title">Liberar '+h(nomeDoCaixa(cx))+'</h3>'
+    + '<div class="cash-close-body"><p class="sub">'+(fechamento?'Fechamento':'Abertura')+' do turno de '+h(t.operatorName||'—')+'. A contagem não confere.</p>'
+    + '<div class="cash-summary-line">Contou: <b>'+h(p.contouNome||'—')+'</b>'+(p.at?' às '+h(timeFmt(p.at)):'')+'</div>'
+    + (p.esperado!=null?'<div class="cash-summary-line">Esperado: <b class="mono">'+h(fmt(p.esperado))+'</b></div>':'')
+    + '<div class="cash-summary-line">Contado: <b class="mono">'+h(fmt(p.contado))+'</b></div>'
+    + (dif!==null?'<div class="cash-summary-line">Diferença: <b class="mono '+(dif<0?'cash-short':'cash-over')+'">'+(dif<0?'Falta ':'Sobra ')+h(fmt(Math.abs(dif)))+'</b></div>':'')
+    + '<div class="cash-close-actions"><button class="op-btn" id="donoRecusar" onclick="decidirLiberacaoDoDono('+jsArg(cx)+',false)">Recusar</button>'
+    + '<button class="op-btn primary" id="donoLiberar" onclick="decidirLiberacaoDoDono('+jsArg(cx)+',true)">Liberar</button></div></div></div>';
+  m.addEventListener('click', e=>{ if(e.target===m) fecharLiberacaoDoDono(); });
+  document.body.appendChild(m);
+  document.getElementById('donoFechar').onclick = fecharLiberacaoDoDono;
+}
+const decidirLiberacaoDoDono = singleFlight('decidirLiberacaoDoDono', async function(cx, aprovar){
+  const t = (state.cashTurnos||{})[cx], p = t && t.pendencia;
+  if(!p){ fecharLiberacaoDoDono(); atualizarFaixaDoDono(); return; }
+  const { data, error } = await supabaseClient.rpc('cash_turno_liberar_dono', { p_caixa:cx, p_turno_id:t.id, p_pendencia_id:p.id, p_aprovar:!!aprovar });
+  if(error || !data){ toast('Não foi possível '+(aprovar?'liberar':'recusar')+': '+((error&&error.message)||'erro no servidor')+'. Tente de novo.', 'error'); return; }
+  if(!data.ok) toast(textoMotivoDoTurno(data.motivo), 'error');
+  aplicarTurnoDoCaixa(cx, data.turno||null);
+  if(!data.turno) await recarregarHistoricoDoCaixa(); // fechamento concluído no servidor: entrou no histórico
+  fecharLiberacaoDoDono();
+  if(data.ok){
+    logAction((aprovar?'Divergência do caixa liberada pelo dono — ':'Liberação recusada pelo dono — ')+nomeDoCaixa(cx)+' (contou '+(p.contouNome||'—')+')');
+    toast(aprovar?'Caixa liberado.':'Liberação recusada. O operador vai contar de novo.');
+  }
+  if(currentUser) renderAll();
+  atualizarFaixaDoDono();
+});
+
 /* ============ FILA DE IMPRESSÃO TRAVADA ============
    printSingleTicket apenas ENFILEIRA em print_jobs; quem imprime de verdade é o
    agente desktop. Se o agente estiver fechado, o toast segue dizendo "enviado pra

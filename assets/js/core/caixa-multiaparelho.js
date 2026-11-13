@@ -237,21 +237,29 @@ let caixaPollingUltimo = 0;
 function caixaPollingIntervalo(){
   const travado = state.cashSession && /^travado/.test(String(state.cashSession.status||''));
   const pedidoAoDono = sessionIsOwner && Object.values(state.cashTurnos||{}).some(t=>t && t.pendencia && t.pendencia.pedidoDono);
-  return travado || pedidoAoDono ? 5000 : 30000;
+  // Dono de longe (13/11): a sessão do dono olha a cada 7 s mesmo sem pedido, para a faixa aparecer logo.
+  return travado || pedidoAoDono ? 5000 : (sessionIsOwner ? 7000 : 30000);
 }
 let caixaPollingIniciado = false; // startApp() pode rodar mais de uma vez: o timer não empilha
 function iniciarPollingCaixa(){
   if(caixaPollingIniciado) return; caixaPollingIniciado = true;
   setInterval(()=>{
-    if(!modoCaixaPorOperador() || !isCloudMode() || !currentUser) return;
+    // Dono de longe (13/11): a sessão do dono (e-mail e senha, sem PIN) não tem currentUser, mas precisa ver o
+    // pedido de liberação; por isso entra aqui também. Saiu da sessão do dono (entrou com PIN): a faixa some.
+    if(!currentUser && !sessionIsOwner){ if(typeof atualizarFaixaDoDono==='function') atualizarFaixaDoDono(); return; }
+    if(!modoCaixaPorOperador() || !isCloudMode()) return;
     if(Date.now() - caixaPollingUltimo < caixaPollingIntervalo() - 500) return;
     caixaPollingUltimo = Date.now();
-    refreshCashState().then(changed=>{ if(changed && !document.querySelector('#modalRoot .modal')) renderAll(); else if(changed) renderScoreboard(); });
+    refreshCashState().then(changed=>{
+      if(typeof atualizarFaixaDoDono==='function') atualizarFaixaDoDono();
+      if(!currentUser) return; // sessão do dono sem PIN: não há tela para redesenhar
+      if(changed && !document.querySelector('#modalRoot .modal')) renderAll(); else if(changed) renderScoreboard();
+    });
   }, 1000);
 }
 // Traz o caixa (sessão, lançamentos e, se a sessão mudou, o histórico) feito em outro aparelho.
 async function refreshCashState(){
-  if(!isCloudMode() || !currentUser) return false;
+  if(!isCloudMode() || (!currentUser && !sessionIsOwner)) return false; // sessionIsOwner: dono de longe (13/11)
   try{
     await (saveQueues.cashMovements||Promise.resolve()).catch(()=>{});
     const porOperador = modoCaixaPorOperador();
