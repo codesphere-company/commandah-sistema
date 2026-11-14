@@ -53,6 +53,7 @@ Ela roda em `close_sale` e em `sales_apply` sempre que a venda gravada fica `sta
 
 - Com divergência, a venda é gravada normalmente e ganha `data.conferencia = { em, divergencias: [...] }`. Uma linha vai para `audit_log` com o colaborador e o aparelho.
 - Ajuste novo em Configurações, só para admin/dono: **"Recusar venda que não bate com o cadastro"**, desligado por padrão. Ligado, `close_sale` e `sales_apply` recusam com erro próprio (`venda_divergente`, código `42501`) e o aparelho mostra o motivo em português.
+- Item abaixo do preço do cadastro (`preco_abaixo`) nunca recusa, nem com o ajuste ligado: só é registrado e aparece no relatório. A recusa acontece quando há ao menos uma divergência de outro tipo (revisão final).
 - Plano: deixar desligado por uma semana de movimento real, olhar o relatório e só então ligar.
 
 ### Relatório

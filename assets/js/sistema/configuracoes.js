@@ -70,7 +70,7 @@ function renderConfigSistema(){
 // Item 4 (auditoria 11/11): liga a recusa de venda que não bate com o cadastro (desligado, só registra no relatório).
 function blocoConferenciaBarrar(s){
   if(!isAdminUser()) return '';
-  return `<div class="settings-section" id="cfgConferenciaBloco"><h3>Conferência das vendas</h3><label class="kh-ligar"><input type="checkbox" id="cfgConferenciaBarrar" ${s.conferenciaBarrar?'checked':''}> <b>Recusar venda que não bate com o cadastro</b></label><p class="sub">Deixe desligado na primeira semana e confira o relatório Vendas com divergência antes de ligar.</p></div>`;
+  return `<div class="settings-section" id="cfgConferenciaBloco"><h3>Conferência das vendas</h3><label class="kh-ligar"><input type="checkbox" id="cfgConferenciaBarrar" ${s.conferenciaBarrar?'checked':''}> <b>Recusar venda que não bate com o cadastro</b></label><p class="sub">Deixe desligado na primeira semana e confira o relatório Vendas com divergência antes de ligar. Item abaixo do preço do cadastro nunca é recusado, só aparece no relatório.</p></div>`;
 }
 // Caixa por operador (13/11): ajuste, lista de caixas, caixa do app e a marcação deste computador.
 function blocoCaixaPorOperador(s){

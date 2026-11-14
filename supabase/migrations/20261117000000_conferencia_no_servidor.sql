@@ -155,6 +155,7 @@ declare
   v_ref text;
   v_preco numeric;
   v_piso numeric;
+  v_tam jsonb;
   v_liberado boolean;
   v_soma numeric := 0;
   v_tem_subtotal boolean;
@@ -200,7 +201,26 @@ begin
       continue;
     end if;
 
+    -- Piso do item. Produto com tamanhos (grade): product.sizes é objeto { <sizeId>: { price,
+    -- active, channels } } (sizesForChannel em core/opcoes.js). Item com customization.sizeId de
+    -- um tamanho do produto: o piso é o preço desse tamanho. Sem isso: o menor entre product.price
+    -- e os preços dos tamanhos ativos. "Alterar em lote › preço" muda só product.price, e o
+    -- tamanho menor não pode virar preco_abaixo por isso (revisão final, item 4 da auditoria 11/11).
     v_piso := public._num_json(v_prod -> 'price');
+    if jsonb_typeof(v_prod -> 'sizes') = 'object' then
+      v_tam := v_prod -> 'sizes' -> (v_item #>> '{customization,sizeId}');
+      if nullif(v_item #>> '{customization,sizeId}', '') is not null
+         and jsonb_typeof(v_tam) = 'object' and jsonb_typeof(v_tam -> 'price') = 'number' then
+        v_piso := public._num_json(v_tam -> 'price');
+      else
+        select least(v_piso, min(public._num_json(t.value -> 'price'))) into v_piso
+          from jsonb_each(v_prod -> 'sizes') t
+         where jsonb_typeof(t.value) = 'object'
+           and coalesce(t.value -> 'active', 'true'::jsonb) <> 'false'::jsonb
+           and jsonb_typeof(t.value -> 'price') = 'number';
+        v_piso := coalesce(v_piso, public._num_json(v_prod -> 'price'));
+      end if;
+    end if;
     if jsonb_typeof(v_item -> 'weight') = 'object' then
       -- Item pesado: o piso vale para o preço por kg, salvo liberação.
       v_preco := public._num_json(v_item -> 'weight' -> 'pricePerKg');
@@ -229,6 +249,10 @@ begin
       end if;
     end if;
   end loop;
+
+  -- Taxa de entrega do delivery: draftTotal() (vendas/venda.js) soma deliveryFee ao subtotal
+  -- que o pagamento grava, então entra na soma (revisão final, item 4 da auditoria 11/11).
+  v_soma := v_soma + public._num_json(p_sale -> 'deliveryFee');
 
   -- Subtotal declarado x soma dos itens (só confere se a venda traz subtotal).
   v_tem_subtotal := jsonb_typeof(p_sale -> 'subtotal') in ('number', 'string');
@@ -300,12 +324,16 @@ revoke all on function public.venda_conferir(text, jsonb, numeric) from public, 
 -- Parte 3: gravação (item 4, auditoria 11/11)
 -- =====================================================================
 -- close_sale e sales_apply passam a:
---   * conferir a venda fechada (venda_conferir). Desligado o ajuste
---     cantina2:settings.conferenciaBarrar (padrão), a venda grava com a marca
---     conferencia = {em, divergencias} e uma linha no audit_log
---     ('Venda com divergência'). Ligado, a venda divergente é recusada:
---     close_sale dá erro 'venda_divergente'; sales_apply devolve conflito
---     reason 'venda_divergente' e grava o resto do lote.
+--   * conferir a venda na passagem para fechada (venda_conferir): sem versão
+--     gravada ou gravada com status <> 'closed'. Regravar venda que já estava
+--     fechada (admin, anonimização LGPD do sócio) não confere de novo: mantém a
+--     marca que o servidor já tinha e não grava audit_log nem recusa.
+--     Desligado o ajuste cantina2:settings.conferenciaBarrar (padrão), a venda
+--     grava com a marca conferencia = {em, divergencias} e uma linha no
+--     audit_log ('Venda com divergência'). Ligado, a venda divergente é
+--     recusada (close_sale dá erro 'venda_divergente'; sales_apply devolve
+--     conflito reason 'venda_divergente' e grava o resto do lote), salvo se
+--     todas as divergências forem preco_abaixo: essas só são registradas.
 --   * jogar fora a chave 'conferencia' que vier do aparelho (só o servidor marca).
 --   * exigir 'cancelar-comanda' para cancelar item ativo (por lineId) ou a venda
 --     inteira: close_sale dá erro 'sem permissao para cancelar'; sales_apply
@@ -317,7 +345,9 @@ revoke all on function public.venda_conferir(text, jsonb, numeric) from public, 
 -- com os blocos marcados "Item 4 (auditoria 11/11)" acrescentados.
 -- =====================================================================
 
--- A venda que vai ser gravada é conferida? Fechada e não cancelada inteira.
+-- A venda que vai ser gravada é conferida? Fechada, não cancelada inteira e não é delivery
+-- cancelado (cancelDelivery grava status 'closed' sem pagamento; mesmo critério de
+-- saleCountsAsRevenue em core/calculos.js).
 create or replace function public._venda_conferivel(p_sale jsonb)
 returns boolean
 language sql
@@ -325,7 +355,8 @@ immutable
 set search_path to ''
 as $function$
   select coalesce(p_sale ->> 'status', '') = 'closed'
-     and coalesce(p_sale -> 'canceled', 'false'::jsonb) <> 'true'::jsonb;
+     and coalesce(p_sale -> 'canceled', 'false'::jsonb) <> 'true'::jsonb
+     and coalesce(p_sale ->> 'deliveryStatus', '') <> 'cancelado';
 $function$;
 revoke all on function public._venda_conferivel(jsonb) from public, anon, authenticated;
 
@@ -383,11 +414,19 @@ end;
 $function$;
 revoke all on function public._venda_credito_antes(text, text, text) from public, anon, authenticated;
 
--- Devolve a venda pronta para gravar: sempre sem a chave 'conferencia' do aparelho.
--- Venda conferível com divergência: barrar desligado acrescenta a marca e grava no
--- audit_log (o carimbo audit_log_stamp põe tenant, hora, auth.uid() e papel); barrar
--- ligado levanta 'venda_divergente' (detail = divergências) e desfaz a transação.
-create or replace function public.venda_conferencia_aplicar(p_tenant text, p_sale_id text, p_sale jsonb, p_credito_antes numeric)
+-- Prepara a venda para gravar e diz se ela é recusada. Devolve
+-- { venda, recusar, divergencias }. A venda sai sempre sem a chave 'conferencia' do aparelho.
+--   * Gravada (p_cur) já fechada: não confere de novo; a venda leva a marca que o servidor já
+--     tinha em p_cur (se tinha). Sem audit_log, sem recusa (revisão final, item 4 da auditoria
+--     11/11: anonimização LGPD e edição do admin regravam venda fechada contra o catálogo de hoje).
+--   * Passagem para fechada (sem gravada ou gravada não fechada) e venda conferível: confere.
+--     Crédito antes vem de _venda_credito_antes (trava o sócio for update). Sem divergência:
+--     grava limpa. Barrar ligado e alguma divergência que não seja preco_abaixo: recusar = true
+--     (quem chama levanta o erro ou devolve o conflito; nada é gravado aqui). Senão: marca
+--     conferencia = {em, divergencias} e grava no audit_log (o carimbo audit_log_stamp põe
+--     tenant, hora, auth.uid() e papel). preco_abaixo sozinho nunca recusa: preço trocado no
+--     meio da comanda não pode barrar venda legítima (spec, "Modo só registro, depois barrar").
+create or replace function public.venda_conferencia_aplicar(p_tenant text, p_sale_id text, p_sale jsonb, p_cur jsonb)
 returns jsonb
 language plpgsql
 security definer
@@ -398,27 +437,37 @@ declare
   v_div jsonb;
   v_barrar boolean;
 begin
-  if not public._venda_conferivel(v_sale) then
-    return v_sale;
+  if p_cur is not null and coalesce(p_cur ->> 'status', '') = 'closed' then
+    if p_cur ? 'conferencia' then
+      v_sale := v_sale || jsonb_build_object('conferencia', p_cur -> 'conferencia');
+    end if;
+    return jsonb_build_object('venda', v_sale, 'recusar', false, 'divergencias', '[]'::jsonb);
   end if;
-  v_div := public.venda_conferir(p_tenant, v_sale, p_credito_antes);
+  if not public._venda_conferivel(v_sale) then
+    return jsonb_build_object('venda', v_sale, 'recusar', false, 'divergencias', '[]'::jsonb);
+  end if;
+  v_div := public.venda_conferir(p_tenant, v_sale,
+             public._venda_credito_antes(p_tenant, p_sale_id, v_sale ->> 'memberId'));
   if v_div is null or jsonb_array_length(v_div) = 0 then
-    return v_sale;
+    return jsonb_build_object('venda', v_sale, 'recusar', false, 'divergencias', '[]'::jsonb);
   end if;
   v_barrar := coalesce((select a.value -> 'conferenciaBarrar' = 'true'::jsonb
                           from public.app_data a
                          where a.tenant_id = p_tenant and a.key = 'cantina2:settings'), false);
-  if v_barrar then
-    raise exception 'venda_divergente' using errcode = '42501', detail = v_div::text;
+  if v_barrar and exists (select 1 from jsonb_array_elements(v_div) d
+                           where d ->> 'codigo' is distinct from 'preco_abaixo') then
+    return jsonb_build_object('venda', v_sale, 'recusar', true, 'divergencias', v_div);
   end if;
   insert into public.audit_log (actor_name, action, entity, entity_id, meta)
   values (nullif(left(coalesce(v_sale ->> 'operatorName', ''), 120), ''),
           'Venda com divergência', 'sale', p_sale_id,
           jsonb_build_object('divergencias', v_div));
-  return v_sale || jsonb_build_object('conferencia', jsonb_build_object('em', now(), 'divergencias', v_div));
+  return jsonb_build_object(
+    'venda', v_sale || jsonb_build_object('conferencia', jsonb_build_object('em', now(), 'divergencias', v_div)),
+    'recusar', false, 'divergencias', v_div);
 end;
 $function$;
-revoke all on function public.venda_conferencia_aplicar(text, text, jsonb, numeric) from public, anon, authenticated;
+revoke all on function public.venda_conferencia_aplicar(text, text, jsonb, jsonb) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- sales_apply e close_sale (corpo de 20261108000000 + item 4)
@@ -443,9 +492,7 @@ declare
   v_cur jsonb;
   v_live boolean;
   v_found boolean;
-  v_barrar boolean;
-  v_div jsonb;
-  v_credito numeric;
+  v_r jsonb;
 begin
   if v_tenant is null or not public.pode_vender() then
     raise exception 'sem permissao para gravar vendas';
@@ -468,11 +515,6 @@ begin
                   where p->>'method' = 'fiado') then
     raise exception 'garcom nao fecha fiado' using errcode = '42501';
   end if;
-
-  -- Item 4 (auditoria 11/11): barrar venda divergente? Lido uma vez para o lote inteiro.
-  v_barrar := coalesce((select a.value -> 'conferenciaBarrar' = 'true'::jsonb
-                          from public.app_data a
-                         where a.tenant_id = v_tenant and a.key = 'cantina2:settings'), false);
 
   for e in select x from jsonb_array_elements(v_up) as t(x) loop
     v_id := e->>'id';
@@ -500,22 +542,17 @@ begin
       v_conf := v_conf || jsonb_build_array(jsonb_build_object('id', v_id, 'data', case when v_live then v_cur end, 'reason', 'sem_permissao_cancelar'));
       continue;
     end if;
-    -- Item 4 (auditoria 11/11): conferência da venda fechada. Com barrar ligado a venda
-    -- divergente vira conflito (sem gravar) e o lote continua; desligado, grava com a marca
-    -- e a linha no audit_log (venda_conferencia_aplicar). Sempre sem a marca do aparelho.
-    v_credito := case when public._venda_conferivel(e)
-                      then public._venda_credito_antes(v_tenant, v_id, e->>'memberId') else 0 end;
-    if v_barrar and public._venda_conferivel(e) then
-      v_div := public.venda_conferir(v_tenant, e - 'conferencia', v_credito);
-      if jsonb_array_length(v_div) > 0 then
-        v_conf := v_conf || jsonb_build_array(jsonb_build_object('id', v_id, 'data', case when v_live then v_cur end,
-                                                                 'reason', 'venda_divergente', 'divergencias', v_div));
-        continue;
-      end if;
-      e := e - 'conferencia';
-    else
-      e := public.venda_conferencia_aplicar(v_tenant, v_id, e, v_credito);
+    -- Item 4 (auditoria 11/11): conferência na passagem para fechada (venda_conferencia_aplicar).
+    -- Recusada (barrar ligado e divergência que não é só preco_abaixo) vira conflito sem gravar
+    -- e o lote continua; senão grava, com a marca do servidor quando houver. Regravação de venda
+    -- já fechada mantém a marca gravada. Sempre sem a marca do aparelho.
+    v_r := public.venda_conferencia_aplicar(v_tenant, v_id, e, v_cur);
+    if (v_r->>'recusar')::boolean then
+      v_conf := v_conf || jsonb_build_array(jsonb_build_object('id', v_id, 'data', case when v_live then v_cur end,
+                                                               'reason', 'venda_divergente', 'divergencias', v_r->'divergencias'));
+      continue;
     end if;
+    e := v_r->'venda';
     insert into public.sales as s (tenant_id, id, data)
     values (v_tenant, v_id, e)
     on conflict (tenant_id, id) do update
@@ -567,7 +604,7 @@ declare
   v_debt jsonb := coalesce(p_debt_entries, '[]'::jsonb);
   v_garcom boolean := public.current_staff_role() = 'garcom';
   v_credito numeric;
-  v_credito_antes numeric;
+  v_r jsonb;
 begin
   if not public.pode_vender() then
     raise exception 'sem permissao para fechar venda';
@@ -681,13 +718,17 @@ begin
     raise exception 'sem permissao para cancelar' using errcode = '42501';
   end if;
 
-  -- Item 4 (auditoria 11/11): conferência da venda fechada, depois do recibo (nova tentativa
-  -- devolve o resultado gravado sem conferir de novo) e antes de gravar venda e lançamentos.
-  -- Crédito antes = saldo do sócio lido (for update) antes de inserir os lançamentos desta venda.
-  -- Com barrar ligado, a exceção desfaz tudo, recibo incluído: a próxima tentativa confere de novo.
-  v_credito_antes := case when public._venda_conferivel(v_sale)
-                          then public._venda_credito_antes(v_tenant, p_sale_id, v_sale->>'memberId') else 0 end;
-  v_sale := public.venda_conferencia_aplicar(v_tenant, p_sale_id, v_sale, v_credito_antes);
+  -- Item 4 (auditoria 11/11): conferência na passagem para fechada, depois do recibo (nova
+  -- tentativa devolve o resultado gravado sem conferir de novo) e antes de gravar venda e
+  -- lançamentos. Crédito antes = saldo do sócio lido (for update) antes de inserir os lançamentos
+  -- desta venda. Venda já fechada (regravação do admin) mantém a marca gravada em v_current.
+  -- Recusada (barrar ligado e divergência que não é só preco_abaixo), a exceção desfaz tudo,
+  -- recibo incluído: a próxima tentativa confere de novo.
+  v_r := public.venda_conferencia_aplicar(v_tenant, p_sale_id, v_sale, v_current);
+  if (v_r->>'recusar')::boolean then
+    raise exception 'venda_divergente' using errcode = '42501', detail = (v_r->'divergencias')::text;
+  end if;
+  v_sale := v_r->'venda';
 
   insert into public.sales as s (tenant_id, id, data)
   values (v_tenant, p_sale_id, v_sale)
@@ -751,6 +792,6 @@ create trigger trg_member_debt_entries_guard_receber
 --   drop function if exists public.member_debt_entries_guard_receber();
 --   recriar sales_apply(jsonb, jsonb, jsonb) e close_sale(text, boolean, jsonb, jsonb) de
 --     20261108000000_perfil_garcom.sql (com os mesmos revoke/grant de cima);
---   drop function if exists public.venda_conferencia_aplicar(text, text, jsonb, numeric),
+--   drop function if exists public.venda_conferencia_aplicar(text, text, jsonb, jsonb),
 --     public._venda_credito_antes(text, text, text), public._venda_cancela(jsonb, jsonb),
 --     public._venda_conferivel(jsonb);

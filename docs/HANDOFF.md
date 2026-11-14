@@ -41,6 +41,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 ### 14/11 — conferência no servidor (item 4 da auditoria de lançamento), branch `feat/conferencia-servidor`, ainda não publicada
 - **O que é:** o banco passa a conferir a venda e as permissões, não só a tela. Spec `docs/superpowers/specs/2026-11-14-conferencia-no-servidor-design.md`. Migration `20261117000000_conferencia_no_servidor.sql`. Na tela: relatório "Vendas com divergência", ajuste "Recusar venda que não bate com o cadastro" e mensagens de recusa.
 - **Ordem de publicação (as duas coisas na mesma janela):**
+  0. antes de aplicar, confirmar que os corpos de `close_sale` e `sales_apply` em produção são os de `20261108000000_perfil_garcom.sql`: `select pg_get_functiondef('public.close_sale(text,boolean,jsonb,jsonb)'::regprocedure)` e `select pg_get_functiondef('public.sales_apply(jsonb,jsonb,jsonb)'::regprocedure)`, comparando com o arquivo (a migration nova parte desses corpos);
   1. aplicar a migration `20261117000000_conferencia_no_servidor.sql` (com o "sim" do dono);
   2. mergear o PR e recarregar os aparelhos.
   Motivo: com a migration aplicada, o banco já recusa cancelar sem permissão, e o código antigo da tela não tem mensagem para esse conflito. Nenhuma função Edge muda.
@@ -52,7 +53,11 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - um caixa poderia anexar pagamento a venda existente de outro operador;
   - venda nova recusada durante a sincronização offline fica só naquele aparelho (o aviso avisa);
   - o aviso da sincronização não lista os motivos;
-  - a recusa na Conta Corrente mostra o erro genérico.
+  - a recusa na Conta Corrente mostra o erro genérico;
+  - a conferência só roda na passagem para fechada: regravar venda já fechada (edição do admin, anonimização LGPD) mantém a primeira conferência, sem conferir de novo contra o catálogo do dia;
+  - item abaixo do preço do cadastro nunca é recusado, nem com a recusa ligada: só aparece no relatório (preço trocado no meio da comanda);
+  - delivery cancelado não é conferido (mesmo critério de `saleCountsAsRevenue`); a taxa de entrega entra na soma dos itens;
+  - produto com tamanhos: o piso é o preço do tamanho do item (sem tamanho, o menor entre o preço do produto e os tamanhos ativos).
 - **Testes na bancada `../auditoria-2026-11-03`:** `db/t-conferencia.js` (rodar logo depois de `db/up.sh`, antes de `db/sqltest.js`) e `e2e/t56-conferencia.js`. Em `db/sqltest.js` uma asserção foi ampliada para aceitar a mensagem do novo gatilho na recusa de fiado do garçom.
 
 ### 13/11, fim do dia — caixa por operador (etapa 1)
