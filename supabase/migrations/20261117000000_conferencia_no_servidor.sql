@@ -720,12 +720,18 @@ grant execute on function public.close_sale(text, boolean, jsonb, jsonb) to auth
 create or replace function public.member_debt_entries_guard_receber()
 returns trigger
 language plpgsql
+security definer
 set search_path to ''
 as $function$
 begin
-  -- Só o recebimento avulso (Financeiro/fiado). Com sale_id é pendência paga no
-  -- fechamento ou crédito de troco, que o close_sale grava; sem sessão é service_role.
-  if new.type = 'payment' and nullif(new.sale_id, '') is null and auth.uid() is not null then
+  -- Só o recebimento avulso (Financeiro/fiado). Com sale_id de uma venda que existe no
+  -- tenant (apagada ou não) é pendência paga no fechamento ou crédito de troco, que o
+  -- close_sale grava depois da venda; sem sessão é service_role. sale_id inventado não
+  -- livra (revisão da Task 3): por isso SECURITY DEFINER, para ler sales.
+  if new.type = 'payment' and auth.uid() is not null
+     and (nullif(new.sale_id, '') is null
+          or not exists (select 1 from public.sales s
+                          where s.tenant_id = new.tenant_id and s.id = new.sale_id)) then
     if not (coalesce(public.tem_permissao('receber-fiado'), false) or coalesce(public.tem_permissao('contas'), false)) then
       raise exception 'sem permissao para receber fiado' using errcode = '42501';
     end if;
