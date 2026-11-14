@@ -412,6 +412,7 @@ function renderRelatoriosInner(){
   if(report==='Cupons Fiscais'){renderFiscalNotesReport();return;}
   if(report==='Mais Vendidos'){renderBestSellersReport(sales);return;}
   if(report==='Histórico de Pedidos'){renderOrderHistoryReport(sales);return;}
+  if(report==='Vendas com divergência'){renderVendasDivergentes(document.getElementById('view-relatorios'));return;}
   if(report==='Histórico de Itens Vendidos'){renderSoldItemsReport(sales);return;}
   if(report==='Ranking de Atendimentos'){renderAttendanceRankingReport(sales);return;}
   if(report==='Histórico do Caixa'){const rows=state.cashHistory.map(c=>`<tr data-date="${reportDate(c.openedAt)}"><td>${h(c.id)}</td><td>${reportDateTime(c.openedAt)}</td><td>${reportDateTime(c.closedAt)}</td><td>${fmt(c.openingAmount)}</td><td>${c.expectedAmount!=null?fmt(c.expectedAmount):'—'}</td><td>${c.countedAmount!=null?fmt(c.countedAmount):'—'}</td><td>${c.diff!=null?fmt(c.diff):'—'}</td><td>${fmt(Object.values(c.totals||{}).reduce((a,b)=>a+b,0))}</td><td>${c.diarias!=null?fmt(c.diarias):'—'/* revisão final, item 7: fechamento de antes da diária não tem o campo */}</td><td>${h(c.closedBy||'—')}</td><td>Fechado</td><td>${h(resumoPorForma(c))}</td></tr>`).join('');reportShell(report,['Id','Aberto em','Fechado em','Troco inicial','Dinheiro esperado','Dinheiro contado','Diferença','Total vendido (todas as formas)','Diárias de freelancer','Usuário','Status','Por forma'],rows,{extra:'<div class="field"><label>Últimos registros</label><input type="number" value="30" min="1"></div>'});return;}
