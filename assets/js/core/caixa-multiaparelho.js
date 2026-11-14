@@ -175,16 +175,28 @@ async function pushSales(){
     const conflictIds = new Set(conflicts.map(c=>c.id));
     d.upserts.filter(u=>!conflictIds.has(u.id)).forEach(markSaleServer); d.deletes.forEach(id=>salesBase.delete(id));
     if(!conflicts.length) return;
+    let recusadas = null;
     conflicts.forEach(c=>{
       const idx = state.sales.findIndex(x=>x && x.id===c.id);
       if(c.data) salesBase.set(c.id, JSON.stringify(c.data)); else salesBase.delete(c.id);
       // Auditoria 03/11 (A4): venda fechada só muda por administrador; o banco recusa e devolve a venda
       // como está. Vale a do servidor (sem juntar), senão o aparelho tentaria gravar de novo para sempre.
       if(c.reason==='fechada'){ if(!c.data){ if(idx>-1) state.sales.splice(idx, 1); return; } if(idx>-1) state.sales[idx] = c.data; else state.sales.push(c.data); return; }
+      // Item 4 (auditoria 11/11): o banco recusou a venda (conferência com o cadastro) ou a mudança (sem permissão
+      // para cancelar). Não junta nem reenvia: vale a versão do servidor. Venda nova que o servidor não conhece
+      // (c.data nulo) fica neste aparelho, mas a base passa a ser ela mesma para a fila não reenviar em loop.
+      // O aviso sai uma vez por rodada (abaixo), nunca em silêncio.
+      if(c.reason==='sem_permissao_cancelar' || c.reason==='venda_divergente'){
+        if(c.reason==='venda_divergente' || !recusadas) recusadas = c.reason;
+        if(c.data){ if(idx>-1) state.sales[idx] = c.data; else state.sales.push(c.data); }
+        else if(idx>-1) salesBase.set(c.id, JSON.stringify(state.sales[idx]));
+        return;
+      }
       if(idx<0) return;
       const merged = mergeSaleThreeWay(bases[c.id], state.sales[idx], c.data);
       if(merged===null) state.sales.splice(idx, 1); else state.sales[idx] = merged;
     });
+    if(recusadas) toast(textoRecusaVenda({ message: recusadas==='venda_divergente' ? 'venda_divergente' : 'sem permissao para cancelar' }), 'erro');
     if(!document.querySelector('#modalRoot .modal')) renderAll();
   }
 }

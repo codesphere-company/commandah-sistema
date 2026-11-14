@@ -442,6 +442,9 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
       // OP-12: no balcão a comida já foi para a cozinha antes deste ponto. Se o
       // operador desistir aqui, sai pedido sem venda: o aviso fica fixo na tela.
       if(mode==='balcao' && (currentSaleDraft.items||[]).some(i=>i.sent)) showSalePendingWarning();
+      // Item 4 (auditoria 11/11): o banco recusou por conferência ou permissão. Mostra o motivo e mantém a janela aberta.
+      const recusa = textoRecusaVenda(error, { items: currentSaleDraft.items });
+      if(recusa){ toast(recusa,'erro'); return false; }
       toast('Não foi possível registrar a venda agora. Tente de novo.'); return false;
     }
     const idx = state.sales.findIndex(s=>s.id===sale.id);

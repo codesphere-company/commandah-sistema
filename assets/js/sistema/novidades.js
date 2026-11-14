@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-14-conferencia-no-servidor', data:'14/11/2026', itens:[
+    { titulo:'Venda conferida com o cadastro',
+      texto:'O sistema agora confere cada venda fechada com o cadastro (preço, desconto, crédito e pagamento). Venda que não bate fica listada no relatório Vendas com divergência. Quem tem o ajuste ligado em Configurações passa a ter a venda recusada na hora. Cancelar item ou comanda e receber fiado também passam a exigir a permissão certa.',
+      onde:'Relatórios › Vendas com divergência', perms:['relatorios-gerencia'] },
+  ] },
   { id:'2026-11-13-caixa-por-operador', data:'13/11/2026', itens:[
     { titulo:'Caixa por operador',
       texto:'Caixa por operador: cada computador tem o seu caixa, com contagem na abertura e no fechamento. Diferença trava até um administrador ou o dono liberar.',
