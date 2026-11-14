@@ -71,7 +71,7 @@ Função `public.tem_permissao(p_token text) returns boolean`, espelho de `userP
 Onde passa a valer:
 
 - **`cancelar-comanda`.** Em `sales_apply` e `close_sale`, uma gravação que marca como `canceled` um item que estava ativo na versão gravada, ou que cancela a comanda inteira, exige o token. Quem não tem recebe `sem permissao para cancelar`.
-- **`receber-fiado`.** Lançamento `type = 'payment'` em `close_sale` (pendência cobrada junto) e na gravação direta de `member_debt_entries` exige o token.
+- **`receber-fiado`.** Lançamento `type = 'payment'` sem `sale_id` (recebimento na Conta Corrente) exige o token ou `contas`. Pendência paga no fechamento e crédito de troco têm `sale_id` e continuam liberados, porque a tela de pagamento também não pede essa permissão.
 
 Essa parte barra desde o primeiro dia: a tela já esconde esses botões de quem não tem a permissão, então quem é recusado está fora da tela.
 
