@@ -41,26 +41,31 @@ begin
 end;
 $function$;
 
--- Mesma troca sobre o texto do jsonb. Os nomes (e o texto novo) entram na forma
--- escapada para JSON (aspas e barra), para o resultado continuar sendo JSON válido.
+-- Mesma troca dentro de um jsonb: percorre objetos e listas e troca só nos VALORES de
+-- texto, já decodificados. As chaves nunca mudam (uma chave com nome de pessoa, como
+-- {"Ana":1}, fica; e duas chaves não podem virar uma só); número, booleano e null
+-- ficam como estão. Revisão da Task 3: a versão anterior trocava sobre o ::text do jsonb,
+-- o que renomeava chaves e não pegava nome logo depois de um escape ("\nAna").
 create or replace function public.lgpd_trocar_jsonb(p_valor jsonb, p_nomes text[], p_novo text)
 returns jsonb
 language plpgsql
 immutable
 set search_path to ''
 as $function$
-declare
-  v_nomes text[];
-  v_novo text;
 begin
   if p_valor is null then return null; end if;
-  -- Mesma regra de tamanho do lgpd_trocar_texto, antes de escapar (o escape de " já tem 2 caracteres).
-  select coalesce(array_agg(substr(to_json(btrim(n))::text, 2, length(to_json(btrim(n))::text) - 2)), '{}'::text[])
-    into v_nomes
-    from unnest(coalesce(p_nomes, '{}'::text[])) as n
-    where length(btrim(n)) >= 2;
-  v_novo := substr(to_json(coalesce(p_novo, ''))::text, 2, length(to_json(coalesce(p_novo, ''))::text) - 2);
-  return public.lgpd_trocar_texto(p_valor::text, v_nomes, v_novo)::jsonb;
+  case jsonb_typeof(p_valor)
+    when 'string' then
+      return to_jsonb(public.lgpd_trocar_texto(p_valor #>> '{}', p_nomes, p_novo));
+    when 'array' then
+      return (select coalesce(jsonb_agg(public.lgpd_trocar_jsonb(e.v, p_nomes, p_novo) order by e.o), '[]'::jsonb)
+                from jsonb_array_elements(p_valor) with ordinality as e(v, o));
+    when 'object' then
+      return (select coalesce(jsonb_object_agg(e.key, public.lgpd_trocar_jsonb(e.value, p_nomes, p_novo)), '{}'::jsonb)
+                from jsonb_each(p_valor) as e);
+    else
+      return p_valor;
+  end case;
 end;
 $function$;
 
@@ -320,6 +325,7 @@ declare
   v_dep_ids text[];
   v_vendas text[];
   v_repetido boolean;
+  v_pads text[];
   v_acao text;
 begin
   if p_origem is null or p_origem not in ('manual', 'automatico') then
@@ -376,7 +382,18 @@ begin
         cross join lateral jsonb_array_elements(case when jsonb_typeof(a.value) = 'array' then a.value else '[]'::jsonb end) as u(v)
        where a.tenant_id = p_tenant and a.key = 'cantina2:users' and jsonb_typeof(u.v) = 'object'
     ) o
-    where lower(btrim(o.nome)) = any(v_chaves));
+    -- Nome de 1 letra não conta como repetido: a troca já o ignora (revisão da Task 3).
+    where lower(btrim(o.nome)) = any(array(select c from unnest(v_chaves) as c where length(c) >= 2)));
+
+  -- Pré-filtro barato do passo 5 (revisão da Task 3): só chega à troca com regex a linha
+  -- cujo texto contém algum nome (ilike, nomes com 2+ letras). Vai o nome cru e o escapado
+  -- para JSON (aspas e barra no ::text do jsonb), com %, _ e \ escapados para o ilike.
+  -- Não muda o resultado: linha sem o nome não mudaria na troca.
+  select coalesce(array_agg(distinct '%' || replace(replace(replace(f.n, '\', '\\'), '%', '\%'), '_', '\_') || '%'), '{}'::text[])
+    into v_pads
+    from (select n from unnest(v_nomes) as n where length(n) >= 2
+          union all
+          select substr(to_json(n)::text, 2, length(to_json(n)::text) - 2) from unnest(v_nomes) as n where length(n) >= 2) f;
 
   -- 4. Por id (sempre). Não toca em kind, debt nem points.
   update public.members set
@@ -428,20 +445,25 @@ begin
       action = public.lgpd_trocar_texto(action, v_nomes, v_novo),
       meta = public.lgpd_trocar_jsonb(meta, v_nomes, v_novo)
      where tenant_id = p_tenant
+       and (action ilike any(v_pads) or meta::text ilike any(v_pads))
        and (public.lgpd_trocar_texto(action, v_nomes, v_novo) is distinct from action
             or public.lgpd_trocar_jsonb(meta, v_nomes, v_novo) is distinct from meta);
 
     update public.print_jobs set content = public.lgpd_trocar_texto(content, v_nomes, v_novo)
-     where tenant_id = p_tenant and public.lgpd_trocar_texto(content, v_nomes, v_novo) is distinct from content;
+     where tenant_id = p_tenant and content ilike any(v_pads)
+       and public.lgpd_trocar_texto(content, v_nomes, v_novo) is distinct from content;
 
     update public.sale_close_receipts set result = public.lgpd_trocar_jsonb(result, v_nomes, v_novo)
-     where tenant_id = p_tenant and public.lgpd_trocar_jsonb(result, v_nomes, v_novo) is distinct from result;
+     where tenant_id = p_tenant and result::text ilike any(v_pads)
+       and public.lgpd_trocar_jsonb(result, v_nomes, v_novo) is distinct from result;
 
     update public.cash_turnos set turno = public.lgpd_trocar_jsonb(turno, v_nomes, v_novo)
-     where tenant_id = p_tenant and public.lgpd_trocar_jsonb(turno, v_nomes, v_novo) is distinct from turno;
+     where tenant_id = p_tenant and turno::text ilike any(v_pads)
+       and public.lgpd_trocar_jsonb(turno, v_nomes, v_novo) is distinct from turno;
 
     update public.client_errors set message = public.lgpd_trocar_texto(message, v_nomes, v_novo)
-     where tenant_id = p_tenant and public.lgpd_trocar_texto(message, v_nomes, v_novo) is distinct from message;
+     where tenant_id = p_tenant and message ilike any(v_pads)
+       and public.lgpd_trocar_texto(message, v_nomes, v_novo) is distinct from message;
 
     -- Blobs com nome de pessoa: os da lista do item 6 e, achados na varredura das colunas
     -- text/jsonb, o caixa (lançamentos "Recebimento de fiado — <nome>"), contas e o blob
@@ -452,6 +474,7 @@ begin
             or key in ('cantina2:logs', 'cantina2:requests', 'cantina2:scheduled', 'cantina2:cashHistory',
                        'cantina2:sales', 'cantina2:cashMovements', 'cantina2:cashSession', 'cantina2:contas',
                        'cantina2:orders'))
+       and value::text ilike any(v_pads)
        and public.lgpd_trocar_jsonb(value, v_nomes, v_novo) is distinct from value;
 
     -- Achados na varredura (item 6): vendas de outros sócios e avulsas (observações,
@@ -463,6 +486,7 @@ begin
      where tenant_id = p_tenant
        and data->>'memberId' is distinct from p_member_id
        and not (status = 'open' and deleted_at is null)
+       and data::text ilike any(v_pads)
        and public.lgpd_venda_livre(data, v_nomes, v_novo) is distinct from data;
 
     update public.orders set
@@ -471,6 +495,7 @@ begin
       kitchen_note = public.lgpd_trocar_texto(kitchen_note, v_nomes, v_novo),
       items = public.lgpd_trocar_jsonb(items, v_nomes, v_novo)
      where tenant_id = p_tenant
+       and (who ilike any(v_pads) or local ilike any(v_pads) or kitchen_note ilike any(v_pads) or items::text ilike any(v_pads))
        and (public.lgpd_trocar_texto(who, v_nomes, v_novo) is distinct from who
             or public.lgpd_trocar_texto(local, v_nomes, v_novo) is distinct from local
             or public.lgpd_trocar_texto(kitchen_note, v_nomes, v_novo) is distinct from kitchen_note
@@ -480,6 +505,7 @@ begin
       reason = public.lgpd_trocar_texto(reason, v_nomes, v_novo),
       info = public.lgpd_trocar_texto(info, v_nomes, v_novo)
      where tenant_id = p_tenant and member_id <> p_member_id
+       and (reason ilike any(v_pads) or info ilike any(v_pads))
        and (public.lgpd_trocar_texto(reason, v_nomes, v_novo) is distinct from reason
             or public.lgpd_trocar_texto(info, v_nomes, v_novo) is distinct from info);
 
@@ -488,11 +514,13 @@ begin
       points_history = public.lgpd_trocar_jsonb(points_history, v_nomes, v_novo),
       updated_at = now()
      where tenant_id = p_tenant and id <> p_member_id
+       and (notes ilike any(v_pads) or points_history::text ilike any(v_pads))
        and (public.lgpd_trocar_texto(notes, v_nomes, v_novo) is distinct from notes
             or public.lgpd_trocar_jsonb(points_history, v_nomes, v_novo) is distinct from points_history);
 
     update public.payment_checks set note = public.lgpd_trocar_texto(note, v_nomes, v_novo)
-     where tenant_id = p_tenant and public.lgpd_trocar_texto(note, v_nomes, v_novo) is distinct from note;
+     where tenant_id = p_tenant and note ilike any(v_pads)
+       and public.lgpd_trocar_texto(note, v_nomes, v_novo) is distinct from note;
   end if;
 
   -- 6. Registro da anonimização.
