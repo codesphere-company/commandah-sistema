@@ -157,16 +157,24 @@ namespace Commandah.Agente
             }
         }
 
+        // Item 5 (auditoria 11/11): ecoa só origem permitida (nunca "*"); sem Origin não manda
+        // Allow-Origin. Valida aqui de novo para nunca ecoar origem não validada.
+        public static string CabecalhosCors(string origin)
+        {
+            string r = "";
+            if (OrigemPermitida(origin)) r += "Access-Control-Allow-Origin: " + origin + "\r\nVary: Origin\r\n";
+            return r + "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
+                       "Access-Control-Allow-Headers: Content-Type\r\n" +
+                       "Access-Control-Allow-Private-Network: true\r\n";
+        }
+
         static void Send(NetworkStream s, int status, string json, string origin)
         {
             var body = Encoding.UTF8.GetBytes(json);
             string reason = status == 200 ? "OK" : status == 204 ? "No Content" : status == 400 ? "Bad Request" : status == 403 ? "Forbidden" : status == 404 ? "Not Found" : "Error";
             var head = "HTTP/1.1 " + status + " " + reason + "\r\n" +
                        "Content-Type: application/json; charset=utf-8\r\n" +
-                       "Access-Control-Allow-Origin: *\r\n" +
-                       "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
-                       "Access-Control-Allow-Headers: Content-Type\r\n" +
-                       "Access-Control-Allow-Private-Network: true\r\n" +
+                       CabecalhosCors(origin) +
                        "Content-Length: " + body.Length + "\r\n" +
                        "Connection: close\r\n\r\n";
             var h = Encoding.ASCII.GetBytes(head);

@@ -34,6 +34,17 @@ namespace Commandah.Agente.Testes
                                        "http://localhost.evil.com", "http://localhost:abc", "https://codesphere-company.github.io:444" })
                 Testes.Ok(!LocalServer.OrigemPermitida(no), "origem recusada: " + no);
 
+            // cabeçalhos CORS: origem ecoada, sem "*"
+            string c1 = LocalServer.CabecalhosCors("https://codesphere-company.github.io");
+            Testes.Ok(c1.Contains("Access-Control-Allow-Origin: https://codesphere-company.github.io\r\n"), "cors: ecoa origem");
+            Testes.Ok(c1.Contains("Vary: Origin"), "cors: Vary");
+            Testes.Ok(c1.Contains("Access-Control-Allow-Private-Network: true"), "cors: private network");
+            Testes.Ok(!c1.Contains("*"), "cors: sem asterisco");
+            string c2 = LocalServer.CabecalhosCors(null);
+            Testes.Ok(!c2.Contains("Access-Control-Allow-Origin"), "cors: sem origem nao manda Allow-Origin");
+            Testes.Ok(c2.Contains("Access-Control-Allow-Methods"), "cors: sem origem mantem Methods");
+            Testes.Ok(!LocalServer.CabecalhosCors("https://evil.com").Contains("Access-Control-Allow-Origin"), "cors: origem recusada nao ecoa");
+
             Console.WriteLine(Testes.Passou + " ok, " + Testes.Falhou + " falha(s)");
             return Testes.Falhou == 0 ? 0 : 1;
         }
