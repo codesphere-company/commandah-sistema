@@ -156,7 +156,7 @@ function gcRenderComanda(){
       ${s.locked?'<div class="sale-pending-warning" role="alert">Comanda bloqueada no caixa: não aceita pedido nem fechamento pelo app.</div>':''}
       <button class="btn btn-primary btn-block" onclick="gcOpenFlow(${jsArg(s.id)})" ${s.locked?'disabled':''}>+ Novo pedido</button>
       <div class="gc-section-label">Já lançado (${count} ${count===1?'item':'itens'})</div>
-      ${items.length ? items.map(i=>`<div class="gc-review-item gc-launched${i.canceled?' canceled':''}"><span><b>${Number(i.qty)||0}x</b> ${h(i.name)}<small>${h(i.requesterName||'')}${i.requesterName&&i.addedAt?' · ':''}${hora(i.addedAt)}${i.canceled?' · cancelado':''}</small></span><span class="mono">${fmt((Number(i.price)||0)*(Number(i.qty)||0))}</span></div>`).join('') : '<p class="gc-empty">Nada lançado ainda.</p>'}
+      ${items.length ? items.map(i=>`<div class="gc-review-item gc-launched${i.canceled?' canceled':''}"><span><b>${Number(i.qty)||0}x</b> ${h(itemNomeTela(i))}<small>${h(i.requesterName||'')}${i.requesterName&&i.addedAt?' · ':''}${hora(i.addedAt)}${i.canceled?' · cancelado':''}</small></span><span class="mono">${fmt((Number(i.price)||0)*(Number(i.qty)||0))}</span></div>`).join('') : '<p class="gc-empty">Nada lançado ainda.</p>'}
       ${gcSummaryHtml(gcComandaTotals(s))}
     </div>
     <div class="gc-footer"><button class="gc-btn-back" onclick="gcRenderHome()">‹ Voltar</button><button class="gc-btn-review" onclick="gcGoCloseComanda()" ${s.locked?'disabled':''}>Fechar conta ›</button></div>`;
@@ -466,7 +466,7 @@ async function gcDiscardOrder(){
 function gcRenderReviewList(){
   const el = document.getElementById('gcReviewList'); if(!el) return;
   el.innerHTML = gcCart.length ? gcCart.map((i,idx)=>`
-    <div class="gc-review-item"><span>${h(i.name)}${cartLineOptionsHtml(i,'display:block;color:var(--c-text-3)')}</span>
+    <div class="gc-review-item"><span>${h(itemNomeTela(i))}${cartLineOptionsHtml(i,'display:block;color:var(--c-text-3)')}</span>
     <div class="gc-qty"><button onclick="gcCartQty(${idx},-1)">−</button><span class="mono">${i.qty}</span><button onclick="gcCartQty(${idx},1)">+</button>
     <span class="mono" style="min-width:60px;text-align:right">${fmt(i.price*i.qty)}</span></div>
     ${i.copos!=null?`<div class="gc-qty gc-copos-row"><span class="gc-copos-label">Quantidade de copos:</span><button onclick="gcCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="gcCartChangeCopos(${idx},1)">+</button></div>`:''}</div>`).join('') + levarJuntoBox(gcCart,'gc') : '<p class="gc-empty">Nenhum item.</p>';

@@ -76,19 +76,31 @@ function fichaConfig(raw){
     semGsExclamacao: !!c.semGsExclamacao
   };
 }
-/* Grupo de opções com "Sai junto do nome na ficha" (naFichaJuntoDoNome, pedido do dono em 15/11):
-   a escolha entra no nome grande ("1x AGUA COM GAS - 1 copo") e sai da lista de adicionais.
-   Quantidade 1 sai só o nome da escolha; mais de 1, "2x COM GAS". A marca é lida do cadastro atual
-   do grupo (state.complementos). Devolve null quando o item não tem grupo marcado. */
+/* Escolha junto do nome (pedido do dono em 15/11): a escolha entra no nome grande
+   ("1x AGUA COM GAS - 1 copo") e sai da lista de adicionais. Quem decide é opcoesJuntoDoNome
+   (core/opcoes.js: marca "Na ficha" do grupo; no automático, grupo de escolha única), com o cadastro
+   atual (state.complementos e state.products). Devolve null quando nada vai no nome. */
 function fichaJuntoDoNome(it){
-  const c = it && it.customization;
-  if(!c || c.v!==2 || !Array.isArray(c.groups) || !c.groups.length) return null;
-  const marcado = g=>{ const r = (state.complementos||[]).find(x=>x && x.id===g.groupId && x.recordKind==='optionGroup'); return !!(r && r.naFichaJuntoDoNome); };
-  const juntos = c.groups.filter(g=>g && (g.choices||[]).length && marcado(g));
-  if(!juntos.length) return null;
-  const sufixo = juntos.map(g=>g.choices.map(ch=>(Number(ch.qty)>1 ? ch.qty+'x ' : '')+ch.name).join(', ')).join(' ');
-  const extras = customizationLines({ customization: Object.assign({}, c, { groups: c.groups.filter(g=>!juntos.includes(g)) }) });
-  return { sufixo, extras };
+  const j = opcoesJuntoDoNome(it, state.complementos, state.products);
+  return j ? { sufixo: j.nomes.join(' '), extras: j.extras } : null;
+}
+/* Na tela (histórico da comanda e garçom), a mesma escolha vai no nome: "AGUA · COM GAS". */
+function itemNomeTela(it){
+  const j = it && it.customization ? opcoesJuntoDoNome(it, state.complementos, state.products) : null;
+  return String(it && it.name || '') + (j ? ' · ' + j.nomes.join(' · ') : '');
+}
+// Adicionais que não foram para o nome (linhas), como o customizationLines.
+function itemExtrasTela(it){
+  const j = it && it.customization ? opcoesJuntoDoNome(it, state.complementos, state.products) : null;
+  return j ? j.extras : customizationLines(it);
+}
+// Tudo o que vai embaixo do nome na tela: adicionais e a observação. Item sem opções no formato novo
+// mostra o texto antigo (item.notes) como estava.
+function itemDetalhesTela(it){
+  if(!it) return [];
+  const c = it.customization;
+  if(c && c.v===2){ const n = String(c.notes||'').trim(); return itemExtrasTela(it).concat(n ? ['Obs.: '+n] : []); }
+  return it.notes ? [String(it.notes)] : [];
 }
 function buildTicketLines(who, cota, local, estacao, items, orderNumber, payLines, footer, cfg){
   const c = fichaConfig(cfg), f = ticketFields(who, cota, local, items), isCaixa = estacao==='caixa';

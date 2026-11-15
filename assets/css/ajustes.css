@@ -86,14 +86,11 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .cash-order-head{grid-template-columns:minmax(0,1fr) auto!important}
 .cmd-row td{padding:9px 10px;vertical-align:top;height:auto}
 .cmd-row small{display:block;margin-top:2px;font-size:12px;color:var(--c-text-3);line-height:1.35}
-.cmd-row small.cmd-note{color:var(--c-warning);font-weight:600}
 .cmd-row small.cmd-cancel{color:var(--c-danger)}
 .cmd-row b{font-weight:600}
-.cmd-when{white-space:nowrap;width:1%}
 .cmd-total{text-align:right;white-space:nowrap;width:1%}
 .cmd-entrega{width:170px}
 .comanda-levou{margin-top:4px;width:100%;height:34px;font-size:13px;padding:0 6px}
-.cmd-status{width:1%;white-space:nowrap}
 .cmd-actions{display:flex;gap:2px;margin-top:4px}
 /* S2 da auditoria de design (22/10): as ações da linha (Reimprimir, Repetir, Cancelar) eram botões
    com contorno, três por linha; agora são "fantasma" — sem borda, texto e ícone em --c-text-2, fundo
@@ -109,10 +106,51 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .finance-grid td select.comanda-levou{border-color:var(--c-border-control)}
 .finance-grid td select.comanda-levou:hover,.finance-grid td select.comanda-levou:focus{border-color:var(--c-border-input)}
 .cmd-row.is-canceled{opacity:.6}
-.cmd-group{cursor:pointer;background:var(--c-surface-2)}
-.cmd-caret{display:inline-block;transition:transform .15s}
-.cmd-caret.open{transform:rotate(90deg)}
-@media (prefers-reduced-motion:reduce){.cmd-caret{transition:none}}
+/* Histórico da comanda compacto, parecido com o do Saipos (pedido 3 do dono, 15/11): cabeçalho por
+   lançamento numa linha, item numa linha de ~32 px com fonte de 13 px, adicionais em cinza pequeno na
+   mesma célula, "Quem levou" baixinho e ações só com ícone. Vem depois das regras acima e as substitui. */
+.cmd-hist th{height:32px;padding:4px 8px}
+.cmd-hist .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.cmd-hist .cmd-row td{height:auto;padding:3px 8px;vertical-align:middle;font-size:13px;line-height:1.3}
+.cmd-hist .cmd-row small{margin-top:1px;line-height:1.3}
+.cmd-hist .cmd-qtd{width:1%;white-space:nowrap;text-align:center}
+.cmd-hist .cmd-qtd{color:var(--c-text)}
+.cmd-hist .cmd-qtd .qty-ctrl{display:inline-flex;align-items:center;gap:6px}
+.cmd-hist .cmd-qtd .qty-ctrl button{min-width:26px;min-height:26px}
+.cmd-item-nome{font-weight:600;color:var(--c-text)}
+.cmd-hist .cmd-row small.cmd-item-det{display:inline;margin:0;font-size:12px;color:var(--c-text-3)}
+.cmd-hist .cmd-row.is-canceled{opacity:.7}
+.cmd-hist .cmd-row.is-canceled .cmd-item-nome,.cmd-hist .cmd-row.is-canceled .cmd-item-det{text-decoration:line-through}
+.cmd-hist .cmd-tag{font-size:11px;padding:0 7px;line-height:18px;vertical-align:1px}
+.cmd-hist .cmd-entrega{width:1%;white-space:nowrap}
+.cmd-entrega-in{display:flex;align-items:center;gap:6px}
+.cmd-hist .cmd-entrega-in small{margin:0;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+.cmd-hist td select.comanda-levou{margin:0;width:128px;min-height:26px;height:26px;font-size:12px;padding:0 4px}
+.cmd-hist .cmd-acoes{width:1%;white-space:nowrap}
+.cmd-hist .cmd-actions{gap:0;margin:0;justify-content:flex-end}
+.cmd-hist .btn.cmd-act{width:28px;min-height:28px;height:28px;padding:0;justify-content:center}
+@media (pointer:coarse){.cmd-hist .btn.cmd-act{width:40px;min-height:40px;height:40px}}
+.cmd-hist .cmd-batch td{height:auto;padding:6px 8px 2px;background:var(--c-surface-2);font-size:12px;color:var(--c-text-3)}
+.cmd-batch-in{display:flex;align-items:center;gap:8px;min-height:24px}
+.cmd-batch-toggle{flex:1;min-width:0;background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmd-batch-toggle b{font-weight:600;color:var(--c-text-2);text-transform:uppercase}
+.cmd-batch-toggle::after{content:"";display:inline-block;width:6px;height:6px;margin:0 0 2px 8px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg)}
+.cmd-batch.is-closed .cmd-batch-toggle::after{transform:rotate(-45deg)}
+.cmd-batch-toggle:focus-visible{outline:2px solid var(--c-primary);outline-offset:2px;border-radius:4px}
+.cmd-hist .cmd-batch .btn.cmd-act{width:26px;min-height:26px;height:26px}
+/* Tela estreita: a Entrega desce para baixo do item, na mesma linha do lançamento. */
+@media(max-width:600px){
+  .cmd-hist thead{display:none}
+  .cmd-hist,.cmd-hist tbody{display:block;width:100%}
+  .cmd-hist tr.cmd-batch,.cmd-hist tr.cmd-batch td{display:block}
+  .cmd-hist tr.cmd-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;border-bottom:1px solid var(--c-border)}
+  .cmd-hist tr.cmd-item td{border-bottom:0;width:auto}
+  .cmd-hist tr.cmd-item td.cmd-qtd{grid-row:1;grid-column:1}
+  .cmd-hist tr.cmd-item td.cmd-prod{grid-row:1;grid-column:2}
+  .cmd-hist tr.cmd-item td.cmd-total{grid-row:1;grid-column:3}
+  .cmd-hist tr.cmd-item td.cmd-acoes{grid-row:1;grid-column:4}
+  .cmd-hist tr.cmd-item td.cmd-entrega{grid-row:2;grid-column:2/-1;padding-top:0}
+}
 .pdv-options-panel.floating{border-radius:var(--r-lg);background:var(--c-surface);box-shadow:var(--sh-2)}
 .pdv-options-panel.floating .pdv-options-inner{border:0;padding:6px}
 .pdv-options-panel.floating .pdv-options-inner button{text-align:left;padding:11px 10px;border-radius:var(--r-md);display:flex;align-items:flex-start;gap:8px;flex-wrap:nowrap}
