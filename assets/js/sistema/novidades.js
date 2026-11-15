@@ -18,6 +18,9 @@ const NOVIDADES = [
     { titulo:'Pergunta antes de imprimir o cupom fiscal',
       texto:'A NFC-e continua sendo emitida sozinha depois do pagamento, mas o sistema pergunta "Imprimir o cupom fiscal?" antes de imprimir. Enter imprime. Para imprimir direto como antes, desligue "Perguntar antes de imprimir o cupom fiscal" em Configurações › NFC-e.',
       onde:'Pagamento', perms:['caixa'] },
+    { titulo:'Imprimir a comanda completa',
+      texto:'O botão Imprimir da comanda (e da Conta Resumida) agora imprime de verdade: o administrador escolhe a impressora ou "Imprimir aqui (navegador)", e a última escolha fica marcada. Os demais imprimem direto na impressora do caixa.',
+      onde:'Comandas › comanda aberta', perms:['comandas'] },
   ] },
   { id:'2026-11-15-lgpd', data:'15/11/2026', itens:[
     { titulo:'Privacidade dos sócios',

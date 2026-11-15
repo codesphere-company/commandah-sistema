@@ -179,7 +179,7 @@ function renderComandaDetail(id, keepRequester){
       </main>
     </div>
     <div class="record-actions">
-      <button class="op-btn" onclick="window.print()"><span class="icn">${ICN.printer}</span> Imprimir</button>
+      <button class="op-btn" id="btnPrintComanda" onclick="imprimirComandaCompleta(${jsArg(s.id)})"><span class="icn">${ICN.printer}</span> Imprimir</button>
       <button class="op-btn primary" id="btnCloseComanda" ${locked?'disabled':''}>Pagamento</button>
     </div>
   </div></div>`;
@@ -634,16 +634,70 @@ async function printCaixaReceipt(who, cota, items, orderNumber, imp, payLines){
       if(imp.agentId) job.agent_id = imp.agentId;
       let { error } = await supabaseClient.from('print_jobs').insert(job);
       if(error && job.agent_id){ delete job.agent_id; ({ error } = await supabaseClient.from('print_jobs').insert(job)); }
-      if(!error) return;
+      if(!error) return true;
     }catch(e){ /* segue pro modo manual abaixo */ }
   }
   try{
     const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 3000);
     const res = await fetch(PRINT_AGENT_URL+'/print', { method:'POST', signal:ctrl.signal, headers:{'Content-Type':'application/json'}, body: JSON.stringify({ printer: printerOsName, text, ip: imp.ip||'' }) });
     clearTimeout(t);
-    if(res.ok) return;
+    if(res.ok) return true;
   }catch(e){}
   toast('Não foi possível enviar o comprovante do caixa pra fila — verifique a impressora deste usuário.');
+  return false;
+}
+/* Imprimir a comanda completa (pedido do dono, teste no clube de 15/11). Antes o botão Imprimir da
+   comanda e o da Conta Resumida chamavam window.print(): a página inteira do sistema ia para a
+   impressão do navegador (impressora padrão do Windows), e não para as térmicas do agente, que não
+   são impressoras do Windows ou ficam em outro computador. Por isso "não ia a lugar nenhum".
+   Agora sai no formato do comprovante do caixa (itens, quantidades, valores e total), na impressora
+   escolhida. Administrador sempre escolhe (a última escolha fica marcada neste aparelho); os demais
+   usam a impressora do caixa e só escolhem quando ela não existe. */
+const IMPRIMIR_COMANDA_KEY = 'cantina2:imprimirComandaEm', IMPRIMIR_AQUI = '__navegador';
+function impressorasParaEscolha(){
+  const vistos = new Set();
+  return (state.impressoras||[]).map(p=>({ key: impKey(p) || 'nome:'+p.nome, imp: p })).filter(x=>{ if(vistos.has(x.key)) return false; vistos.add(x.key); return true; });
+}
+function dadosComandaParaImprimir(saleId){
+  const s = state.sales.find(x=>x.id===saleId); if(!s) return null;
+  const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
+  const fonte = currentSaleDraft && currentSaleDraft.id===saleId ? currentSaleDraft.items : s.items;
+  const items = (fonte||[]).filter(i=>!i.canceled);
+  const total = saleTotal(items), parcial = comandaPartialPaid(s);
+  const payLines = ['Conta em aberto'].concat(parcial>TOLERANCIA_CENTAVO ? ['Ja pago (parcial): '+fmt(parcial), 'Falta: '+fmt(Math.max(0, total-parcial))] : []);
+  return { who: member ? member.name : (s.customerName||'Cliente avulso'), cota: member ? member.code : '', items, orderNumber: s.orderNumber, payLines };
+}
+function imprimirComandaCompleta(saleId){
+  const admin = !!currentUser && (currentUser.role==='admin' || (typeof sessionIsOwner!=='undefined' && sessionIsOwner));
+  if(!admin){ const imp = receiptPrinterFor(currentUser); if(imp) return imprimirComandaEm(saleId, imp); }
+  let ultima = ''; try{ ultima = localStorage.getItem(IMPRIMIR_COMANDA_KEY)||''; }catch(e){}
+  const lista = impressorasParaEscolha(), caixa = receiptPrinterFor(currentUser);
+  const chaves = lista.map(x=>x.key).concat(IMPRIMIR_AQUI);
+  const marcada = chaves.includes(ultima) ? ultima : (caixa && (lista.find(x=>x.imp===caixa)||{}).key) || chaves[0];
+  const op = (key, texto)=>`<label class="comp-switch" style="display:flex;margin:0 0 10px"><input type="radio" name="imprimirEm" value="${h(key)}" ${key===marcada?'checked':''}> <b style="font-weight:400">${h(texto)}</b></label>`;
+  openModal('Onde imprimir a comanda?', `
+    ${lista.map(x=>op(x.key, x.imp.nome||x.imp.osName||'Impressora')).join('')}${op(IMPRIMIR_AQUI, 'Imprimir aqui (navegador)')}
+    <div class="row" style="margin-top:12px"><button class="btn" onclick="closeModal()">Voltar</button><button class="btn btn-primary" id="imprimirEmBtn">Imprimir</button></div>`);
+  document.getElementById('imprimirEmBtn').onclick = ()=>{
+    const el = document.querySelector('input[name="imprimirEm"]:checked'); if(!el){ toast('Escolha onde imprimir.'); return; }
+    const key = el.value;
+    if(admin){ try{ localStorage.setItem(IMPRIMIR_COMANDA_KEY, key); }catch(e){} }
+    closeModal();
+    if(key===IMPRIMIR_AQUI) return imprimirComandaAqui(saleId);
+    const x = lista.find(y=>y.key===key); if(x) imprimirComandaEm(saleId, x.imp);
+  };
+}
+async function imprimirComandaEm(saleId, imp){
+  const d = dadosComandaParaImprimir(saleId); if(!d) return;
+  if(await printCaixaReceipt(d.who, d.cota, d.items, d.orderNumber, imp, d.payLines)) toast('Comanda enviada para '+(imp.nome||imp.osName)+'.');
+}
+function imprimirComandaAqui(saleId){
+  const d = dadosComandaParaImprimir(saleId); if(!d) return;
+  const win = window.open('', '_blank', 'width=380,height=600');
+  if(!win){ toast('O navegador bloqueou a janela de impressão. Libere as janelas deste site e toque de novo.', 'error'); return; }
+  win.document.write(`<html><head><title>Comanda</title></head><body style="margin:12px">${ticketLinesToHtml(buildTicketLines(d.who, d.cota, '', 'caixa', d.items, d.orderNumber, d.payLines, ''), 48)}</body></html>`);
+  win.document.close(); win.focus();
+  setTimeout(()=>{ win.print(); }, 300);
 }
 
 /* ============ COMANDA: HISTÓRICO, PEDIR DE NOVO, REABRIR, CANCELAR E ADIÇÃO RÁPIDA (vieram de fiscal/nfce-cupom.js, codigo-limpo passo E) ============ */
