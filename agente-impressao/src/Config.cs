@@ -13,6 +13,9 @@ namespace Commandah.Agente
     public class Config
     {
         public const string Version = "2.3.0";
+        // item 5 (auditoria 11/11): onde fica o aviso assinado e a chave pública que o valida
+        public const string UpdateBase = "https://codesphere-company.github.io/commandah-sistema/";
+        public const string UpdatePublicKey = ""; // a chave real entra na publicação (Task 5)
         public const string DefaultApiUrl = "https://ezfoymdesmarpunmixbs.supabase.co";
         public const string DefaultApiKey = "sb_publishable_m56iV0j3aIHlj_jth44jyw_CIw7CmyG";
         const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
