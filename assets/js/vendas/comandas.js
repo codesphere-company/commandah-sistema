@@ -211,6 +211,27 @@ function saveComandaLocal(saleId,value){const s=state.sales.find(x=>x.id===saleI
 
 let npCart = [];
 let npSaleId = null;
+/* Local de entrega obrigatório (pedido do dono, teste prático de 15/11): nenhum lançamento sai sem
+   local escolhido. "Retirar no balcão" passa a ser uma opção explícita e a opção vazia vira só o
+   aviso "Escolha o local de entrega" (desabilitada). Ajuste state.settings.localEntregaObrigatorio
+   (ausente = ligado); desligado, volta a opção vazia de antes ("No balcão / retirar aqui"). */
+const LOCAL_RETIRAR_BALCAO = 'Retirar no balcão';
+function localEntregaObrigatorio(){ return !(state.settings && state.settings.localEntregaObrigatorio===false); }
+function localEntregaOptionsHtml(selecionado){
+  const sel = String(selecionado||''), obrig = localEntregaObrigatorio();
+  const nomes = (state.locais||[]).map(l=>l.nome).filter(n=>n && n!==LOCAL_RETIRAR_BALCAO);
+  if(sel && (obrig ? sel!==LOCAL_RETIRAR_BALCAO : true) && !nomes.includes(sel)) nomes.unshift(sel); // local antigo que saiu da lista
+  const op = (v, t)=>`<option value="${h(v)}" ${sel===v?'selected':''}>${h(t)}</option>`;
+  return (obrig
+    ? `<option value="" disabled ${sel?'':'selected'}>Escolha o local de entrega</option>${op(LOCAL_RETIRAR_BALCAO, LOCAL_RETIRAR_BALCAO)}`
+    : `<option value="">— No balcão / retirar aqui —</option>`) + nomes.map(n=>op(n, n)).join('');
+}
+// Lê o local do select; com o ajuste ligado e nada escolhido avisa, foca e devolve null.
+function localEntregaLido(selectId){
+  const el = document.getElementById(selectId), v = el ? String(el.value||'') : '';
+  if(!v && localEntregaObrigatorio()){ toast('Escolha o local de entrega.'); if(el) el.focus(); return null; }
+  return v;
+}
 function openNovoPedidoModal(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
   npCart = []; levarJunto.np=false;
@@ -239,7 +260,7 @@ function openNovoPedidoModal(saleId){
       <aside class="np-side">
         ${requesterSection}
         <div class="np-section">
-          <label class="np-label">Local de entrega</label><select id="npLocal"><option value="">— No balcão / retirar aqui —</option>${state.locais.map(l=>`<option value="${h(l.nome)}" ${s.local===l.nome?'selected':''}>${h(l.nome)}</option>`).join('')}</select>
+          <label class="np-label">Local de entrega</label><select id="npLocal">${localEntregaOptionsHtml(s.local)}</select>
           <div class="np-origin-badge" title="Origem deste pedido">${h(origemLabel(currentUser.origem)||'Caixa')} · ${h(currentUser.name)}</div>
         </div>
         <div class="np-section np-cart">
@@ -423,7 +444,7 @@ async function confirmNovoPedidoModal(saleId){
   else { const depId=reqValue.split(':')[1], dep=(member.dependents||[]).find(d=>d.id===depId); requester={id:dep&&dep.id,name:dep&&dep.name||'Dependente',type:'dependente',canOrder:!!dep&&dep.canOrder!==false}; }
   if(!requester.canOrder){ toast('Esta pessoa está bloqueada para consumir nesta cota.'); return; }
   if(!npCart.length){ toast('Adicione ao menos um produto.'); return; }
-  const local = document.getElementById('npLocal').value;
+  const local = localEntregaLido('npLocal'); if(local===null) return;
   const origem = currentUser.origem||'caixa';
   const who = requester.name;
   const items = npCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:local||s.local||'', requesterId:requester.id, requesterName:who, requesterType:requester.type}));
@@ -673,6 +694,9 @@ function openReorderComandaItem(idx){
   if(!rb){ toast('Este item mudou no cadastro (tamanho ou opção) e não pode ser repetido.'); return; }
   reorderQty = 1; reorderItemIdx = idx; reorderCopos = productAsksCopos(product) ? (item.copos!=null?item.copos:0) : 0;
   const reorderName = rb.choice ? rb.choice.name : product.name, reorderPrice = rb.choice ? rb.choice.price : product.price;
+  // Local obrigatório (15/11): repete no local do item original (ou da comanda); sem nenhum, pergunta.
+  const sale = state.sales.find(x=>x.id===currentSaleDraft.id);
+  const pedeLocal = localEntregaObrigatorio() && !(item.local || (sale&&sale.local));
   openModal('Pedir novamente', `
     <p class="sub">${h(reorderName)} · <span class="mono">${fmt(reorderPrice)}</span>${rb.choice?cartLineOptionsHtml({customization:rb.choice.customization},'display:block'):''}</p>
     <div class="field" style="text-align:center">
@@ -691,6 +715,7 @@ function openReorderComandaItem(idx){
         <button onclick="reorderCoposChange(1)">+</button>
       </div>
     </div>`:''}
+    ${pedeLocal?`<div class="field"><label class="np-label" for="reorderLocal">Local de entrega *</label><select id="reorderLocal">${localEntregaOptionsHtml('')}</select></div>`:''}
     <div class="row">
       <button class="btn" onclick="openComanda(${jsArg(currentSaleDraft.id)},true)">Cancelar</button>
       <button class="btn btn-primary" id="reorderConfirmBtn">Adicionar e enviar pra cozinha</button>
@@ -716,16 +741,21 @@ async function confirmReorderComandaItem(){
   const rb = rebuildRepeatChoice(item, product);
   if(!rb){ toast('Este item mudou no cadastro (tamanho ou opção) e não pode ser repetido.'); return; }
   const who = item.requesterName || s.customerName || 'Cliente';
+  // Local obrigatório (15/11): o do item original, senão o da comanda, senão o escolhido no modal.
+  // Desligado: como antes, o local da comanda.
+  let local = localEntregaObrigatorio() ? (item.local || s.local || '') : (s.local || '');
+  if(!local && document.getElementById('reorderLocal')){ local = localEntregaLido('reorderLocal'); if(local===null) return; }
+  else if(!local && localEntregaObrigatorio()){ toast('Escolha o local de entrega.'); return; }
   const base = cartAddLine([], product, rb.choice, reorderQty, reorderCopos);
-  const newItem = {lineId:uid(), ...base, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
-  if(!await sendItemsToKitchen(saleId, [newItem], who, 'comanda', s.local)) return;
+  const newItem = {lineId:uid(), ...base, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local, requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
+  if(!await sendItemsToKitchen(saleId, [newItem], who, 'comanda', local)) return;
   newItem.sent = true;
   await commitSaleChange(s.id, cur=>{ cur.items=[...(cur.items||[]), newItem]; cur.total=saleTotal(cur.items); });
   if(saidaTemImpressao(newItem.estacao)){
     const origem = currentUser.origem||'caixa';
     const printer = resolvePrinterFor(newItem.estacao, origem);
     const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
-    printSingleTicket(who, member?member.code:'', s.local||'', newItem.estacao, printer?printer.nome:null, [newItem], s.orderNumber);
+    printSingleTicket(who, member?member.code:'', local, newItem.estacao, printer?printer.nome:null, [newItem], s.orderNumber);
   }
   logAction('Pedido repetido do histórico: '+newItem.name+' x'+reorderQty+' para '+who+' — pedido #'+(s.orderNumber||saleId));
   toast('Item adicionado à comanda.'); // UX lote 3: ver o toast de 'Pedido confirmado.'
@@ -1010,9 +1040,15 @@ function openComandaQuickAddConfirm(){
       <p id="comandaQuickAddRequesterWarn" class="sub" style="display:none;color:var(--red);margin:6px 0 0">Esta pessoa está bloqueada para consumir nesta cota.</p>
     </div>` : `<select id="comandaQuickAddRequester" style="display:none">${requesterOptions}</select>`;
   const itemsSummary = comandaQuickCart.map(i=>`${i.qty}x ${h(i.name)}`).join(', ');
+  // Local obrigatório (15/11): o lançamento rápido pergunta o local, já com a mesa da comanda.
+  const localSection = localEntregaObrigatorio() ? `
+    <div class="field">
+      <label class="np-label" for="comandaQuickAddLocal">Local de entrega *</label>
+      <select id="comandaQuickAddLocal">${localEntregaOptionsHtml(s.local)}</select>
+    </div>` : '';
   openModal('Adicionar Produtos', `
     <p class="sub">${itemsSummary}</p>
-    ${requesterSection}
+    ${requesterSection}${localSection}
     <div class="row">
       <button class="btn" onclick="openComanda(${jsArg(saleId)},true)">Voltar</button>
       <button class="btn btn-primary" id="comandaQuickAddConfirmBtn">Confirmar e enviar pra cozinha</button>
@@ -1038,11 +1074,14 @@ async function confirmComandaQuickAdd(){
   else if(reqValue.startsWith('holder:')) requester={id:member.id,name:member.name,type:'titular',canOrder:true};
   else { const depId=reqValue.split(':')[1], dep=(member.dependents||[]).find(d=>d.id===depId); requester={id:dep&&dep.id,name:dep&&dep.name||'Dependente',type:'dependente',canOrder:!!dep&&dep.canOrder!==false}; }
   if(!requester.canOrder){ toast('Esta pessoa está bloqueada para consumir nesta cota.'); return; }
+  // Desligado (ou modal antigo sem o select): segue com a mesa da comanda, como antes.
+  const local = document.getElementById('comandaQuickAddLocal') ? localEntregaLido('comandaQuickAddLocal') : (s.local||'');
+  if(local===null) return;
   const who = requester.name;
   const origem = currentUser.origem||'caixa';
-  const items = comandaQuickCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:requester.id, requesterName:who, requesterType:requester.type}));
+  const items = comandaQuickCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local, requesterId:requester.id, requesterName:who, requesterType:requester.type}));
   applyLevarJunto(items, levarJunto.quick);
-  if(!await sendItemsToKitchen(saleId, items, who, 'comanda', s.local)) return;
+  if(!await sendItemsToKitchen(saleId, items, who, 'comanda', local)) return;
   items.forEach(i=>i.sent=true);
   await commitSaleChange(s.id, cur=>{ cur.items=[...(cur.items||[]), ...items]; cur.total=saleTotal(cur.items); });
   const groups = {};
@@ -1052,7 +1091,7 @@ async function confirmComandaQuickAdd(){
     return { estacao, items:groups[estacao], printer: printer?printer.nome:null };
   });
   logAction('Produto(s) adicionado(s) via busca na comanda: '+items.map(i=>i.qty+'x '+i.name).join(', ')+' para '+who+' — pedido #'+(s.orderNumber||saleId));
-  printNovoPedidoTickets(who, member?member.code:'', s.local, printJobs, s.orderNumber);
+  printNovoPedidoTickets(who, member?member.code:'', local, printJobs, s.orderNumber);
   toast('Item adicionado à comanda.'); // UX lote 3: ver o toast de 'Pedido confirmado.'
   comandaQuickCart = []; levarJunto.quick=false;
   closeModal(); openComanda(saleId, true); renderComandas();

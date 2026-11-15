@@ -297,7 +297,7 @@ function gcRenderReview(){
         <input id="gcObs" placeholder="Ex: Sem cebola, ponto da carne..." value="${h(s.notes||'')}">
       </div>
       <div class="np-section">
-        <div><label class="np-label">Local de entrega</label><select id="gcLocal"><option value="">— No balcão / retirar aqui —</option>${state.locais.map(l=>`<option value="${h(l.nome)}">${h(l.nome)}</option>`).join('')}</select></div>
+        <div><label class="np-label" for="gcLocal">Local de entrega${localEntregaObrigatorio()?' *':''}</label><select id="gcLocal">${localEntregaOptionsHtml(gcFlow.avulso ? gcFlow.local : (localEntregaObrigatorio() ? s.local : ''))}</select></div>
       </div>
       <label class="np-label" style="margin:16px 0 8px;display:block">Itens para revisão</label>
       <div id="gcReviewList"></div>
@@ -307,7 +307,6 @@ function gcRenderReview(){
     <div class="gc-footer"><button class="gc-btn-back" onclick="gcRenderProducts()">‹ Voltar</button>${gcFlow.avulso
       ? `<button class="gc-btn-review" onclick="gcGoCharge()">Cobrar <span class="mono" id="gcChargeBtnTotal"></span> ›</button>`
       : `<button class="gc-btn-review" onclick="gcConfirmOrder()">✓ Enviar pedido</button>`}</div>`;
-  if(gcFlow.avulso && gcFlow.local) document.getElementById('gcLocal').value = gcFlow.local;
   gcRenderReviewList();
 }
 /* ===== Cobrança do avulso no app do garçom (pedido do dono, 17/10) =====
@@ -321,8 +320,10 @@ function gcEhDinheiro(method){ const f = formaPorMetodo(method); return !!f && f
 function gcEhCartao(method){ const f = formaPorMetodo(method); return !!f && (f.tipo==='credito'||f.tipo==='debito'); }
 function gcGoCharge(){
   if(!gcCart.length){ toast('Adicione ao menos um produto.'); return; }
+  // Local obrigatório (15/11): o avulso também não segue para a cobrança sem local.
+  const local = localEntregaLido('gcLocal'); if(local===null) return;
   gcFlow.obs = (document.getElementById('gcObs')?.value||'').trim();
-  gcFlow.local = document.getElementById('gcLocal')?.value || '';
+  gcFlow.local = local;
   gcFlow.step = 'charge';
   gcRenderCharge();
 }
@@ -487,7 +488,7 @@ async function gcConfirmOrder(){
   const s = state.sales.find(x=>x.id===gcFlow.saleId); if(!s) return;
   if(!comandaAcceptsOrders(s)) return;
   if(!gcCart.length){ toast('Adicione ao menos um produto.'); return; }
-  const local = document.getElementById('gcLocal')?.value || '';
+  const local = localEntregaLido('gcLocal'); if(local===null) return; // local obrigatório (15/11)
   s.notes = (document.getElementById('gcObs')?.value||'').trim();
   const origem = currentUser.origem||'app';
   const who = gcRequester.name;
