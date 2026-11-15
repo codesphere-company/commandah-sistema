@@ -53,6 +53,15 @@ namespace Commandah.Agente
         public static string CaminhoNovo(string exe) { return SemExe(exe) + ".new.exe"; }
         public static string CaminhoAntigo(string exe) { return SemExe(exe) + ".old.exe"; }
 
+        // Na abertura: apaga um .new que tenha sobrado. O .old (versão anterior) só sai numa abertura
+        // normal: logo depois de atualizar (posAtualizacao) ele fica, como cópia boa para voltar à mão
+        // se a versão nova quebrar depois da janela de 15 s. item 5 (auditoria 11/11).
+        public static void LimparSobras(string exe, bool posAtualizacao)
+        {
+            ApagarSemErro(CaminhoNovo(exe));
+            if (!posAtualizacao) ApagarSemErro(CaminhoAntigo(exe));
+        }
+
         // Primeira procura 2 min depois de abrir; depois a cada 6 h.
         public void Iniciar()
         {

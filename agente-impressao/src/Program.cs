@@ -70,7 +70,7 @@ namespace Commandah.Agente
             local = new LocalServer(agent);
             local.Start();
             if (posAtualizacao) agent.Log("Atualizado para " + Config.Version + ".", false);
-            LimparSobras(exe, posAtualizacao);
+            Updater.LimparSobras(exe, posAtualizacao);
 
             var menu = new ContextMenuStrip();
             menu.Items.Add("Abrir", null, (s, e) => ShowForm());
@@ -122,16 +122,6 @@ namespace Commandah.Agente
             form.ReallyClose = true;
             form.Close();
             ExitThread();
-        }
-
-        // Apaga o .old (versão anterior) e um .new que tenha sobrado. Logo depois de atualizar, a
-        // versão anterior ainda pode estar fechando: tenta de novo daqui a pouco.
-        static void LimparSobras(string exe, bool posAtualizacao)
-        {
-            string[] sobras = { Updater.CaminhoAntigo(exe), Updater.CaminhoNovo(exe) };
-            Action limpar = () => { foreach (var s in sobras) { try { if (System.IO.File.Exists(s)) System.IO.File.Delete(s); } catch (Exception) { } } };
-            limpar();
-            if (posAtualizacao) ThreadPool.QueueUserWorkItem(_ => { Thread.Sleep(20000); limpar(); });
         }
     }
 

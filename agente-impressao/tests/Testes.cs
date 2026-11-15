@@ -339,6 +339,19 @@ namespace Commandah.Agente.Testes
                 Thread.Sleep(3000); // deixa o exe de teste terminar antes de apagar a pasta
             }
 
+            // limpeza na abertura: logo depois de atualizar o .old fica; numa abertura normal sai
+            using (var c = new Cena(priv))
+            {
+                File.WriteAllText(c.New, "n"); File.WriteAllText(c.Old, "o");
+                Updater.LimparSobras(c.Exe, true);
+                Testes.Ok(File.Exists(c.Old) && !File.Exists(c.New), "limpar pos-atualizacao: .old fica, .new sai");
+                Testes.Ok(File.ReadAllText(c.Exe) == "versao velha", "limpar pos-atualizacao: atual intacto");
+                File.WriteAllText(c.New, "n");
+                Updater.LimparSobras(c.Exe, false);
+                Testes.Ok(!File.Exists(c.Old) && !File.Exists(c.New), "limpar abertura normal: .old e .new saem");
+                Testes.Ok(File.ReadAllText(c.Exe) == "versao velha", "limpar abertura normal: atual intacto");
+            }
+
             // TrocarArquivos sozinho
             using (var c = new Cena(priv))
             {
