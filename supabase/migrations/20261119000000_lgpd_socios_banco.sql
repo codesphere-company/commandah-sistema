@@ -180,7 +180,7 @@ grant execute on function public.member_dependents_list(text) to authenticated;
 --   drop function if exists public.lgpd_data_efetiva(timestamptz, int, timestamptz),
 --     public.lgpd_trocar_jsonb(jsonb, text[], text),
 --     public.lgpd_trocar_texto(text, text[], text);
--- ROLLBACK da parte 2 (manual):
+-- parte 2:
 --   drop function if exists public.member_dependents_list(text),
 --     public.members_list(text, boolean),
 --     public.lgpd_le_cadastro_inteiro();
