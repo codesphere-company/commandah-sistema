@@ -289,7 +289,7 @@ function gcRenderReview(){
       <div class="np-section">
         <label class="np-label">Cliente</label>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <div><b>${h(gcRequester.name)}</b>${s.memberId?'':''}${(state.members.find(m=>m.id===s.memberId)||{}).phone?` <span class="sub">(${h((state.members.find(m=>m.id===s.memberId)||{}).phone)})</span>`:''}</div>
+          <div><b>${h(gcRequester.name)}</b></div>
         </div>
       </div>
       <div class="np-section">
