@@ -89,6 +89,18 @@ namespace Commandah.Agente.Testes
             byte[] faltando = Encoding.UTF8.GetBytes("{\"version\":\"2.5.0\"}");
             Testes.Ok(Updater.LerAvisoAssinado(faltando, Assina(faltando, priv), PubDe(priv)) == null, "aviso sem campos");
 
+            Testes.Ok(Updater.LerAvisoAssinado(bytes, sig, priv) == null, "chave privada como publica recusada");
+            Testes.Ok(!Config.UpdatePublicKey.Contains("<D>") && !Config.UpdatePublicKey.Contains("<P>"), "Config.UpdatePublicKey sem parte privada");
+            string[] jsRuins = {
+                "{\"version\":\"2.5.0\",\"url\":\"u\",\"sha256\":\"" + new string('A', 64) + "\",\"size\":1,\"published_at\":\"x\"}",
+                "{\"version\":\"2.5.0\",\"url\":\"u\",\"sha256\":\"abc\",\"size\":1,\"published_at\":\"x\"}",
+                "{\"version\":\"2.5.0\",\"url\":\"u\",\"sha256\":\"" + new string('a', 64) + "\",\"size\":0,\"published_at\":\"x\"}" };
+            foreach (var jr in jsRuins)
+            {
+                byte[] jb = Encoding.UTF8.GetBytes(jr);
+                Testes.Ok(Updater.LerAvisoAssinado(jb, Assina(jb, priv), PubDe(priv)) == null, "aviso com sha256/size invalido");
+            }
+
             Testes.Ok(!Updater.VersaoMaior("2.3.9", "2.4.0"), "nao rebaixa: menor");
             Testes.Ok(!Updater.VersaoMaior("2.4.0", "2.4.0"), "nao rebaixa: igual");
             Testes.Ok(Updater.VersaoMaior("2.4.1", "2.4.0"), "versao maior");

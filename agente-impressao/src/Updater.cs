@@ -22,6 +22,8 @@ namespace Commandah.Agente
             try
             {
                 if (json == null || string.IsNullOrEmpty(sigBase64) || string.IsNullOrEmpty(publicKeyXml)) return null;
+                // chave privada colada no lugar da pública: recusa (iria para todos os caixas)
+                if (publicKeyXml.Contains("<D>") || publicKeyXml.Contains("<P>")) return null;
                 byte[] sig = Convert.FromBase64String(sigBase64.Trim());
                 using (var rsa = new RSACryptoServiceProvider())
                 {
@@ -39,6 +41,7 @@ namespace Commandah.Agente
                 if (!d.TryGetValue("size", out sz) || sz == null) return null;
                 a.Size = Convert.ToInt64(sz);
                 if (a.Version == null || a.Url == null || a.Sha256 == null || a.PublishedAt == null || a.Size <= 0) return null;
+                if (!System.Text.RegularExpressions.Regex.IsMatch(a.Sha256, "^[0-9a-f]{64}$")) return null;
                 return a;
             }
             catch (Exception) { return null; }
