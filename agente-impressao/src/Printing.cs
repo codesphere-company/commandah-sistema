@@ -41,16 +41,53 @@ namespace Commandah.Agente
             return !string.IsNullOrEmpty(text) && text.StartsWith("\x1B\x40");
         }
 
+        // Item 5 (auditoria 11/11): a ficha vem da nuvem; sem esta regra, quem escrevesse um IP
+        // qualquer na fila faria o agente conectar em qualquer lugar. Só IPv4 literal (4 octetos
+        // com pontos, sem formas abreviadas) nas faixas privadas 10/8, 172.16/12 e 192.168/16.
+        // Porta opcional (1-65535); sem porta vale 9100.
+        public static bool EnderecoPermitido(string ipAndPort)
+        {
+            string host; int port;
+            return AnalisarEndereco(ipAndPort, out host, out port);
+        }
+
+        static bool AnalisarEndereco(string ipAndPort, out string host, out int port)
+        {
+            host = null; port = 9100;
+            if (string.IsNullOrEmpty(ipAndPort)) return false;
+            string h = ipAndPort.Trim();
+            int colon = h.IndexOf(':');
+            if (colon >= 0)
+            {
+                string ps = h.Substring(colon + 1);
+                h = h.Substring(0, colon);
+                if (ps.Length == 0 || ps.Length > 5) return false;
+                foreach (char c in ps) if (c < '0' || c > '9') return false;
+                port = int.Parse(ps);
+                if (port < 1 || port > 65535) return false;
+            }
+            var parts = h.Split('.');
+            if (parts.Length != 4) return false;
+            var o = new int[4];
+            for (int i = 0; i < 4; i++)
+            {
+                string t = parts[i];
+                if (t.Length == 0 || t.Length > 3) return false;
+                foreach (char c in t) if (c < '0' || c > '9') return false;
+                o[i] = int.Parse(t);
+                if (o[i] > 255) return false;
+            }
+            bool privado = o[0] == 10 || (o[0] == 172 && o[1] >= 16 && o[1] <= 31) || (o[0] == 192 && o[1] == 168);
+            if (!privado) return false;
+            host = o[0] + "." + o[1] + "." + o[2] + "." + o[3];
+            return true;
+        }
+
         public static void PrintNetwork(string ipAndPort, string content)
         {
-            string host = ipAndPort.Trim();
-            int port = 9100;
-            int colon = host.LastIndexOf(':');
-            if (colon > 0)
-            {
-                int p;
-                if (int.TryParse(host.Substring(colon + 1), out p)) { port = p; host = host.Substring(0, colon); }
-            }
+            string host; int port;
+            if (!AnalisarEndereco(ipAndPort, out host, out port))
+                throw new Exception("endereço fora da rede interna");
             var bytes = EscPosBytes(content);
             using (var client = new TcpClient())
             {

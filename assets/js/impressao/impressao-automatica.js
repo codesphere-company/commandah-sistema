@@ -298,6 +298,8 @@ function openPairAgentModal(){
     try{
       const { data, error } = await supabaseClient.rpc('print_agent_pair_confirm', { p_code:code, p_name:name, p_by: currentUser ? currentUser.name : null });
       if(error){ err.hidden=false; err.textContent = error.message || 'Não foi possível conectar agora.'; return; }
+      // Item 5 (auditoria 11/11): código errado ou limite de tentativas voltam como {ok:false,error}.
+      if(data && data.ok===false){ err.hidden=false; err.textContent=data.error || 'Não foi possível conectar agora.'; return; }
       closeModal();
       toast('"'+((data&&data.name)||name)+'" conectado. Em alguns segundos as impressoras dele aparecem aqui.');
       loadPrintSetup(); setTimeout(loadPrintSetup, 6000); setTimeout(loadPrintSetup, 15000);

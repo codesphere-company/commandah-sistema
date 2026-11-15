@@ -46,6 +46,18 @@ namespace Commandah.Agente
 
         public List<string> LastNetworkFound { get; private set; }
 
+        // item 5 (auditoria 11/11): a atualização só troca o exe quando nada está imprimindo.
+        int ocupado, pausado;
+        public bool Ocupado { get { return Thread.VolatileRead(ref ocupado) > 0; } }
+        internal void EntrouOcupado() { Interlocked.Increment(ref ocupado); }
+        internal void SaiuOcupado() { Interlocked.Decrement(ref ocupado); }
+        // Pausado: a fila não pega fichas novas (durante a troca de versão).
+        public bool Pausado
+        {
+            get { return Thread.VolatileRead(ref pausado) == 1; }
+            set { Interlocked.Exchange(ref pausado, value ? 1 : 0); }
+        }
+
         // 2.2: escolhas do Commandah para este computador (vêm no ping a cada minuto).
         public bool ScanEnabled { get; private set; }
         List<string> checkIps = new List<string>();
@@ -167,7 +179,12 @@ namespace Commandah.Agente
                 var jobs = api.FetchPending();
                 LastContact = DateTime.Now;
                 SetState(AgentState.Conectado);
-                foreach (var job in jobs) Handle(job);
+                if (jobs.Count > 0)
+                {
+                    EntrouOcupado();
+                    try { if (!Pausado) foreach (var job in jobs) Handle(job); } // pausado: ficam na fila para a versão nova
+                    finally { SaiuOcupado(); }
+                }
                 // Falha ao contar as impressoras não pode parar a impressão.
                 try { ReportIfNeeded(); }
                 catch (ApiException e) { lastReport = DateTime.Now; Log("Não foi possível enviar a lista de impressoras: " + e.Message, true); }
@@ -316,8 +333,10 @@ namespace Commandah.Agente
         {
             ThreadPool.QueueUserWorkItem(_ =>
             {
+                EntrouOcupado();
                 try
                 {
+                    if (Pausado) { Log("O agente está se atualizando. Tente o teste daqui a pouco.", false); return; }
                     if (!string.IsNullOrEmpty(ip))
                     {
                         Printing.PrintNetwork(ip, Printing.TestTicket(ip, true));
@@ -333,6 +352,7 @@ namespace Commandah.Agente
                 {
                     Log("Teste falhou: " + e.Message, true);
                 }
+                finally { SaiuOcupado(); }
             });
         }
     }

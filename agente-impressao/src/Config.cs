@@ -12,7 +12,31 @@ namespace Commandah.Agente
 {
     public class Config
     {
-        public const string Version = "2.3.0";
+        public const string Version = "2.4.0";
+        // item 5 (auditoria 11/11): onde fica o aviso assinado e a chave pública que o valida
+        public const string UpdateBase = "https://codesphere-company.github.io/commandah-sistema/";
+        public const string UpdatePublicKey = "<RSAKeyValue><Modulus>nzBVhnMN39zukRMfUWnHx/jJG+w9dCUEu4wbrCbYGhDtbe4IkMwtquJVnPS73++V02O9Hg9jAzkIqLEhybyVtLU36Cnkd4lxE+471orT0MWe/5dXuFrH+Msgt+wTsR5n48wFAl/a6xy7HFKC+6iJdW0vghrD8/YCLiMfSR4xdjjQswPwcfmCBDkr70iZrA54OWCJdKt5jAutQAYQIqysbD4fB9uJ/nYi7Uwh+YpbB41Of0j1VtqfJLMQI5bnCNwSPReHBVyVR8Rd5KhvSTaw02Y6aHE6wuoxqBw1gflAj2ycoTgLCeYxxynVf62+qinjuYCOdmStvtry7Df3si59cQ==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
+
+        // COMMANDAH_UPDATE_BASE / COMMANDAH_UPDATE_KEY: só para teste (ensaio com servidor local e
+        // chave de teste). A chave pode vir como XML ou como caminho de um arquivo com o XML.
+        public static string BaseAtualizacao
+        {
+            get
+            {
+                var t = Environment.GetEnvironmentVariable("COMMANDAH_UPDATE_BASE");
+                return !string.IsNullOrEmpty(t) ? t : UpdateBase;
+            }
+        }
+        public static string ChaveAtualizacao
+        {
+            get
+            {
+                var t = Environment.GetEnvironmentVariable("COMMANDAH_UPDATE_KEY");
+                if (string.IsNullOrEmpty(t)) return UpdatePublicKey;
+                try { if (!t.TrimStart().StartsWith("<") && File.Exists(t)) return File.ReadAllText(t, Encoding.UTF8); } catch (Exception) { }
+                return t;
+            }
+        }
         public const string DefaultApiUrl = "https://ezfoymdesmarpunmixbs.supabase.co";
         public const string DefaultApiKey = "sb_publishable_m56iV0j3aIHlj_jth44jyw_CIw7CmyG";
         const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";

@@ -16,4 +16,10 @@ if not exist dist mkdir dist
   /r:System.Web.Extensions.dll /r:System.Security.dll ^
   src\*.cs
 if errorlevel 1 exit /b 1
-echo OK: dist\CommandahImpressora.exe
+rem Ferramenta do dono: assina e publica o aviso de versao (item 5)
+"%CSC%" /nologo /target:exe /optimize+ /platform:anycpu /codepage:65001 ^
+  /out:dist\AssinarAgente.exe ^
+  /r:System.dll /r:System.Core.dll /r:System.Web.Extensions.dll ^
+  tools\AssinarAgente.cs src\Updater.cs
+if errorlevel 1 exit /b 1
+echo OK: dist\CommandahImpressora.exe dist\AssinarAgente.exe

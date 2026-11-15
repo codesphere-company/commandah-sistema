@@ -21,6 +21,29 @@ namespace Commandah.Agente
 
         public LocalServer(Agent agent) { this.agent = agent; }
 
+        const string MsgOrigem = "{\"ok\":false,\"error\":\"origem não permitida\"}";
+        const string MsgEndereco = "{\"ok\":false,\"error\":\"endereço fora da rede interna\"}";
+
+        // Item 5 (auditoria 11/11): qualquer site aberto no navegador podia mandar imprimir por
+        // aqui. Só o Commandah oficial e o teste local (localhost/127.0.0.1, com ou sem porta).
+        public static bool OrigemPermitida(string origin)
+        {
+            if (string.IsNullOrEmpty(origin)) return false;
+            if (origin == "https://codesphere-company.github.io") return true;
+            foreach (var baseOrigin in new[] { "http://localhost", "http://127.0.0.1" })
+            {
+                if (origin == baseOrigin) return true;
+                if (origin.StartsWith(baseOrigin + ":", StringComparison.Ordinal))
+                {
+                    string ps = origin.Substring(baseOrigin.Length + 1);
+                    if (ps.Length == 0 || ps.Length > 5) return false;
+                    foreach (char c in ps) if (c < '0' || c > '9') return false;
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public void Start()
         {
             try
@@ -35,6 +58,12 @@ namespace Commandah.Agente
             }
         }
 
+        // item 5 (auditoria 11/11): solta a porta antes de a versão nova abrir.
+        public void Stop()
+        {
+            try { if (listener != null) listener.Stop(); } catch (Exception) { }
+        }
+
         void Loop()
         {
             while (true)
@@ -47,6 +76,7 @@ namespace Commandah.Agente
 
         void Serve(TcpClient client)
         {
+            string origin = null;
             using (client)
             {
                 try
@@ -54,8 +84,10 @@ namespace Commandah.Agente
                     client.ReceiveTimeout = 5000;
                     var stream = client.GetStream();
                     string method, path; int length; byte[] body;
-                    ReadRequest(stream, out method, out path, out length, out body);
-                    if (method == "OPTIONS") { Send(stream, 204, ""); return; }
+                    ReadRequest(stream, out method, out path, out origin, out length, out body);
+                    // Sem Origin (curl, o próprio agente) segue; com Origin só as permitidas, inclusive no OPTIONS.
+                    if (!string.IsNullOrEmpty(origin) && !OrigemPermitida(origin)) { Send(stream, 403, MsgOrigem, null); return; }
+                    if (method == "OPTIONS") { Send(stream, 204, "", origin); return; }
                     if (method == "GET" && path.StartsWith("/status"))
                     {
                         // agent_id/agent_name: o Commandah aberto neste computador descobre qual
@@ -64,7 +96,7 @@ namespace Commandah.Agente
                         st["ok"] = true; st["version"] = Config.Version; st["agent"] = "commandah";
                         st["agent_id"] = agent.Cfg.AgentId ?? ""; st["agent_name"] = agent.Cfg.AgentName ?? "";
                         st["connected"] = agent.State == AgentState.Conectado;
-                        Send(stream, 200, new JavaScriptSerializer().Serialize(st));
+                        Send(stream, 200, new JavaScriptSerializer().Serialize(st), origin);
                         return;
                     }
                     if (method == "POST" && path.StartsWith("/print"))
@@ -73,27 +105,36 @@ namespace Commandah.Agente
                         string printer = d.ContainsKey("printer") ? Convert.ToString(d["printer"]) : "";
                         string text = d.ContainsKey("text") ? Convert.ToString(d["text"]) : "";
                         string ip = d.ContainsKey("ip") ? Convert.ToString(d["ip"]) : "";
-                        if (!string.IsNullOrEmpty(ip)) Printing.PrintNetwork(ip, text);
-                        else
+                        agent.EntrouOcupado(); // item 5: a atualização espera esta impressão terminar
+                        try
                         {
-                            var win = Printing.FindWindowsPrinter(printer);
-                            if (win == null) { Send(stream, 404, "{\"ok\":false,\"error\":\"impressora não encontrada\"}"); return; }
-                            Printing.PrintWindows(win, text, "Commandah (local)");
+                            if (!string.IsNullOrEmpty(ip))
+                            {
+                                if (!Printing.EnderecoPermitido(ip)) { Send(stream, 400, MsgEndereco, origin); return; }
+                                Printing.PrintNetwork(ip, text);
+                            }
+                            else
+                            {
+                                var win = Printing.FindWindowsPrinter(printer);
+                                if (win == null) { Send(stream, 404, "{\"ok\":false,\"error\":\"impressora não encontrada\"}", origin); return; }
+                                Printing.PrintWindows(win, text, "Commandah (local)");
+                            }
                         }
+                        finally { agent.SaiuOcupado(); }
                         agent.Log("Impresso pelo atendimento local em " + (string.IsNullOrEmpty(ip) ? printer : ip) + ".", false);
-                        Send(stream, 200, "{\"ok\":true}");
+                        Send(stream, 200, "{\"ok\":true}", origin);
                         return;
                     }
-                    Send(stream, 404, "{\"ok\":false}");
+                    Send(stream, 404, "{\"ok\":false}", origin);
                 }
                 catch (Exception e)
                 {
-                    try { Send(client.GetStream(), 500, "{\"ok\":false,\"error\":" + new JavaScriptSerializer().Serialize(e.Message) + "}"); } catch (Exception) { }
+                    try { Send(client.GetStream(), 500, "{\"ok\":false,\"error\":" + new JavaScriptSerializer().Serialize(e.Message) + "}", OrigemPermitida(origin) ? origin : null); } catch (Exception) { }
                 }
             }
         }
 
-        static void ReadRequest(NetworkStream s, out string method, out string path, out int length, out byte[] body)
+        static void ReadRequest(NetworkStream s, out string method, out string path, out string origin, out int length, out byte[] body)
         {
             var head = new MemoryStream();
             int b;
@@ -112,9 +153,10 @@ namespace Commandah.Agente
             var first = lines[0].Split(' ');
             method = first.Length > 0 ? first[0].ToUpperInvariant() : "";
             path = first.Length > 1 ? first[1] : "/";
-            length = 0;
+            length = 0; origin = null;
             foreach (var l in lines)
-                if (l.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase)) int.TryParse(l.Substring(15).Trim(), out length);
+                if (l.StartsWith("Origin:", StringComparison.OrdinalIgnoreCase)) origin = l.Substring(7).Trim();
+                else if (l.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase)) int.TryParse(l.Substring(15).Trim(), out length);
             if (length > 4 * 1024 * 1024) throw new Exception("ficha grande demais");
             body = new byte[length];
             int read = 0;
@@ -126,16 +168,24 @@ namespace Commandah.Agente
             }
         }
 
-        static void Send(NetworkStream s, int status, string json)
+        // Item 5 (auditoria 11/11): ecoa só origem permitida (nunca "*"); sem Origin não manda
+        // Allow-Origin. Valida aqui de novo para nunca ecoar origem não validada.
+        public static string CabecalhosCors(string origin)
+        {
+            string r = "";
+            if (OrigemPermitida(origin)) r += "Access-Control-Allow-Origin: " + origin + "\r\nVary: Origin\r\n";
+            return r + "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
+                       "Access-Control-Allow-Headers: Content-Type\r\n" +
+                       "Access-Control-Allow-Private-Network: true\r\n";
+        }
+
+        static void Send(NetworkStream s, int status, string json, string origin)
         {
             var body = Encoding.UTF8.GetBytes(json);
-            string reason = status == 200 ? "OK" : status == 204 ? "No Content" : status == 404 ? "Not Found" : "Error";
+            string reason = status == 200 ? "OK" : status == 204 ? "No Content" : status == 400 ? "Bad Request" : status == 403 ? "Forbidden" : status == 404 ? "Not Found" : "Error";
             var head = "HTTP/1.1 " + status + " " + reason + "\r\n" +
                        "Content-Type: application/json; charset=utf-8\r\n" +
-                       "Access-Control-Allow-Origin: *\r\n" +
-                       "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
-                       "Access-Control-Allow-Headers: Content-Type\r\n" +
-                       "Access-Control-Allow-Private-Network: true\r\n" +
+                       CabecalhosCors(origin) +
                        "Content-Length: " + body.Length + "\r\n" +
                        "Connection: close\r\n\r\n";
             var h = Encoding.ASCII.GetBytes(head);
