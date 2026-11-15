@@ -78,7 +78,109 @@ revoke all on function public.lgpd_trocar_texto(text, text[], text) from public,
 revoke all on function public.lgpd_trocar_jsonb(jsonb, text[], text) from public, anon;
 revoke all on function public.lgpd_data_efetiva(timestamptz, int, timestamptz) from public, anon;
 
+-- ---------------------------------------------------------------------
+-- Parte 2: leitura do cadastro por papel (item 6, auditoria 11/11)
+-- ---------------------------------------------------------------------
+-- Quem lê o cadastro inteiro: dono, admin e caixa. O garçom só lê quando também
+-- opera o caixa (cash_can_write) e o caixa por operador está ligado: aí ele cobra
+-- e cadastra no caixa. Os demais papéis (cozinha, sem papel) são recusados.
+create or replace function public.lgpd_le_cadastro_inteiro()
+returns boolean
+language sql
+stable
+security definer
+set search_path to ''
+as $function$
+  select case public.current_staff_role()
+    when 'owner' then true
+    when 'admin' then true
+    when 'caixa' then true
+    when 'garcom' then public.cash_can_write() and public.caixa_por_operador_ligado()
+    else false
+  end;
+$function$;
+revoke all on function public.lgpd_le_cadastro_inteiro() from public, anon, authenticated;
+
+-- Sócios do estabelecimento. Garçom sem caixa recebe só os campos que usa na venda:
+-- o resto vem nulo/vazio (a linha é montada a partir do jsonb para manter o tipo e a
+-- ordem das colunas da tabela, mesmo que ganhe coluna nova).
+create or replace function public.members_list(p_id text default null, p_so_com_saldo boolean default false)
+returns setof public.members
+language plpgsql
+stable
+security definer
+set search_path to ''
+as $function$
+declare
+  v_tenant text := public.current_tenant_id();
+  v_papel text := public.current_staff_role();
+  v_inteiro boolean;
+begin
+  if v_tenant is null or v_papel is null or v_papel not in ('owner', 'admin', 'caixa', 'garcom') then
+    raise exception 'sem permissao' using errcode = '42501';
+  end if;
+  v_inteiro := public.lgpd_le_cadastro_inteiro();
+  if v_inteiro then
+    return query
+      select m.* from public.members m
+       where m.tenant_id = v_tenant
+         and (p_id is null or m.id = p_id)
+         and (not p_so_com_saldo or m.debt <> 0 or m.debt_release is not null)
+       order by m.id;
+  else
+    return query
+      select (jsonb_populate_record(null::public.members,
+               (select jsonb_object_agg(e.key, e.value) from jsonb_each(to_jsonb(m)) e
+                 where e.key in ('id', 'tenant_id', 'name', 'code', 'kind', 'debt', 'credit_limit', 'active',
+                                 'archived', 'debt_release', 'anonymized_at', 'created_at', 'updated_at'))
+               || jsonb_build_object('tags', '[]'::jsonb, 'points_history', '[]'::jsonb, 'points', 0, 'marketing_opt_in', false))).*
+        from public.members m
+       where m.tenant_id = v_tenant
+         and (p_id is null or m.id = p_id)
+         and (not p_so_com_saldo or m.debt <> 0 or m.debt_release is not null)
+       order by m.id;
+  end if;
+end;
+$function$;
+
+-- Dependentes: mesma regra de papel; o garçom sem caixa não recebe o documento.
+create or replace function public.member_dependents_list(p_member_id text default null)
+returns setof public.member_dependents
+language plpgsql
+stable
+security definer
+set search_path to ''
+as $function$
+declare
+  v_tenant text := public.current_tenant_id();
+  v_papel text := public.current_staff_role();
+  v_inteiro boolean;
+begin
+  if v_tenant is null or v_papel is null or v_papel not in ('owner', 'admin', 'caixa', 'garcom') then
+    raise exception 'sem permissao' using errcode = '42501';
+  end if;
+  v_inteiro := public.lgpd_le_cadastro_inteiro();
+  return query
+    select d.id, d.tenant_id, d.member_id, d.name, d.relationship,
+           case when v_inteiro then d.document else null end,
+           d.can_order, d.created_at, d.updated_at
+      from public.member_dependents d
+     where d.tenant_id = v_tenant
+       and (p_member_id is null or d.member_id = p_member_id)
+     order by d.id;
+end;
+$function$;
+
+revoke all on function public.members_list(text, boolean) from public, anon;
+revoke all on function public.member_dependents_list(text) from public, anon;
+grant execute on function public.members_list(text, boolean) to authenticated;
+grant execute on function public.member_dependents_list(text) to authenticated;
+
 -- ROLLBACK da parte 1 (manual):
 --   drop function if exists public.lgpd_data_efetiva(timestamptz, int, timestamptz),
 --     public.lgpd_trocar_jsonb(jsonb, text[], text),
 --     public.lgpd_trocar_texto(text, text[], text);
+-- ROLLBACK da parte 2 (manual):
+--   drop function if exists public.member_dependents_list(text),
+--     public.members_list(text, boolean),
+--     public.lgpd_le_cadastro_inteiro();
