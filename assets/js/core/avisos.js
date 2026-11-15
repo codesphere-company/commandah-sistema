@@ -166,6 +166,28 @@ function checkLocalModeLeftovers(){
   applyTopBannerOffset();
 }
 
+/* ============ AVISO DA ANONIMIZAÇÃO AUTOMÁTICA (LGPD, item 6, auditoria 11/11) ============
+   Para o administrador, com o automático ligado: uma vez por dia, diz quantos sócios entram na anonimização
+   dos próximos 7 dias. A marca do dia fica no aparelho (localStorage), sem atrapalhar se o navegador bloquear. */
+function avisoLgpdAoEntrar(){
+  try{
+    document.querySelectorAll('.lgpd-aviso').forEach(e=>e.remove()); // sobra da pessoa anterior
+    if(!isCloudMode() || !isAdminUser() || !privacySettings().automatico) return;
+    const n=lgpdListas().proximos.length; if(!n) return;
+    const hoje=todayStr();
+    try{ if(localStorage.getItem('cantina2:lgpdAvisoDia')===hoje) return; }catch(e){}
+    const root=document.getElementById('localModeRoot'); if(!root || root.querySelector('.lgpd-aviso')) return;
+    // A marca do dia só depois de saber que o aviso vai aparecer (revisão final, Minor 9).
+    try{ localStorage.setItem('cantina2:lgpdAvisoDia', hoje); }catch(e){}
+    const el=document.createElement('div');
+    el.className='local-mode print-stuck lgpd-aviso'; el.setAttribute('role','alert');
+    el.innerHTML='<div class="local-mode-ico" aria-hidden="true">&#128274;</div><div class="local-mode-txt"><span class="local-mode-title"></span><span class="local-mode-sub">Ver em Configurações › Privacidade</span></div><div class="print-fail-actions"><button type="button" class="local-mode-btn print-fail-done">Entendi</button></div>';
+    el.querySelector('.local-mode-title').textContent=n+(n===1?' sócio será anonimizado':' sócios serão anonimizados')+' nos próximos 7 dias.';
+    el.querySelector('button').addEventListener('click', ()=>{ el.remove(); applyTopBannerOffset(); });
+    root.appendChild(el); applyTopBannerOffset();
+  }catch(e){ /* aviso: nunca atrapalha a entrada */ }
+}
+
 /* ============ DONO DE LONGE: LIBERAÇÃO DO CAIXA (caixa por operador, 13/11) ============
    Contagem que não bate e o operador pediu liberação ao dono: na sessão do dono (e-mail e senha, no celular
    dele, sem PIN) aparece esta faixa. Tocar abre a pendência (tipo, esperado, contado, diferença, hora) com

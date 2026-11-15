@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-15-lgpd', data:'15/11/2026', itens:[
+    { titulo:'Privacidade dos sócios',
+      texto:'O garçom não recebe mais CPF, telefone e endereço dos sócios. Anonimizar um sócio agora apaga o nome também no histórico de vendas e pedidos. Dá para ligar a anonimização automática de quem passou do prazo, com aviso antes, em Configurações › Privacidade.',
+      onde:'Configurações › Privacidade', perms:['config-sistema'] },
+  ] },
   { id:'2026-11-15-cota-clientes', data:'15/11/2026', itens:[
     { titulo:'Cota na lista de clientes',
       texto:'A lista de clientes mostra a cota de cada sócio na primeira coluna. Para achar pela cota, escolha "Cota" ao lado da pesquisa e digite o número: aparece só aquela cota (18 não traz 180 nem 1801).',

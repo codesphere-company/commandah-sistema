@@ -58,6 +58,15 @@ async function fetchAllRows(makeQuery){
     if(!data || data.length < 1000) return out;
   }
 }
+// Item 6 (auditoria 11/11): o cadastro do sócio é lido pelas funções do banco, que entregam só o que o
+// papel pode ver (garçom sem caixa recebe nome, cota, saldo e liberação; o resto vem vazio). O papel que
+// nem lê cadastro (cozinha) recebe 42501: vale lista vazia, como a leitura direta já devolvia, e o login segue.
+async function lerCadastroPelaFuncao(nome, args){
+  try{ return await fetchAllRows(()=>supabaseClient.rpc(nome, args).order('id')); }
+  // Só a recusa da própria função ("sem permissao") vale lista vazia. Outro 42501 (ex.: "permission denied
+  // for function", grant faltando) é erro de verdade e sobe (revisão final, T5).
+  catch(e){ if(e && e.code==='42501' && /sem permissao/.test(e.message||'')) return []; throw e; }
+}
 const MembersStore = {
   async load(){
     if(isCloudMode()){
@@ -66,8 +75,8 @@ const MembersStore = {
       // o extrato de fiado passa disso. Sem paginar, sócio e lançamento ficavam de fora (e o
       // saldo recalculado no aparelho saía errado).
       const [rows, deps, entries] = await Promise.all([
-        fetchAllRows(()=>supabaseClient.from('members').select('*').eq('tenant_id', tenantId).order('id')),
-        fetchAllRows(()=>supabaseClient.from('member_dependents').select('*').eq('tenant_id', tenantId).order('id')),
+        lerCadastroPelaFuncao('members_list', {}),
+        lerCadastroPelaFuncao('member_dependents_list', {}),
         fetchAllRows(()=>supabaseClient.from('member_debt_entries').select('*').eq('tenant_id', tenantId).order('at',{ascending:false}).order('id'))
       ]);
       const depsByMember = {}, entriesByMember = {};
@@ -82,12 +91,12 @@ const MembersStore = {
   // bloqueio por fiado: o fiado pode ter sido lançado em outro aparelho.
   async refreshOne(id){
     if(!isCloudMode()) return state.members.find(x=>x.id===id)||null;
-    const [{data:row,error:e1},{data:deps,error:e2},entries] = await Promise.all([
-      supabaseClient.from('members').select('*').eq('id', id).maybeSingle(),
-      supabaseClient.from('member_dependents').select('*').eq('member_id', id),
+    const [rowsM,deps,entries] = await Promise.all([
+      lerCadastroPelaFuncao('members_list', { p_id: id }),
+      lerCadastroPelaFuncao('member_dependents_list', { p_member_id: id }),
       fetchAllRows(()=>supabaseClient.from('member_debt_entries').select('*').eq('member_id', id).order('at',{ascending:false}).order('id'))
     ]);
-    if(e1) throw e1; if(e2) throw e2;
+    const row = rowsM[0];
     if(!row) return null;
     const fresh = memberFromRow(row, (deps||[]).map(memberDependentFromRow), (entries||[]).map(debtEntryFromRow));
     const cur = state.members.find(x=>x.id===id);
@@ -97,7 +106,7 @@ const MembersStore = {
   // A cada 30 s: acerta a dívida e a liberação dos sócios que mudaram em outro aparelho.
   async refreshDebts(){
     if(!isCloudMode()) return false;
-    const rows = await fetchAllRows(()=>supabaseClient.from('members').select('id,debt,debt_release').eq('tenant_id', storageApi.tenantId).or('debt.neq.0,debt_release.not.is.null').order('id'));
+    const rows = await lerCadastroPelaFuncao('members_list', { p_so_com_saldo: true });
     const seen = new Set(), changed = [];
     rows.forEach(r=>{ seen.add(r.id); const m=state.members.find(x=>x.id===r.id); if(!m) return; if(Math.abs((Number(r.debt)||0)-(Number(m.debt)||0))>TOLERANCIA_CENTAVO || JSON.stringify(r.debt_release||null)!==JSON.stringify(m.debtRelease||null)) changed.push(m.id); });
     state.members.forEach(m=>{ if(!seen.has(m.id) && (Math.abs(Number(m.debt)||0)>TOLERANCIA_CENTAVO || m.debtRelease)) changed.push(m.id); });
