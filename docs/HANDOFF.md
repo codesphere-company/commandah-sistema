@@ -38,6 +38,20 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
+### 14/11 — agente de impressão 2.4 (item 5 da auditoria de lançamento), branch `feat/agente-2-4`, ainda não publicada
+- **O que mudou:** o agente só aceita ordens da origem oficial, só imprime em endereço da rede interna e se atualiza sozinho por aviso assinado (RSA 2048). Spec `docs/superpowers/specs/2026-11-14-agente-2-4-design.md`. Migration `20261118000000`. `downloads/` tem `CommandahImpressora.exe` 2.4.0, `agente-impressao.json` e `agente-impressao.json.sig`. Entrada nova em NOVIDADES (perms `impressoras`).
+- **Ordem de publicação:**
+  1. aplicar a migration `20261118000000` (com o "sim" do dono);
+  2. mergear o PR;
+  3. o dono reinstala o 2.4.0 em cada PC: fechar o antigo pelo ícone perto do relógio, trocar o exe em `C:\Commandah\`, abrir. O pareamento continua, porque o token fica na configuração do usuário do Windows.
+- **Chave:** privada em `%USERPROFILE%\.commandah\agente-chave-privada.xml` (nunca no git; cópia em pendrive). A pública está em `Config.UpdatePublicKey`. Perdeu a chave: gerar outra, trocar a pública, compilar e reinstalar à mão em todos os PCs.
+- **Próxima versão:** subir `Config.Version`, `agente-impressao\build.cmd`, rodar `dist\AssinarAgente.exe publicar` de dentro de `agente-impressao` (por último; recompilou, publica de novo), commit dos arquivos de `downloads/` e merge.
+- **Limites conhecidos:**
+  - sem volta automática: se a versão nova abrir mas quebrar depois de 15 s, o `.old` fica na pasta para voltar à mão (README do agente);
+  - PC com Controle Inteligente de Aplicativos ligado (Smart App Control) bloqueia a atualização; o agente segue na versão atual;
+  - `COMMANDAH_UPDATE_BASE` e `COMMANDAH_UPDATE_KEY` trocam o endereço e a chave do aviso, só para teste;
+  - os padrões do `AssinarAgente` são relativos à pasta atual: rodar de dentro de `agente-impressao` ou passar `--exe`, `--saida` e `--chave`.
+
 ### 14/11 — conferência no servidor (item 4 da auditoria de lançamento), branch `feat/conferencia-servidor`, ainda não publicada
 - **O que é:** o banco passa a conferir a venda e as permissões, não só a tela. Spec `docs/superpowers/specs/2026-11-14-conferencia-no-servidor-design.md`. Migration `20261117000000_conferencia_no_servidor.sql`. Na tela: relatório "Vendas com divergência", ajuste "Recusar venda que não bate com o cadastro" e mensagens de recusa.
 - **Ordem de publicação (as duas coisas na mesma janela):**

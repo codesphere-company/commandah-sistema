@@ -1,4 +1,11 @@
-# Agente de impressão do Commandah (versão 2.3)
+# Agente de impressão do Commandah (versão 2.4)
+
+**Novo na 2.4 (14/11/2026):**
+- só aceita ordens vindas do Commandah oficial (site publicado); outros sites abertos no navegador não conseguem mandar imprimir;
+- imprime só em impressoras da rede interna (endereços 192.168.x.x, 10.x.x.x, 172.16 a 31.x.x); IP de fora é recusado;
+- se atualiza sozinho: de tempos em tempos confere um aviso assinado no site, baixa o programa novo, confere a assinatura e o tamanho e troca o arquivo. A versão anterior fica como `CommandahImpressora.exe.old` na mesma pasta.
+- **Instale a 2.4 uma vez à mão em cada computador** (ver abaixo). Depois disso, as próximas versões chegam sozinhas.
+- O Windows pode bloquear a atualização (ver "Controle Inteligente de Aplicativos" em Instalar). Nesse caso o agente continua na versão atual e funcionando.
 
 **Novo na 2.3 (12/10/2026):** o cupom da NFC-e (ESC/POS com QR Code) vai "cru" (RAW) para as impressoras USB pelo driver do Windows, para o QR Code sair. As fichas comuns continuam como antes.
 
@@ -14,6 +21,10 @@ Programa que fica nos computadores do estabelecimento e imprime as fichas do Com
 4. Em alguns segundos, as impressoras desse computador e as impressoras de rede encontradas aparecem em **Impressoras encontradas**.
 5. Em cada impressora, marque o que ela imprime (Cozinha, Bar, Churrasqueira, Comprovante do caixa) e clique em **Imprimir teste**. A tela mostra se saiu ou qual foi o erro.
 6. **Computador de caixa:** em "Computadores com o agente", escolha "Caixa: imprimir tudo lançado aqui em…". Assim, tudo que for lançado naquele computador (fichas de todas as estações e o comprovante) sai na impressora dele. Os pedidos do garçom pelo celular continuam indo para as impressoras das estações.
+
+7. **Confira o "Controle Inteligente de Aplicativos"** do Windows: Configurações › Privacidade e segurança › Segurança do Windows › Controle de aplicativos e navegador. Se estiver **Ligado**, o agente não se atualiza sozinho (continua na versão atual) e o Windows pode bloquear a instalação do programa. Nesse caso, o jeito é atualizar à mão, trocando o arquivo.
+
+**Atualizar da 2.3 (ou anterior) para a 2.4:** baixe o novo `CommandahImpressora.exe`; feche o agente antigo (botão direito no ícone perto do relógio › Sair); troque o arquivo em `C:\Commandah\`; abra de novo. O computador continua conectado, porque o token fica na configuração do usuário do Windows.
 
 Repita os passos 1 a 3 em cada computador que tem impressora ligada no USB. As impressoras de rede (cabo de rede ou Wi-Fi) não precisam de computador próprio: qualquer computador conectado na mesma rede imprime nelas. Vale fixar o IP delas no roteador, para não mudarem.
 
@@ -41,6 +52,17 @@ Fechar a janela não desliga o agente. Para desligar: botão direito no ícone �
 **Modo antigo:** o token único do estabelecimento (Configurações › Impressoras › avançado › Gerar/Regenerar token) ainda funciona. Na janela do agente, use "Tenho um token do estabelecimento (modo antigo)". Nesse modo não há configuração automática, e o agente só recebe fichas sem computador definido.
 
 A configuração fica em `%APPDATA%\Commandah\agente-impressao.json`. O token fica cifrado com a conta do Windows e não funciona se o arquivo for copiado para outro computador. `COMMANDAH_AGENT_DIR` troca essa pasta, só para teste.
+
+## Publicar uma versão nova (só o dono)
+
+1. Em `src/Config.cs`, suba `Version` (por exemplo de `2.4.0` para `2.4.1`).
+2. Rode `build.cmd`.
+3. Dentro da pasta `agente-impressao`, rode `dist\AssinarAgente.exe publicar`. Ele copia o programa para `downloads\`, e grava e assina `downloads\agente-impressao.json` (assinatura em `agente-impressao.json.sig`). Assinar é sempre o último passo: se recompilar depois, publique de novo.
+4. Faça o commit dos três arquivos de `downloads\` e o merge. Em alguns minutos os computadores se atualizam sozinhos.
+
+**Chave de assinatura:** fica em `%USERPROFILE%\.commandah\agente-chave-privada.xml`. **Nunca** vai para o git, nem para o chat. Guarde uma cópia em um **pendrive**. Quem tem essa chave consegue publicar programas que todos os computadores aceitam. **Se a chave for perdida**, não dá para publicar atualização que os computadores aceitem: é preciso gerar outra (`AssinarAgente gerar-chave`), colocar a pública em `Config.UpdatePublicKey`, compilar e reinstalar à mão em cada computador.
+
+**Voltar a versão anterior à mão** (se a nova não abrir): feche o agente (ícone › Sair, ou pelo Gerenciador de Tarefas); em `C:\Commandah\`, apague ou renomeie o `CommandahImpressora.exe` com problema e renomeie `CommandahImpressora.exe.old` para `CommandahImpressora.exe`; abra. O `.old` só existe depois de uma atualização automática.
 
 ## Gerar o programa a partir do código
 

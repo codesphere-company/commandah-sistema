@@ -130,6 +130,16 @@ namespace Commandah.Agente.Testes
                 Testes.Ok(j.Length > 3 && !(j[0] == 0xEF && j[1] == 0xBB), "ferramenta: json sem BOM");
             }
             finally { try { Directory.Delete(tmp, true); } catch (Exception) { } }
+
+            // aviso publicado em ..\downloads confere com a chave embutida (so roda quando a pasta existe)
+            string dl = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\downloads"));
+            string jp = Path.Combine(dl, "agente-impressao.json");
+            if (File.Exists(jp) && File.Exists(jp + ".sig"))
+            {
+                var avPub = Updater.LerAvisoAssinado(File.ReadAllBytes(jp), File.ReadAllText(jp + ".sig").Trim(), Config.UpdatePublicKey);
+                Testes.Ok(avPub != null && avPub.Version == Config.Version, "aviso publicado confere: versao");
+                Testes.Ok(avPub != null && avPub.Sha256 == Updater.Sha256Hex(File.ReadAllBytes(Path.Combine(dl, "CommandahImpressora.exe"))), "aviso publicado confere: sha256 do exe");
+            }
         }
 
         // ---------- item 5 (auditoria 11/11): fluxo de atualização ----------

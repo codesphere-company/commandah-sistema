@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-14-agente-2-4', data:'14/11/2026', itens:[
+    { titulo:'Programa de impressão 2.4',
+      texto:'O programa que imprime as fichas ficou mais seguro: só aceita ordens do Commandah oficial, imprime só em impressoras da rede interna e se atualiza sozinho nas próximas versões. Instale esta versão uma vez em cada computador (baixe de novo, feche o programa antigo pelo ícone perto do relógio, troque o arquivo em C:\Commandah e abra). O pareamento continua valendo.',
+      onde:'Configurações › Impressoras', perms:['impressoras'] },
+  ] },
   { id:'2026-11-14-conferencia-no-servidor', data:'14/11/2026', itens:[
     { titulo:'Venda conferida com o cadastro',
       texto:'O sistema agora confere cada venda fechada com o cadastro (preço, desconto, crédito e pagamento). Venda que não bate fica listada no relatório Vendas com divergência. Quem tem o ajuste ligado em Configurações passa a ter a venda recusada na hora. Cancelar item ou comanda e receber fiado também passam a exigir a permissão certa.',
