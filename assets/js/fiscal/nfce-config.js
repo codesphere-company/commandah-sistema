@@ -160,6 +160,15 @@ function anonymizeMember(memberId){
       return await doAnonymizeMember(memberId);
     } });
 }
+// Recusas do servidor (member_anonymize, item 6 da auditoria 11/11) vêm sem acento, como no audit_log;
+// na tela, em português com acento (revisão final, Minor 8).
+const LGPD_RECUSAS={
+  'sem permissao para anonimizar':'Sem permissão para anonimizar.',
+  'socio nao encontrado':'Sócio não encontrado.',
+  'ja anonimizado':'Este cadastro já foi anonimizado.',
+  'saldo diferente de zero':'Saldo diferente de zero: zere o fiado ou o crédito antes de anonimizar.',
+  'comanda aberta':'Comanda aberta: feche a comanda deste sócio antes de anonimizar.'
+};
 async function doAnonymizeMember(memberId){
   const m=state.members.find(x=>x.id===memberId); if(!m) return 'Sócio não encontrado.';
   if(isCloudMode()){
@@ -167,7 +176,7 @@ async function doAnonymizeMember(memberId){
     let r;
     try{ const { data, error } = await supabaseClient.rpc('member_anonymize', { p_member_id:memberId }); if(error) throw error; r=data||{}; }
     catch(e){ console.error('Falha ao anonimizar', e); return 'Não foi possível anonimizar agora: '+(e.message||'erro')+'. Tente de novo.'; }
-    if(r.erro) return r.erro;
+    if(r.erro) return LGPD_RECUSAS[r.erro]||r.erro;
     const newName=r.nome_novo||('Sócio anonimizado '+memberId.slice(-4).toUpperCase());
     try{ await MembersStore.refreshOne(memberId); }catch(e){}
     const saleIds=new Set();

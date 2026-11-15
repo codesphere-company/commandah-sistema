@@ -63,7 +63,9 @@ async function fetchAllRows(makeQuery){
 // nem lê cadastro (cozinha) recebe 42501: vale lista vazia, como a leitura direta já devolvia, e o login segue.
 async function lerCadastroPelaFuncao(nome, args){
   try{ return await fetchAllRows(()=>supabaseClient.rpc(nome, args).order('id')); }
-  catch(e){ if(e && e.code==='42501') return []; throw e; }
+  // Só a recusa da própria função ("sem permissao") vale lista vazia. Outro 42501 (ex.: "permission denied
+  // for function", grant faltando) é erro de verdade e sobe (revisão final, T5).
+  catch(e){ if(e && e.code==='42501' && /sem permissao/.test(e.message||'')) return []; throw e; }
 }
 const MembersStore = {
   async load(){

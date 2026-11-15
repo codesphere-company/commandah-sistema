@@ -28,11 +28,14 @@ function privacyNoticeHtml(){
 function openPrivacyNotice(){ openModal('Aviso de privacidade', privacyNoticeHtml()+'<div class="row" style="margin-top:12px"><button class="btn" onclick="closeModal()">Fechar</button><button class="btn" onclick="printPrivacyNotice()">Imprimir</button></div>'); document.querySelector('#modalRoot .modal').classList.add('privacy-modal'); }
 function printPrivacyNotice(){ const w=window.open('','_blank'); if(!w){ toast('Libere as janelas do navegador para imprimir.'); return; } w.document.write('<!doctype html><meta charset="utf-8"><title>Aviso de privacidade</title><style>body{font:14px/1.5 system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px}h4{margin:18px 0 4px}</style><h2>Aviso de privacidade</h2>'+privacyNoticeHtml()); w.document.close(); w.focus(); w.print(); }
 // Espelho de public.lgpd_data_efetiva (item 6, auditoria 11/11): maior(arquivado + prazo em anos de calendário,
-// automaticoDesde) + 7 dias. Sem data de arquivamento, não há data.
+// automaticoDesde) + 7 dias. Sem data de arquivamento, não há data. A soma dos anos é em UTC, como o
+// Postgres (que roda em UTC): no fuso local, 29/02 e a virada do horário davam dia diferente (revisão final, T6).
 function lgpdDataEfetiva(member, ps){
   if(!member || !member.archivedAt) return null;
   const base=new Date(member.archivedAt); if(isNaN(base.getTime())) return null;
-  base.setFullYear(base.getFullYear()+(ps.anos||2));
+  const mes=base.getUTCMonth();
+  base.setUTCFullYear(base.getUTCFullYear()+(ps.anos||2));
+  if(base.getUTCMonth()!==mes) base.setUTCDate(0); // 29/02 + 1 ano = 28/02, como o interval do Postgres
   if(ps.automaticoDesde){ const d=new Date(ps.automaticoDesde); if(!isNaN(d.getTime()) && d>base) return new Date(d.getTime()+7*864e5); }
   return new Date(base.getTime()+7*864e5);
 }
@@ -55,13 +58,18 @@ function openPrivacySettings(){
   if(!requirePerm('config-sistema')) return;
   const ps=privacySettings(), L=lgpdListas(), nuvem=isCloudMode(), adm=isAdminUser();
   const dt=d=>d.toLocaleDateString('pt-BR');
+  // Revisão final (Minor 6): com o automático desligado ninguém é anonimizado sozinho, então a lista é de
+  // quem passou do prazo; data que já passou nunca aparece como "em <data>".
+  const agora=Date.now();
+  const tituloProx=ps.automatico&&nuvem ? 'Serão anonimizados nos próximos 7 dias' : 'Passaram do prazo';
+  const quando=data=>!(ps.automatico&&nuvem) ? 'prazo vencido' : data.getTime()>agora ? 'em '+dt(data) : 'na próxima madrugada';
   openModal('Privacidade (LGPD)', `
     <div class="row"><div class="field"><label>Encarregado (nome)</label><input id="lgpdNome" value="${h(ps.nome)}" placeholder="Quem responde por dados pessoais"></div><div class="field"><label>E-mail do encarregado</label><input id="lgpdEmail" type="email" value="${h(ps.email)}"></div></div>
     <div class="field"><label>Guardar os dados de quem deixou de ser sócio por (anos)</label><input id="lgpdAnos" type="number" min="1" max="20" value="${ps.anos}"><p class="sub">Depois desse prazo o cadastro pode ser anonimizado (abaixo). O histórico de valores continua.</p></div>
     ${nuvem?`<div class="field"><label class="check"><input id="lgpdAuto" type="checkbox"${ps.automatico?' checked':''}> Anonimizar automaticamente quem passou do prazo</label><p class="sub">O sistema anonimiza de madrugada, 7 dias depois de o sócio entrar na lista abaixo. Colaboradores ficam de fora.</p></div>`:''}
     <div class="row"><button class="btn" onclick="openPrivacyNotice()">Ver aviso de privacidade</button><button class="btn btn-primary" onclick="savePrivacySettings()">Salvar</button></div>
-    <h4 style="margin:18px 0 6px">Serão anonimizados nos próximos 7 dias (${L.proximos.length})</h4>
-    ${L.proximos.length?`<div class="lgpd-list">${L.proximos.map(({member:m,data})=>`<div class="lgpd-row"><span>${h(m.name)}${m.code?' · Cota '+h(m.code):''} <span class="sub">em ${dt(data)}</span></span>${adm?`<button class="op-btn" onclick="anonymizeMember(${jsArg(m.id)})">Anonimizar</button>`:''}</div>`).join('')}</div>`:'<p class="sub">Nenhum. Quando algum passar do prazo, ele aparece aqui.</p>'}
+    <h4 style="margin:18px 0 6px">${tituloProx} (${L.proximos.length})</h4>
+    ${L.proximos.length?`<div class="lgpd-list">${L.proximos.map(({member:m,data})=>`<div class="lgpd-row"><span>${h(m.name)}${m.code?' · Cota '+h(m.code):''} <span class="sub">${h(quando(data))}</span></span>${adm?`<button class="op-btn" onclick="anonymizeMember(${jsArg(m.id)})">Anonimizar</button>`:''}</div>`).join('')}</div>`:'<p class="sub">Nenhum. Quando algum passar do prazo, ele aparece aqui.</p>'}
     <h4 style="margin:18px 0 6px">Não puderam ser anonimizados (${L.recusados.length})</h4>
     ${L.recusados.length?`<div class="lgpd-list">${L.recusados.map(({member:m,motivo})=>`<div class="lgpd-row"><span>${h(m.name)}${m.code?' · Cota '+h(m.code):''} <span class="sub">${h(motivo)}</span></span><button class="op-btn" onclick="editMember(${jsArg(m.id)})">Abrir cadastro</button></div>`).join('')}</div>`:'<p class="sub">Nenhum.</p>'}`);
 }
