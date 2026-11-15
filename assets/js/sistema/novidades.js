@@ -15,6 +15,9 @@ const NOVIDADES = [
     { titulo:'Cliente avulso paga na hora',
       texto:'No clube, cliente avulso (sem cota) não abre mais comanda: escolha os itens e o local, e o sistema vai direto para o pagamento. Pago, o pedido vai para a cozinha com a ficha e a venda fecha. Se fechar o pagamento sem pagar, nada é enviado.',
       onde:'Comandas › Abrir comanda', perms:['comandas'] },
+    { titulo:'Pergunta antes de imprimir o cupom fiscal',
+      texto:'A NFC-e continua sendo emitida sozinha depois do pagamento, mas o sistema pergunta "Imprimir o cupom fiscal?" antes de imprimir. Enter imprime. Para imprimir direto como antes, desligue "Perguntar antes de imprimir o cupom fiscal" em Configurações › NFC-e.',
+      onde:'Pagamento', perms:['caixa'] },
   ] },
   { id:'2026-11-15-lgpd', data:'15/11/2026', itens:[
     { titulo:'Privacidade dos sócios',

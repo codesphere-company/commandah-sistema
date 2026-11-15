@@ -1,9 +1,9 @@
 /* ============ NFC-e: CONFIGURAÇÃO (t207) ============
-   state.settings.nfce = { ambiente: 2|1, serie, autoEmitir, autoImprimir }. A Edge Function "nfce"
+   state.settings.nfce = { ambiente: 2|1, serie, autoEmitir, autoImprimir, perguntarImpressao }. A Edge Function "nfce"
    lê ambiente e série daqui. 11/11 (auditoria de lançamento): cada estabelecimento tem o próprio emissor
    (token da Brasil NFe cifrado no servidor, cadastrado aqui pelo administrador) e a produção só sai se a equipe do
    Commandah tiver liberado ESTE estabelecimento (nfce_emissores.producao_liberada). */
-function nfceSettings(){ const c=(state.settings&&state.settings.nfce)||{}; return { ambiente: Number(c.ambiente)===1?1:2, serie: Number(c.serie)>0?Number(c.serie):'', autoEmitir: !!c.autoEmitir, autoImprimir: c.autoImprimir!==false }; }
+function nfceSettings(){ const c=(state.settings&&state.settings.nfce)||{}; return { ambiente: Number(c.ambiente)===1?1:2, serie: Number(c.serie)>0?Number(c.serie):'', autoEmitir: !!c.autoEmitir, autoImprimir: c.autoImprimir!==false, perguntarImpressao: c.perguntarImpressao!==false }; }
 function openNfceSettings(){
   if(!requirePerm('config-sistema')) return;
   const c = nfceSettings();
@@ -17,6 +17,7 @@ function openNfceSettings(){
     <p class="sub">Se outro sistema também emite NFC-e neste CNPJ (por exemplo, o sistema antigo durante a troca), a série precisa ser <b>diferente da dele</b>. Sem série, a produção não emite. Produção também precisa estar liberada pela equipe do Commandah para este estabelecimento (proteção contra nota de verdade por engano).</p>
     <label class="comp-switch" style="margin:10px 0"><input type="checkbox" id="nfceAuto" ${c.autoEmitir?'checked':''}><span></span> <b style="font-weight:400">Emitir a NFC-e sozinha ao fechar a comanda (pagamento)</b></label>
     <label class="comp-switch" style="margin:0 0 10px"><input type="checkbox" id="nfceAutoPrint" ${c.autoImprimir?'checked':''}><span></span> <b style="font-weight:400">Imprimir o cupom da NFC-e no caixa quando ela for autorizada</b></label>
+    <label class="comp-switch" style="margin:0 0 10px"><input type="checkbox" id="nfcePerguntarImpressao" ${c.perguntarImpressao?'checked':''}><span></span> <b style="font-weight:400">Perguntar antes de imprimir o cupom fiscal</b></label>
     <p class="sub">Desligado, a nota é emitida pelo botão "Emitir NFC-e" no detalhe da comanda (Relatórios › Histórico de Pedidos). Cancelamento: até 30 minutos depois da autorização, no mesmo lugar.</p>
     <button class="btn btn-primary btn-block" id="nfceSaveBtn">Salvar</button>`);
   document.getElementById('nfceSaveBtn').onclick = async ()=>{
@@ -28,7 +29,7 @@ function openNfceSettings(){
       const ok = await askConfirm({ title:'Passar a NFC-e para produção?', message:'A partir daqui as notas têm valor fiscal, no CNPJ do estabelecimento, na série '+serie+'. Confirme que o contador aprovou os códigos fiscais e a série.', confirmLabel:'Passar para produção', cancelLabel:'Continuar em teste' });
       if(!ok) return;
     }
-    state.settings.nfce = { ambiente, serie: serie||null, autoEmitir: document.getElementById('nfceAuto').checked, autoImprimir: document.getElementById('nfceAutoPrint').checked };
+    state.settings.nfce = { ambiente, serie: serie||null, autoEmitir: document.getElementById('nfceAuto').checked, autoImprimir: document.getElementById('nfceAutoPrint').checked, perguntarImpressao: document.getElementById('nfcePerguntarImpressao').checked };
     await save('settings');
     logAction('NFC-e: ambiente '+(ambiente===1?'PRODUÇÃO':'teste')+', série '+(serie||'—')+', emissão '+(state.settings.nfce.autoEmitir?'automática':'manual'));
     closeModal(); toast('Configuração da NFC-e salva.');
@@ -112,11 +113,22 @@ async function autoEmitNfce(saleId){
   }
   const n = r.nota || {};
   if(n.status==='autorizada'){
-    if(c.autoImprimir && n.id) printNfceDanfe(n.id);
+    // Pedido do dono (15/11): a emissão segue automática; a impressão vira pergunta (perguntarImpressao,
+    // ausente = ligado). Desligado, imprime direto como antes.
+    if(c.autoImprimir && n.id){
+      if(!c.perguntarImpressao || await perguntarImpressaoCupom()) printNfceDanfe(n.id);
+    }
   } else {
     toast('A SEFAZ recusou a NFC-e do pedido '+(sale.orderNumber||'')+': '+(n.motivo||'sem motivo')+'. Veja no detalhe da comanda.', 'erro');
     logAction('NFC-e recusada (pedido '+(sale.orderNumber||saleId)+'): '+(n.cod_status||'')+' '+(n.motivo||''));
   }
+}
+// "Imprimir o cupom fiscal?" na camada de confirmação (não fecha a janela aberta). Aqui o foco fica em
+// "Imprimir" de propósito (pedido do dono): Enter imprime; Esc ou "Não imprimir" não imprimem.
+function perguntarImpressaoCupom(){
+  const p = askConfirm({ title:'Imprimir o cupom fiscal?', message:'', confirmLabel:'Imprimir', cancelLabel:'Não imprimir', danger:false });
+  const sim = document.querySelector('#confirmRoot [data-a="yes"]'); if(sim) sim.focus();
+  return p;
 }
 function savePrivacySettings(){
   const anos=Math.max(1,Math.min(20,parseInt(document.getElementById('lgpdAnos').value,10)||2));
