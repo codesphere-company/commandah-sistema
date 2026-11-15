@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 
 namespace Commandah.Agente.Testes
 {
@@ -50,6 +51,7 @@ namespace Commandah.Agente.Testes
             Testes.Ok(!LocalServer.CabecalhosCors("https://evil.com").Contains("Access-Control-Allow-Origin"), "cors: origem recusada nao ecoa");
 
             TestesAviso();
+            TestesFluxo();
 
             Console.WriteLine(Testes.Passou + " ok, " + Testes.Falhou + " falha(s)");
             return Testes.Falhou == 0 ? 0 : 1;
@@ -128,6 +130,225 @@ namespace Commandah.Agente.Testes
                 Testes.Ok(j.Length > 3 && !(j[0] == 0xEF && j[1] == 0xBB), "ferramenta: json sem BOM");
             }
             finally { try { Directory.Delete(tmp, true); } catch (Exception) { } }
+        }
+
+        // ---------- item 5 (auditoria 11/11): fluxo de atualização ----------
+        // Pasta temporária com downloads/ (aviso + exe "novo") servida por file:/// e uma pasta do agente
+        // com o exe "atual". Nada toca em %USERPROFILE%\.commandah nem na pasta real do agente.
+        class Cena : IDisposable
+        {
+            public string Raiz, Base, Pasta, Exe, Priv, Pub;
+            public Agent Agente;
+            public Cena(string priv)
+            {
+                Raiz = Path.Combine(Path.GetTempPath(), "atualiza-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(Path.Combine(Raiz, "site", "downloads"));
+                Pasta = Path.Combine(Raiz, "agente");
+                Directory.CreateDirectory(Pasta);
+                Exe = Path.Combine(Pasta, "CommandahImpressora.exe");
+                File.WriteAllText(Exe, "versao velha");
+                Base = new Uri(Path.Combine(Raiz, "site") + "\\").AbsoluteUri;
+                Priv = priv; Pub = PubDe(priv);
+                Agente = new Agent(new Config());
+            }
+            public string Downloads(string nome) { return Path.Combine(Raiz, "site", "downloads", nome); }
+            // publica o exe "novo" e um aviso; sha/size/url/chave podem ser forçados para os casos ruins
+            public void Publica(byte[] novo, string versao, string sha, long size, string url, string chaveAssina)
+            {
+                File.WriteAllBytes(Downloads("CommandahImpressora.exe"), novo);
+                string json = "{\"version\":\"" + versao + "\",\"url\":\"" + url + "\",\"sha256\":\"" + (sha ?? Updater.Sha256Hex(novo)) +
+                              "\",\"size\":" + (size > 0 ? size : novo.Length) + ",\"published_at\":\"2026-11-14T10:00:00Z\"}";
+                byte[] jb = new UTF8Encoding(false).GetBytes(json);
+                File.WriteAllBytes(Downloads("agente-impressao.json"), jb);
+                File.WriteAllText(Downloads("agente-impressao.json.sig"), Assina(jb, chaveAssina ?? Priv));
+            }
+            public Updater Novo(string chave)
+            {
+                var u = new Updater(Agente, Base, chave, Exe);
+                u.Reiniciar = false;
+                u.EsperaOcupado = TimeSpan.FromMilliseconds(50);
+                u.LimiteOcupado = TimeSpan.FromMilliseconds(300);
+                return u;
+            }
+            public string Old { get { return Path.Combine(Pasta, "CommandahImpressora.old.exe"); } }
+            public string New { get { return Path.Combine(Pasta, "CommandahImpressora.new.exe"); } }
+            public void Dispose()
+            {
+                for (int i = 0; i < 40; i++)
+                {
+                    try { Directory.Delete(Raiz, true); return; } catch (Exception) { Thread.Sleep(250); }
+                }
+            }
+        }
+
+        const string UrlCerta = "downloads/CommandahImpressora.exe";
+
+        static bool TemLog(Agent a, string trecho)
+        {
+            foreach (var e in a.Entries()) if (e.Text.Contains(trecho)) return true;
+            return false;
+        }
+
+        // Exe minúsculo para o teste de reabrir: grava os argumentos e fica vivo "ms" milissegundos.
+        static byte[] ExeDeTeste(string pasta, int ms)
+        {
+            string saida = Path.Combine(pasta, "teste-" + ms + ".exe");
+            var cp = new Microsoft.CSharp.CSharpCodeProvider();
+            var op = new System.CodeDom.Compiler.CompilerParameters(new[] { "System.dll" }, saida) { GenerateExecutable = true };
+            string src = "using System; using System.IO; class P { static void Main(string[] a) { " +
+                         "File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, \"args.txt\"), string.Join(\" \", a)); " +
+                         "System.Threading.Thread.Sleep(" + ms + "); } }";
+            var r = cp.CompileAssemblyFromSource(op, src);
+            if (r.Errors.HasErrors) throw new Exception("não compilou o exe de teste: " + r.Errors[0].ErrorText);
+            byte[] b = File.ReadAllBytes(saida);
+            File.Delete(saida);
+            return b;
+        }
+
+        static void TestesFluxo()
+        {
+            string priv = Chave(true), outraPriv = Chave(true);
+            byte[] novo = Encoding.UTF8.GetBytes("versao nova 9.9.9");
+
+            using (var c = new Cena(priv))
+            {
+                c.Publica(novo, "9.9.9", null, 0, UrlCerta, null);
+                var r = c.Novo(c.Pub).ProcurarEAplicar(false);
+                Testes.Ok(r == ResultadoAtualizacao.Trocado, "troca quando ha versao nova (" + r + ")");
+                Testes.Ok(File.Exists(c.Exe) && File.ReadAllText(c.Exe) == "versao nova 9.9.9", "troca: atual tem o novo");
+                Testes.Ok(File.Exists(c.Old) && File.ReadAllText(c.Old) == "versao velha", "troca: .old tem o antigo");
+                Testes.Ok(!File.Exists(c.New), "troca: sem .new.exe sobrando");
+            }
+
+            using (var c = new Cena(priv))
+            {
+                c.Publica(novo, "9.9.9", new string('b', 64), 0, UrlCerta, null);
+                var r = c.Novo(c.Pub).ProcurarEAplicar(true);
+                Testes.Ok(r == ResultadoAtualizacao.BaixouErrado, "sha errado nao troca (" + r + ")");
+                Testes.Ok(!File.Exists(c.New) && !File.Exists(c.Old), "sha errado: .new apagado, sem .old");
+                Testes.Ok(File.ReadAllText(c.Exe) == "versao velha", "sha errado: atual intacto");
+            }
+
+            using (var c = new Cena(priv))
+            {
+                // aviso diz menos bytes do que chegam: para de baixar (limite de tamanho)
+                c.Publica(novo, "9.9.9", null, novo.Length - 3, UrlCerta, null);
+                var r = c.Novo(c.Pub).ProcurarEAplicar(true);
+                Testes.Ok(r == ResultadoAtualizacao.BaixouErrado, "tamanho maior que o aviso nao troca (" + r + ")");
+                Testes.Ok(File.ReadAllText(c.Exe) == "versao velha" && !File.Exists(c.New), "tamanho: atual intacto");
+                c.Publica(novo, "9.9.9", null, novo.Length + 3, UrlCerta, null);
+                r = c.Novo(c.Pub).ProcurarEAplicar(true);
+                Testes.Ok(r == ResultadoAtualizacao.BaixouErrado, "tamanho menor que o aviso nao troca (" + r + ")");
+            }
+
+            using (var c = new Cena(priv))
+            {
+                c.Publica(novo, "0.0.1", null, 0, UrlCerta, null);
+                var r = c.Novo(c.Pub).ProcurarEAplicar(true);
+                Testes.Ok(r == ResultadoAtualizacao.SemNovidade, "nao rebaixa no fluxo (" + r + ")");
+                Testes.Ok(File.ReadAllText(c.Exe) == "versao velha", "nao rebaixa: atual intacto");
+            }
+
+            using (var c = new Cena(priv))
+            {
+                c.Publica(novo, "9.9.9", null, 0, UrlCerta, outraPriv);
+                var r = c.Novo(c.Pub).ProcurarEAplicar(true);
+                Testes.Ok(r == ResultadoAtualizacao.AvisoInvalido, "aviso sem assinatura valida (" + r + ")");
+                Testes.Ok(File.ReadAllText(c.Exe) == "versao velha" && !File.Exists(c.New), "assinatura: atual intacto");
+            }
+
+            using (var c = new Cena(priv))
+            {
+                // a url do aviso nunca escolhe de onde baixar: diferente da esperada, recusa
+                foreach (var u in new[] { "https://evil.com/CommandahImpressora.exe", "downloads/../x.exe", "downloads/CommandahImpressora.EXE" })
+                {
+                    c.Publica(novo, "9.9.9", null, 0, u, null);
+                    var r = c.Novo(c.Pub).ProcurarEAplicar(true);
+                    Testes.Ok(r == ResultadoAtualizacao.AvisoInvalido, "url diferente recusada: " + u + " (" + r + ")");
+                }
+                Testes.Ok(File.ReadAllText(c.Exe) == "versao velha", "url: atual intacto");
+            }
+
+            using (var c = new Cena(priv))
+            {
+                c.Publica(novo, "9.9.9", null, 0, UrlCerta, null);
+                var u = new Updater(c.Agente, c.Base, c.Pub, Path.Combine(c.Raiz, "nao-existe", "CommandahImpressora.exe"));
+                u.Reiniciar = false;
+                var r = u.ProcurarEAplicar(true);
+                Testes.Ok(r == ResultadoAtualizacao.PastaSemEscrita, "pasta sem escrita avisa (" + r + ")");
+                Testes.Ok(TemLog(c.Agente, "Atualização 9.9.9 disponível: baixe pelo Commandah"), "pasta sem escrita: texto no histórico");
+                Testes.Ok(u.Situacao.Contains("Atualização 9.9.9 disponível: baixe pelo Commandah"), "pasta sem escrita: texto na janela");
+            }
+
+            using (var c = new Cena(priv))
+            {
+                c.Publica(novo, "9.9.9", null, 0, UrlCerta, null);
+                c.Agente.EntrouOcupado();
+                var u = c.Novo(c.Pub);
+                var t0 = DateTime.Now;
+                var r = u.ProcurarEAplicar(true);
+                Testes.Ok(r == ResultadoAtualizacao.Ocupado, "ocupado espera (" + r + ")");
+                Testes.Ok((DateTime.Now - t0).TotalMilliseconds >= 250, "ocupado: esperou o limite");
+                Testes.Ok(File.ReadAllText(c.Exe) == "versao velha" && !File.Exists(c.New) && !File.Exists(c.Old), "ocupado: nao trocou");
+                Testes.Ok(!c.Agente.Pausado, "ocupado: agente nao ficou pausado");
+                c.Agente.SaiuOcupado();
+            }
+
+            using (var c = new Cena(priv))
+            {
+                c.Publica(novo, "9.9.9", null, 0, UrlCerta, null);
+                var r = c.Novo("").ProcurarEAplicar(true);
+                Testes.Ok(r == ResultadoAtualizacao.Desligado, "chave vazia (" + r + ")");
+                Testes.Ok(File.ReadAllText(c.Exe) == "versao velha", "chave vazia: atual intacto");
+            }
+
+            // o novo exe fecha logo (ex.: Smart App Control bloqueou): volta para a versão atual e não encerra
+            using (var c = new Cena(priv))
+            {
+                c.Publica(ExeDeTeste(c.Raiz, 0), "9.9.9", null, 0, UrlCerta, null);
+                var u = c.Novo(c.Pub);
+                u.Reiniciar = true;
+                u.JanelaAbertura = TimeSpan.FromSeconds(5);
+                bool encerrou = false;
+                u.Encerrar = () => encerrou = true;
+                var r = u.ProcurarEAplicar(true);
+                Testes.Ok(r == ResultadoAtualizacao.NaoAbriu, "nao abriu volta (" + r + ")");
+                Testes.Ok(File.Exists(c.Exe) && File.ReadAllText(c.Exe) == "versao velha", "nao abriu: atual restaurado");
+                Testes.Ok(!File.Exists(c.Old) && !File.Exists(c.New), "nao abriu: sem .old nem .new");
+                Testes.Ok(!encerrou, "nao abriu: nao encerrou o agente");
+                Testes.Ok(!c.Agente.Pausado, "nao abriu: agente voltou a imprimir");
+                Testes.Ok(TemLog(c.Agente, "Atualização para 9.9.9 não abriu; voltei para a versão " + Config.Version), "nao abriu: log");
+            }
+
+            // o novo exe continua aberto depois da janela: encerra este (com os argumentos certos)
+            using (var c = new Cena(priv))
+            {
+                c.Publica(ExeDeTeste(c.Raiz, 4000), "9.9.9", null, 0, UrlCerta, null);
+                var u = c.Novo(c.Pub);
+                u.Reiniciar = true;
+                u.JanelaAbertura = TimeSpan.FromSeconds(1.5);
+                bool encerrou = false;
+                u.Encerrar = () => encerrou = true;
+                var r = u.ProcurarEAplicar(true);
+                Testes.Ok(r == ResultadoAtualizacao.Trocado, "abriu e encerra (" + r + ")");
+                Testes.Ok(encerrou, "abriu: pediu para encerrar");
+                Testes.Ok(c.Agente.Pausado, "abriu: agente fica pausado ate fechar");
+                string args = File.Exists(Path.Combine(c.Pasta, "args.txt")) ? File.ReadAllText(Path.Combine(c.Pasta, "args.txt")) : "";
+                Testes.Ok(args == "--minimizado --pos-atualizacao", "abriu: argumentos (" + args + ")");
+                Testes.Ok(File.Exists(c.Old) && File.ReadAllText(c.Old) == "versao velha", "abriu: .old guardado");
+                Thread.Sleep(3000); // deixa o exe de teste terminar antes de apagar a pasta
+            }
+
+            // TrocarArquivos sozinho
+            using (var c = new Cena(priv))
+            {
+                File.WriteAllText(c.New, "n");
+                File.WriteAllText(c.Old, "lixo de antes");
+                Testes.Ok(Updater.TrocarArquivos(c.Exe, c.New), "TrocarArquivos: true");
+                Testes.Ok(File.ReadAllText(c.Exe) == "n" && File.ReadAllText(c.Old) == "versao velha" && !File.Exists(c.New), "TrocarArquivos: renomeou");
+                Testes.Ok(!Updater.TrocarArquivos(c.Exe, Path.Combine(c.Pasta, "nao-tem.exe")), "TrocarArquivos: sem novo da false");
+                Testes.Ok(File.ReadAllText(c.Exe) == "n", "TrocarArquivos: sem novo nao mexe");
+            }
         }
 
         static string PubDe(string privXml)

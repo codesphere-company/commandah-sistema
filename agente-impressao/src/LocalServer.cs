@@ -58,6 +58,12 @@ namespace Commandah.Agente
             }
         }
 
+        // item 5 (auditoria 11/11): solta a porta antes de a versão nova abrir.
+        public void Stop()
+        {
+            try { if (listener != null) listener.Stop(); } catch (Exception) { }
+        }
+
         void Loop()
         {
             while (true)
@@ -99,17 +105,22 @@ namespace Commandah.Agente
                         string printer = d.ContainsKey("printer") ? Convert.ToString(d["printer"]) : "";
                         string text = d.ContainsKey("text") ? Convert.ToString(d["text"]) : "";
                         string ip = d.ContainsKey("ip") ? Convert.ToString(d["ip"]) : "";
-                        if (!string.IsNullOrEmpty(ip))
+                        agent.EntrouOcupado(); // item 5: a atualização espera esta impressão terminar
+                        try
                         {
-                            if (!Printing.EnderecoPermitido(ip)) { Send(stream, 400, MsgEndereco, origin); return; }
-                            Printing.PrintNetwork(ip, text);
+                            if (!string.IsNullOrEmpty(ip))
+                            {
+                                if (!Printing.EnderecoPermitido(ip)) { Send(stream, 400, MsgEndereco, origin); return; }
+                                Printing.PrintNetwork(ip, text);
+                            }
+                            else
+                            {
+                                var win = Printing.FindWindowsPrinter(printer);
+                                if (win == null) { Send(stream, 404, "{\"ok\":false,\"error\":\"impressora não encontrada\"}", origin); return; }
+                                Printing.PrintWindows(win, text, "Commandah (local)");
+                            }
                         }
-                        else
-                        {
-                            var win = Printing.FindWindowsPrinter(printer);
-                            if (win == null) { Send(stream, 404, "{\"ok\":false,\"error\":\"impressora não encontrada\"}", origin); return; }
-                            Printing.PrintWindows(win, text, "Commandah (local)");
-                        }
+                        finally { agent.SaiuOcupado(); }
                         agent.Log("Impresso pelo atendimento local em " + (string.IsNullOrEmpty(ip) ? printer : ip) + ".", false);
                         Send(stream, 200, "{\"ok\":true}", origin);
                         return;

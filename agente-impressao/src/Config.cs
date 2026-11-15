@@ -16,6 +16,27 @@ namespace Commandah.Agente
         // item 5 (auditoria 11/11): onde fica o aviso assinado e a chave pública que o valida
         public const string UpdateBase = "https://codesphere-company.github.io/commandah-sistema/";
         public const string UpdatePublicKey = ""; // a chave real entra na publicação (Task 5)
+
+        // COMMANDAH_UPDATE_BASE / COMMANDAH_UPDATE_KEY: só para teste (ensaio com servidor local e
+        // chave de teste). A chave pode vir como XML ou como caminho de um arquivo com o XML.
+        public static string BaseAtualizacao
+        {
+            get
+            {
+                var t = Environment.GetEnvironmentVariable("COMMANDAH_UPDATE_BASE");
+                return !string.IsNullOrEmpty(t) ? t : UpdateBase;
+            }
+        }
+        public static string ChaveAtualizacao
+        {
+            get
+            {
+                var t = Environment.GetEnvironmentVariable("COMMANDAH_UPDATE_KEY");
+                if (string.IsNullOrEmpty(t)) return UpdatePublicKey;
+                try { if (!t.TrimStart().StartsWith("<") && File.Exists(t)) return File.ReadAllText(t, Encoding.UTF8); } catch (Exception) { }
+                return t;
+            }
+        }
         public const string DefaultApiUrl = "https://ezfoymdesmarpunmixbs.supabase.co";
         public const string DefaultApiKey = "sb_publishable_m56iV0j3aIHlj_jth44jyw_CIw7CmyG";
         const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";

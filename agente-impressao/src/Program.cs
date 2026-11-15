@@ -15,17 +15,28 @@ namespace Commandah.Agente
         static void Main(string[] args)
         {
             bool created;
+            // item 5 (auditoria 11/11): aberto pela versão anterior depois de trocar o exe
+            bool posAtualizacao = Array.Exists(args, a => a == "--pos-atualizacao");
             using (var mutex = new Mutex(true, "Local\\CommandahAgenteImpressao", out created))
             {
+                if (!created && posAtualizacao)
+                {
+                    // a versão anterior ainda está fechando: espera ela soltar o mutex (até 30 s)
+                    try { created = mutex.WaitOne(TimeSpan.FromSeconds(30)); }
+                    catch (AbandonedMutexException) { created = true; }
+                }
                 if (!created)
                 {
-                    MessageBox.Show("O agente de impressão do Commandah já está aberto (ícone perto do relógio).", "Commandah", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    // depois de atualizar, sem mutex = a anterior continuou (voltou atrás): sai sem avisar
+                    if (!posAtualizacao)
+                        MessageBox.Show("O agente de impressão do Commandah já está aberto (ícone perto do relógio).", "Commandah", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
                 bool minimized = Array.Exists(args, a => a == "--minimizado");
-                Application.Run(new TrayContext(minimized));
+                Application.Run(new TrayContext(minimized, posAtualizacao));
+                try { mutex.ReleaseMutex(); } catch (Exception) { } // a versão nova espera por ele
             }
         }
     }
@@ -35,9 +46,12 @@ namespace Commandah.Agente
         readonly Agent agent;
         readonly NotifyIcon tray = new NotifyIcon();
         readonly MainForm form;
+        readonly LocalServer local;
+        readonly Updater updater;
+        readonly SynchronizationContext ui;
         AgentState lastState;
 
-        public TrayContext(bool minimized)
+        public TrayContext(bool minimized, bool posAtualizacao)
         {
             var cfg = Config.Load();
             if (cfg.IsNew)
@@ -46,8 +60,17 @@ namespace Commandah.Agente
                 try { Config.StartsWithWindows = true; cfg.Save(); } catch (Exception) { }
             }
             agent = new Agent(cfg);
-            form = new MainForm(agent);
-            new LocalServer(agent).Start();
+            // item 5 (auditoria 11/11): atualização automática com aviso assinado
+            string exe = Application.ExecutablePath;
+            updater = new Updater(agent, Config.BaseAtualizacao, Config.ChaveAtualizacao, exe);
+            form = new MainForm(agent, updater);
+            // criar o form instala o contexto da UI: o fechamento pela atualização volta para esta thread
+            ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
+            updater.Encerrar = () => ui.Post(_ => FecharParaAtualizar(), null);
+            local = new LocalServer(agent);
+            local.Start();
+            if (posAtualizacao) agent.Log("Atualizado para " + Config.Version + ".", false);
+            LimparSobras(exe, posAtualizacao);
 
             var menu = new ContextMenuStrip();
             menu.Items.Add("Abrir", null, (s, e) => ShowForm());
@@ -60,6 +83,7 @@ namespace Commandah.Agente
             tray.Visible = true;
             agent.Changed += () => form.BeginInvokeSafe(UpdateTray);
             agent.Start();
+            updater.Iniciar();
             if (!minimized || string.IsNullOrEmpty(cfg.Token)) ShowForm();
         }
 
@@ -87,6 +111,27 @@ namespace Commandah.Agente
             form.ReallyClose = true;
             form.Close();
             ExitThread();
+        }
+
+        // Versão nova já aberta (esperando o mutex): fecha sem perguntar, solta a porta local e o
+        // mutex (Main o solta quando Application.Run volta).
+        void FecharParaAtualizar()
+        {
+            tray.Visible = false;
+            local.Stop();
+            form.ReallyClose = true;
+            form.Close();
+            ExitThread();
+        }
+
+        // Apaga o .old (versão anterior) e um .new que tenha sobrado. Logo depois de atualizar, a
+        // versão anterior ainda pode estar fechando: tenta de novo daqui a pouco.
+        static void LimparSobras(string exe, bool posAtualizacao)
+        {
+            string[] sobras = { Updater.CaminhoAntigo(exe), Updater.CaminhoNovo(exe) };
+            Action limpar = () => { foreach (var s in sobras) { try { if (System.IO.File.Exists(s)) System.IO.File.Delete(s); } catch (Exception) { } } };
+            limpar();
+            if (posAtualizacao) ThreadPool.QueueUserWorkItem(_ => { Thread.Sleep(20000); limpar(); });
         }
     }
 

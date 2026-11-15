@@ -14,7 +14,8 @@ namespace Commandah.Agente
         public long Size;
     }
 
-    public static class Updater
+    // O fluxo (baixar, trocar, reabrir) fica em UpdaterFluxo.cs: este arquivo também entra na AssinarAgente.
+    public partial class Updater
     {
         // Devolve null se a assinatura não bate, se o JSON é inválido ou se falta campo.
         public static Aviso LerAvisoAssinado(byte[] json, string sigBase64, string publicKeyXml)

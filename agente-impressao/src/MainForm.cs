@@ -10,6 +10,8 @@ namespace Commandah.Agente
     public class MainForm : Form
     {
         readonly Agent agent;
+        readonly Updater updater;
+        readonly Label updateStatus = new Label { AutoSize = true, ForeColor = Color.DimGray, Margin = new Padding(0, 7, 0, 0), MaximumSize = new Size(420, 0) };
         readonly Label status = new Label();
         // Conexão
         readonly Panel pairPanel = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, WrapContents = false };
@@ -28,9 +30,10 @@ namespace Commandah.Agente
         readonly Timer refresh = new Timer();
         public bool ReallyClose;
 
-        public MainForm(Agent agent)
+        public MainForm(Agent agent, Updater updater)
         {
             this.agent = agent;
+            this.updater = updater;
             Text = "Commandah — Agente de impressão " + Config.Version;
             Font = new Font("Segoe UI", 10f);
             ClientSize = new Size(640, 660);
@@ -116,12 +119,27 @@ namespace Commandah.Agente
             root.Controls.Add(gHist);
 
             var foot = new Label { AutoSize = true, ForeColor = Color.DimGray, Text = "Fechar esta janela não desliga o agente: ele continua no ícone perto do relógio." };
-            root.Controls.Add(foot);
+            // item 5 (auditoria 11/11): atualização automática; o botão procura agora
+            var checkUpdate = new Button { Text = "Procurar atualização", AutoSize = true };
+            checkUpdate.Click += (s, e) =>
+            {
+                checkUpdate.Enabled = false;
+                System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    try { updater.ProcurarEAplicar(true); }
+                    catch (Exception ex) { agent.Log("Atualização: erro inesperado: " + ex.Message, true); }
+                    finally { if (IsHandleCreated) BeginInvoke(new Action(() => checkUpdate.Enabled = true)); }
+                });
+            };
+            var updateRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false };
+            updateRow.Controls.AddRange(new Control[] { checkUpdate, updateStatus });
+            root.Controls.Add(Stack(updateRow, foot));
 
             LoadPrinters();
             agent.Changed += () => { if (IsHandleCreated) BeginInvoke(new Action(RefreshView)); };
             refresh.Interval = 5000; refresh.Tick += (s, e) => RefreshView(); refresh.Start();
             Load += (s, e) => RefreshView();
+            updater.Mudou += () => { if (IsHandleCreated) BeginInvoke(new Action(RefreshView)); };
             FormClosing += (s, e) => { if (!ReallyClose && e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; Hide(); } };
         }
 
@@ -179,6 +197,7 @@ namespace Commandah.Agente
             tokenLink.Visible = !hasToken;
             if (hasToken) tokenPanel.Visible = false;
             Icon = AgentIcons.For(agent.State);
+            updateStatus.Text = updater.Situacao ?? "";
             var entries = agent.Entries();
             history.BeginUpdate();
             history.Items.Clear();
