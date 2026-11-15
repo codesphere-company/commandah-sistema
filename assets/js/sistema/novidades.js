@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-15-cota-clientes', data:'15/11/2026', itens:[
+    { titulo:'Cota na lista de clientes',
+      texto:'A lista de clientes mostra a cota de cada sócio na primeira coluna. Para achar pela cota, escolha "Cota" ao lado da pesquisa e digite o número: aparece só aquela cota (18 não traz 180 nem 1801).',
+      onde:'Cadastros › Clientes', perms:['associados'] },
+  ] },
   { id:'2026-11-14-agente-2-4', data:'14/11/2026', itens:[
     { titulo:'Programa de impressão 2.4',
       texto:'O programa que imprime as fichas ficou mais seguro: só aceita ordens do Commandah oficial, imprime só em impressoras da rede interna e se atualiza sozinho nas próximas versões. Instale esta versão uma vez em cada computador (baixe de novo, feche o programa antigo pelo ícone perto do relógio, troque o arquivo em C:\\Commandah e abra). O pareamento continua valendo.',
