@@ -335,6 +335,7 @@ function confirmNovoPedidoAvulso(){
   const local = localEntregaLido('npLocal'); if(local===null) return;
   const items = npCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local, requesterId:null, requesterName:nome, requesterType:'avulso'}));
   applyLevarJunto(items, levarJunto.np);
+  delete document.getElementById('modalRoot').dataset.avulsoPendente; // o Pagamento substitui o Novo pedido sem descartar o rascunho novo
   currentSaleDraft = { items, memberId:null, customerName:nome, notes:'', type:'balcao', local, avulsoNp:true };
   logAction('Pedido de cliente avulso '+nome+(local?' — local: '+local:'')+' indo para o pagamento');
   openPaymentModal('balcao');
@@ -673,7 +674,7 @@ function imprimirComandaCompleta(saleId){
   let ultima = ''; try{ ultima = localStorage.getItem(IMPRIMIR_COMANDA_KEY)||''; }catch(e){}
   const lista = impressorasParaEscolha(), caixa = receiptPrinterFor(currentUser);
   const chaves = lista.map(x=>x.key).concat(IMPRIMIR_AQUI);
-  const marcada = chaves.includes(ultima) ? ultima : (caixa && (lista.find(x=>x.imp===caixa)||{}).key) || chaves[0];
+  const marcada = chaves.includes(ultima) ? ultima : (caixa && (lista.find(x=>(caixa.osName && x.imp.osName===caixa.osName) || (caixa.nome && x.imp.nome===caixa.nome))||{}).key) || chaves[0];
   const op = (key, texto)=>`<label class="comp-switch" style="display:flex;margin:0 0 10px"><input type="radio" name="imprimirEm" value="${h(key)}" ${key===marcada?'checked':''}> <b style="font-weight:400">${h(texto)}</b></label>`;
   openModal('Onde imprimir a comanda?', `
     ${lista.map(x=>op(x.key, x.imp.nome||x.imp.osName||'Impressora')).join('')}${op(IMPRIMIR_AQUI, 'Imprimir aqui (navegador)')}
