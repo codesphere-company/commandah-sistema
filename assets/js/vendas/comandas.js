@@ -189,21 +189,53 @@ function renderComandaDetail(id, keepRequester){
     if(s.locked){ toast('Este pedido está bloqueado. Desbloqueie antes de fechar.'); return; }
     if(closingComanda) return; // duplo clique: não reenviar os mesmos itens pra cozinha
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
-    if(unsent.length){ closingComanda = true; let ok; try{ ok = await sendItemsToKitchen(s.id, unsent, who, 'comanda', s.local); }finally{ closingComanda = false; } if(!ok) return; unsent.forEach(i=>i.sent=true); }
-    const fresh = await commitSaleChange(s.id, cur=>{ if(cur.status!=='open'||cur.canceled) return false; cur.items=mergeDraftItems(cur.items, currentSaleDraft.items).items; cur.total=saleTotal(cur.items); });
+    // Local obrigatório (15/11): cada item pendente vai com o seu local, uma remessa por local.
+    // Ligado, item sem local próprio faz perguntar (mesmo com mesa na comanda: o dono quer onde
+    // entregar, não a mesa). Desligado, como antes: o local da comanda.
+    const obrig = localEntregaObrigatorio();
+    const semLocal = obrig ? unsent.filter(i=>!i.local) : [];
+    if(semLocal.length){ pedirLocalDosPendentes(semLocal); return; }
+    const porLocal = {};
+    unsent.forEach(i=>{ const k = (obrig ? i.local : (i.local||s.local)) || ''; (porLocal[k]=porLocal[k]||[]).push(i); });
+    const gravar = ()=>commitSaleChange(s.id, cur=>{ if(cur.status!=='open'||cur.canceled) return false; cur.items=mergeDraftItems(cur.items, currentSaleDraft.items).items; cur.total=saleTotal(cur.items); });
+    if(unsent.length){
+      closingComanda = true;
+      try{
+        // "Cozinha fechada" é perguntado uma vez só, não uma vez por remessa.
+        if(!await confirmarCozinhaFechada(unsent, 'comanda')) return;
+        for(const local of Object.keys(porLocal)){
+          const grupo = porLocal[local];
+          if(!await sendItemsToKitchen(s.id, grupo, who, 'comanda', local, { cozinhaConfirmada:true })) return;
+          // Cada remessa enviada é gravada e sai na ficha antes da próxima: se uma falhar no meio,
+          // as anteriores já ficaram na comanda e na estação (OP-04: estação "só imprime" fica sabendo).
+          grupo.forEach(i=>i.sent=true);
+          await gravar();
+          const origem = currentUser.origem||'caixa', groups = {};
+          grupo.forEach(i=>{ const key=i.estacao||itemStation(i); (groups[key]=groups[key]||[]).push(i); });
+          const printJobs = Object.keys(groups).map(estacao=>{ const printer = resolvePrinterFor(estacao, origem); return { estacao, items:groups[estacao], printer: printer?printer.nome:null }; });
+          printNovoPedidoTickets(person, member?member.code:'', local, printJobs, s.orderNumber);
+        }
+      }finally{ closingComanda = false; }
+    }
+    const fresh = await gravar();
     if(!fresh) return;
     if(fresh.status!=='open'||fresh.canceled){ toast('Esta comanda já foi fechada ou cancelada em outro aparelho.'); closeComandaView(); renderAll(); return; }
     currentSaleDraft.items = JSON.parse(JSON.stringify(fresh.items)); // itens do garçom entram no total do pagamento
-    // OP-04: os itens que iam para a cozinha só neste clique também saem na
-    // ficha da estação, como nos outros fluxos. Sem isso, estação "só imprime"
-    // (bar, churrasqueira) nunca ficava sabendo e o cliente pagava sem receber.
-    if(unsent.length){
-      const origem = currentUser.origem||'caixa', groups = {};
-      unsent.forEach(i=>{ const key=i.estacao||itemStation(i); (groups[key]=groups[key]||[]).push(i); });
-      const printJobs = Object.keys(groups).map(estacao=>{ const printer = resolvePrinterFor(estacao, origem); return { estacao, items:groups[estacao], printer: printer?printer.nome:null }; });
-      printNovoPedidoTickets(person, member?member.code:'', s.local, printJobs, s.orderNumber);
-    }
     openPaymentModal('comanda', s.id); // paga, finalizeSale -> renderAll volta para a lista
+  };
+}
+// Local obrigatório (15/11): itens pendentes sem local próprio ao ir para o
+// Pagamento. Pergunta um local, grava nesses itens e clica de novo em Pagamento.
+function pedirLocalDosPendentes(itens){
+  openModal('Local de entrega', `
+    <p class="sub">${itens.map(i=>`${h(itemQtyLabel(i))} ${h(i.name)}`).join(', ')} ainda não foi(ram) para a cozinha. Escolha para onde vai.</p>
+    <div class="field"><label class="np-label" for="pendLocal">Local de entrega *</label><select id="pendLocal">${localEntregaOptionsHtml('')}</select></div>
+    <div class="row"><button class="btn" onclick="closeModal()">Voltar</button><button class="btn btn-primary" id="pendLocalBtn">Enviar e ir para o pagamento</button></div>`);
+  document.getElementById('pendLocalBtn').onclick = ()=>{
+    const local = localEntregaLido('pendLocal'); if(local===null) return;
+    itens.forEach(i=>{ i.local = local; });
+    closeModal();
+    const btn = document.getElementById('btnCloseComanda'); if(btn) btn.click();
   };
 }
 function saveComandaNote(saleId,value){const s=state.sales.find(x=>x.id===saleId);if(!s)return;s.notes=value.trim();save('sales');}
@@ -211,6 +243,27 @@ function saveComandaLocal(saleId,value){const s=state.sales.find(x=>x.id===saleI
 
 let npCart = [];
 let npSaleId = null;
+/* Local de entrega obrigatório (pedido do dono, teste prático de 15/11): nenhum lançamento sai sem
+   local escolhido, e o select começa sempre sem nada escolhido (nunca com a mesa da comanda). "Retirar no balcão" passa a ser uma opção explícita e a opção vazia vira só o
+   aviso "Escolha o local de entrega" (desabilitada). Ajuste state.settings.localEntregaObrigatorio
+   (ausente = ligado); desligado, volta a opção vazia de antes ("No balcão / retirar aqui"). */
+const LOCAL_RETIRAR_BALCAO = 'Retirar no balcão';
+function localEntregaObrigatorio(){ return !(state.settings && state.settings.localEntregaObrigatorio===false); }
+function localEntregaOptionsHtml(selecionado){
+  const sel = String(selecionado||''), obrig = localEntregaObrigatorio();
+  const nomes = (state.locais||[]).map(l=>l.nome).filter(n=>n && n!==LOCAL_RETIRAR_BALCAO);
+  if(sel && (obrig ? sel!==LOCAL_RETIRAR_BALCAO : true) && !nomes.includes(sel)) nomes.unshift(sel); // local antigo que saiu da lista
+  const op = (v, t)=>`<option value="${h(v)}" ${sel===v?'selected':''}>${h(t)}</option>`;
+  return (obrig
+    ? `<option value="" disabled ${sel?'':'selected'}>Escolha o local de entrega</option>${op(LOCAL_RETIRAR_BALCAO, LOCAL_RETIRAR_BALCAO)}`
+    : `<option value="">— No balcão / retirar aqui —</option>`) + nomes.map(n=>op(n, n)).join('');
+}
+// Lê o local do select; com o ajuste ligado e nada escolhido avisa, foca e devolve null.
+function localEntregaLido(selectId){
+  const el = document.getElementById(selectId), v = el ? String(el.value||'') : '';
+  if(!v && localEntregaObrigatorio()){ toast('Escolha o local de entrega.'); if(el) el.focus(); return null; }
+  return v;
+}
 function openNovoPedidoModal(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
   npCart = []; levarJunto.np=false;
@@ -239,7 +292,7 @@ function openNovoPedidoModal(saleId){
       <aside class="np-side">
         ${requesterSection}
         <div class="np-section">
-          <label class="np-label">Local de entrega</label><select id="npLocal"><option value="">— No balcão / retirar aqui —</option>${state.locais.map(l=>`<option value="${h(l.nome)}" ${s.local===l.nome?'selected':''}>${h(l.nome)}</option>`).join('')}</select>
+          <label class="np-label">Local de entrega</label><select id="npLocal">${localEntregaOptionsHtml(localEntregaObrigatorio() ? '' : s.local)}</select>
           <div class="np-origin-badge" title="Origem deste pedido">${h(origemLabel(currentUser.origem)||'Caixa')} · ${h(currentUser.name)}</div>
         </div>
         <div class="np-section np-cart">
@@ -423,7 +476,7 @@ async function confirmNovoPedidoModal(saleId){
   else { const depId=reqValue.split(':')[1], dep=(member.dependents||[]).find(d=>d.id===depId); requester={id:dep&&dep.id,name:dep&&dep.name||'Dependente',type:'dependente',canOrder:!!dep&&dep.canOrder!==false}; }
   if(!requester.canOrder){ toast('Esta pessoa está bloqueada para consumir nesta cota.'); return; }
   if(!npCart.length){ toast('Adicione ao menos um produto.'); return; }
-  const local = document.getElementById('npLocal').value;
+  const local = localEntregaLido('npLocal'); if(local===null) return;
   const origem = currentUser.origem||'caixa';
   const who = requester.name;
   const items = npCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:local||s.local||'', requesterId:requester.id, requesterName:who, requesterType:requester.type}));
@@ -515,7 +568,9 @@ async function renderPrinterQueueStatus(){
   }
   if(!isHttpsPage){ box.className='tag tag-gray'; box.textContent='Status por impressora atualizado abaixo — cada impressora fala com o agente do computador onde ela está ligada.'; }
 }
-function stripAccentsForPrint(s){ const lo=String.fromCharCode(0x0300), hi=String.fromCharCode(0x036f); return String(s||'').normalize('NFD').replace(new RegExp('['+lo+'-'+hi+']','g'),''); }
+// 15/11: a térmica imprimia "?" no lugar de travessão, aspas curvas, "·" e "…"; saem os equivalentes ASCII.
+const PRINT_ASCII = { '\u2014':'-', '\u2013':'-', '\u2012':'-', '\u2212':'-', '\u00B7':'-', '\u2022':'*', '\u2026':'...', '\u2018':"'", '\u2019':"'", '\u201A':"'", '\u201C':'"', '\u201D':'"', '\u201E':'"', '\u00AB':'"', '\u00BB':'"', '\u00A0':' ', '\u00BA':'o', '\u00AA':'a', '\u00B0':'o' };
+function stripAccentsForPrint(s){ const lo=String.fromCharCode(0x0300), hi=String.fromCharCode(0x036f); return String(s||'').normalize('NFD').replace(new RegExp('['+lo+'-'+hi+']','g'),'').replace(/[\u2014\u2013\u2012\u2212\u00B7\u2022\u2026\u2018\u2019\u201A\u201C\u201D\u201E\u00AB\u00BB\u00A0\u00BA\u00AA\u00B0]/g, c=>PRINT_ASCII[c]); }
 // Postgres nunca aceita byte nulo (0x00) em coluna de texto — mas vários comandos ESC/POS
 // (reset de tamanho de letra, corte total, etc.) precisam de um parâmetro 0x00. Guardamos
 // esse placeholder no banco, e só o agente (na hora de mandar pro socket da impressora,
@@ -673,6 +728,9 @@ function openReorderComandaItem(idx){
   if(!rb){ toast('Este item mudou no cadastro (tamanho ou opção) e não pode ser repetido.'); return; }
   reorderQty = 1; reorderItemIdx = idx; reorderCopos = productAsksCopos(product) ? (item.copos!=null?item.copos:0) : 0;
   const reorderName = rb.choice ? rb.choice.name : product.name, reorderPrice = rb.choice ? rb.choice.price : product.price;
+  // Local obrigatório (15/11): repete no local do item original (ou da comanda); sem nenhum, pergunta.
+  const sale = state.sales.find(x=>x.id===currentSaleDraft.id);
+  const pedeLocal = localEntregaObrigatorio() && !(item.local || (sale&&sale.local));
   openModal('Pedir novamente', `
     <p class="sub">${h(reorderName)} · <span class="mono">${fmt(reorderPrice)}</span>${rb.choice?cartLineOptionsHtml({customization:rb.choice.customization},'display:block'):''}</p>
     <div class="field" style="text-align:center">
@@ -691,6 +749,7 @@ function openReorderComandaItem(idx){
         <button onclick="reorderCoposChange(1)">+</button>
       </div>
     </div>`:''}
+    ${pedeLocal?`<div class="field"><label class="np-label" for="reorderLocal">Local de entrega *</label><select id="reorderLocal">${localEntregaOptionsHtml('')}</select></div>`:''}
     <div class="row">
       <button class="btn" onclick="openComanda(${jsArg(currentSaleDraft.id)},true)">Cancelar</button>
       <button class="btn btn-primary" id="reorderConfirmBtn">Adicionar e enviar pra cozinha</button>
@@ -716,16 +775,21 @@ async function confirmReorderComandaItem(){
   const rb = rebuildRepeatChoice(item, product);
   if(!rb){ toast('Este item mudou no cadastro (tamanho ou opção) e não pode ser repetido.'); return; }
   const who = item.requesterName || s.customerName || 'Cliente';
+  // Local obrigatório (15/11): o do item original, senão o da comanda, senão o escolhido no modal.
+  // Desligado: como antes, o local da comanda.
+  let local = localEntregaObrigatorio() ? (item.local || s.local || '') : (s.local || '');
+  if(!local && document.getElementById('reorderLocal')){ local = localEntregaLido('reorderLocal'); if(local===null) return; }
+  else if(!local && localEntregaObrigatorio()){ toast('Escolha o local de entrega.'); return; }
   const base = cartAddLine([], product, rb.choice, reorderQty, reorderCopos);
-  const newItem = {lineId:uid(), ...base, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
-  if(!await sendItemsToKitchen(saleId, [newItem], who, 'comanda', s.local)) return;
+  const newItem = {lineId:uid(), ...base, sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local, requesterId:item.requesterId, requesterName:item.requesterName, requesterType:item.requesterType};
+  if(!await sendItemsToKitchen(saleId, [newItem], who, 'comanda', local)) return;
   newItem.sent = true;
   await commitSaleChange(s.id, cur=>{ cur.items=[...(cur.items||[]), newItem]; cur.total=saleTotal(cur.items); });
   if(saidaTemImpressao(newItem.estacao)){
     const origem = currentUser.origem||'caixa';
     const printer = resolvePrinterFor(newItem.estacao, origem);
     const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
-    printSingleTicket(who, member?member.code:'', s.local||'', newItem.estacao, printer?printer.nome:null, [newItem], s.orderNumber);
+    printSingleTicket(who, member?member.code:'', local, newItem.estacao, printer?printer.nome:null, [newItem], s.orderNumber);
   }
   logAction('Pedido repetido do histórico: '+newItem.name+' x'+reorderQty+' para '+who+' — pedido #'+(s.orderNumber||saleId));
   toast('Item adicionado à comanda.'); // UX lote 3: ver o toast de 'Pedido confirmado.'
@@ -1010,9 +1074,16 @@ function openComandaQuickAddConfirm(){
       <p id="comandaQuickAddRequesterWarn" class="sub" style="display:none;color:var(--red);margin:6px 0 0">Esta pessoa está bloqueada para consumir nesta cota.</p>
     </div>` : `<select id="comandaQuickAddRequester" style="display:none">${requesterOptions}</select>`;
   const itemsSummary = comandaQuickCart.map(i=>`${i.qty}x ${h(i.name)}`).join(', ');
+  // Local obrigatório (15/11): o lançamento rápido pergunta o local. Começa sem nada escolhido
+  // (decisão do dono: a mesa da comanda não é onde entregar).
+  const localSection = localEntregaObrigatorio() ? `
+    <div class="field">
+      <label class="np-label" for="comandaQuickAddLocal">Local de entrega *</label>
+      <select id="comandaQuickAddLocal">${localEntregaOptionsHtml('')}</select>
+    </div>` : '';
   openModal('Adicionar Produtos', `
     <p class="sub">${itemsSummary}</p>
-    ${requesterSection}
+    ${requesterSection}${localSection}
     <div class="row">
       <button class="btn" onclick="openComanda(${jsArg(saleId)},true)">Voltar</button>
       <button class="btn btn-primary" id="comandaQuickAddConfirmBtn">Confirmar e enviar pra cozinha</button>
@@ -1038,11 +1109,14 @@ async function confirmComandaQuickAdd(){
   else if(reqValue.startsWith('holder:')) requester={id:member.id,name:member.name,type:'titular',canOrder:true};
   else { const depId=reqValue.split(':')[1], dep=(member.dependents||[]).find(d=>d.id===depId); requester={id:dep&&dep.id,name:dep&&dep.name||'Dependente',type:'dependente',canOrder:!!dep&&dep.canOrder!==false}; }
   if(!requester.canOrder){ toast('Esta pessoa está bloqueada para consumir nesta cota.'); return; }
+  // Desligado (ou modal antigo sem o select): segue com a mesa da comanda, como antes.
+  const local = document.getElementById('comandaQuickAddLocal') ? localEntregaLido('comandaQuickAddLocal') : (s.local||'');
+  if(local===null) return;
   const who = requester.name;
   const origem = currentUser.origem||'caixa';
-  const items = comandaQuickCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local:s.local||'', requesterId:requester.id, requesterName:who, requesterType:requester.type}));
+  const items = comandaQuickCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local, requesterId:requester.id, requesterName:who, requesterType:requester.type}));
   applyLevarJunto(items, levarJunto.quick);
-  if(!await sendItemsToKitchen(saleId, items, who, 'comanda', s.local)) return;
+  if(!await sendItemsToKitchen(saleId, items, who, 'comanda', local)) return;
   items.forEach(i=>i.sent=true);
   await commitSaleChange(s.id, cur=>{ cur.items=[...(cur.items||[]), ...items]; cur.total=saleTotal(cur.items); });
   const groups = {};
@@ -1052,7 +1126,7 @@ async function confirmComandaQuickAdd(){
     return { estacao, items:groups[estacao], printer: printer?printer.nome:null };
   });
   logAction('Produto(s) adicionado(s) via busca na comanda: '+items.map(i=>i.qty+'x '+i.name).join(', ')+' para '+who+' — pedido #'+(s.orderNumber||saleId));
-  printNovoPedidoTickets(who, member?member.code:'', s.local, printJobs, s.orderNumber);
+  printNovoPedidoTickets(who, member?member.code:'', local, printJobs, s.orderNumber);
   toast('Item adicionado à comanda.'); // UX lote 3: ver o toast de 'Pedido confirmado.'
   comandaQuickCart = []; levarJunto.quick=false;
   closeModal(); openComanda(saleId, true); renderComandas();
@@ -1091,6 +1165,7 @@ function reprintComandaItem(idx){
   const printer = resolvePrinterFor(estacao, origem);
   const who = item.requesterName || currentSaleDraft.customerName || 'Cliente';
   const reprintMember = currentSaleDraft.memberId ? state.members.find(m=>m.id===currentSaleDraft.memberId) : null;
-  printSingleTicket(who, reprintMember?reprintMember.code:'', '', estacao, printer?printer.nome:null, [item], null);
+  const reprintSale = state.sales.find(x=>x.id===currentSaleDraft.id);
+  printSingleTicket(who, reprintMember?reprintMember.code:'', item.local||currentSaleDraft.local||(reprintSale&&reprintSale.local)||'', estacao, printer?printer.nome:null, [item], null); // 15/11: com o local do item
   toast('Reimpressão enviada.');
 }

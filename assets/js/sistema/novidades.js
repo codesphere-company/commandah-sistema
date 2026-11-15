@@ -5,6 +5,14 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-15-ficha-local', data:'15/11/2026', itens:[
+    { titulo:'Local de entrega obrigatório',
+      texto:'Todo pedido agora pede o local de entrega antes de enviar. Se o cliente vai buscar, escolha "Retirar no balcão". O ajuste fica em Configurações › Geral › Pedidos.',
+      onde:'Comandas e App do Garçom', perms:['comandas'] },
+    { titulo:'Ficha mais fácil de ler',
+      texto:'Os adicionais saem um pouco maiores na ficha (dá para mudar em Modelo da ficha). No grupo de opções, a marca "Sai junto do nome na ficha" junta a escolha ao nome do produto: "1x AGUA COM GAS". A ficha não imprime mais "?" no lugar do traço, e há uma opção para a impressora que imprime um "!" solto.',
+      onde:'Configurações › Impressoras › Modelo da ficha', perms:['impressoras'] },
+  ] },
   { id:'2026-11-15-lgpd', data:'15/11/2026', itens:[
     { titulo:'Privacidade dos sócios',
       texto:'O garçom não recebe mais CPF, telefone e endereço dos sócios. Anonimizar um sócio agora apaga o nome também no histórico de vendas e pedidos. Dá para ligar a anonimização automática de quem passou do prazo, com aviso antes, em Configurações › Privacidade.',
