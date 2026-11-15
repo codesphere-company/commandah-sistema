@@ -121,6 +121,34 @@ function customizationLines(item){
   return lines;
 }
 
+/* Escolha junto do nome (pedido 3 do dono, teste no clube de 15/11). A marca "Na ficha" do grupo
+   (grupo.naFicha) tem três estados: 'sempre', 'nunca' ou ausente = automático. No automático, o grupo
+   de escolha única (regra do produto com máximo 1, como sabor da água e ponto da carne) sai junto do
+   nome; os de várias escolhas continuam como adicionais. naFichaJuntoDoNome:true gravado antes da
+   marca de três estados vale como 'sempre'. Item sem produto no cadastro: no automático, embaixo. */
+function opcoesModoNaFicha(grupo){
+  if(grupo && (grupo.naFicha === 'sempre' || grupo.naFicha === 'nunca')) return grupo.naFicha;
+  return grupo && grupo.naFichaJuntoDoNome ? 'sempre' : 'auto';
+}
+function opcoesGrupoJuntoDoNome(item, g, complementos, products){
+  const modo = opcoesModoNaFicha(opcoesRecordById(complementos, g && g.groupId, 'optionGroup'));
+  if(modo !== 'auto') return modo === 'sempre';
+  const product = (products || []).find(p => p && p.id === item.productId);
+  const rule = rulesFor(product, item.customization && item.customization.sizeId).find(r => r && r.groupId === g.groupId);
+  return !!rule && Number(rule.max) === 1;
+}
+// Devolve null quando nada vai no nome; senão { nomes: [texto por grupo], extras: linhas dos outros grupos }.
+// Quantidade 1 sai só o nome da escolha; mais de 1, "2x COM GAS".
+function opcoesJuntoDoNome(item, complementos, products){
+  const c = item && item.customization;
+  if(!c || c.v !== 2 || !Array.isArray(c.groups) || !c.groups.length) return null;
+  const juntos = c.groups.filter(g => g && (g.choices || []).length && opcoesGrupoJuntoDoNome(item, g, complementos, products));
+  if(!juntos.length) return null;
+  const nomes = juntos.map(g => g.choices.map(ch => (Number(ch.qty) > 1 ? ch.qty + 'x ' : '') + ch.name).join(', '));
+  const extras = customizationLines({ customization: Object.assign({}, c, { groups: c.groups.filter(g => juntos.indexOf(g) < 0) }) });
+  return { nomes: nomes, extras: extras };
+}
+
 // p.channel (opcional): 'pdv' | 'mobile' | 'qr' | 'online'; sem canal vale qualquer tamanho ativo.
 function buildCustomization(p){
   const product = p.product, complementos = p.complementos, picks = p.picks || {};

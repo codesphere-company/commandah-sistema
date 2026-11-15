@@ -400,8 +400,9 @@ function cartAddLine(cart, product, choice, qty, copos){
 // Selo de quantidade do botão do produto: soma todas as linhas dele (tamanhos/opções diferentes).
 function cartProductQty(cart, productId){ return cart.filter(i=>i.productId===productId).reduce((a,i)=>a+i.qty,0); }
 // Linhas de opção sob o nome do item no carrinho (já escapadas).
+// 15/11 (pedido 3): escolha que vai junto do nome (itemNomeTela, impressao/ficha.js) sai daqui.
 function cartLineOptionsHtml(line, style){
-  const ls = customizationLines(line);
+  const ls = itemExtrasTela(line);
   return ls.length ? `<small style="${style}">${ls.map(h).join('<br>')}</small>` : '';
 }
 // Adiciona ao carrinho: abre a escolha (canal 'mobile') se o produto pede tamanho/opções; senão soma direto.
@@ -480,7 +481,7 @@ function renderNpCart(){
   const el = document.getElementById('npCartList'); if(!el) return;
   el.innerHTML = npCart.length ? npCart.map((i,idx)=>`
     <div class="np-line">
-      <div class="np-line-top"><span class="np-line-name">${h(i.name)}${cartLineOptionsHtml(i,'display:block;font-weight:400;color:var(--c-text-3)')}</span><span class="mono np-line-sub">${fmt(i.price*i.qty)}</span></div>
+      <div class="np-line-top"><span class="np-line-name">${h(itemNomeTela(i))}${cartLineOptionsHtml(i,'display:block;font-weight:400;color:var(--c-text-3)')}</span><span class="mono np-line-sub">${fmt(i.price*i.qty)}</span></div>
       ${i.weight?`<div class="np-line-ctrl"><span class="sub mono">${h(i.notes||'')}</span><div class="qty-ctrl"><span class="mono">${fmtKg(i.weight.kg)}</span><button onclick="npCartChangeQty(${idx},-1)" aria-label="Tirar peça">✕</button></div></div>`
       :`<div class="np-line-ctrl"><span class="sub mono">${fmt(i.price)} cada</span><div class="qty-ctrl"><button onclick="npCartChangeQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${i.qty}</span><button onclick="npCartChangeQty(${idx},1)" aria-label="Aumentar">+</button></div></div>`}
       ${i.copos!=null?`<div class="np-line-ctrl"><span class="sub">Copos</span><div class="qty-ctrl"><button onclick="npCartChangeCopos(${idx},-1)" aria-label="Menos copos">−</button><span class="mono">${i.copos||0}</span><button onclick="npCartChangeCopos(${idx},1)" aria-label="Mais copos">+</button></div></div>`:''}
@@ -1125,7 +1126,7 @@ function renderComandaQuickCart(){
   wrap.innerHTML = `<div class="np-cart" style="border-top:1px solid var(--c-border);padding-top:10px">
     ${comandaQuickCart.map((i,idx)=>`
       <div class="item-line" style="flex-wrap:wrap">
-        <span>${h(i.name)}${i.weight?`<small style="display:block;color:var(--c-text-3)">${h(i.notes||'')}</small>`:cartLineOptionsHtml(i,'display:block;color:var(--c-text-3)')}</span>
+        <span>${h(itemNomeTela(i))}${i.weight?`<small style="display:block;color:var(--c-text-3)">${h(i.notes||'')}</small>`:cartLineOptionsHtml(i,'display:block;color:var(--c-text-3)')}</span>
         <div class="qty-ctrl">${i.weight?`<span class="mono">${fmtKg(i.weight.kg)}</span><button onclick="quickCartChangeQty(${idx},-1)" aria-label="Tirar peça">✕</button>`:`<button onclick="quickCartChangeQty(${idx},-1)">−</button><span class="mono">${i.qty}</span>
         <button onclick="quickCartChangeQty(${idx},1)">+</button>`}
         <span class="mono" style="min-width:70px;text-align:right">${fmt(i.price*i.qty)}</span></div>

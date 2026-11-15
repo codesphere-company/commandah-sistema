@@ -127,7 +127,7 @@ function deleteSelectedOptionGroup(){
 }
 function openOptionGroupModal(id,onSaved){
   const item=id?state.complementos.find(x=>x.id===id&&x.recordKind==='optionGroup'):null;
-  groupDraft={id:item?item.id:uid(),nome:item?item.nome||'':'',active:!item||item.active!==false,naFichaJuntoDoNome:!!(item&&item.naFichaJuntoDoNome),
+  groupDraft={id:item?item.id:uid(),nome:item?item.nome||'':'',active:!item||item.active!==false,naFicha:opcoesModoNaFicha(item),
     options:(item&&item.options||[]).map(o=>({id:o.id,nome:o.nome||'',preco:Number(o.preco)||0,active:o.active!==false,
       recipe:(o.recipe||[]).map(r=>({insumoId:r.insumoId,qty:Number(r.qty)||0}))}))};
   if(!groupDraft.options.length)groupDraft.options.push({id:uid(),nome:'',preco:0,active:true,recipe:[]});
@@ -149,7 +149,7 @@ function renderOptionGroupModal(){
     const recRows=cur.recipe.map(r=>{const i=state.insumos.find(x=>x.id===r.insumoId);if(!i)return'';return `<tr><td>${h(i.name)}</td><td><input type="number" min="0.001" step="0.001" style="width:80px" value="${Number(r.qty)||0}" onchange="changeGroupRecipeQty(${jsArg(r.insumoId)},this.value)"></td><td>${h(i.unit||'un')}</td><td>${fmt(groupRecipeCost(r))}</td><td><button type="button" class="op-mini" onclick="removeGroupRecipeInput(${jsArg(r.insumoId)})">🗑</button></td></tr>`;}).join('')||'<tr><td colspan="5" class="empty">Sem insumos na ficha</td></tr>';
     recipe=`<div style="margin-top:14px;padding:10px;border:1px solid var(--c-border);border-radius:8px"><div class="comp-recipe-head"><b>Ficha técnica de ${h(cur.nome||'opção')} (1 porção)</b><div><input id="groupRecipeSearch" list="groupInputList" placeholder="Pesquisar insumo e adicionar..." onkeydown="if(event.key==='Enter'){event.preventDefault();addGroupRecipeInput()}"><datalist id="groupInputList">${insumoOptions}</datalist> <button type="button" class="op-mini" onclick="addGroupRecipeInput()">Adicionar</button></div></div><div class="op-grid"><table><thead><tr><th>Insumo</th><th>Qtde.</th><th>Medida</th><th>Custo</th><th></th></tr></thead><tbody>${recRows}</tbody></table></div><div style="text-align:right;margin-top:6px">Custo: <b>${fmt(total)}</b></div></div>`;
   }
-  body.innerHTML=`<div class="field"><label>Nome do grupo</label><input id="groupName" maxlength="100" value="${h(d.nome)}" oninput="groupDraft.nome=this.value" autofocus></div><label class="comp-switch" style="margin:8px 0"><input type="checkbox" ${d.active?'checked':''} onchange="groupDraft.active=this.checked"><span></span> Ativo</label><label style="display:block;margin:0 0 4px"><input type="checkbox" id="groupJuntoNome" ${d.naFichaJuntoDoNome?'checked':''} onchange="groupDraft.naFichaJuntoDoNome=this.checked"> Sai junto do nome na ficha</label><p class="sub" style="margin:0 0 8px">Ex.: AGUA com o grupo COM GAS / SEM GAS sai na ficha como "1x AGUA COM GAS", em letra grande, e não na lista de adicionais.</p><div class="op-grid" style="max-height:300px;overflow:auto"><table><thead><tr><th>Opção</th><th>Preço extra (R$)</th><th>Ativa</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div><div style="margin-top:8px"><button type="button" class="op-btn" onclick="addGroupOption()">＋ &nbsp; Adicionar opção</button></div>${recipe}<div class="crud-modal-actions" style="margin-top:14px"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveOptionGroupDraft()">Salvar</button></div>`;
+  body.innerHTML=`<div class="field"><label>Nome do grupo</label><input id="groupName" maxlength="100" value="${h(d.nome)}" oninput="groupDraft.nome=this.value" autofocus></div><label class="comp-switch" style="margin:8px 0"><input type="checkbox" ${d.active?'checked':''} onchange="groupDraft.active=this.checked"><span></span> Ativo</label><div class="field" style="margin:0 0 4px"><label for="groupNaFicha">Na ficha</label><select id="groupNaFicha" onchange="groupDraft.naFicha=this.value">${[['auto','Automático (escolha única sai junto do nome)'],['sempre','Sempre junto do nome'],['nunca','Nunca junto do nome (sai embaixo)']].map(([v,t])=>`<option value="${v}" ${d.naFicha===v?'selected':''}>${t}</option>`).join('')}</select></div><p class="sub" style="margin:0 0 8px">Ex.: AGUA com o grupo COM GAS / SEM GAS sai na ficha como "1x AGUA COM GAS", em letra grande, e não na lista de adicionais. No automático, isso vale quando o produto deixa escolher só 1 opção do grupo.</p><div class="op-grid" style="max-height:300px;overflow:auto"><table><thead><tr><th>Opção</th><th>Preço extra (R$)</th><th>Ativa</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table></div><div style="margin-top:8px"><button type="button" class="op-btn" onclick="addGroupOption()">＋ &nbsp; Adicionar opção</button></div>${recipe}<div class="crud-modal-actions" style="margin-top:14px"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveOptionGroupDraft()">Salvar</button></div>`;
 }
 function addGroupOption(){groupDraft.options.push({id:uid(),nome:'',preco:0,active:true,recipe:[]});renderOptionGroupModal();}
 function moveGroupOption(i,dir){const a=groupDraft.options,j=i+dir;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];if(groupRecipeIdx===i)groupRecipeIdx=j;else if(groupRecipeIdx===j)groupRecipeIdx=i;renderOptionGroupModal();}
@@ -179,10 +179,14 @@ function saveOptionGroupDraft(){
   const dup=new Set();for(const o of options){const k=o.nome.toLowerCase();if(dup.has(k)){toast('Opção repetida: '+o.nome+'.');return;}dup.add(k);}
   const dupName=state.complementos.some(x=>x.recordKind==='optionGroup'&&x.id!==d.id&&String(x.nome||'').trim().toLowerCase()===nome.toLowerCase());
   if(dupName){toast('Já existe um grupo com este nome.');return;}
-  // 15/11 (dono): naFichaJuntoDoNome = as escolhas deste grupo saem no nome do produto na ficha (ficha.js).
-  const rec={id:d.id,recordKind:'optionGroup',nome,active:d.active!==false,naFichaJuntoDoNome:!!d.naFichaJuntoDoNome,options};
+  // 15/11 (dono, pedido 3): marca "Na ficha" em três estados (opcoesModoNaFicha em core/opcoes.js).
+  // Automático = sem campo. "Sempre" grava também naFichaJuntoDoNome:true, que é o que um aparelho
+  // ainda com a versão anterior entende; "Nunca" e Automático tiram a marca antiga.
+  const rec={id:d.id,recordKind:'optionGroup',nome,active:d.active!==false,options};
+  if(d.naFicha==='sempre'||d.naFicha==='nunca')rec.naFicha=d.naFicha;
+  if(d.naFicha==='sempre')rec.naFichaJuntoDoNome=true;
   const at=state.complementos.findIndex(x=>x.id===d.id);
-  if(at>=0)state.complementos[at]={...state.complementos[at],...rec};else state.complementos.push(rec);
+  if(at>=0){const novo={...state.complementos[at],...rec};if(!rec.naFicha)delete novo.naFicha;if(!rec.naFichaJuntoDoNome)delete novo.naFichaJuntoDoNome;state.complementos[at]=novo;}else state.complementos.push(rec);
   crudSelected.optionGroups=d.id;
   save('complementos');
   const cb=groupOnSaved;groupDraft=null;groupOnSaved=null;groupRecipeIdx=-1;
