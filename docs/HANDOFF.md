@@ -47,7 +47,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 - **Chave:** privada em `%USERPROFILE%\.commandah\agente-chave-privada.xml` (nunca no git; cópia em pendrive). A pública está em `Config.UpdatePublicKey`. Perdeu a chave: gerar outra, trocar a pública, compilar e reinstalar à mão em todos os PCs.
 - **Próxima versão:** subir `Config.Version`, `agente-impressao\build.cmd`, rodar `dist\AssinarAgente.exe publicar` de dentro de `agente-impressao` (por último; recompilou, publica de novo), commit dos arquivos de `downloads/` e merge.
 - **Limites conhecidos:**
-  - sem volta automática: se a versão nova abrir mas quebrar depois de 15 s, o `.old` fica na pasta para voltar à mão (README do agente);
+  - sem volta automática: se a versão nova abrir mas quebrar depois de 15 s, o `.old.exe` fica na pasta para voltar à mão (README do agente);
   - PC com Controle Inteligente de Aplicativos ligado (Smart App Control) bloqueia a atualização; o agente segue na versão atual;
   - `COMMANDAH_UPDATE_BASE` e `COMMANDAH_UPDATE_KEY` trocam o endereço e a chave do aviso, só para teste;
   - os padrões do `AssinarAgente` são relativos à pasta atual: rodar de dentro de `agente-impressao` ou passar `--exe`, `--saida` e `--chave`.

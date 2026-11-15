@@ -3,7 +3,7 @@
 **Novo na 2.4 (14/11/2026):**
 - só aceita ordens vindas do Commandah oficial (site publicado); outros sites abertos no navegador não conseguem mandar imprimir;
 - imprime só em impressoras da rede interna (endereços 192.168.x.x, 10.x.x.x, 172.16 a 31.x.x); IP de fora é recusado;
-- se atualiza sozinho: de tempos em tempos confere um aviso assinado no site, baixa o programa novo, confere a assinatura e o tamanho e troca o arquivo. A versão anterior fica como `CommandahImpressora.exe.old` na mesma pasta.
+- se atualiza sozinho: de tempos em tempos confere um aviso assinado no site, baixa o programa novo, confere a assinatura e o tamanho e troca o arquivo. A versão anterior fica como `CommandahImpressora.old.exe` na mesma pasta.
 - **Instale a 2.4 uma vez à mão em cada computador** (ver abaixo). Depois disso, as próximas versões chegam sozinhas.
 - O Windows pode bloquear a atualização (ver "Controle Inteligente de Aplicativos" em Instalar). Nesse caso o agente continua na versão atual e funcionando.
 
@@ -62,7 +62,7 @@ A configuração fica em `%APPDATA%\Commandah\agente-impressao.json`. O token fi
 
 **Chave de assinatura:** fica em `%USERPROFILE%\.commandah\agente-chave-privada.xml`. **Nunca** vai para o git, nem para o chat. Guarde uma cópia em um **pendrive**. Quem tem essa chave consegue publicar programas que todos os computadores aceitam. **Se a chave for perdida**, não dá para publicar atualização que os computadores aceitem: é preciso gerar outra (`AssinarAgente gerar-chave`), colocar a pública em `Config.UpdatePublicKey`, compilar e reinstalar à mão em cada computador.
 
-**Voltar a versão anterior à mão** (se a nova não abrir): feche o agente (ícone › Sair, ou pelo Gerenciador de Tarefas); em `C:\Commandah\`, apague ou renomeie o `CommandahImpressora.exe` com problema e renomeie `CommandahImpressora.exe.old` para `CommandahImpressora.exe`; abra. O `.old` só existe depois de uma atualização automática.
+**Voltar a versão anterior à mão** (se a nova não abrir): feche o agente (ícone › Sair, ou pelo Gerenciador de Tarefas); em `C:\Commandah\`, apague ou renomeie o `CommandahImpressora.exe` com problema e renomeie `CommandahImpressora.old.exe` para `CommandahImpressora.exe`; abra. O `.old.exe` só existe depois de uma atualização automática.
 
 ## Gerar o programa a partir do código
 
