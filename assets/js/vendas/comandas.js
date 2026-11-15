@@ -264,10 +264,15 @@ function localEntregaLido(selectId){
   if(!v && localEntregaObrigatorio()){ toast('Escolha o local de entrega.'); if(el) el.focus(); return null; }
   return v;
 }
-function openNovoPedidoModal(saleId){
-  const s = state.sales.find(x=>x.id===saleId); if(!s) return;
+// Cliente avulso no clube (15/11): sem comanda. npAvulso guarda o nome; o Novo pedido monta o carrinho
+// e o local, e "Ir para o pagamento" leva ao Pagamento do balcão (confirmNovoPedidoAvulso).
+let npAvulso = null;
+const AVULSO_CANCELADO = 'Pedido de cliente avulso cancelado: nada foi enviado.';
+function openNovoPedidoModal(saleId, avulsoNome){
+  const s = avulsoNome ? { id:null, memberId:null, customerName:avulsoNome, local:'', items:[] } : state.sales.find(x=>x.id===saleId); if(!s) return;
   npCart = []; levarJunto.np=false;
-  npSaleId = saleId;
+  npSaleId = avulsoNome ? null : saleId;
+  npAvulso = avulsoNome || null;
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const requesterOptions = member
     ? `<option value="">— Selecione —</option><option value="holder:${member.id}" ${memberBlockedByDebt(member)?'disabled':''}>Titular — ${h(member.name)}${memberBlockedByDebt(member)?' (bloqueado — deve '+fmt(member.debt)+')':''}</option>${(member.dependents||[]).map(d=>`<option value="dependent:${d.id}" ${d.canOrder===false||memberBlockedByDebt(member)?'disabled':''}>Dependente — ${h(d.name)}${d.canOrder===false?' (bloqueado)':memberBlockedByDebt(member)?' (bloqueado — cota com pendência)':''}</option>`).join('')}`
@@ -301,7 +306,7 @@ function openNovoPedidoModal(saleId){
         </div>
         <div class="np-side-foot">
           <div class="np-total"><span>Total</span><span class="mono" id="npCartTotal">R$ 0,00</span></div>
-          <div class="np-actions"><button class="btn" onclick="closeModal();openComanda(${jsArg(saleId)},true)">Cancelar</button><button class="btn btn-primary" id="npConfirmBtn">Confirmar e imprimir</button></div>
+          <div class="np-actions">${npAvulso ? `<button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" id="npConfirmBtn">Ir para o pagamento</button>` : `<button class="btn" onclick="closeModal();openComanda(${jsArg(saleId)},true)">Cancelar</button><button class="btn btn-primary" id="npConfirmBtn">Confirmar e imprimir</button>`}</div>
         </div>
       </aside>
     </div>
@@ -314,7 +319,26 @@ function openNovoPedidoModal(saleId){
     const opt = e.target.selectedOptions[0];
     document.getElementById('npRequesterWarn').style.display = opt&&opt.disabled ? 'block':'none';
   };
+  if(npAvulso){
+    document.getElementById('npConfirmBtn').onclick = ()=>confirmNovoPedidoAvulso();
+    document.getElementById('modalRoot').dataset.avulsoPendente = 'true'; // fechar = cancelar (closeModal)
+    return;
+  }
   document.getElementById('npConfirmBtn').onclick = ()=>confirmNovoPedidoModal(saleId);
+}
+// Avulso (15/11): nada vai para a cozinha nem é gravado aqui. O Pagamento (modo balcão) envia os itens
+// com a ficha e fecha a venda pelo finalizeSale (close_sale, conferido no servidor). Fechar o Pagamento
+// sem pagar cancela o pedido (closeModal, avulsoPendente).
+function confirmNovoPedidoAvulso(){
+  const nome = npAvulso; if(!nome) return;
+  if(!npCart.length){ toast('Adicione ao menos um produto.'); return; }
+  const local = localEntregaLido('npLocal'); if(local===null) return;
+  const items = npCart.map(i=>({...i, lineId:uid(), sent:false, addedAt:new Date().toISOString(), addedBy:currentUser.name, local, requesterId:null, requesterName:nome, requesterType:'avulso'}));
+  applyLevarJunto(items, levarJunto.np);
+  currentSaleDraft = { items, memberId:null, customerName:nome, notes:'', type:'balcao', local, avulsoNp:true };
+  logAction('Pedido de cliente avulso '+nome+(local?' — local: '+local:'')+' indo para o pagamento');
+  openPaymentModal('balcao');
+  document.getElementById('modalRoot').dataset.avulsoPendente = 'true';
 }
 let npCategory = '';
 /* Pedido do dono (05/11), igual à Ficha: com 45 categorias as abas tomavam a janela e os produtos

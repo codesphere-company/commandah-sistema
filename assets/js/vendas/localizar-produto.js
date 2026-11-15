@@ -252,6 +252,9 @@ async function saveNewNamedComanda(){
     return;
   }
   const choice=window.selectedComandaAccount;if(!choice&&!customerName){toast('Busque e selecione uma cota ou informe o cliente avulso.');return;}
+  // Pedido do dono (teste no clube, 15/11): cliente avulso no clube não abre comanda. Escolhe os itens
+  // e o local, paga na hora e a venda fecha como balcão (o mesmo modelo do avulso do app do garçom).
+  if(!choice){ closeModal(); openNovoPedidoModal(null, customerName); return; }
   if(choice&&choice.memberId){
     const member = state.members.find(x=>x.id===choice.memberId);
     const existing=state.sales.find(x=>x.status==='open'&&x.memberId===choice.memberId);if(existing){closeModal();renderAll();toast('Essa cota já tem uma comanda aberta — abrindo ela.');openComanda(existing.id,true);return;}

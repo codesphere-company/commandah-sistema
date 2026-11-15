@@ -2,6 +2,7 @@
 function openModal(title, bodyHtml, wide, locked=false){
   const root = document.getElementById('modalRoot');
   root.dataset.locked=locked?'true':'false';
+  delete root.dataset.avulsoPendente; // pedido avulso (comandas.js): só vale para a janela que o marcou
   root.innerHTML = `<div class="modal-overlay" id="modalOverlay"><div class="modal${wide?' wide':''}"><button class="modal-close" id="modalCloseBtn" ${locked?'style="display:none"':''}>&times;</button><h3 class="modal-title">${h(title)}</h3>${bodyHtml}</div></div>`;
   if(/Pergunta/i.test(title))root.querySelector('.modal').classList.add('question-record-modal');
   document.getElementById('modalCloseBtn').onclick = closeModal;
@@ -40,6 +41,16 @@ function confirmarAcao(texto, opcoes){
 function closeModal(){
   const root=document.getElementById('modalRoot');
   if(root.dataset.locked==='true') return;
+  // Cliente avulso no clube (15/11): fechar o Novo pedido ou o Pagamento sem pagar cancela o pedido.
+  // Com o pagamento em andamento, ou com a ficha já na cozinha e a venda não registrada, não fecha.
+  if(root.dataset.avulsoPendente==='true'){
+    const d = typeof currentSaleDraft!=='undefined' ? currentSaleDraft : null;
+    if(typeof _singleFlightBusy!=='undefined' && _singleFlightBusy.has('finalizeSale:balcao')){ toast('Aguarde, processando...'); return; }
+    if(d && d.avulsoNp && (d.items||[]).some(i=>i.sent)){ toast('O pedido já foi para a cozinha. Confirme o pagamento.'); return; }
+    delete root.dataset.avulsoPendente;
+    if(d && d.avulsoNp) currentSaleDraft = null;
+    toast(AVULSO_CANCELADO);
+  }
   if(root.dataset.confirmPdv==='true'){
     const shown = root.firstElementChild;
     askConfirm({ title:'Cancelar o pedido em andamento?', message:'Os itens deste pedido não serão salvos.', confirmLabel:'Cancelar pedido', cancelLabel:'Continuar pedido' }).then(ok=>{
