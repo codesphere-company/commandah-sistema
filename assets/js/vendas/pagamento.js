@@ -270,6 +270,8 @@ function openPaymentModal(mode, comandaId){
     const { salePayments, debtParts } = splitDebtFromPayments(payments, debtIncluded);
     const meta = { subtotal: arredondaCentavos(subtotal), discount: arredondaCentavos(discount), couponCode: appliedCouponCode||null, staffDiscount: arredondaCentavos(staffDiscount||0), creditApplied: arredondaCentavos(creditApplied||0), serviceCharge: serviceAmount, partialPaid };
     if(debtIncluded>TOLERANCIA_CENTAVO) meta.debtPaid = debtIncluded;
+    // Cliente avulso do Novo pedido (15/11): o local escolhido vai para a ficha e para a venda.
+    if(mode==='balcao' && currentSaleDraft.avulsoNp) meta.local = currentSaleDraft.local||'';
     const closedSaleId = await finalizeSale(mode, comandaId, memberId, salePayments, arredondaCentavos(finalTotal-debtIncluded), creditApplied, creditFromChange, meta);
     if(closedSaleId){
       if(debtParts.length) await recordDebtPaidWithSale(member, debtParts, closedSaleId);
@@ -277,6 +279,7 @@ function openPaymentModal(mode, comandaId){
       if(wantReceipt) printSaleReceipt(closedSaleId);
       autoEmitNfce(closedSaleId); // não espera: a venda já está registrada
       if(mode==='balcao') document.getElementById('modalRoot').dataset.confirmPdv='false';
+      delete document.getElementById('modalRoot').dataset.avulsoPendente; // avulso pago: fechar não é cancelar
       closeModal();
     }
   };
@@ -498,7 +501,10 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   }
   // Comprovante só quando o cliente pede (decisão de 12/10): botão "Imprimir comprovante" no
   // detalhe da comanda (printSaleReceipt). Antes saía sozinho na venda de balcão.
-  newDraft(mode); toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
+  // Avulso do Novo pedido (revisão 15/11): não deixa rascunho vazio de balcão no lugar da Ficha em andamento
+  // (renderBalcaoPdv adotaria o rascunho novo e a Ficha sumiria); sem rascunho, volta o balcaoDraft.
+  if(currentSaleDraft && currentSaleDraft.avulsoNp) currentSaleDraft = null; else newDraft(mode);
+  toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
   // D3: consumo do colaborador sai do salário; não oferece a cobrança por WhatsApp.
   if(fiadoMemberForPrompt && !consumoColaborador) promptWhatsAppCollection(fiadoMemberForPrompt);
   return sale.id;

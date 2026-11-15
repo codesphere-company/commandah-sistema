@@ -97,7 +97,7 @@ function openComandaTransferOptions(saleId){
   modal.classList.add('record-modal');
   modal.style.width='380px';
 }
-function viewComandaSummary(saleId){toggleComandaOrderOptions(false);const s=state.sales.find(x=>x.id===saleId);if(!s)return;const member=s.memberId?state.members.find(m=>m.id===s.memberId):null,who=member?member.name:(s.customerName||'Avulso'),items=(currentSaleDraft.items||[]).filter(i=>!i.canceled),total=saleTotal(items);openModal('Conta Resumida — '+who,`<div class="finance-grid" style="max-height:320px"><table><thead><tr><th>Produto</th><th>Qtd.</th><th>Valor Unit.</th><th>Total</th></tr></thead><tbody>${items.length?items.map(i=>`<tr><td>${h(i.name)}</td><td>${i.qty}</td><td class="mono">${fmt(i.price)}</td><td class="mono">${fmt(i.price*i.qty)}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Nenhum item lançado.</td></tr>'}</tbody></table></div><div style="display:flex;justify-content:space-between;margin:14px 4px;font-size:18px;font-weight:700"><span>Total</span><span class="mono">${fmt(total)}</span></div><div class="consumer-modal-actions"><button onclick="closeModal();openComanda(${jsArg(saleId)},true)">〈 Voltar</button><button class="op-btn" onclick="window.print()">▣ Imprimir</button></div>`,true);}
+function viewComandaSummary(saleId){toggleComandaOrderOptions(false);const s=state.sales.find(x=>x.id===saleId);if(!s)return;const member=s.memberId?state.members.find(m=>m.id===s.memberId):null,who=member?member.name:(s.customerName||'Avulso'),items=(currentSaleDraft.items||[]).filter(i=>!i.canceled),total=saleTotal(items);openModal('Conta Resumida — '+who,`<div class="finance-grid" style="max-height:320px"><table><thead><tr><th>Produto</th><th>Qtd.</th><th>Valor Unit.</th><th>Total</th></tr></thead><tbody>${items.length?items.map(i=>`<tr><td>${h(i.name)}</td><td>${i.qty}</td><td class="mono">${fmt(i.price)}</td><td class="mono">${fmt(i.price*i.qty)}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Nenhum item lançado.</td></tr>'}</tbody></table></div><div style="display:flex;justify-content:space-between;margin:14px 4px;font-size:18px;font-weight:700"><span>Total</span><span class="mono">${fmt(total)}</span></div><div class="consumer-modal-actions"><button onclick="closeModal();openComanda(${jsArg(saleId)},true)">〈 Voltar</button><button class="op-btn" id="btnPrintResumo" onclick="imprimirComandaCompleta(${jsArg(saleId)})">▣ Imprimir</button></div>`,true);} // 15/11: escolhe onde imprimir (comandas.js)
 // Transferir/copiar itens (pedido do dono, 10/10): o destino pode ser uma comanda nova, aberta
 // ali mesmo (sócio ou avulso), e os itens são escolhidos um a um, inclusive os já enviados à
 // cozinha (lançado na comanda errada). Copiar continua só para itens ainda não enviados: copiar
@@ -252,6 +252,9 @@ async function saveNewNamedComanda(){
     return;
   }
   const choice=window.selectedComandaAccount;if(!choice&&!customerName){toast('Busque e selecione uma cota ou informe o cliente avulso.');return;}
+  // Pedido do dono (teste no clube, 15/11): cliente avulso no clube não abre comanda. Escolhe os itens
+  // e o local, paga na hora e a venda fecha como balcão (o mesmo modelo do avulso do app do garçom).
+  if(!choice){ closeModal(); openNovoPedidoModal(null, customerName); return; }
   if(choice&&choice.memberId){
     const member = state.members.find(x=>x.id===choice.memberId);
     const existing=state.sales.find(x=>x.status==='open'&&x.memberId===choice.memberId);if(existing){closeModal();renderAll();toast('Essa cota já tem uma comanda aberta — abrindo ela.');openComanda(existing.id,true);return;}
