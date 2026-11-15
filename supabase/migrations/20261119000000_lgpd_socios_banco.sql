@@ -565,6 +565,96 @@ revoke all on function public.member_anonymize_interno(text, text, text) from pu
 revoke all on function public.member_anonymize(text) from public, anon;
 grant execute on function public.member_anonymize(text) to authenticated;
 
+-- Parte 4: expurgo diário (item 6, auditoria 11/11). Só os estabelecimentos que ligaram
+-- cantina2:settings.privacy.automatico. Cada sócio roda no próprio bloco: erro inesperado
+-- desfaz só ele e vira recusa. Recusa vira linha no audit_log uma vez por dia (fuso de São Paulo).
+create or replace function public.lgpd_expurgo_diario(p_agora timestamptz default now())
+returns jsonb
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+declare
+  v_t record;
+  v_m record;
+  v_anos int;
+  v_desde timestamptz;
+  v_res jsonb;
+  v_msg text;
+  v_ok int := 0;
+  v_rec int := 0;
+begin
+  for v_t in
+    select a.tenant_id, a.value->'privacy' as priv
+      from public.app_data a
+     where a.key = 'cantina2:settings'
+       and jsonb_typeof(a.value->'privacy') = 'object'
+       and a.value->'privacy'->>'automatico' = 'true'
+  loop
+    v_anos := 2;
+    if jsonb_typeof(v_t.priv->'anos') = 'number' then
+      v_anos := greatest(1, least(20, floor((v_t.priv->>'anos')::numeric)::int));
+    end if;
+    begin
+      v_desde := nullif(v_t.priv->>'automaticoDesde', '')::timestamptz;
+    exception when others then
+      v_desde := null;
+    end;
+
+    for v_m in
+      select m.id from public.members m
+       where m.tenant_id = v_t.tenant_id
+         and m.kind = 'socio' and m.archived
+         and m.anonymized_at is null and m.archived_at is not null
+         and p_agora >= public.lgpd_data_efetiva(m.archived_at, v_anos, v_desde)
+       order by m.id
+    loop
+      v_msg := null;
+      begin
+        v_res := public.member_anonymize_interno(v_t.tenant_id, v_m.id, 'automatico');
+        if v_res ? 'erro' then
+          v_msg := v_res->>'erro';
+        else
+          v_ok := v_ok + 1;
+        end if;
+      exception when others then
+        v_msg := sqlerrm;
+      end;
+
+      if v_msg is not null then
+        v_rec := v_rec + 1;
+        perform set_config('commandah.lgpd_tenant', v_t.tenant_id, true);
+        insert into public.audit_log(tenant_id, action, entity, entity_id, meta)
+        select v_t.tenant_id, 'LGPD: não anonimizado — ' || v_msg, 'member', v_m.id,
+               jsonb_build_object('origem', 'automatico')
+         where not exists (
+           select 1 from public.audit_log l
+            where l.tenant_id = v_t.tenant_id and l.entity = 'member' and l.entity_id = v_m.id
+              and l.action = 'LGPD: não anonimizado — ' || v_msg
+              and (l.at at time zone 'America/Sao_Paulo')::date = (now() at time zone 'America/Sao_Paulo')::date);
+        perform set_config('commandah.lgpd_tenant', '', true);
+      end if;
+    end loop;
+  end loop;
+  return jsonb_build_object('anonimizados', v_ok, 'recusados', v_rec);
+end;
+$function$;
+
+revoke all on function public.lgpd_expurgo_diario(timestamptz) from public, anon, authenticated;
+
+-- Agendamento diário às 07:00 UTC. O job não faz nada enquanto nenhum estabelecimento ligar
+-- privacy.automatico. Banco local não tem pg_cron: só avisa.
+do $$
+begin
+  if exists (select 1 from pg_available_extensions where name = 'pg_cron') then
+    create extension if not exists pg_cron with schema pg_catalog;
+    execute $q$select cron.schedule('lgpd-expurgo-diario', '0 7 * * *', 'select public.lgpd_expurgo_diario()')$q$;
+  else
+    raise notice 'pg_cron indisponivel: expurgo diario nao agendado (banco local)';
+  end if;
+end
+$$;
+
 -- ROLLBACK da parte 1 (manual):
 --   drop function if exists public.lgpd_data_efetiva(timestamptz, int, timestamptz),
 --     public.lgpd_trocar_jsonb(jsonb, text[], text),
@@ -583,4 +673,8 @@ grant execute on function public.member_anonymize(text) to authenticated;
 --     com o caso service_role), não o da 20260901000000_rls_por_papel.sql.
 --   - public.app_data_sales_somente_leitura(): o da 20261010030000_vendas_em_tabela.sql
 --     (seção "O blob antigo vira só leitura").
+-- parte 4:
+--   do $$ begin if exists (select 1 from pg_extension where extname = 'pg_cron') then
+--     perform cron.unschedule('lgpd-expurgo-diario'); end if; end $$;
+--   drop function if exists public.lgpd_expurgo_diario(timestamptz);
 --   O que já foi anonimizado não volta (troca irreversível, de propósito).
