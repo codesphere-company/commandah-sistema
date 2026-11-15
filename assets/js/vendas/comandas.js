@@ -189,7 +189,22 @@ function renderComandaDetail(id, keepRequester){
     if(s.locked){ toast('Este pedido está bloqueado. Desbloqueie antes de fechar.'); return; }
     if(closingComanda) return; // duplo clique: não reenviar os mesmos itens pra cozinha
     const unsent = currentSaleDraft.items.filter(i=>!i.sent);
-    if(unsent.length){ closingComanda = true; let ok; try{ ok = await sendItemsToKitchen(s.id, unsent, who, 'comanda', s.local); }finally{ closingComanda = false; } if(!ok) return; unsent.forEach(i=>i.sent=true); }
+    // Local obrigatório (15/11): cada item pendente vai com o seu local (item.local; sem ele, o da
+    // comanda), uma remessa por local. Com o ajuste ligado e item sem local nenhum, pergunta antes.
+    const semLocal = unsent.filter(i=>!(i.local||s.local));
+    if(semLocal.length && localEntregaObrigatorio()){ pedirLocalDosPendentes(semLocal); return; }
+    const porLocal = {};
+    unsent.forEach(i=>{ const k = i.local||s.local||''; (porLocal[k]=porLocal[k]||[]).push(i); });
+    if(unsent.length){
+      closingComanda = true;
+      try{
+        for(const local of Object.keys(porLocal)){
+          const grupo = porLocal[local];
+          if(!await sendItemsToKitchen(s.id, grupo, who, 'comanda', local)) return; // as remessas já enviadas ficam marcadas
+          grupo.forEach(i=>i.sent=true);
+        }
+      }finally{ closingComanda = false; }
+    }
     const fresh = await commitSaleChange(s.id, cur=>{ if(cur.status!=='open'||cur.canceled) return false; cur.items=mergeDraftItems(cur.items, currentSaleDraft.items).items; cur.total=saleTotal(cur.items); });
     if(!fresh) return;
     if(fresh.status!=='open'||fresh.canceled){ toast('Esta comanda já foi fechada ou cancelada em outro aparelho.'); closeComandaView(); renderAll(); return; }
@@ -197,13 +212,28 @@ function renderComandaDetail(id, keepRequester){
     // OP-04: os itens que iam para a cozinha só neste clique também saem na
     // ficha da estação, como nos outros fluxos. Sem isso, estação "só imprime"
     // (bar, churrasqueira) nunca ficava sabendo e o cliente pagava sem receber.
-    if(unsent.length){
+    // 15/11: uma ficha por local (e por estação), cada uma com o local dos seus itens.
+    Object.keys(porLocal).forEach(local=>{
       const origem = currentUser.origem||'caixa', groups = {};
-      unsent.forEach(i=>{ const key=i.estacao||itemStation(i); (groups[key]=groups[key]||[]).push(i); });
+      porLocal[local].forEach(i=>{ const key=i.estacao||itemStation(i); (groups[key]=groups[key]||[]).push(i); });
       const printJobs = Object.keys(groups).map(estacao=>{ const printer = resolvePrinterFor(estacao, origem); return { estacao, items:groups[estacao], printer: printer?printer.nome:null }; });
-      printNovoPedidoTickets(person, member?member.code:'', s.local, printJobs, s.orderNumber);
-    }
+      printNovoPedidoTickets(person, member?member.code:'', local, printJobs, s.orderNumber);
+    });
     openPaymentModal('comanda', s.id); // paga, finalizeSale -> renderAll volta para a lista
+  };
+}
+// Local obrigatório (15/11): itens pendentes sem local (nem no item nem na comanda) ao ir para o
+// Pagamento. Pergunta um local, grava nesses itens e clica de novo em Pagamento.
+function pedirLocalDosPendentes(itens){
+  openModal('Local de entrega', `
+    <p class="sub">${itens.map(i=>`${h(itemQtyLabel(i))} ${h(i.name)}`).join(', ')} ainda não foi(ram) para a cozinha. Escolha para onde vai.</p>
+    <div class="field"><label class="np-label" for="pendLocal">Local de entrega *</label><select id="pendLocal">${localEntregaOptionsHtml('')}</select></div>
+    <div class="row"><button class="btn" onclick="closeModal()">Voltar</button><button class="btn btn-primary" id="pendLocalBtn">Enviar e ir para o pagamento</button></div>`);
+  document.getElementById('pendLocalBtn').onclick = ()=>{
+    const local = localEntregaLido('pendLocal'); if(local===null) return;
+    itens.forEach(i=>{ i.local = local; });
+    closeModal();
+    const btn = document.getElementById('btnCloseComanda'); if(btn) btn.click();
   };
 }
 function saveComandaNote(saleId,value){const s=state.sales.find(x=>x.id===saleId);if(!s)return;s.notes=value.trim();save('sales');}
