@@ -120,8 +120,15 @@ async function autoEmitNfce(saleId){
 }
 function savePrivacySettings(){
   const anos=Math.max(1,Math.min(20,parseInt(document.getElementById('lgpdAnos').value,10)||2));
-  state.settings.privacy={ nome:document.getElementById('lgpdNome').value.trim(), email:document.getElementById('lgpdEmail').value.trim(), anos, atualizado:todayStr() };
-  save('settings'); logAction('Privacidade (LGPD): encarregado/prazo atualizados'); toast('Privacidade salva.'); openPrivacySettings();
+  const antes=privacySettings(), caixa=document.getElementById('lgpdAuto');
+  // Item 6 (auditoria 11/11): a caixa só existe em modo nuvem; sem ela, o ajuste atual é preservado.
+  // Ao ligar, grava a data (se ainda não houver) para o prazo só contar a partir daí; desligar mantém a data.
+  const automatico = caixa ? caixa.checked : antes.automatico;
+  const automaticoDesde = (automatico && !antes.automaticoDesde) ? new Date().toISOString() : antes.automaticoDesde;
+  const novo={ nome:document.getElementById('lgpdNome').value.trim(), email:document.getElementById('lgpdEmail').value.trim(), anos, atualizado:todayStr(), automatico };
+  if(automaticoDesde) novo.automaticoDesde=automaticoDesde;
+  state.settings.privacy=novo;
+  save('settings'); logAction('Privacidade (LGPD): encarregado/prazo/anonimização automática atualizados'); toast('Privacidade salva.'); openPrivacySettings();
 }
 // Acesso/portabilidade: tudo o que o sistema guarda do sócio, num arquivo JSON.
 async function exportMemberData(memberId){
@@ -155,21 +162,30 @@ function anonymizeMember(memberId){
 }
 async function doAnonymizeMember(memberId){
   const m=state.members.find(x=>x.id===memberId); if(!m) return 'Sócio não encontrado.';
+  if(isCloudMode()){
+    // Item 6 (auditoria 11/11): o servidor anonimiza (cadastro, dependentes, vendas, pedidos) e grava o audit_log.
+    let r;
+    try{ const { data, error } = await supabaseClient.rpc('member_anonymize', { p_member_id:memberId }); if(error) throw error; r=data||{}; }
+    catch(e){ console.error('Falha ao anonimizar', e); return 'Não foi possível anonimizar agora: '+(e.message||'erro')+'. Tente de novo.'; }
+    if(r.erro) return r.erro;
+    const newName=r.nome_novo||('Sócio anonimizado '+memberId.slice(-4).toUpperCase());
+    try{ await MembersStore.refreshOne(memberId); }catch(e){}
+    const saleIds=new Set();
+    state.sales.forEach(s=>{ if(s.memberId!==memberId) return; saleIds.add(s.id); s.customerName=newName; (s.items||[]).forEach(i=>{ if(i.requesterId===memberId) i.requesterName=newName; }); });
+    state.orders.forEach(o=>{ if(saleIds.has(o.saleId)) o.who=newName; });
+    closeModal(); renderAll(); toast('Cadastro anonimizado.');
+    return;
+  }
   const tag=memberId.slice(-4).toUpperCase(), newName='Sócio anonimizado '+tag, oldNames=new Set([m.name, ...(m.dependents||[]).map(d=>d.name)].filter(Boolean)), at=new Date().toISOString();
   // blank sem `kind` de propósito (D2, 08/11): anonimizar não muda o tipo do cliente (sócio/colaborador).
   const blank={ name:newName, code:'', phone:'', email:'', gender:'', document:'', registry:'', birthDate:'', zip:'', address:'', addressNumber:'', addressComplement:'', district:'', city:'', uf:'', reference:'', ibge:'', tags:[], notes:'', marketingOptIn:false };
   try{
-    if(isCloudMode()){
-      const { error } = await supabaseClient.from('members').update({ ...memberFieldsToRow(blank), latitude:null, longitude:null, geo_status:null, archived:true, archived_at:m.archivedAt||at, anonymized_at:at }).eq('id', memberId);
-      if(error) throw error;
-    }
     Object.assign(m, blank, { latitude:undefined, longitude:undefined, geoStatus:undefined, archived:true, archivedAt:m.archivedAt||at, anonymizedAt:at });
     await MembersStore.saveDependents(memberId, []);
-    if(!isCloudMode()) await save('members');
+    await save('members');
     const saleIds=[];
     state.sales.forEach(s=>{ if(s.memberId!==memberId) return; saleIds.push(s.id); s.customerName=newName; (s.items||[]).forEach(i=>{ if(i.requesterName && (oldNames.has(i.requesterName) || i.requesterId===memberId)) i.requesterName=newName; }); });
     if(saleIds.length) await save('sales');
-    if(isCloudMode() && saleIds.length){ for(let k=0;k<saleIds.length;k+=200){ await supabaseClient.from('orders').update({ who:newName }).in('sale_id', saleIds.slice(k,k+200)); } }
     state.orders.forEach(o=>{ if(saleIds.includes(o.saleId)) o.who=newName; });
   }catch(e){
     console.error('Falha ao anonimizar', e);

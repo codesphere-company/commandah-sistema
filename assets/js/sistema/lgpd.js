@@ -3,7 +3,12 @@
    de guarda configuráveis (padrão 2 anos depois que o sócio sai), consentimento separado para
    campanhas, exportação dos dados do sócio e anonimização. */
 function isAdminUser(){ return !!(currentUser && (currentUser.role==='admin' || sessionIsOwner)); }
-function privacySettings(){ const p=(state.settings&&state.settings.privacy)||{}; return { nome:p.nome||'', email:p.email||'', anos:Number(p.anos)>0?Number(p.anos):2, atualizado:p.atualizado||'2026-10-10' }; }
+function privacySettings(){
+  const p=(state.settings&&state.settings.privacy)||{};
+  // Prazo em anos inteiros de 1 a 20 (padrão 2), igual ao servidor (item 6, auditoria 11/11).
+  const n=parseInt(p.anos,10), anos=n>0?Math.min(20,n):2;
+  return { nome:p.nome||'', email:p.email||'', anos, atualizado:p.atualizado||'2026-10-10', automatico:p.automatico===true, automaticoDesde:p.automaticoDesde||null };
+}
 function privacyNoticeHtml(){
   const ps=privacySettings(), clube=h((state.settings&&state.settings.clubName)||'o estabelecimento');
   const enc=ps.nome||ps.email ? `${h(ps.nome||'Encarregado')}${ps.email?` — <a href="mailto:${h(ps.email)}">${h(ps.email)}</a>`:''}` : '<i>a definir (Configurações › Privacidade)</i>';
@@ -22,17 +27,41 @@ function privacyNoticeHtml(){
 }
 function openPrivacyNotice(){ openModal('Aviso de privacidade', privacyNoticeHtml()+'<div class="row" style="margin-top:12px"><button class="btn" onclick="closeModal()">Fechar</button><button class="btn" onclick="printPrivacyNotice()">Imprimir</button></div>'); document.querySelector('#modalRoot .modal').classList.add('privacy-modal'); }
 function printPrivacyNotice(){ const w=window.open('','_blank'); if(!w){ toast('Libere as janelas do navegador para imprimir.'); return; } w.document.write('<!doctype html><meta charset="utf-8"><title>Aviso de privacidade</title><style>body{font:14px/1.5 system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px}h4{margin:18px 0 4px}</style><h2>Aviso de privacidade</h2>'+privacyNoticeHtml()); w.document.close(); w.focus(); w.print(); }
-function membersPastRetention(){
-  const anos=privacySettings().anos, limite=Date.now()-anos*365.25*864e5;
-  return state.members.filter(m=>m.archived && !m.anonymizedAt && m.archivedAt && new Date(m.archivedAt).getTime()<limite);
+// Espelho de public.lgpd_data_efetiva (item 6, auditoria 11/11): maior(arquivado + prazo em anos de calendário,
+// automaticoDesde) + 7 dias. Sem data de arquivamento, não há data.
+function lgpdDataEfetiva(member, ps){
+  if(!member || !member.archivedAt) return null;
+  const base=new Date(member.archivedAt); if(isNaN(base.getTime())) return null;
+  base.setFullYear(base.getFullYear()+(ps.anos||2));
+  if(ps.automaticoDesde){ const d=new Date(ps.automaticoDesde); if(!isNaN(d.getTime()) && d>base) return new Date(d.getTime()+7*864e5); }
+  return new Date(base.getTime()+7*864e5);
+}
+function lgpdTemComandaAberta(memberId){ return state.sales.some(s=>s.memberId===memberId && s.status==='open' && !s.canceled); }
+// Duas listas da tela Privacidade e do aviso do topo. Colaborador nunca entra.
+function lgpdListas(){
+  const ps=privacySettings(), agora=Date.now(), ate=agora+7*864e5, proximos=[], recusados=[];
+  state.members.forEach(m=>{
+    if(m.kind==='colaborador' || !m.archived || m.anonymizedAt) return;
+    const data=lgpdDataEfetiva(m, ps);
+    if(!data){ recusados.push({ member:m, motivo:'sem data de arquivamento' }); return; }
+    const t=data.getTime();
+    const motivo=Math.abs(Number(m.debt)||0)>TOLERANCIA_CENTAVO ? 'saldo diferente de zero' : lgpdTemComandaAberta(m.id) ? 'comanda aberta' : '';
+    if(t<=agora && motivo) recusados.push({ member:m, motivo });
+    else if(t<=ate && !motivo) proximos.push({ member:m, data });
+  });
+  return { proximos, recusados };
 }
 function openPrivacySettings(){
   if(!requirePerm('config-sistema')) return;
-  const ps=privacySettings(), vencidos=membersPastRetention();
+  const ps=privacySettings(), L=lgpdListas(), nuvem=isCloudMode(), adm=isAdminUser();
+  const dt=d=>d.toLocaleDateString('pt-BR');
   openModal('Privacidade (LGPD)', `
     <div class="row"><div class="field"><label>Encarregado (nome)</label><input id="lgpdNome" value="${h(ps.nome)}" placeholder="Quem responde por dados pessoais"></div><div class="field"><label>E-mail do encarregado</label><input id="lgpdEmail" type="email" value="${h(ps.email)}"></div></div>
     <div class="field"><label>Guardar os dados de quem deixou de ser sócio por (anos)</label><input id="lgpdAnos" type="number" min="1" max="20" value="${ps.anos}"><p class="sub">Depois desse prazo o cadastro pode ser anonimizado (abaixo). O histórico de valores continua.</p></div>
+    ${nuvem?`<div class="field"><label class="check"><input id="lgpdAuto" type="checkbox"${ps.automatico?' checked':''}> Anonimizar automaticamente quem passou do prazo</label><p class="sub">O sistema anonimiza de madrugada, 7 dias depois de o sócio entrar na lista abaixo. Colaboradores ficam de fora.</p></div>`:''}
     <div class="row"><button class="btn" onclick="openPrivacyNotice()">Ver aviso de privacidade</button><button class="btn btn-primary" onclick="savePrivacySettings()">Salvar</button></div>
-    <h4 style="margin:18px 0 6px">Sócios arquivados há mais de ${ps.anos} ano${ps.anos===1?'':'s'} (${vencidos.length})</h4>
-    ${vencidos.length?`<div class="lgpd-list">${vencidos.map(m=>`<div class="lgpd-row"><span>${h(m.name)}${m.code?' · Cota '+h(m.code):''} <span class="sub">arquivado em ${new Date(m.archivedAt).toLocaleDateString('pt-BR')}</span></span>${isAdminUser()?`<button class="op-btn" onclick="anonymizeMember(${jsArg(m.id)})">Anonimizar</button>`:''}</div>`).join('')}</div>`:'<p class="sub">Nenhum. Quando algum passar do prazo, ele aparece aqui.</p>'}`);
+    <h4 style="margin:18px 0 6px">Serão anonimizados nos próximos 7 dias (${L.proximos.length})</h4>
+    ${L.proximos.length?`<div class="lgpd-list">${L.proximos.map(({member:m,data})=>`<div class="lgpd-row"><span>${h(m.name)}${m.code?' · Cota '+h(m.code):''} <span class="sub">em ${dt(data)}</span></span>${adm?`<button class="op-btn" onclick="anonymizeMember(${jsArg(m.id)})">Anonimizar</button>`:''}</div>`).join('')}</div>`:'<p class="sub">Nenhum. Quando algum passar do prazo, ele aparece aqui.</p>'}
+    <h4 style="margin:18px 0 6px">Não puderam ser anonimizados (${L.recusados.length})</h4>
+    ${L.recusados.length?`<div class="lgpd-list">${L.recusados.map(({member:m,motivo})=>`<div class="lgpd-row"><span>${h(m.name)}${m.code?' · Cota '+h(m.code):''} <span class="sub">${h(motivo)}</span></span><button class="op-btn" onclick="editMember(${jsArg(m.id)})">Abrir cadastro</button></div>`).join('')}</div>`:'<p class="sub">Nenhum.</p>'}`);
 }
