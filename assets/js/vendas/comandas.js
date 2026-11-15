@@ -125,7 +125,7 @@ function renderComandaDetail(id, keepRequester){
   const s = state.sales.find(x=>x.id===id); if(!s) return;
   removeFloatingComandaOptions();
   currentSaleDraft = { id:s.id, items:JSON.parse(JSON.stringify(s.items)), memberId:s.memberId, customerName:s.customerName, type:'comanda' };
-  if(!keepRequester){ comandaQuickCart = []; levarJunto.quick=false; comandaAuditExpanded = new Set(); }
+  if(!keepRequester){ comandaQuickCart = []; levarJunto.quick=false; comandaAuditCollapsed = new Set(); }
   const member = s.memberId ? state.members.find(m=>m.id===s.memberId) : null;
   const person=member&&member.name||s.customerName||'Avulso',who=member?(person+(member.code?' — Cota '+member.code:'')):person;
   const quotaNum = member&&member.code ? h(member.code) : '—';
@@ -173,7 +173,7 @@ function renderComandaDetail(id, keepRequester){
           <div id="comandaQuickSearchResults" class="np-product-grid" style="display:none;margin-top:8px"></div>
           <div id="comandaQuickCartWrap" style="display:none;margin-top:10px"></div>
         </div>
-        <div class="comanda-history-panel" style="margin:0;border:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="comanda-history-head"><b>Histórico da Comanda</b><span>Toque num pedido para ver os itens</span></div><div class="finance-grid" style="flex:1;min-height:0"><table><thead><tr><th>Lançado</th><th>Produto</th><th class="cmd-total">Total</th><th>Entrega</th><th>Situação</th></tr></thead><tbody id="comandaAuditRows"></tbody></table></div></div>
+        <div class="comanda-history-panel" style="margin:0;border:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="comanda-history-head"><b>Histórico da Comanda</b><span>Toque no lançamento para esconder ou mostrar os itens</span></div><div class="finance-grid" style="flex:1;min-height:0"><table class="cmd-hist"><thead><tr><th class="cmd-qtd">Qtd</th><th>Item</th><th class="cmd-total">Valor</th><th>Entrega</th><th class="cmd-acoes"><span class="sr-only">Ações</span></th></tr></thead><tbody id="comandaAuditRows"></tbody></table></div></div>
         <div id="draftTotalWrap">${renderTotalWithService(0)}</div>
         <div id="comandaPartialWrap"></div>
       </main>
@@ -715,58 +715,66 @@ function comandaShortTime(iso){
 function comandaLevouSelect(item,idx){
   return `<select class="comanda-levou" aria-label="Quem levou" onchange="setComandaItemDeliveredBy(${idx},this.value)"><option value="">Quem levou?</option>${state.quemLevou.map(p=>`<option value="${h(p.nome)}" ${item.deliveredBy===p.nome?'selected':''}>${h(p.nome)}</option>`).join('')}${item.deliveredBy&&!state.quemLevou.some(p=>p.nome===item.deliveredBy)?`<option value="${h(item.deliveredBy)}" selected>${h(item.deliveredBy)} (não cadastrado)</option>`:''}</select>`;
 }
-/* Histórico da comanda em 5 colunas (antes eram 10 num espaço de ~650px: "Qtd." e
-   "Valor Unit." quebravam letra por letra e Situação/Ações ficavam fora da tela).
-   Lançado = hora + quem lançou; Produto = nome + "2× R$ 6,00 · para Fulano";
-   Entrega = local + quem levou; Situação = etiqueta + ações lado a lado. */
+/* Histórico da comanda compacto, parecido com o do Saipos (pedido 3 do dono, teste no clube de 15/11).
+   Antes: 5 colunas (Lançado/Produto/Total/Entrega/Situação), botões com texto, nome de quem lançou
+   em destaque e a observação em laranja enorme; lançamento com vários itens ficava fechado.
+   Agora: cada lançamento tem um cabeçalho numa linha ("SARAH NAYELLEN · 15/11 às 17:49", com
+   reimprimir o lançamento inteiro) e os itens embaixo, abertos, numa linha cada:
+   Qtd | Item (nome + escolha única junto do nome; adicionais e observação entre parênteses, em cinza
+   pequeno) | Valor | Entrega (local + "Quem levou") | ações só com ícone. Enviado não tem etiqueta;
+   Pendente e Cancelado têm etiqueta pequena, e o cancelado fica riscado. Tocar no cabeçalho esconde
+   ou mostra os itens do lançamento. */
+const NOME_CURTO_LIGA = ['de','da','do','das','dos','e'];
+// "SARAH NAYELLEN FIUSA DE FREITAS" vira "SARAH NAYELLEN"; "Ana de Souza" vira "Ana Souza" (pula o "de").
+function comandaNomeCurto(nome){
+  const p = String(nome||'').trim().split(/\s+/).filter(Boolean);
+  if(p.length<=2) return p.join(' ');
+  const segundo = p.slice(1).find(x=>!NOME_CURTO_LIGA.includes(x.toLowerCase()));
+  return p[0]+(segundo?' '+segundo:'');
+}
+// "15/11 às 17:49" (sempre com a data, como no Saipos).
+function comandaQuandoLancado(iso){
+  const d = iso ? new Date(iso) : null; if(!d || isNaN(d)) return '';
+  return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
 function renderComandaAuditItemRow(item,idx,locked){
   const qty = Number(item.qty)||0, price = Number(item.price)||0;
-  const requester = item.requesterName||currentSaleDraft.customerName||'Não registrado';
-  const status = item.canceled?'<span class="tag tag-red">Cancelado</span>':item.sent?'<span class="tag tag-blue">Enviado</span>':'<span class="tag tag-amber">Novo</span>';
+  const status = item.canceled?'<span class="tag tag-red cmd-tag">Cancelado</span>':item.sent?'':'<span class="tag tag-amber cmd-tag">Pendente</span>';
+  const act = (cls, label, icon, onclick, extra)=>`<button class="btn btn-sm cmd-act${cls}" title="${label}" aria-label="${label}" ${extra||''} onclick="${onclick}">${icon}</button>`;
   const actions = item.canceled||!item.sent ? '' :
-    (item.weight?'':`<button class="btn btn-sm cmd-act" title="Reimprimir a ficha deste item" onclick="reprintComandaItem(${idx})">${ICN.printer}<span>Reimprimir</span></button>`)+
-    `<button class="btn btn-sm cmd-act" title="Pedir este item de novo" onclick="openReorderComandaItem(${idx})">${ICN.history}<span>Repetir</span></button>`+
-    (hasPerm('cancelar-comanda')?`<button class="btn btn-sm cmd-act cmd-act-danger" title="Cancelar este item" ${locked?'disabled':''} onclick="openCancelComandaItem(${idx})">${ICN.trash}<span>Cancelar</span></button>`:'');
-  // Venda por peso, 05/11: peça mostra o kg e só o botão de tirar; a linha "0,480 kg × R$ 119,90" fica no lugar do "1× R$".
+    (item.weight?'':act('', 'Reimprimir', ICN.printer, `reprintComandaItem(${idx})`))+
+    act('', 'Repetir', ICN.history, `openReorderComandaItem(${idx})`)+
+    (hasPerm('cancelar-comanda')?act(' cmd-act-danger', 'Cancelar', ICN.trash, `openCancelComandaItem(${idx})`, locked?'disabled':''):'');
+  // Venda por peso, 05/11: peça mostra o kg e só o botão de tirar.
   const weight = item.weight;
-  const qtyCtrl = item.sent ? '' : weight ? `<div class="qty-ctrl"><span class="mono">${fmtKg(weight.kg)}</span><button onclick="changeDraftQty(${idx},-1)" aria-label="Tirar peça">✕</button></div>` : `<div class="qty-ctrl"><button onclick="changeDraftQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${qty}</span><button onclick="changeDraftQty(${idx},1)" aria-label="Aumentar">+</button></div>`;
-  return `<tr class="cmd-row${item.canceled?' is-canceled':''}">
-    <td class="cmd-when"><b>${comandaShortTime(item.addedAt)}</b><small>${h(item.addedBy||'Registro anterior')}</small></td>
-    <td class="cmd-prod"><b>${item.canceled?'<s>'+h(item.name)+'</s>':h(item.name)}</b><small>${weight?h(item.notes||fmtKg(weight.kg)):qty+'× '+fmt(price)} · para ${h(requester)}</small>${item.notes&&!weight?`<small class="cmd-note">Obs.: ${h(item.notes)}</small>`:''}${item.levarJunto?'<small class="cmd-junto">Segurar: levar junto com a comida</small>':''}${item.levarJuntoCom?`<small class="cmd-junto">Levar junto: ${h(item.levarJuntoCom)}</small>`:''}${item.canceled&&item.canceledReason?`<small class="cmd-cancel">Motivo: ${h(item.canceledReason)}</small>`:''}${qtyCtrl}</td>
+  const qtyCell = item.sent ? (weight ? fmtKg(weight.kg) : String(qty)) : weight ? `<div class="qty-ctrl"><span class="mono">${fmtKg(weight.kg)}</span><button onclick="changeDraftQty(${idx},-1)" aria-label="Tirar peça">✕</button></div>` : `<div class="qty-ctrl"><button onclick="changeDraftQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${qty}</span><button onclick="changeDraftQty(${idx},1)" aria-label="Aumentar">+</button></div>`;
+  const det = weight ? [item.notes||fmtKg(weight.kg)] : itemDetalhesTela(item);
+  return `<tr class="cmd-row cmd-item${item.canceled?' is-canceled':''}">
+    <td class="cmd-qtd mono">${qtyCell}</td>
+    <td class="cmd-prod"><span class="cmd-item-nome">${h(itemNomeTela(item))}</span>${det.length?` <small class="cmd-item-det">(${h(det.join(' · '))})</small>`:''}${status?' '+status:''}${item.levarJunto?'<small class="cmd-junto">Segurar: levar junto com a comida</small>':''}${item.levarJuntoCom?`<small class="cmd-junto">Levar junto: ${h(item.levarJuntoCom)}</small>`:''}${item.canceled&&item.canceledReason?`<small class="cmd-cancel">Motivo: ${h(item.canceledReason)}</small>`:''}</td>
     <td class="mono cmd-total">${fmt(qty*price)}</td>
-    <td class="cmd-entrega"><small>${h(item.local||'Sem local')}</small>${item.sent&&!item.canceled?comandaLevouSelect(item,idx):''}</td>
-    <td class="cmd-status">${status}${actions?`<div class="cmd-actions">${actions}</div>`:''}</td>
+    <td class="cmd-entrega"><div class="cmd-entrega-in"><small>${h(item.local||'Sem local')}</small>${item.sent&&!item.canceled?comandaLevouSelect(item,idx):''}</div></td>
+    <td class="cmd-acoes">${actions?`<div class="cmd-actions">${actions}</div>`:''}</td>
   </tr>`;
 }
-function renderComandaAuditGroupRow(rows,locked,groupNum){
+function renderComandaAuditGroupRow(rows,locked){
   const key = comandaItemBatchKey(rows[0].item, rows[0].idx);
-  const expanded = comandaAuditExpanded.has(key);
-  const activeRows = rows.filter(r=>!r.item.canceled);
-  const activeQty = activeRows.reduce((a,r)=>a+(Number(r.item.qty)||0),0);
-  const activeValue = activeRows.reduce((a,r)=>a+(Number(r.item.price)||0)*(Number(r.item.qty)||0),0);
+  const fechado = comandaAuditCollapsed.has(key);
+  const first = rows[0].item;
+  const quando = comandaQuandoLancado(first.addedAt);
+  const quem = first.addedBy ? comandaNomeCurto(first.addedBy) : 'Registro anterior';
   const requesterNames = [...new Set(rows.map(r=>r.item.requesterName||currentSaleDraft.customerName||'Não registrado'))];
-  const requesterLabel = requesterNames.length===1 ? h(requesterNames[0]) : 'várias pessoas';
-  const allCanceled = rows.every(r=>r.item.canceled);
-  const allSent = rows.every(r=>r.item.sent);
-  const noneSent = rows.every(r=>!r.item.sent);
-  const situacaoTag = allCanceled ? '<span class="tag tag-red">Cancelado</span>'
-    : allSent ? '<span class="tag tag-blue">Enviado</span>'
-    : noneSent ? '<span class="tag tag-amber">Novo</span>'
-    : '<span class="tag tag-amber">Parcial</span>';
-  const hasSentActive = rows.some(r=>r.item.sent && !r.item.canceled);
-  const headerRow = `<tr class="comanda-audit-group-row cmd-row cmd-group" onclick="toggleComandaAuditGroup(${jsArg(key)})" title="${expanded?'Esconder':'Ver'} os itens deste pedido">
-    <td class="cmd-when"><b>${comandaShortTime(rows[0].item.addedAt)}</b><small>${h(rows[0].item.addedBy||'Registro anterior')}</small></td>
-    <td class="cmd-prod"><b><span class="cmd-caret${expanded?' open':''}">▸</span> Pedido ${groupNum} · ${rows.length} ${rows.length===1?'item':'itens'}</b><small>${activeQty} un. · para ${requesterLabel} · toque para ${expanded?'esconder':'ver'} os itens</small></td>
-    <td class="mono cmd-total">${fmt(activeValue)}</td>
-    <td class="cmd-entrega"><small>${h(rows[0].item.local||'Sem local')}</small></td>
-    <td class="cmd-status">${situacaoTag}${hasSentActive?`<div class="cmd-actions"><button class="btn btn-sm cmd-act" title="Pedir todos os itens deste pedido de novo" onclick="event.stopPropagation();openReorderComandaBatch(${jsArg(key)})">${ICN.history}<span>Repetir tudo</span></button></div>`:''}</td>
-  </tr>`;
-  const itemRows = expanded ? rows.map(r=>renderComandaAuditItemRow(r.item,r.idx,locked)).join('') : '';
-  return headerRow + itemRows;
+  const para = requesterNames.length===1 ? requesterNames[0] : 'várias pessoas';
+  const ativos = rows.filter(r=>r.item.sent && !r.item.canceled);
+  const reimprime = ativos.some(r=>!r.item.weight);
+  const btns = (reimprime?`<button class="btn btn-sm cmd-act" title="Reimprimir todos os itens deste lançamento" aria-label="Reimprimir o lançamento" onclick="reprintComandaBatch(${jsArg(key)})">${ICN.printer}</button>`:'')+
+    (ativos.length&&rows.length>1?`<button class="btn btn-sm cmd-act" title="Pedir todos os itens deste lançamento de novo" aria-label="Repetir o lançamento" onclick="openReorderComandaBatch(${jsArg(key)})">${ICN.history}</button>`:'');
+  const head = `<tr class="cmd-batch${fechado?' is-closed':''}"><td colspan="5"><div class="cmd-batch-in"><button type="button" class="cmd-batch-toggle" aria-expanded="${fechado?'false':'true'}" title="${fechado?'Mostrar':'Esconder'} os itens deste lançamento" onclick="toggleComandaAuditGroup(${jsArg(key)})"><b>${h(quem)}</b>${quando?' · '+quando:''}<span class="cmd-batch-para"> · para ${h(para)}</span>${fechado?`<span class="cmd-batch-para"> · ${rows.length} ${rows.length===1?'item':'itens'}</span>`:''}</button>${btns?`<span class="cmd-actions">${btns}</span>`:''}</div></td></tr>`;
+  return head + (fechado ? '' : rows.map(r=>renderComandaAuditItemRow(r.item,r.idx,locked)).join(''));
 }
-let comandaAuditExpanded = new Set();
+let comandaAuditCollapsed = new Set();
 function toggleComandaAuditGroup(key){
-  if(comandaAuditExpanded.has(key)) comandaAuditExpanded.delete(key); else comandaAuditExpanded.add(key);
+  if(comandaAuditCollapsed.has(key)) comandaAuditCollapsed.delete(key); else comandaAuditCollapsed.add(key);
   renderComandaAuditHistory();
 }
 function renderComandaAuditHistory(){
@@ -781,12 +789,34 @@ function renderComandaAuditHistory(){
     if(!groups.has(key)) groups.set(key,[]);
     groups.get(key).push({item,idx});
   });
-  let groupNum = 0;
-  body.innerHTML = [...groups.values()].map(rows=>{
-    if(rows.length===1) return renderComandaAuditItemRow(rows[0].item,rows[0].idx,locked);
-    groupNum++;
-    return renderComandaAuditGroupRow(rows,locked,groupNum);
-  }).join('');
+  body.innerHTML = [...groups.values()].map(rows=>renderComandaAuditGroupRow(rows,locked)).join('');
+}
+/* Reimprimir o lançamento inteiro (pedido 3, 15/11): uma ficha por estação (e por local e por quem
+   pediu), com o local de cada item, como no envio. Fica de fora: cancelado, não enviado, peça vendida
+   por peso (não tem ficha de preparo) e estação "só tela". */
+function reprintComandaBatch(key){
+  const items = (currentSaleDraft&&currentSaleDraft.items||[]).filter((it,idx)=>comandaItemBatchKey(it,idx)===key && it.sent && !it.canceled && !it.weight);
+  if(!items.length) return;
+  const sale = state.sales.find(x=>x.id===currentSaleDraft.id);
+  const member = currentSaleDraft.memberId ? state.members.find(m=>m.id===currentSaleDraft.memberId) : null;
+  const origem = currentUser.origem || 'caixa';
+  const fichas = new Map();
+  items.forEach(it=>{
+    const product = state.products.find(p=>p.id===it.productId);
+    const estacao = it.estacao || (product&&product.estacao) || 'cozinha';
+    if(!saidaTemImpressao(estacao)) return;
+    const local = it.local||currentSaleDraft.local||(sale&&sale.local)||'';
+    const who = it.requesterName || currentSaleDraft.customerName || 'Cliente';
+    const k = JSON.stringify([estacao, local, who]);
+    if(!fichas.has(k)) fichas.set(k, { estacao, local, who, items: [] });
+    fichas.get(k).items.push(it);
+  });
+  if(!fichas.size){ toast('Os itens deste lançamento são de estação "só tela" — não imprimem.'); return; }
+  fichas.forEach(f=>{
+    const printer = resolvePrinterFor(f.estacao, origem);
+    printSingleTicket(f.who, member?member.code:'', f.local, f.estacao, printer?printer.nome:null, f.items, null);
+  });
+  toast(fichas.size===1 ? 'Reimpressão enviada.' : 'Reimpressão enviada ('+fichas.size+' fichas).');
 }
 function setComandaItemDeliveredBy(idx,value){
   const item=(currentSaleDraft&&currentSaleDraft.items||[])[idx]; if(!item) return;
