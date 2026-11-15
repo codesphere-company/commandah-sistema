@@ -4,7 +4,9 @@ function openModal(title, bodyHtml, wide, locked=false){
   root.dataset.locked=locked?'true':'false';
   // Pedido avulso (comandas.js): a marca só vale para a janela que a pôs. Trocar a janela do avulso por
   // outra sem nada enviado descarta o rascunho dele (revisão 15/11), como no cancelamento.
-  if(root.dataset.avulsoPendente==='true' && typeof currentSaleDraft!=='undefined' && currentSaleDraft && currentSaleDraft.avulsoNp && !(currentSaleDraft.items||[]).some(i=>i.sent)) currentSaleDraft = null;
+  // Durante o pagamento em andamento (finalizeSale) nunca descarta: o finalizeSale ainda lê o rascunho.
+  const pagandoAvulso = typeof _singleFlightBusy!=='undefined' && _singleFlightBusy.has('finalizeSale:balcao');
+  if(!pagandoAvulso && root.dataset.avulsoPendente==='true' && typeof currentSaleDraft!=='undefined' && currentSaleDraft && currentSaleDraft.avulsoNp && !(currentSaleDraft.items||[]).some(i=>i.sent)) currentSaleDraft = null;
   delete root.dataset.avulsoPendente;
   root.innerHTML = `<div class="modal-overlay" id="modalOverlay"><div class="modal${wide?' wide':''}"><button class="modal-close" id="modalCloseBtn" ${locked?'style="display:none"':''}>&times;</button><h3 class="modal-title">${h(title)}</h3>${bodyHtml}</div></div>`;
   if(/Pergunta/i.test(title))root.querySelector('.modal').classList.add('question-record-modal');
