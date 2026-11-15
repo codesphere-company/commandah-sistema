@@ -21,7 +21,6 @@ Programa que fica nos computadores do estabelecimento e imprime as fichas do Com
 4. Em alguns segundos, as impressoras desse computador e as impressoras de rede encontradas aparecem em **Impressoras encontradas**.
 5. Em cada impressora, marque o que ela imprime (Cozinha, Bar, Churrasqueira, Comprovante do caixa) e clique em **Imprimir teste**. A tela mostra se saiu ou qual foi o erro.
 6. **Computador de caixa:** em "Computadores com o agente", escolha "Caixa: imprimir tudo lançado aqui em…". Assim, tudo que for lançado naquele computador (fichas de todas as estações e o comprovante) sai na impressora dele. Os pedidos do garçom pelo celular continuam indo para as impressoras das estações.
-
 7. **Confira o "Controle Inteligente de Aplicativos"** do Windows: Configurações › Privacidade e segurança › Segurança do Windows › Controle de aplicativos e navegador. Se estiver **Ligado**, o agente não se atualiza sozinho (continua na versão atual) e o Windows pode bloquear a instalação do programa. Nesse caso, o jeito é atualizar à mão, trocando o arquivo.
 
 **Atualizar da 2.3 (ou anterior) para a 2.4:** baixe o novo `CommandahImpressora.exe`; feche o agente antigo (botão direito no ícone perto do relógio › Sair); troque o arquivo em `C:\Commandah\`; abra de novo. O computador continua conectado, porque o token fica na configuração do usuário do Windows.
@@ -58,15 +57,17 @@ A configuração fica em `%APPDATA%\Commandah\agente-impressao.json`. O token fi
 1. Em `src/Config.cs`, suba `Version` (por exemplo de `2.4.0` para `2.4.1`).
 2. Rode `build.cmd`.
 3. Dentro da pasta `agente-impressao`, rode `dist\AssinarAgente.exe publicar`. Ele copia o programa para `downloads\`, e grava e assina `downloads\agente-impressao.json` (assinatura em `agente-impressao.json.sig`). Assinar é sempre o último passo: se recompilar depois, publique de novo.
-4. Faça o commit dos três arquivos de `downloads\` e o merge. Em alguns minutos os computadores se atualizam sozinhos.
+4. Faça o commit dos três arquivos de `downloads\` e o merge. Cada computador procura atualização 2 minutos depois de abrir e depois a cada 6 horas (o site ainda pode levar alguns minutos para mostrar o aviso novo, por causa do cache do GitHub Pages). Para atualizar um computador na hora, abra a janela do agente e clique em **Procurar atualização**.
 
 **Chave de assinatura:** fica em `%USERPROFILE%\.commandah\agente-chave-privada.xml`. **Nunca** vai para o git, nem para o chat. Guarde uma cópia em um **pendrive**. Quem tem essa chave consegue publicar programas que todos os computadores aceitam. **Se a chave for perdida**, não dá para publicar atualização que os computadores aceitem: é preciso gerar outra (`AssinarAgente gerar-chave`), colocar a pública em `Config.UpdatePublicKey`, compilar e reinstalar à mão em cada computador.
 
-**Voltar a versão anterior à mão** (se a nova não abrir): feche o agente (ícone › Sair, ou pelo Gerenciador de Tarefas); em `C:\Commandah\`, apague ou renomeie o `CommandahImpressora.exe` com problema e renomeie `CommandahImpressora.old.exe` para `CommandahImpressora.exe`; abra. O `.old.exe` só existe depois de uma atualização automática.
+**Volta automática, e quando não há:** o agente só volta sozinho para a versão anterior quando o Windows impede a versão nova de abrir (por exemplo, o Controle Inteligente de Aplicativos ou o antivírus). Se a versão nova abre e depois dá problema, não há volta automática: restaure o `CommandahImpressora.old.exe` à mão, como abaixo.
+
+**Voltar a versão anterior à mão** (se a nova abrir e der problema): feche o agente (ícone › Sair, ou pelo Gerenciador de Tarefas); em `C:\Commandah\`, apague ou renomeie o `CommandahImpressora.exe` com problema e renomeie `CommandahImpressora.old.exe` para `CommandahImpressora.exe`; abra. O `.old.exe` só existe depois de uma atualização automática e é apagado na próxima abertura normal do agente (por exemplo, ao reiniciar o computador): restaure à mão **antes** de reiniciar.
 
 ## Gerar o programa a partir do código
 
-Rode `build.cmd`. Ele usa o compilador C# que já vem no Windows 10/11 (.NET Framework 4.8), sem instalar nada, e gera `dist\CommandahImpressora.exe`. Copie o resultado para `downloads\CommandahImpressora.exe`, na raiz do repositório: é o arquivo que o Commandah oferece para baixar.
+Rode `build.cmd`. Ele usa o compilador C# que já vem no Windows 10/11 (.NET Framework 4.8), sem instalar nada, e gera `dist\CommandahImpressora.exe`. Para publicar, **não** copie o arquivo à mão para `downloads\` (o sha256 deixaria de conferir com o aviso assinado e os computadores recusariam a atualização): de dentro da pasta `agente-impressao`, rode `dist\AssinarAgente.exe publicar` (ver "Publicar uma versão nova"). `downloads\CommandahImpressora.exe`, na raiz do repositório, é o arquivo que o Commandah oferece para baixar.
 
 Código em `src/`:
 

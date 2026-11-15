@@ -304,6 +304,28 @@ namespace Commandah.Agente.Testes
                 c.Agente.SaiuOcupado();
             }
 
+            // item 5 (auditoria 11/11): exceção depois de pausar (ex.: aviso na janela sem handle) não pode
+            // deixar o agente pausado nem o arquivo trocado pela metade
+            foreach (var etapa in new[] { "pausado", "trocado" })
+            {
+                using (var c = new Cena(priv))
+                {
+                    c.Publica(novo, "9.9.9", null, 0, UrlCerta, null);
+                    var u = c.Novo(c.Pub);
+                    string alvo = etapa;
+                    u.AposEtapa = n => { if (n == alvo) throw new InvalidOperationException("falha de teste"); };
+                    bool lancou = false;
+                    try { u.ProcurarEAplicar(true); } catch (InvalidOperationException) { lancou = true; }
+                    Testes.Ok(lancou, "falha apos pausar (" + etapa + "): exceção chegou");
+                    Testes.Ok(!c.Agente.Pausado, "falha apos pausar (" + etapa + "): agente voltou a imprimir");
+                    Testes.Ok(File.ReadAllText(c.Exe) == "versao velha", "falha apos pausar (" + etapa + "): atual intacto");
+                    Testes.Ok(!File.Exists(c.New) && !File.Exists(c.Old), "falha apos pausar (" + etapa + "): sem .new nem .old");
+                    u.AposEtapa = null;
+                    var r = u.ProcurarEAplicar(true);
+                    Testes.Ok(r == ResultadoAtualizacao.Trocado, "falha apos pausar (" + etapa + "): proxima rodada troca (" + r + ")");
+                }
+            }
+
             using (var c = new Cena(priv))
             {
                 c.Publica(novo, "9.9.9", null, 0, UrlCerta, null);

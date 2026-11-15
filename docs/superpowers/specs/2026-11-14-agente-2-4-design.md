@@ -97,10 +97,11 @@ Recusado: a ficha da nuvem vai para `erro` com o motivo "endereço fora da rede 
   6. Inicia o novo com `--minimizado --pos-atualizacao`, solta o mutex e encerra.
 - **Pasta sem permissão de escrita** (por exemplo `Program Files`): não troca. Registra "Atualização 2.x disponível: baixe pelo Commandah" e mostra o mesmo texto na janela.
 - **O novo processo** com `--pos-atualizacao`:
-  - espera até 30 s pelo mutex, em vez de mostrar "já está aberto";
+  - espera até 120 s pelo mutex, em vez de mostrar "já está aberto";
   - registra "Atualizado para 2.x";
   - apaga o `.old` na abertura seguinte, quando ela também der certo.
 - **Se o novo nem abrir:** fica o `.old` para o dono renomear à mão (passo descrito no README).
+- **Alcance da volta automática** (revisão final, item 5 da auditoria 11/11): o agente só volta sozinho para a versão anterior quando o Windows impede a versão nova de abrir (Controle Inteligente de Aplicativos, antivírus). Se ela abre e depois quebra, a volta é à mão, com o `CommandahImpressora.old.exe`, antes da próxima abertura normal (que o apaga).
 - **Inicialização com o Windows:** a entrada do registro usa o caminho do executável, que continua o mesmo.
 
 ### 5. Versão 2.4.0
@@ -110,11 +111,11 @@ Recusado: a ficha da nuvem vai para `erro` com o motivo "endereço fora da rede 
 ## Publicação
 
 1. Gerar a chave no computador do dono (`gerar-chave`), colar a pública, compilar e assinar (`publicar`).
-2. Aplicar a migration, com o "sim" do dono.
-3. Merge (site, front e `downloads/`), na mesma janela da migration.
+2. Merge (site, front e `downloads/`): o front novo funciona com a função antiga do pareamento.
+3. Logo depois, aplicar a migration, com o "sim" do dono.
 4. O dono reinstala a 2.4.0 em cada computador com agente: fecha o antigo pelo ícone, troca o `.exe` em `C:\Commandah\` e abre. O pareamento continua, porque o token fica na configuração do usuário do Windows, não no `.exe`.
 
-A ordem de 2 e 3 importa pouco: o front novo entende os dois formatos de erro do pareamento.
+Merge antes da migration: o front novo entende os dois formatos de erro do pareamento, mas o front antigo ignora o `{ok:false}` da função nova e mostraria "conectado" (revisão final, item 5 da auditoria 11/11).
 
 ## Fatos conferidos (checagem do construtor)
 

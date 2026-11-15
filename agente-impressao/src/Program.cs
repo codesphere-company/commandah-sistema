@@ -21,8 +21,8 @@ namespace Commandah.Agente
             {
                 if (!created && posAtualizacao)
                 {
-                    // a versão anterior ainda está fechando: espera ela soltar o mutex (até 30 s)
-                    try { created = mutex.WaitOne(TimeSpan.FromSeconds(30)); }
+                    // a versão anterior ainda está fechando: espera ela soltar o mutex (até 120 s)
+                    try { created = mutex.WaitOne(TimeSpan.FromSeconds(120)); }
                     catch (AbandonedMutexException) { created = true; }
                 }
                 if (!created)

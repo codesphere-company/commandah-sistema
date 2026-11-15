@@ -55,7 +55,7 @@ namespace Commandah.Agente
 
         // Na abertura: apaga um .new que tenha sobrado. O .old (versão anterior) só sai numa abertura
         // normal: logo depois de atualizar (posAtualizacao) ele fica, como cópia boa para voltar à mão
-        // se a versão nova quebrar depois da janela de 15 s. item 5 (auditoria 11/11).
+        // se a versão nova abrir e quebrar depois (a volta automática só cobre a que nem abre). item 5 (auditoria 11/11).
         public static void LimparSobras(string exe, bool posAtualizacao)
         {
             ApagarSemErro(CaminhoNovo(exe));
@@ -171,35 +171,64 @@ namespace Commandah.Agente
                 return ResultadoAtualizacao.Ocupado;
             }
 
-            if (!TrocarArquivos(exePath, novo))
+            // item 5 (auditoria 11/11): daqui em diante a fila está pausada. Qualquer exceção (ex.: o
+            // aviso na janela sem handle no início minimizado) não pode deixar o agente pausado para
+            // sempre (ícone verde e nenhuma ficha saindo): o finally volta a imprimir, a não ser que
+            // este app esteja de fato encerrando para a versão nova. Se a troca já tinha acontecido e
+            // a versão nova não chegou a abrir, volta o arquivo antigo.
+            bool encerrando = false, trocado = false, abriu = false;
+            try
             {
-                ApagarSemErro(novo);
-                agent.Pausado = false;
-                string msg = "Atualização " + aviso.Version + " disponível: baixe pelo Commandah";
-                agent.Log(msg + " (não consegui trocar o arquivo do agente).", true);
-                Situar(msg + ".");
-                return ResultadoAtualizacao.PastaSemEscrita;
-            }
-            if (!Reiniciar)
-            {
-                agent.Pausado = false;
-                Situar("Versão " + aviso.Version + " instalada.");
+                Etapa("pausado");
+                if (!TrocarArquivos(exePath, novo))
+                {
+                    ApagarSemErro(novo);
+                    string msg = "Atualização " + aviso.Version + " disponível: baixe pelo Commandah";
+                    agent.Log(msg + " (não consegui trocar o arquivo do agente).", true);
+                    Situar(msg + ".");
+                    return ResultadoAtualizacao.PastaSemEscrita;
+                }
+                trocado = true;
+                Etapa("trocado");
+                if (!Reiniciar)
+                {
+                    trocado = false; // troca pedida sem reabrir (testes): fica como está
+                    Situar("Versão " + aviso.Version + " instalada.");
+                    return ResultadoAtualizacao.Trocado;
+                }
+
+                Situar("Abrindo a versão " + aviso.Version + "...");
+                if (!AbriuNovo())
+                {
+                    Desfazer(exePath);
+                    trocado = false;
+                    agent.Log("Atualização para " + aviso.Version + " não abriu; voltei para a versão " + VersaoAtual + ".", true);
+                    Situar("Atualização para " + aviso.Version + " não abriu; continuo na versão " + VersaoAtual + ".");
+                    return ResultadoAtualizacao.NaoAbriu;
+                }
+                abriu = true; // a versão nova está rodando: não desfaz mais (ela segura o arquivo)
+                agent.Log("Versão " + aviso.Version + " aberta; fechando a versão " + VersaoAtual + ".", false);
+                var enc = Encerrar;
+                encerrando = true;
+                if (enc != null) enc();
                 return ResultadoAtualizacao.Trocado;
             }
-
-            Situar("Abrindo a versão " + aviso.Version + "...");
-            if (!AbriuNovo())
+            finally
             {
-                Desfazer(exePath);
-                agent.Pausado = false;
-                agent.Log("Atualização para " + aviso.Version + " não abriu; voltei para a versão " + VersaoAtual + ".", true);
-                Situar("Atualização para " + aviso.Version + " não abriu; continuo na versão " + VersaoAtual + ".");
-                return ResultadoAtualizacao.NaoAbriu;
+                if (trocado && !abriu && !encerrando) Desfazer(exePath);
+                ApagarSemErro(novo);
+                if (!encerrando) agent.Pausado = false;
             }
-            agent.Log("Versão " + aviso.Version + " aberta; fechando a versão " + VersaoAtual + ".", false);
-            var enc = Encerrar;
-            if (enc != null) enc();
-            return ResultadoAtualizacao.Trocado;
+        }
+
+        // Gancho só dos testes: chamado em cada etapa depois de pausar (pode lançar para simular falha).
+#pragma warning disable 0649 // só os testes atribuem
+        internal Action<string> AposEtapa;
+#pragma warning restore 0649
+        void Etapa(string nome)
+        {
+            var h = AposEtapa;
+            if (h != null) h(nome);
         }
 
         // Baixa no máximo "limite" bytes; mais que isso devolve null (aceita file:/// nos testes).
@@ -296,7 +325,7 @@ namespace Commandah.Agente
             }
         }
 
-        // A versão nova espera o mutex (--pos-atualizacao) por até 30 s; se ela fechar antes da
+        // A versão nova espera o mutex (--pos-atualizacao) por até 120 s; se ela fechar antes da
         // janela (15 s), não abriu.
         bool AbriuNovo()
         {
