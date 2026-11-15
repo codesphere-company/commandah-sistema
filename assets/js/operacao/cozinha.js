@@ -221,7 +221,17 @@ function proximaAberturaCozinha(d=new Date()){
 }
 function saidaTemTela(estacao){ const m=saidaModoEstacao(estacao); return m==='ambos'||m==='tela'; }
 function saidaTemImpressao(estacao){ const m=saidaModoEstacao(estacao); return m==='ambos'||m==='imprime'; }
-async function sendItemsToKitchen(saleId, items, who, source, local){
+// "Cozinha fechada" perguntado uma vez para um envio em várias remessas (Pagamento com itens de
+// locais diferentes, 15/11). Devolve false se não pode ou não quer enviar.
+async function confirmarCozinhaFechada(items, source){
+  const temTela = (items||[]).some(i=>{ if(i.weight) return false; const product=state.products.find(p=>p.id===i.productId); return saidaTemTela(product&&product.estacao?product.estacao:'cozinha'); });
+  if(!temTela || cozinhaAberta()) return true;
+  const prox=proximaAberturaCozinha();
+  if(source==='cardapio'||source==='totem'){ toast('A cozinha está fechada'+(prox?' (abre '+prox+')':'')+'. Os itens da cozinha não estão disponíveis agora.'); return false; }
+  return !!await askConfirm({ title:'A cozinha está fechada', message:(prox?'Abre '+prox+'. ':'')+'Enviar o pedido para a cozinha mesmo assim?', confirmLabel:'Enviar mesmo assim', cancelLabel:'Voltar', danger:false });
+}
+// opts.cozinhaConfirmada: quem chama já perguntou "cozinha fechada" (confirmarCozinhaFechada).
+async function sendItemsToKitchen(saleId, items, who, source, local, opts){
   if(!items.length) return false;
   const batchId = uid();
   items.forEach(i=>{ if(!i.batchId) i.batchId = batchId; });
@@ -230,7 +240,8 @@ async function sendItemsToKitchen(saleId, items, who, source, local){
   // Cozinha fora do horário: caixa e garçom recebem um aviso e podem confirmar; cardápio digital
   // e totem (o próprio cliente pedindo) não enviam. Vem antes de baixar o estoque: cancelar não
   // deixa nada lançado.
-  if(monitorItems.length && !cozinhaAberta()){
+  if(monitorItems.length && !cozinhaAberta() && opts && opts.cozinhaConfirmada){ /* já confirmado por quem chamou */ }
+  else if(monitorItems.length && !cozinhaAberta()){
     const prox=proximaAberturaCozinha();
     if(source==='cardapio'||source==='totem'){ toast('A cozinha está fechada'+(prox?' (abre '+prox+')':'')+'. Os itens da cozinha não estão disponíveis agora.'); return false; }
     if(!await askConfirm({ title:'A cozinha está fechada', message:(prox?'Abre '+prox+'. ':'')+'Enviar o pedido para a cozinha mesmo assim?', confirmLabel:'Enviar mesmo assim', cancelLabel:'Voltar', danger:false })) return false;

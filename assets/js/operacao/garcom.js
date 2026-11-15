@@ -297,7 +297,7 @@ function gcRenderReview(){
         <input id="gcObs" placeholder="Ex: Sem cebola, ponto da carne..." value="${h(s.notes||'')}">
       </div>
       <div class="np-section">
-        <div><label class="np-label" for="gcLocal">Local de entrega${localEntregaObrigatorio()?' *':''}</label><select id="gcLocal">${localEntregaOptionsHtml(gcFlow.avulso ? gcFlow.local : (localEntregaObrigatorio() ? s.local : ''))}</select></div>
+        <div><label class="np-label" for="gcLocal">Local de entrega${localEntregaObrigatorio()?' *':''}</label><select id="gcLocal">${localEntregaOptionsHtml(gcFlow.avulso ? gcFlow.local : '')}</select></div>
       </div>
       <label class="np-label" style="margin:16px 0 8px;display:block">Itens para revisão</label>
       <div id="gcReviewList"></div>

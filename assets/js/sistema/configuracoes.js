@@ -64,13 +64,14 @@ function renderConfigSistema(){
     // Item 4 (auditoria 11/11): só admin/dono grava; ausente = desligado.
     if(document.getElementById('cfgConferenciaBarrar') && isAdminUser()) state.settings.conferenciaBarrar = document.getElementById('cfgConferenciaBarrar').checked;
     // Local obrigatório (15/11): ausente = ligado.
-    if(document.getElementById('cfgLocalEntregaObrigatorio')) state.settings.localEntregaObrigatorio = document.getElementById('cfgLocalEntregaObrigatorio').checked;
+    if(document.getElementById('cfgLocalEntregaObrigatorio') && isAdminUser()) state.settings.localEntregaObrigatorio = document.getElementById('cfgLocalEntregaObrigatorio').checked;
     save('settings');applyBranding();
     toast(settingsPane==='cozinhahorario'&&!(state.settings.kitchenHours||{}).ativo?'Salvo, mas o horário da cozinha está DESLIGADO: marque "Usar horário da cozinha" para ele valer.':'Configurações salvas.'); logAction('Configurações do sistema atualizadas');
   };
 }
 // Pedido do dono (teste prático 15/11): nenhum lançamento sai sem local de entrega. Ausente = ligado.
 function blocoLocalEntrega(s){
+  if(!isAdminUser()) return ''; // só admin/dono, como a conferência (a RLS de settings é do admin)
   return `<div class="settings-section" id="cfgLocalEntregaBloco"><h3>Pedidos</h3><label class="kh-ligar"><input type="checkbox" id="cfgLocalEntregaObrigatorio" ${s.localEntregaObrigatorio!==false?'checked':''}> <b>Exigir local de entrega ao lançar pedido</b></label><p class="sub">Ligado, o garçom e o caixa escolhem o local (ou "Retirar no balcão") antes de enviar o pedido. Desligado, o pedido sem local sai como "Retirar no balcão".</p></div>`;
 }
 // Item 4 (auditoria 11/11): liga a recusa de venda que não bate com o cadastro (desligado, só registra no relatório).

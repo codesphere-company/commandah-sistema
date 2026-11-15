@@ -182,6 +182,9 @@ function ticketLinesToEscPos(L, W, cfg){
   // imprimia o '1'/'0' de ESC E '1'/'0' ("1COZINHA0"). Ligar usa 0x03 (o ESC/POS só olha o bit 0)
   // porque o 0x01 é o NUL_PLACEHOLDER: o agente o troca por 0x00 e o "ligar" viraria "desligar".
   // Desligar e a fonte A usam o 0x00 de verdade (Z, trocado pelo agente).
+  // No modo ESC/Bema (o de fábrica da Bematech) o ESC E não tem parâmetro e o desligar é ESC F,
+  // que não usamos (quebraria as impressoras ESC/POS). Por isso a orientação é pôr a MP-4200 em
+  // ESC/POS: lá estes comandos valem; em ESC/Bema o byte do parâmetro só deixa de sair impresso.
   const boldOn = '\x1BE\x03', boldOff = '\x1BE'+Z;
   let out = '\x1B@' + (c.fonteA ? '\x1BM'+Z : '');
   L.forEach(l0=>{
