@@ -2,7 +2,12 @@
 function openModal(title, bodyHtml, wide, locked=false){
   const root = document.getElementById('modalRoot');
   root.dataset.locked=locked?'true':'false';
-  delete root.dataset.avulsoPendente; // pedido avulso (comandas.js): só vale para a janela que o marcou
+  // Pedido avulso (comandas.js): a marca só vale para a janela que a pôs. Trocar a janela do avulso por
+  // outra sem nada enviado descarta o rascunho dele (revisão 15/11), como no cancelamento.
+  // Durante o pagamento em andamento (finalizeSale) nunca descarta: o finalizeSale ainda lê o rascunho.
+  const pagandoAvulso = typeof _singleFlightBusy!=='undefined' && _singleFlightBusy.has('finalizeSale:balcao');
+  if(!pagandoAvulso && root.dataset.avulsoPendente==='true' && typeof currentSaleDraft!=='undefined' && currentSaleDraft && currentSaleDraft.avulsoNp && !(currentSaleDraft.items||[]).some(i=>i.sent)) currentSaleDraft = null;
+  delete root.dataset.avulsoPendente;
   root.innerHTML = `<div class="modal-overlay" id="modalOverlay"><div class="modal${wide?' wide':''}"><button class="modal-close" id="modalCloseBtn" ${locked?'style="display:none"':''}>&times;</button><h3 class="modal-title">${h(title)}</h3>${bodyHtml}</div></div>`;
   if(/Pergunta/i.test(title))root.querySelector('.modal').classList.add('question-record-modal');
   document.getElementById('modalCloseBtn').onclick = closeModal;
@@ -46,7 +51,19 @@ function closeModal(){
   if(root.dataset.avulsoPendente==='true'){
     const d = typeof currentSaleDraft!=='undefined' ? currentSaleDraft : null;
     if(typeof _singleFlightBusy!=='undefined' && _singleFlightBusy.has('finalizeSale:balcao')){ toast('Aguarde, processando...'); return; }
-    if(d && d.avulsoNp && (d.items||[]).some(i=>i.sent)){ toast('O pedido já foi para a cozinha. Confirme o pagamento.'); return; }
+    if(d && d.avulsoNp && (d.items||[]).some(i=>i.sent)){
+      // Revisão 15/11: se o banco recusou a venda de vez, o Pagamento não pode ficar preso. Fecha só
+      // confirmando, e fica no log que o pedido foi para a cozinha sem venda registrada.
+      const shown = root.firstElementChild;
+      askConfirm({ title:'Fechar sem registrar a venda?', message:'O pedido já está na cozinha.', confirmLabel:'Fechar mesmo assim', cancelLabel:'Voltar' }).then(ok=>{
+        if(!ok) return;
+        const resumo = (d.customerName||'Cliente avulso')+': '+(d.items||[]).map(i=>itemQtyLabel(i)+' '+i.name).join(', ')+' — '+fmt(saleTotal(d.items||[]));
+        logAction('ATENÇÃO: pedido avulso enviado à cozinha sem venda registrada — '+resumo);
+        if(currentSaleDraft===d) currentSaleDraft = null;
+        if(root.firstElementChild===shown){ delete root.dataset.avulsoPendente; removeFloatingComandaOptions(); root.innerHTML=''; }
+      });
+      return;
+    }
     delete root.dataset.avulsoPendente;
     if(d && d.avulsoNp) currentSaleDraft = null;
     toast(AVULSO_CANCELADO);

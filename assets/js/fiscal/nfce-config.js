@@ -31,7 +31,7 @@ function openNfceSettings(){
     }
     state.settings.nfce = { ambiente, serie: serie||null, autoEmitir: document.getElementById('nfceAuto').checked, autoImprimir: document.getElementById('nfceAutoPrint').checked, perguntarImpressao: document.getElementById('nfcePerguntarImpressao').checked };
     await save('settings');
-    logAction('NFC-e: ambiente '+(ambiente===1?'PRODUÇÃO':'teste')+', série '+(serie||'—')+', emissão '+(state.settings.nfce.autoEmitir?'automática':'manual'));
+    logAction('NFC-e: ambiente '+(ambiente===1?'PRODUÇÃO':'teste')+', série '+(serie||'—')+', emissão '+(state.settings.nfce.autoEmitir?'automática':'manual')+', impressão do cupom '+(state.settings.nfce.autoImprimir?'automática':'desligada')+', perguntar antes de imprimir '+(state.settings.nfce.perguntarImpressao?'sim':'não'));
     closeModal(); toast('Configuração da NFC-e salva.');
   };
   loadNfceEmissor();
@@ -125,7 +125,11 @@ async function autoEmitNfce(saleId){
 }
 // "Imprimir o cupom fiscal?" na camada de confirmação (não fecha a janela aberta). Aqui o foco fica em
 // "Imprimir" de propósito (pedido do dono): Enter imprime; Esc ou "Não imprimir" não imprimem.
-function perguntarImpressaoCupom(){
+// Revisão 15/11: se outra confirmação estiver aberta, espera ela fechar (tenta a cada 1 s, até 30 s) em vez
+// de tomar o lugar dela. Passados os 30 s, não imprime e avisa (o cupom sai pelo detalhe da comanda).
+async function perguntarImpressaoCupom(){
+  for(let i=0; i<30 && document.getElementById('confirmRoot'); i++) await new Promise(r=>setTimeout(r, 1000));
+  if(document.getElementById('confirmRoot')){ toast('Cupom fiscal não impresso. Reimprima pelo detalhe da comanda.'); return false; }
   const p = askConfirm({ title:'Imprimir o cupom fiscal?', message:'', confirmLabel:'Imprimir', cancelLabel:'Não imprimir', danger:false });
   const sim = document.querySelector('#confirmRoot [data-a="yes"]'); if(sim) sim.focus();
   return p;

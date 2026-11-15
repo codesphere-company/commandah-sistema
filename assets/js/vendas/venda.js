@@ -183,6 +183,13 @@ function togglePdvOptions(){ pdvOptionsOpen=!pdvOptionsOpen; renderBalcao(); }
    rascunho novo (newDraft) e renderAll redesenha. */
 let balcaoDraft = null, balcaoCategory = '', balcaoQuery = '';
 function renderBalcaoPdv(el){
+  // Revisão 15/11: durante o pagamento do cliente avulso (comandas.js) o rascunho atual é dele; a Ficha
+  // desenha com o balcaoDraft e o rascunho do avulso volta intacto (não vira o balcaoDraft).
+  if(currentSaleDraft && currentSaleDraft.avulsoNp){
+    const avulso = currentSaleDraft; currentSaleDraft = balcaoDraft;
+    try{ renderBalcaoPdv(el); } finally { currentSaleDraft = avulso; }
+    return;
+  }
   if(!currentSaleDraft || currentSaleDraft.type!=='balcao'){ if(balcaoDraft) currentSaleDraft = balcaoDraft; else newDraft('balcao'); }
   balcaoDraft = currentSaleDraft;
   const prevSearch = document.getElementById('balcaoSearch'), searchFocused = document.activeElement===prevSearch;

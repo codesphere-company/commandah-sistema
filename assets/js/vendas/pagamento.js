@@ -501,7 +501,10 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   }
   // Comprovante só quando o cliente pede (decisão de 12/10): botão "Imprimir comprovante" no
   // detalhe da comanda (printSaleReceipt). Antes saía sozinho na venda de balcão.
-  newDraft(mode); toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
+  // Avulso do Novo pedido (revisão 15/11): não deixa rascunho vazio de balcão no lugar da Ficha em andamento
+  // (renderBalcaoPdv adotaria o rascunho novo e a Ficha sumiria); sem rascunho, volta o balcaoDraft.
+  if(currentSaleDraft && currentSaleDraft.avulsoNp) currentSaleDraft = null; else newDraft(mode);
+  toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
   // D3: consumo do colaborador sai do salário; não oferece a cobrança por WhatsApp.
   if(fiadoMemberForPrompt && !consumoColaborador) promptWhatsAppCollection(fiadoMemberForPrompt);
   return sale.id;
