@@ -68,8 +68,27 @@ function fichaConfig(raw){
     mostrarAdicionais: c.mostrarAdicionais!==false,
     mostrarObs: c.mostrarObs!==false,
     fonteA: c.fonteA!==false,
-    letraGrandeDupla: c.letraGrandeDupla!==false
+    letraGrandeDupla: c.letraGrandeDupla!==false,
+    // Teste prático 15/11 (dono): adicionais "um pouco maiores" por padrão (altura dupla, ESC ! 0x10).
+    tamanhoAdicionais: FICHA_TAMANHOS[c.tamanhoAdicionais] ? c.tamanhoAdicionais : 'alto',
+    // Teste prático 15/11: a Bematech da cozinha imprimia o "!" do GS !. Ligado, a letra grande vai
+    // só pelo ESC ! 0x30 (e o 3x vira 2x, que é o máximo do ESC !).
+    semGsExclamacao: !!c.semGsExclamacao
   };
+}
+/* Grupo de opções com "Sai junto do nome na ficha" (naFichaJuntoDoNome, pedido do dono em 15/11):
+   a escolha entra no nome grande ("1x AGUA COM GAS - 1 copo") e sai da lista de adicionais.
+   Quantidade 1 sai só o nome da escolha; mais de 1, "2x COM GAS". A marca é lida do cadastro atual
+   do grupo (state.complementos). Devolve null quando o item não tem grupo marcado. */
+function fichaJuntoDoNome(it){
+  const c = it && it.customization;
+  if(!c || c.v!==2 || !Array.isArray(c.groups) || !c.groups.length) return null;
+  const marcado = g=>{ const r = (state.complementos||[]).find(x=>x && x.id===g.groupId && x.recordKind==='optionGroup'); return !!(r && r.naFichaJuntoDoNome); };
+  const juntos = c.groups.filter(g=>g && (g.choices||[]).length && marcado(g));
+  if(!juntos.length) return null;
+  const sufixo = juntos.map(g=>g.choices.map(ch=>(Number(ch.qty)>1 ? ch.qty+'x ' : '')+ch.name).join(', ')).join(' ');
+  const extras = customizationLines({ customization: Object.assign({}, c, { groups: c.groups.filter(g=>!juntos.includes(g)) }) });
+  return { sufixo, extras };
 }
 function buildTicketLines(who, cota, local, estacao, items, orderNumber, payLines, footer, cfg){
   const c = fichaConfig(cfg), f = ticketFields(who, cota, local, items), isCaixa = estacao==='caixa';
@@ -101,9 +120,12 @@ function buildTicketLines(who, cota, local, estacao, items, orderNumber, payLine
     else if(x.k==='total'){ if(showPrices) txt('TOTAL: ', fmt(total), x); }
     else if(x.k==='produtos'){
       sep('-');
+      const addSize = c.tamanhoAdicionais==='grande' ? 2 : 1, addTall = c.tamanhoAdicionais==='alto';
       (items||[]).forEach(it=>{
-        L.push({ label:'', value: itemQtyLabel(it)+' '+it.name+(it.copos!=null ? ' — '+it.copos+' copo'+(it.copos===1?'':'s') : ''), size:prodSize, bold:false });
-        if(c.mostrarAdicionais && typeof kitchenItemExtras==='function') kitchenItemExtras(it).forEach(e=>L.push({ label:'  + ', value:e, size:1, bold:false }));
+        const junto = fichaJuntoDoNome(it);
+        // 15/11: " - " e não " — " (a térmica imprimia "?" no lugar do travessão).
+        L.push({ label:'', value: itemQtyLabel(it)+' '+it.name+(junto ? ' '+junto.sufixo : '')+(it.copos!=null ? ' - '+it.copos+' copo'+(it.copos===1?'':'s') : ''), size:prodSize, bold:false });
+        if(c.mostrarAdicionais && typeof kitchenItemExtras==='function') (junto ? junto.extras : kitchenItemExtras(it)).forEach(e=>L.push({ label:'  + ', value:e, size:addSize, tall:addTall, bold:false }));
         if(c.mostrarObs && typeof kitchenItemNote==='function'){ const n = kitchenItemNote(it); if(n) L.push({ label:'  OBS: ', value:n, size:1, bold:true }); }
         if(showPrices) L.push({ label:'', value:fmt((Number(it.price)||0)*(Number(it.qty)||0)), size:1, bold:false });
       });
@@ -151,16 +173,22 @@ function ticketLinesToPlain(L, W){
   return L.map(l=>l.sep ? l.sep.repeat(W) : fichaRows(Object.assign({}, l, { size:1 }), W).join('\n')).join('\n') + '\n\n\n';
 }
 function ticketLinesToEscPos(L, W, cfg){
-  const c = fichaConfig(cfg), Z = NUL_PLACEHOLDER;
+  const c = fichaConfig(cfg), Z = NUL_PLACEHOLDER, semGs = c.semGsExclamacao;
   // ESC ! '0' (0x30) = altura e largura dobradas; GS ! 0x11 (2x) ou 0x22 (3x). GS ! vem depois:
-  // na impressora que entende os dois, vale o último. ESC E '1'/'0' liga/desliga negrito.
-  const sizeOn = s => s<2 ? '' : (c.letraGrandeDupla ? '\x1B!0' : '') + '\x1D!' + (s===3 ? '\x22' : '\x11');
-  const sizeOff = s => s<2 ? '' : (c.letraGrandeDupla ? '\x1B!'+Z : '') + '\x1D!'+Z;
-  let out = '\x1B@' + (c.fonteA ? '\x1BM0' : '');
-  L.forEach(l=>{
-    if(l.sep){ out += l.sep.repeat(W) + '\n'; return; }
+  // na impressora que entende os dois, vale o último. Com semGsExclamacao (15/11) só vai o ESC !.
+  const sizeOn = s => s<2 ? '' : semGs ? '\x1B!0' : (c.letraGrandeDupla ? '\x1B!0' : '') + '\x1D!' + (s===3 ? '\x22' : '\x11');
+  const sizeOff = s => s<2 ? '' : semGs ? '\x1B!'+Z : (c.letraGrandeDupla ? '\x1B!'+Z : '') + '\x1D!'+Z;
+  // Negrito e fonte A com parâmetro em byte, não em texto (15/11): a Bematech MP-4200 da cozinha
+  // imprimia o '1'/'0' de ESC E '1'/'0' ("1COZINHA0"). Ligar usa 0x03 (o ESC/POS só olha o bit 0)
+  // porque o 0x01 é o NUL_PLACEHOLDER: o agente o troca por 0x00 e o "ligar" viraria "desligar".
+  // Desligar e a fonte A usam o 0x00 de verdade (Z, trocado pelo agente).
+  const boldOn = '\x1BE\x03', boldOff = '\x1BE'+Z;
+  let out = '\x1B@' + (c.fonteA ? '\x1BM'+Z : '');
+  L.forEach(l0=>{
+    if(l0.sep){ out += l0.sep.repeat(W) + '\n'; return; }
+    const l = semGs && l0.size>2 ? Object.assign({}, l0, { size:2 }) : l0; // sem GS !, 3x não existe
     const tallOn = l.tall && l.size<2 ? '\x1B!\x10' : '', tallOff = tallOn ? '\x1B!'+Z : ''; // ESC ! 0x10: só altura dupla
-    out += sizeOn(l.size) + tallOn + (l.bold ? '\x1BE1' : '') + fichaRows(l, W).join('\n') + (l.bold ? '\x1BE0' : '') + tallOff + sizeOff(l.size) + '\n';
+    out += sizeOn(l.size) + tallOn + (l.bold ? boldOn : '') + fichaRows(l, W).join('\n') + (l.bold ? boldOff : '') + tallOff + sizeOff(l.size) + '\n';
   });
   // Sem driver no meio: texto sem acento (o code page da térmica é incerto) e corte no fim.
   return stripAccentsForPrint(out) + '\n\n\n\x1D\x56\x01';
@@ -209,6 +237,7 @@ function fichaConfigInner(){
       <div class="fc-opts">
         <label>Tamanho <select onchange="fichaSet('nomeProdutoTamanho',this.value)"><option value="normal" ${d.nomeProdutoTamanho==='normal'?'selected':''}>Normal</option><option value="grande" ${d.nomeProdutoTamanho==='grande'?'selected':''}>Grande (2x)</option><option value="extra" ${d.nomeProdutoTamanho==='extra'?'selected':''}>Extra grande (3x)</option></select></label>
         <label><input type="checkbox" ${d.mostrarAdicionais?'checked':''} onchange="fichaSet('mostrarAdicionais',this.checked)"> Adicionais</label>
+        <label>Tamanho dos adicionais <select data-k="tamanhoAdicionais" ${d.mostrarAdicionais?'':'disabled'} onchange="fichaSet('tamanhoAdicionais',this.value)">${Object.entries(FICHA_TAMANHOS).map(([v,t])=>`<option value="${v}" ${d.tamanhoAdicionais===v?'selected':''}>${t}</option>`).join('')}</select></label>
         <label><input type="checkbox" ${d.mostrarObs?'checked':''} onchange="fichaSet('mostrarObs',this.checked)"> Observação do item</label>
         <label><input type="checkbox" ${d.mostrarPrecoProducao?'checked':''} onchange="fichaSet('mostrarPrecoProducao',this.checked)"> Preço nas estações</label>
       </div>${move}</div>`;
@@ -229,6 +258,7 @@ function fichaConfigInner(){
         <div class="fc-compat"><b>Compatibilidade das impressoras</b>
           <label><input type="checkbox" ${d.fonteA?'checked':''} onchange="fichaSet('fonteA',this.checked)"> Usar sempre a letra padrão (fonte A), para todas as impressoras saírem com a mesma letra</label>
           <label><input type="checkbox" ${d.letraGrandeDupla?'checked':''} onchange="fichaSet('letraGrandeDupla',this.checked)"> Letra grande compatível com mais impressoras (manda os dois comandos de tamanho)</label>
+          <label><input type="checkbox" ${d.semGsExclamacao?'checked':''} onchange="fichaSet('semGsExclamacao',this.checked)"> Impressora não entende o comando GS ! (sai um ! na ficha)</label>
         </div>
       </div>
       <div class="fc-preview">

@@ -536,7 +536,9 @@ async function renderPrinterQueueStatus(){
   }
   if(!isHttpsPage){ box.className='tag tag-gray'; box.textContent='Status por impressora atualizado abaixo — cada impressora fala com o agente do computador onde ela está ligada.'; }
 }
-function stripAccentsForPrint(s){ const lo=String.fromCharCode(0x0300), hi=String.fromCharCode(0x036f); return String(s||'').normalize('NFD').replace(new RegExp('['+lo+'-'+hi+']','g'),''); }
+// 15/11: a térmica imprimia "?" no lugar de travessão, aspas curvas, "·" e "…"; saem os equivalentes ASCII.
+const PRINT_ASCII = { '\u2014':'-', '\u2013':'-', '\u2012':'-', '\u2212':'-', '\u00B7':'-', '\u2022':'*', '\u2026':'...', '\u2018':"'", '\u2019':"'", '\u201A':"'", '\u201C':'"', '\u201D':'"', '\u201E':'"', '\u00AB':'"', '\u00BB':'"', '\u00A0':' ', '\u00BA':'o', '\u00AA':'a', '\u00B0':'o' };
+function stripAccentsForPrint(s){ const lo=String.fromCharCode(0x0300), hi=String.fromCharCode(0x036f); return String(s||'').normalize('NFD').replace(new RegExp('['+lo+'-'+hi+']','g'),'').replace(/[\u2014\u2013\u2012\u2212\u00B7\u2022\u2026\u2018\u2019\u201A\u201C\u201D\u201E\u00AB\u00BB\u00A0\u00BA\u00AA\u00B0]/g, c=>PRINT_ASCII[c]); }
 // Postgres nunca aceita byte nulo (0x00) em coluna de texto — mas vários comandos ESC/POS
 // (reset de tamanho de letra, corte total, etc.) precisam de um parâmetro 0x00. Guardamos
 // esse placeholder no banco, e só o agente (na hora de mandar pro socket da impressora,
