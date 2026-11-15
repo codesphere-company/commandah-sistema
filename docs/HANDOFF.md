@@ -38,12 +38,31 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
-### 15/11 — cota na lista de clientes (PR #296) e LGPD dos sócios (item 6, desenho)
-- **Cota na lista de clientes, PR #296, NÃO publicado (falta o "sim"):** pedido do dono. Coluna Cota como primeira da lista de clientes e tipo de busca "Cota" com comparação exata (18 não traz 180 nem 1801); a Busca Padrão continua achando pedaço. NOVIDADES e `?v=20261115a`. Bancada `e2e/t57-cota-clientes.js` 11/11. Worktree `Documentos/commandah/commandah-cota`, branch `feat/cota-lista-clientes`. Se outro PR entrar antes, subir o `?v=` ao atualizar o branch.
-- **Item 6 (LGPD dos sócios), desenho pronto, sem código:** spec `docs/superpowers/specs/2026-11-15-lgpd-socios-design.md` no branch `feat/lgpd-socios` (worktree `Documentos/commandah/commandah-lgpd`), já passou pelo revisor. Decidido com o dono: anonimização **automática** pelo próprio banco (pg_cron, 04:00 de Brasília) depois do prazo de `privacy.anos` (padrão 2) do arquivamento, com aviso 7 dias antes na tela de Privacidade; garçom passa a receber só nome, cota, tipo, saldo, bloqueio e dependentes sem documento (função no banco; ele sai da policy de SELECT de `members` numa segunda migration, depois do merge e da recarga dos aparelhos); anonimização numa função só no banco (`member_anonymize`), usada pelo botão e pelo automático, trocando o nome também em `audit_log`, fiado, comandas, pedidos, fichas impressas, backups e blobs (inclusive o blob congelado `cantina2:sales`). NFC-e não muda (guarda fiscal obrigatória).
-  - **Calls do Claude (no spec):** troca por palavra inteira; nome repetido com outra pessoa identificada não troca o texto livre (só as linhas ligadas por id); arquivado sem `archived_at` fica fora do automático e vai para a lista; o agendamento nasce **desligado** e, ao ligar (passo separado, com "sim"), quem já está vencido ganha 7 dias.
-  - **Pergunta aberta ao dono:** colaborador arquivado entra no automático? Opções: mesmo prazo; fora do automático (recomendação do Claude até o contador responder); prazo próprio configurável. Depois da resposta: atualizar o spec, o dono aprova, e então o plano (`docs/superpowers/plans/`).
-- **Bancada:** o banco local (porta 54329) ficou no ar depois do t57; derrubar ou reusar.
+### 15/11 — LGPD dos sócios (item 6), teste prático no clube e 4 publicações
+- **Cota na lista de clientes (#296): PUBLICADO** em 15/11.
+- **LGPD dos sócios (item 6, #298): parte 1 PUBLICADA.** Migration A `20261119000000_lgpd_socios_banco.sql` aplicada e registrada (`migration repair`). Ela criou:
+  - `members_list` e `member_dependents_list`: o garçom recebe só nome, cota, tipo, saldo, limite, bloqueio e dependentes sem documento; quem opera caixa com o caixa por operador ligado lê tudo;
+  - `member_anonymize`, que troca o nome em comandas, pedidos, fiado, `audit_log`, fichas, backups e blobs, mas não na NFC-e. No texto livre só entra nome com 2 palavras ou mais que não apareça dentro do nome de outra pessoa ou de um produto;
+  - `lgpd_expurgo_diario` no pg_cron (job `lgpd-expurgo-diario`, `0 7 * * *`), que só age se o estabelecimento marcar "Anonimizar automaticamente quem passou do prazo". Hoje nenhum está marcado.
+  - O front passou a ler pelas funções. A tela Privacidade tem as listas, a caixa do automático e o aviso no topo.
+  - Spec `docs/superpowers/specs/2026-11-15-lgpd-socios-design.md`, plano `docs/superpowers/plans/2026-11-15-lgpd-socios.md`. Colaborador fica fora do automático (decisão do dono) até o contador responder.
+  - **Pendente 1:** migration B `20261119010000_lgpd_garcom_sem_cadastro.sql` (tira o garçom da leitura direta de `members`/`member_dependents`). Aplicar só depois que todos os aparelhos recarregarem, com novo "sim".
+  - **Pendente 2, antes de usar o botão Anonimizar:** a revisão final achou nomes que não entram na lista de pessoas protegidas: entregadores (`cantina2:quemLevou`), fornecedores, clientes avulsos (`customerName`/`orders.who` de outras vendas), itens históricos (`items[].name`/`deliveredBy`) e espaços duplos. Corrigir numa migration nova. O dono foi avisado para não clicar em "Anonimizar" até lá.
+  - Nome de uma palavra só ("Pedro") nunca é trocado no texto livre; a anonimização fica parcial nesses casos (o dono sabe).
+- **Local de entrega obrigatório e ficha (#299): PUBLICADO.**
+  - Ajuste `localEntregaObrigatorio`: só admin muda, e ausente conta como ligado. O campo nunca vem preenchido com a mesa, e "Retirar no balcão" passou a ser uma opção explícita. No Pagamento, os pendentes vão por local.
+  - Ficha: adicionais com altura dupla (`tamanhoAdicionais`), "—" vira "-", negrito com `ESC E 0x03`/NUL (0x01 é o NUL_PLACEHOLDER do agente), opção `semGsExclamacao`.
+- **Avulso, cupom fiscal e impressão da comanda (#300): PUBLICADO.**
+  - Cliente avulso pelo navegador (modo clube) vai direto para o pagamento e fecha sem deixar comanda aberta.
+  - "Imprimir o cupom fiscal?" depois de pagar (`nfce.perguntarImpressao`, ausente conta como ligado).
+  - Comanda completa › Imprimir: antes chamava `window.print()`; agora o admin escolhe a impressora.
+- **Sabor junto do nome e histórico compacto (#301): PUBLICADO.**
+  - Escolha única (máximo 1 no produto) sai junto do nome na ficha e na tela. O grupo ganhou "Na ficha": Automático, Sempre ou Nunca.
+  - Histórico da comanda no estilo do Saipos, agrupado por lançamento, com ações em ícone.
+- **Impressora do Caixa 2:** reinstalar o agente 2.4.0 cria um agente NOVO, e a regra "imprimir tudo neste computador" (estação `tudo`, `deviceAgentId`) fica presa no antigo. Foi corrigida no banco com "sim" (backup `backup:cantina2:impressoras:2026-11-15-caixa2`): Caixa 2 e Caixa1 imprimem na .114. Depois de reinstalar o agente, sempre conferir o `deviceAgentId`.
+- **Bematech MP-4200 da cozinha:** parece estar no modo ESC/Bema, porque imprimia "1"/"0"/"!" soltos. O dono deve passá-la para ESC/POS (o autoteste, segurando FEED ao ligar, mostra o modo).
+- **DANFE em homologação:** a descrição do item sai "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO" por regra da SEFAZ. Não é defeito.
+- **Bancada:** `t58-lgpd`, `t59-ficha-local`, `t60-avulso-cupom`, `t61-historico-sabor` e `db/t-lgpd.js` (56). `t11`, `t13` e `t33` já falhavam na main (contagem fixa antiga e a janela de Novidades tampando o clique).
 
 ### 14/11, fim do dia
 - **Publicado hoje:** item 4 da auditoria (conferência da venda e das permissões no servidor, PR #290) e item 5 (agente 2.4 com atualização automática assinada + limite de códigos no pareamento, PR #292). Detalhes nas duas seções abaixo.
