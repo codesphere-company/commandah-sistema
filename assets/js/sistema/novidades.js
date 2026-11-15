@@ -10,6 +10,11 @@ const NOVIDADES = [
       texto:'O garçom não recebe mais CPF, telefone e endereço dos sócios. Anonimizar um sócio agora apaga o nome também no histórico de vendas e pedidos. Dá para ligar a anonimização automática de quem passou do prazo, com aviso antes, em Configurações › Privacidade.',
       onde:'Configurações › Privacidade', perms:['config-sistema'] },
   ] },
+  { id:'2026-11-15-cota-clientes', data:'15/11/2026', itens:[
+    { titulo:'Cota na lista de clientes',
+      texto:'A lista de clientes mostra a cota de cada sócio na primeira coluna. Para achar pela cota, escolha "Cota" ao lado da pesquisa e digite o número: aparece só aquela cota (18 não traz 180 nem 1801).',
+      onde:'Cadastros › Clientes', perms:['associados'] },
+  ] },
   { id:'2026-11-14-agente-2-4', data:'14/11/2026', itens:[
     { titulo:'Programa de impressão 2.4',
       texto:'O programa que imprime as fichas ficou mais seguro: só aceita ordens do Commandah oficial, imprime só em impressoras da rede interna e se atualiza sozinho nas próximas versões. Instale esta versão uma vez em cada computador (baixe de novo, feche o programa antigo pelo ícone perto do relógio, troque o arquivo em C:\\Commandah e abra). O pareamento continua valendo.',
