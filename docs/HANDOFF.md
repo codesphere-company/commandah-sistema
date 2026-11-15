@@ -41,7 +41,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 ### 14/11, fim do dia
 - **Publicado hoje:** item 4 da auditoria (conferência da venda e das permissões no servidor, PR #290) e item 5 (agente 2.4 com atualização automática assinada + limite de códigos no pareamento, PR #292). Detalhes nas duas seções abaixo.
 - **Agente 2.4.0:** instalado pelo dono no "Pc Fabricio" e conectado (conferido em `print_agents`). Falta reinstalar no "Caixa 2" do clube e em qualquer outro PC com agente. Na reinstalação, conferir o Controle Inteligente de Aplicativos (Smart App Control): ligado = o agente funciona, mas não se atualiza sozinho.
-- **Chave da atualização automática:** `%USERPROFILE%\.commandahgente-chave-privada.xml`, no computador do dono. O dono precisa guardar uma cópia num pendrive. O computador não precisa ficar ligado: ele só é usado para assinar uma versão nova.
+- **Chave da atualização automática:** `%USERPROFILE%\.commandah\agente-chave-privada.xml`, no computador do dono. O dono precisa guardar uma cópia num pendrive. O computador não precisa ficar ligado: ele só é usado para assinar uma versão nova.
 - **Smart App Control:** desligado pelo dono neste PC de desenvolvimento em 14/11 (bloqueava os `.exe` de teste recém-compilados).
 - **Ajuste "Recusar venda que não bate com o cadastro":** nasce desligado. Por volta de 21/11, olhar Relatórios › Vendas › Vendas com divergência e, sem alarme falso, ligar.
 - **Próximos da auditoria:** item 6 (LGPD: garçom lê o cadastro inteiro do sócio; anonimizar não limpa vendas e logs; sem expurgo) e item 7 (`xlsx 0.18.5` com CVEs, CSP com `unsafe-inline`, CORS `*` nas Edge Functions, `supabase-js@2` sem versão fixa nas funções).
