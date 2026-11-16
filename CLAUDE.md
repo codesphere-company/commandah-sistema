@@ -13,6 +13,7 @@ Comanda/PDV de bares e lanchonetes, em produção. Estado atual e decisões: `do
 - Depois de mudar qualquer arquivo de `assets/js` ou `assets/css`: `node scripts/bump-version.js` (troca o `?v=`; o CI recusa o PR sem isso).
 - Não há testes automáticos nem lint. Mudança de tela: conferir no Chrome (captura) e na bancada local (`../auditoria-2026-11-03`) antes do merge, e no site oficial logo depois.
 - Migrations e Edge Functions: ver "Limitação importante" em `docs/HANDOFF.md` (CLI do Supabase desta máquina).
+- Edge Functions só aceitam chamada de navegador vinda de `https://codesphere-company.github.io` (item 7, `_shared/cors.ts`). Para testar de outra origem (localhost, prévia, domínio novo), acrescente a origem no secret `ALLOWED_ORIGINS` (separado por vírgula, sem barra no fim).
 
 ## Mapa das pastas
 ```

@@ -30,7 +30,7 @@ export function comCors(
   return async (req: Request) => {
     const origin = req.headers.get("Origin");
     if (origin !== null && !origensPermitidas().has(origin)) {
-      return new Response(null, { status: 403 });
+      return new Response(null, { status: 403, headers: { "Vary": "Origin" } });
     }
     if (req.method === "OPTIONS") {
       const h = new Headers({ "Vary": "Origin" });
