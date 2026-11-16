@@ -3,7 +3,7 @@
 Comanda/PDV de bares e lanchonetes, em produção. Estado atual e decisões: `docs/HANDOFF.md`. Arquitetura: `docs/ARQUITETURA.md`.
 
 ## Stack
-- Front: HTML/CSS/JS puro, **sem build, sem npm**. Bibliotecas por CDN com versão fixa + SRI: supabase-js, qrcodejs, xlsx, Turnstile.
+- Front: HTML/CSS/JS puro, **sem build, sem npm**. Bibliotecas por CDN com versão fixa + SRI: supabase-js, qrcodejs, Turnstile. A SheetJS (xlsx) fica no próprio site, em `assets/vendor/` (versão no nome do arquivo, sem `?v=`).
 - Back: Supabase (Postgres + RLS + RPCs + Edge Functions em Deno/TS). Agente de impressão em C# (Windows).
 - Deploy: **GitHub Pages direto da `main`** (merge = produção na hora). Sem prévia de PR: a conta da Netlify foi apagada em 07/11/2026; o único endereço é `https://codesphere-company.github.io/commandah-sistema/`.
 
@@ -29,6 +29,7 @@ assets/js/fiscal/     NFC-e: configuração, cupom (DANFE), emissão da comanda
 assets/js/impressao/  impressoras e impressão automática (agente local)
 assets/js/gestao/     relatórios, logs, contas, financeiro/fiado, cupons, alterar em lote
 assets/js/sistema/    configurações, backup, ajuda, LGPD, central de módulos
+assets/vendor/        bibliotecas de terceiros servidas pelo site (xlsx-0.20.3); versão no nome, sem ?v=
 supabase/migrations/  SQL versionado (AAAAMMDDhhmmss_nome.sql)
 supabase/functions/   nfce (Brasil NFe), staff-auth (login por PIN), cadastro (estabelecimento novo com convite)
 agente-impressao/     código C# do agente; build.cmd gera o .exe
@@ -57,7 +58,7 @@ docs/                 HANDOFF (estado atual), ARQUITETURA, historico/
 - Renomear o workflow/job `syntax-check` (é o check exigido pela proteção da main).
 
 ## Não ler (caro e inútil)
-`node_modules/`, `downloads/`, `assets/marca/*.png`, `graphify-out/graph.json` (use os comandos do graphify), `.claude/worktrees/`, `supabase/.temp/`, `.local-backups/`, `agente-impressao/dist/`. `docs/historico/` só quando precisar de uma decisão antiga.
+`node_modules/`, `downloads/`, `assets/vendor/`, `assets/marca/*.png`, `graphify-out/graph.json` (use os comandos do graphify), `.claude/worktrees/`, `supabase/.temp/`, `.local-backups/`, `agente-impressao/dist/`. `docs/historico/` só quando precisar de uma decisão antiga.
 
 ## graphify
 O mapa do código fica em `graphify-out/` (local, não versionado). Para perguntas sobre o código, rode antes `graphify query "<pergunta>"`; `graphify path "<A>" "<B>"` para relações e `graphify explain "<conceito>"`. Depois de mudar código: `graphify update .`.
