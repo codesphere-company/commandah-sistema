@@ -38,6 +38,15 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
+### 16/11 — item 7 da auditoria (segurança) publicado
+- **PR #306 (merge 4f43f8d) e deploy de staff-auth, nfce e cadastro**, com "sim" e com o clube fechado.
+  - **Planilhas:** SheetJS 0.20.3 em `assets/vendor/xlsx-0.20.3.full.min.js` (sha256 `cc015130…6f41`). O arquivo foi conferido contra o .tgz oficial, porque a SheetJS não publica checksum. Fica sem `?v=`, já que a versão está no nome. `loadXlsx()` dos relatórios também ficou local.
+  - **Anti-moldura:** um style e um script inline no `<head>` mais uma trava no `boot.js`. Dentro de iframe, só aparece o aviso "Abra o Commandah direto no navegador."
+  - **CORS das Edge Functions** (`supabase/functions/_shared/cors.ts`): aceita `https://codesphere-company.github.io` e o que estiver no secret opcional `ALLOWED_ORIGINS`. Origem fora dessa lista recebe 403; pedido sem Origin funciona normal. supabase-js fixo em 2.117.0. Conferido por curl nas 3 funções.
+  - O `unsafe-inline` da CSP continua (483 onclick). Fica para quando o site sair do GitHub Pages.
+  - Falta o dono confirmar o login por PIN depois do deploy. Se falhar, publicar de novo as funções a partir do commit anterior a 4f43f8d.
+  - Bancada: `e2e/t62-item7.js` 52/52. `t59` e `t60` precisam aceitar a entrada nova `2026-11-16-seguranca` no topo das NOVIDADES.
+
 ### 15–16/11 — LGPD dos sócios (item 6), teste prático no clube e 5 publicações
 - **Cota na lista de clientes (#296): PUBLICADO** em 15/11.
 - **LGPD dos sócios (item 6, #298): parte 1 PUBLICADA.** Migration A `20261119000000_lgpd_socios_banco.sql` aplicada e registrada (`migration repair`). Ela criou:
