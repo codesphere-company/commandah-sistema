@@ -17,7 +17,8 @@ set lock_timeout = '5s';
 --   5. espaços repetidos: outro sócio "José  Lima Filho" não era visto contendo "José Lima".
 --
 -- Esta migration refaz só member_anonymize_interno (mesma assinatura, SECURITY DEFINER,
--- search_path vazio) com a lista ampliada e os espaços colapsados, e cria lgpd_colapsar.
+-- search_path vazio) com a lista ampliada e os espaços colapsados, cria lgpd_colapsar e
+-- refaz lgpd_venda_por_id só para colapsar os espaços na igualdade do requesterName.
 -- create or replace function mantém dono e grants da função; o revoke abaixo repete o da
 -- migration anterior só para deixar explícito (idempotente).
 -- =====================================================================
@@ -35,6 +36,33 @@ $function$;
 
 revoke all on function public.lgpd_colapsar(text) from public, anon;
 
+-- Venda do próprio sócio (ligada por memberId): igual à da migration 20261119000000, mas a
+-- igualdade do requesterName colapsa os espaços ("José  Lima" é o sócio "José Lima").
+create or replace function public.lgpd_venda_por_id(p_data jsonb, p_member_id text, p_dep_ids text[], p_chaves text[], p_novo text)
+returns jsonb
+language sql
+immutable
+set search_path to ''
+as $function$
+  select case when p_data is null then null else
+    p_data || jsonb_build_object('customerName', p_novo)
+      || case when jsonb_typeof(p_data->'items') = 'array' then jsonb_build_object('items', (
+           select coalesce(jsonb_agg(
+                    case when jsonb_typeof(i.v) = 'object'
+                              and coalesce(i.v->>'requesterName', '') <> ''
+                              and (i.v->>'requesterId' = p_member_id
+                                   or i.v->>'requesterId' = any(coalesce(p_dep_ids, '{}'::text[]))
+                                   or public.lgpd_dobrar(public.lgpd_colapsar(i.v->>'requesterName')) = any(coalesce(p_chaves, '{}'::text[])))
+                         then i.v || jsonb_build_object('requesterName', p_novo)
+                         else i.v end
+                    order by i.o), '[]'::jsonb)
+             from jsonb_array_elements(p_data->'items') with ordinality as i(v, o)))
+         else '{}'::jsonb end
+  end;
+$function$;
+
+revoke all on function public.lgpd_venda_por_id(jsonb, text, text[], text[], text) from public, anon, authenticated;
+
 -- Anonimiza um sócio. Chamada pelo botão (member_anonymize, 'manual') e pelo expurgo
 -- ('automatico'). Sem grant para o navegador: quem chama já conferiu o tenant.
 -- Devolve {"ok":true,"nome_novo":...} ou {"erro":...}.
@@ -49,11 +77,21 @@ revoke all on function public.lgpd_colapsar(text) from public, anon;
 --   audit_log do sócio, pontos, observações das vendas dele). Assim "José Lima" não troca
 --   dentro de "José Lima Filho", "Mel" não troca dentro de "Pão de Mel" e "João" não troca
 --   dentro de "João Pedro".
--- 20261120 (revisão final 15/11): v_outros passou a ter entregadores, fornecedores,
--- clientes avulsos, quem pediu em outra comanda e itens históricos de vendas e pedidos
--- (inclusive dos blobs antigos cantina2:sales e cantina2:orders); a checagem compara com
--- os espaços colapsados, e um nome antigo seguro entra no texto livre nas duas formas (como
--- foi gravado e colapsado).
+-- 20261120 (revisão final 15/11): v_outros tem dois tipos de fonte.
+-- - Cadastros de pessoas identificadas: outros sócios não anonimizados, dependentes de
+--   outros sócios, colaboradores (cantina2:users), entregadores (cantina2:quemLevou),
+--   fornecedores (nome, razaoSocial, contato), nome do clube (cantina2:settings.clubName) e
+--   do estabelecimento (tenant_owners.business_name). Bloqueiam também por igualdade
+--   exata: um homônimo cadastrado é outra pessoa.
+-- - Textos de venda e pedido (customerName, orders.who, requesterName, deliveredBy e
+--   items[].name, na tabela e nos blobs cantina2:sales, cantina2:orders, cantina2:scheduled
+--   e cantina2:requests) e nomes de produto: só entram se forem diferentes de todos os
+--   nomes antigos (comparados com lgpd_dobrar e lgpd_colapsar). "José Lima Filho" protege;
+--   "José Lima" exato não bloqueia: num pedido costuma ser o próprio sócio (pedido de
+--   agendamento, pedido sem venda, venda antiga sem memberId), e bloquear deixaria o nome
+--   no texto livre para sempre.
+-- A checagem compara com os espaços colapsados, e um nome antigo seguro entra no texto
+-- livre nas duas formas (como foi gravado e colapsado).
 --
 -- Revisão final (IMPORTANT 2, statement_timeout de 8 s): cada atualização calcula a troca
 -- uma vez por linha, num CTE que trava as linhas (for update) e devolve o valor novo; o
@@ -76,6 +114,7 @@ declare
   v_brutos text[];
   v_nomes text[];
   v_chaves text[];
+  v_nomes_cmp text[];
   v_dep_ids text[];
   v_vendas_socio text[];
   v_vendas text[];
@@ -140,11 +179,20 @@ begin
     from public.sales s
    where s.tenant_id = p_tenant and s.data->>'memberId' = p_member_id;
 
+  -- Nomes antigos para comparar com os de terceiros: minúsculas e espaços colapsados.
+  select coalesce(array_agg(distinct public.lgpd_dobrar(n)), '{}'::text[]) into v_nomes_cmp
+    from unnest(v_nomes) as n;
+
   -- Nomes identificados do tenant que não são deste sócio, já colapsados e em minúsculas
-  -- (lgpd_dobrar), sem vazios e sem repetição. Sempre só do mesmo tenant.
+  -- (lgpd_dobrar), sem vazios e sem repetição. Sempre só do mesmo tenant. Dois tipos de
+  -- fonte (ver o comentário no topo da função):
+  -- - cadastros: bloqueiam também quando o nome é igual ao do sócio (homônimo real);
+  -- - textos de venda/pedido e nomes de produto: só entram se forem diferentes de todos os
+  --   nomes antigos (o nome exato do sócio num pedido é ele mesmo, não um terceiro).
   with vendas as (
-    -- Vendas da tabela e do blob antigo (só leitura) com o mesmo formato. É do sócio a venda
-    -- ligada a ele pelo memberId ou, no blob antigo (que pode não ter memberId), a que tem o
+    -- Vendas da tabela e, no mesmo formato (customerName, memberId, items), os blobs de
+    -- vendas antigas (só leitura), agendamentos e pedidos do cardápio. É do sócio o que está
+    -- ligado a ele pelo memberId ou, nos blobs (que podem não ter memberId), o que tem o
     -- mesmo id de uma venda dele na tabela.
     select s.data as d, (s.data->>'memberId' is not distinct from p_member_id) as do_socio
       from public.sales s where s.tenant_id = p_tenant
@@ -152,65 +200,83 @@ begin
     select e.v, (e.v->>'memberId' is not distinct from p_member_id or coalesce(e.v->>'id', '') = any(v_vendas_socio))
       from public.app_data a
       cross join lateral jsonb_array_elements(case when jsonb_typeof(a.value) = 'array' then a.value else '[]'::jsonb end) as e(v)
-     where a.tenant_id = p_tenant and a.key = 'cantina2:sales' and jsonb_typeof(e.v) = 'object'
+     where a.tenant_id = p_tenant and a.key in ('cantina2:sales', 'cantina2:scheduled', 'cantina2:requests')
+       and jsonb_typeof(e.v) = 'object'
   ), itens_venda as (
     select v.d, v.do_socio, i.v from vendas v
       cross join lateral jsonb_array_elements(case when jsonb_typeof(v.d->'items') = 'array' then v.d->'items' else '[]'::jsonb end) as i(v)
      where jsonb_typeof(i.v) = 'object'
   ), pedidos as (
-    -- Pedidos da tabela e do blob antigo (lá a venda é saleId).
+    -- Pedidos da tabela e do blob antigo (lá a venda é saleId). O pedido de um agendamento
+    -- tem sale_id = id do agendamento e who = nome do sócio (sendScheduledToKitchen).
     select o.who, o.sale_id, o.items from public.orders o where o.tenant_id = p_tenant
     union all
     select e.v->>'who', e.v->>'saleId', e.v->'items' from public.app_data a
       cross join lateral jsonb_array_elements(case when jsonb_typeof(a.value) = 'array' then a.value else '[]'::jsonb end) as e(v)
      where a.tenant_id = p_tenant and a.key = 'cantina2:orders' and jsonb_typeof(e.v) = 'object'
+  ), cadastros as (
+    -- Outros sócios não anonimizados e dependentes de outros sócios.
+    select m.name as nome from public.members m
+     where m.tenant_id = p_tenant and m.id <> p_member_id and m.anonymized_at is null
+    union all
+    select d.name from public.member_dependents d
+     where d.tenant_id = p_tenant and d.member_id <> p_member_id
+    union all
+    -- Cadastros em blob: colaboradores (name), entregadores (nome), fornecedores (nome,
+    -- razaoSocial e contato, a pessoa de contato do cadastro genérico).
+    select f.nome from public.app_data a
+      cross join lateral jsonb_array_elements(case when jsonb_typeof(a.value) = 'array' then a.value else '[]'::jsonb end) as u(v)
+      cross join lateral (values (u.v->>'name'), (u.v->>'nome'), (u.v->>'razaoSocial'), (u.v->>'contato')) as f(nome)
+     where a.tenant_id = p_tenant
+       and a.key in ('cantina2:users', 'cantina2:quemLevou', 'cantina2:fornecedores')
+       and jsonb_typeof(u.v) = 'object'
+    union all
+    -- Nome do clube (configurações) e do estabelecimento (cadastro do dono).
+    select a.value->>'clubName' from public.app_data a
+     where a.tenant_id = p_tenant and a.key = 'cantina2:settings' and jsonb_typeof(a.value) = 'object'
+    union all
+    select t.business_name from public.tenant_owners t where t.tenant_id = p_tenant
+  ), textos as (
+    -- Produtos do cardápio.
+    select u.v->>'name' as nome from public.app_data a
+      cross join lateral jsonb_array_elements(case when jsonb_typeof(a.value) = 'array' then a.value else '[]'::jsonb end) as u(v)
+     where a.tenant_id = p_tenant and a.key = 'cantina2:products' and jsonb_typeof(u.v) = 'object'
+    union all
+    -- Cliente avulso ou de outro sócio: customerName do que não é deste sócio.
+    select v.d->>'customerName' from vendas v
+     where not v.do_socio
+    union all
+    -- Itens: produto (mesmo fora do cardápio) e quem levou. Quem pediu entra quando não é o
+    -- sócio nem um dependente dele pelo id; na venda do próprio sócio, também não entra o
+    -- nome igual a um dos antigos (lgpd_venda_por_id já o trata como dele).
+    select f.nome from itens_venda iv
+      cross join lateral (values
+        (iv.v->>'name'),
+        (iv.v->>'deliveredBy'),
+        (case when coalesce(iv.v->>'requesterId', '') <> p_member_id
+                   and not (coalesce(iv.v->>'requesterId', '') = any(v_dep_ids))
+                   and (not iv.do_socio
+                        or not (public.lgpd_dobrar(public.lgpd_colapsar(coalesce(iv.v->>'requesterName', ''))) = any(v_chaves)))
+              then iv.v->>'requesterName' end)) as f(nome)
+    union all
+    -- Quem recebe o pedido, fora das vendas deste sócio.
+    select p.who from pedidos p
+     where p.sale_id is null or not (p.sale_id = any(v_vendas_socio))
+    union all
+    -- Itens de qualquer pedido: produto e quem levou.
+    select f.nome from pedidos p
+      cross join lateral jsonb_array_elements(case when jsonb_typeof(p.items) = 'array' then p.items else '[]'::jsonb end) as i(v)
+      cross join lateral (values (i.v->>'name'), (i.v->>'deliveredBy')) as f(nome)
+     where jsonb_typeof(i.v) = 'object'
   )
-  select coalesce(array_agg(distinct public.lgpd_dobrar(public.lgpd_colapsar(o.nome))), '{}'::text[]) into v_outros
+  select coalesce(array_agg(distinct o.x), '{}'::text[]) into v_outros
     from (
-      -- Outros sócios não anonimizados e dependentes de outros sócios.
-      select m.name as nome from public.members m
-       where m.tenant_id = p_tenant and m.id <> p_member_id and m.anonymized_at is null
+      select public.lgpd_dobrar(public.lgpd_colapsar(c.nome)) as x from cadastros c
       union all
-      select d.name from public.member_dependents d
-       where d.tenant_id = p_tenant and d.member_id <> p_member_id
-      union all
-      -- Cadastros em blob: usuários e produtos (name), entregadores (nome), fornecedores
-      -- (nome, razaoSocial e contato, a pessoa de contato do cadastro genérico).
-      select f.nome from public.app_data a
-        cross join lateral jsonb_array_elements(case when jsonb_typeof(a.value) = 'array' then a.value else '[]'::jsonb end) as u(v)
-        cross join lateral (values (u.v->>'name'), (u.v->>'nome'), (u.v->>'razaoSocial'), (u.v->>'contato')) as f(nome)
-       where a.tenant_id = p_tenant
-         and a.key in ('cantina2:users', 'cantina2:products', 'cantina2:quemLevou', 'cantina2:fornecedores')
-         and jsonb_typeof(u.v) = 'object'
-      union all
-      -- Cliente avulso ou de outro sócio: customerName das vendas que não são deste sócio.
-      select v.d->>'customerName' from vendas v
-       where not v.do_socio
-      union all
-      -- Itens de qualquer venda: produto (mesmo fora do cardápio) e quem levou. Quem pediu
-      -- entra quando não é o sócio nem um dependente dele pelo id; na venda do próprio sócio,
-      -- também não entra o nome igual a um dos antigos (lgpd_venda_por_id já o trata como dele).
-      select f.nome from itens_venda iv
-        cross join lateral (values
-          (iv.v->>'name'),
-          (iv.v->>'deliveredBy'),
-          (case when coalesce(iv.v->>'requesterId', '') <> p_member_id
-                     and not (coalesce(iv.v->>'requesterId', '') = any(v_dep_ids))
-                     and (not iv.do_socio
-                          or not (public.lgpd_dobrar(btrim(coalesce(iv.v->>'requesterName', ''))) = any(v_chaves)))
-                then iv.v->>'requesterName' end)) as f(nome)
-      union all
-      -- Quem recebe o pedido, fora das vendas deste sócio.
-      select p.who from pedidos p
-       where p.sale_id is null or not (p.sale_id = any(v_vendas_socio))
-      union all
-      -- Itens de qualquer pedido: produto e quem levou.
-      select f.nome from pedidos p
-        cross join lateral jsonb_array_elements(case when jsonb_typeof(p.items) = 'array' then p.items else '[]'::jsonb end) as i(v)
-        cross join lateral (values (i.v->>'name'), (i.v->>'deliveredBy')) as f(nome)
-       where jsonb_typeof(i.v) = 'object'
+      select t.x from (select public.lgpd_dobrar(public.lgpd_colapsar(tt.nome)) as x from textos tt) t
+       where not (t.x = any(v_nomes_cmp))
     ) o
-   where coalesce(public.lgpd_colapsar(o.nome), '') <> '';
+   where coalesce(o.x, '') <> '';
 
   -- Seguro: 2 palavras ou mais e não contido em nenhum outro nome.
   -- O teste de "contido" é a própria troca: lgpd_trocar_texto(outro, [nome], '#') muda o outro.
@@ -409,5 +475,7 @@ revoke all on function public.member_anonymize_interno(text, text, text) from pu
 --    da migration 20261119000000_lgpd_socios_banco.sql (Parte 3, o bloco que começa em
 --    "create or replace function public.member_anonymize_interno" e termina no
 --    "$function$;" antes de o comentário "Botão Anonimizar do cadastro"), sem mudar nada.
--- 2. Depois (a função antiga não usa lgpd_colapsar):
+-- 2. Reaplicar do mesmo jeito o create or replace function public.lgpd_venda_por_id da
+--    mesma migration (Parte 3), sem mudar nada.
+-- 3. Depois (as funções antigas não usam lgpd_colapsar):
 --    drop function if exists public.lgpd_colapsar(text);
