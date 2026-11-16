@@ -38,7 +38,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 
 ## Estado atual (o que já está pronto)
 
-### 15/11 — LGPD dos sócios (item 6), teste prático no clube e 4 publicações
+### 15–16/11 — LGPD dos sócios (item 6), teste prático no clube e 5 publicações
 - **Cota na lista de clientes (#296): PUBLICADO** em 15/11.
 - **LGPD dos sócios (item 6, #298): parte 1 PUBLICADA.** Migration A `20261119000000_lgpd_socios_banco.sql` aplicada e registrada (`migration repair`). Ela criou:
   - `members_list` e `member_dependents_list`: o garçom recebe só nome, cota, tipo, saldo, limite, bloqueio e dependentes sem documento; quem opera caixa com o caixa por operador ligado lê tudo;
@@ -47,7 +47,7 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
   - O front passou a ler pelas funções. A tela Privacidade tem as listas, a caixa do automático e o aviso no topo.
   - Spec `docs/superpowers/specs/2026-11-15-lgpd-socios-design.md`, plano `docs/superpowers/plans/2026-11-15-lgpd-socios.md`. Colaborador fica fora do automático (decisão do dono) até o contador responder.
   - **Pendente 1:** migration B `20261119010000_lgpd_garcom_sem_cadastro.sql` (tira o garçom da leitura direta de `members`/`member_dependents`). Aplicar só depois que todos os aparelhos recarregarem, com novo "sim".
-  - **Pendente 2, antes de usar o botão Anonimizar:** a revisão final achou nomes que não entram na lista de pessoas protegidas: entregadores (`cantina2:quemLevou`), fornecedores, clientes avulsos (`customerName`/`orders.who` de outras vendas), itens históricos (`items[].name`/`deliveredBy`) e espaços duplos. Corrigir numa migration nova. O dono foi avisado para não clicar em "Anonimizar" até lá.
+  - **Nomes protegidos: RESOLVIDO em 16/11 (#303)**, com "sim". Migration `20261120000000_lgpd_nomes_protegidos.sql` aplicada e registrada. Regra: cadastros (outros sócios, dependentes de outros, users, `quemLevou`, fornecedores com nome/razaoSocial/contato, produtos do cardápio, clubName e `tenant_owners.business_name`) bloqueiam também por igualdade exata; textos de venda/pedido (customerName, `orders.who`, requesterName, deliveredBy e `items[].name`, na tabela e nos blobs, inclusive `scheduled`/`requests`) só bloqueiam quando o nome é diferente do nome do sócio, para o agendamento do próprio sócio não travar a troca. Espaços e NBSP normalizados (`lgpd_colapsar`). **Botão Anonimizar liberado.** Bancada: `db/t-lgpd.js` 85/85.
   - Nome de uma palavra só ("Pedro") nunca é trocado no texto livre; a anonimização fica parcial nesses casos (o dono sabe).
 - **Local de entrega obrigatório e ficha (#299): PUBLICADO.**
   - Ajuste `localEntregaObrigatorio`: só admin muda, e ausente conta como ligado. O campo nunca vem preenchido com a mesa, e "Retirar no balcão" passou a ser uma opção explícita. No Pagamento, os pendentes vão por local.
