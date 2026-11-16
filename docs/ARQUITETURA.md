@@ -35,14 +35,15 @@ Agente de impressão (C#, PC da rede das impressoras) → ESC/POS na porta 9100 
 | Supabase | banco, auth, RPCs, Edge Functions | todo o app; `supabase/` |
 | Brasil NFe | emissão de NFC-e (homologação) | `supabase/functions/nfce` |
 | Cloudflare Turnstile | captcha no login/cadastro | `core/estabelecimento.js` |
-| jsdelivr / cdnjs / unpkg | supabase-js, qrcodejs, xlsx (versão fixa + SRI) | `index.html`, `core/boot.js` |
+| jsdelivr / cdnjs / unpkg | supabase-js, qrcodejs (versão fixa + SRI) | `index.html`, `core/boot.js` |
+| SheetJS (cópia no site) | planilhas .xlsx: `assets/vendor/xlsx-0.20.3.full.min.js` (desde 16/11; a SheetJS não publica mais no npm/cdnjs) | `index.html`, `gestao/relatorios.js` |
 | Google Fonts | fonte Inter | `index.html` |
 | GitHub Actions | check do app em PR; backup diário do Supabase | `.github/workflows/` |
 
 ## Decisões de arquitetura
 - **Sem build nem framework.** Publicar é só copiar arquivos. Em troca, não há testes nem tipos: as checagens de `scripts/` (sintaxe, arquivos, ordem de carregamento, `?v=`) são a rede de segurança.
 - **Scripts clássicos em ordem, escopo global** (14/10). O antigo `index.html` de 10 mil linhas foi cortado nos marcadores de seção, sem mudar lógica. Módulos ES exigiriam reescrever centenas de `onclick` inline.
-- **Versão por `?v=`** em todas as tags locais: cada versão é uma URL nova, então o cache do Pages (10 min) e o do service worker nunca misturam HTML novo com JS velho.
+- **Versão por `?v=`** em todas as tags locais: cada versão é uma URL nova, então o cache do Pages (10 min) e o do service worker nunca misturam HTML novo com JS velho. Exceção: `assets/vendor/` (bibliotecas de terceiros) leva a versão no nome do arquivo e não usa `?v=`.
 - **RLS é a única barreira real.** A chave do navegador é pública; tudo que é sensível passa por RPC `SECURITY DEFINER` ou Edge Function (que guardam `service_role` e tokens).
 - **Migração gradual do blob para tabelas**: sócios, pedidos e vendas já saíram; caixa e insumos ficam no blob, com gravação por função com trava.
 - **Multi-tenant por `tenant_id`** em todas as tabelas, resolvido no servidor por `current_tenant_id()`.

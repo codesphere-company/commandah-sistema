@@ -1,11 +1,12 @@
 /* ============ RELATÓRIOS ============ */
 // PROD-06 (decisão do dono, 10/10: "eu escolho quando"): planilha para o contador do período
 // escolhido. Vendas e faturamento pelo dia do pagamento (saleRevenueDay, pedido do dono em 10/11); fiado e caixa
-// pela data do lançamento. Gera .xlsx com a SheetJS, baixada só nesta hora (versão fixa + SRI).
-const XLSX_SRC='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js', XLSX_SRI='sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw';
+// pela data do lançamento. Gera .xlsx com a SheetJS (a mesma do index.html; carregada aqui só se faltar).
+// Item 7 (16/11): cópia do próprio site, 0.20.3 (a 0.18.5 do CDN tinha CVEs). Mesmo arquivo da tag do index.html.
+const XLSX_SRC='assets/vendor/xlsx-0.20.3.full.min.js';
 function loadXlsx(){
   if(window.XLSX) return Promise.resolve(window.XLSX);
-  return new Promise((resolve,reject)=>{ const sc=document.createElement('script'); sc.src=XLSX_SRC; sc.integrity=XLSX_SRI; sc.crossOrigin='anonymous'; sc.onload=()=>resolve(window.XLSX); sc.onerror=()=>reject(new Error('não foi possível carregar o gerador de planilhas (sem internet?)')); document.head.appendChild(sc); });
+  return new Promise((resolve,reject)=>{ const sc=document.createElement('script'); sc.src=XLSX_SRC; sc.onload=()=>resolve(window.XLSX); sc.onerror=()=>reject(new Error('não foi possível carregar o gerador de planilhas (sem internet?)')); document.head.appendChild(sc); });
 }
 function monthRange(offset){ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+offset); const from=localDay(d.toISOString()); const e=new Date(d.getFullYear(), d.getMonth()+1, 0, 12); return { from, to: localDay(e.toISOString()) }; }
 function openAccountantExport(){if(!requirePerm('relatorios-gerencia'))return; // 06/11: a exportação traz os valores de venda e de caixa

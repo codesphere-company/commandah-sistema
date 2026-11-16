@@ -2,7 +2,9 @@
 // Login por operador (PIN) mediado no servidor + gestão de colaboradores (criar/resetar PIN/trocar perfil/ativar-desativar).
 // Guarda a chave de admin (service_role) só aqui, nunca no navegador. Ver plano em
 // .claude/ (Fase 2 — login por operador de verdade).
-import { createClient } from "npm:@supabase/supabase-js@2";
+// Item 7 (16/11): versão exata, a mesma do site (index.html); "@2" pegava a última 2.x a cada deploy.
+import { createClient } from "npm:@supabase/supabase-js@2.117.0";
+import { comCors } from "../_shared/cors.ts";
 import bcrypt from "npm:bcryptjs@2.4.3";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -90,12 +92,9 @@ function internalError(publicMsg: string, detail?: unknown) {
   return json({ error: publicMsg }, 500);
 }
 
+// Item 7 (16/11): os cabeçalhos CORS (só do site oficial) vêm de comCors (../_shared/cors.ts).
 function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Content-Type": "application/json",
-  };
+  return { "Content-Type": "application/json" };
 }
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders() });
@@ -191,8 +190,7 @@ async function staffName(staff: Record<string, unknown>) {
   return String(staff.id);
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
+Deno.serve(comCors(async (req) => {
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -472,4 +470,4 @@ Deno.serve(async (req) => {
   } catch (e) {
     return internalError("Erro interno", e);
   }
-});
+}, "POST, OPTIONS"));

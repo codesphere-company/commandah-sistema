@@ -22,7 +22,9 @@
 //
 // Série: uma só para todos os aparelhos (settings.nfce.serie). A emissão passa por uma trava
 // por estabelecimento (t215), então nunca há dois envios ao mesmo tempo na série.
-import { createClient } from "npm:@supabase/supabase-js@2";
+// Item 7 (16/11): versão exata, a mesma do site (index.html); "@2" pegava a última 2.x a cada deploy.
+import { createClient } from "npm:@supabase/supabase-js@2.117.0";
+import { comCors } from "../_shared/cors.ts";
 import { buildNfcePayload, type Product, type Sale } from "./payload.ts";
 import { buscarXmlCancelamento } from "./cancelamento.ts";
 
@@ -33,12 +35,9 @@ const API = "https://api.brasilnfe.com.br/services/fiscal";
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+// Item 7 (16/11): os cabeçalhos CORS (só do site oficial) vêm de comCors (../_shared/cors.ts).
 function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Content-Type": "application/json",
-  };
+  return { "Content-Type": "application/json" };
 }
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders() });
@@ -151,8 +150,7 @@ function publicRow(r: Record<string, unknown>) {
   return rest;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
+Deno.serve(comCors(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST." }, 405);
   const who = await caller(req);
   if (!who) return json({ error: "Só o administrador, o caixa ou o garçom emitem NFC-e. Entre de novo e tente outra vez." }, 403);
@@ -357,4 +355,4 @@ Deno.serve(async (req) => {
   } finally {
     await soltarTrava(who.tenantId, trava);
   }
-});
+}, "POST, OPTIONS"));

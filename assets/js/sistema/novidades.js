@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-16-seguranca', data:'16/11/2026', itens:[
+    { titulo:'Planilhas mais seguras',
+      texto:'O leitor e gerador de planilhas do Excel foi atualizado para uma versão mais nova e segura. Importar e exportar produtos e clientes e gerar planilhas dos relatórios continua do mesmo jeito.',
+      onde:'Cadastros e Relatórios', perms:['produtos','associados','relatorios','relatorios-gerencia'] },
+  ] },
   { id:'2026-11-15-ficha-local', data:'15/11/2026', itens:[
     { titulo:'Local de entrega obrigatório',
       texto:'Todo pedido agora pede o local de entrega antes de enviar. Se o cliente vai buscar, escolha "Retirar no balcão". O ajuste fica em Configurações › Geral › Pedidos.',

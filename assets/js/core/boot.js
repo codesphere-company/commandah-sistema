@@ -72,4 +72,6 @@ async function boot(){
   }
   renderTenantSetup();
 }
-boot();
+// Item 7 (16/11): dentro de iframe o <head> já parou a página e mostrou o aviso; se algum navegador seguir
+// carregando mesmo assim, o app não liga (nem sessão nem tela de login dentro da moldura).
+if(!window.__commandahEmMoldura) boot();

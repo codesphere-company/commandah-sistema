@@ -34,6 +34,10 @@ for (const [, file, , ver] of refs) {
     catch (e) { errors.push(`${file}: ${e.message}`); }
   }
 }
+// Item 7 (16/11): bibliotecas do próprio site (assets/vendor, versão no nome do arquivo, sem ?v=) precisam existir.
+for (const [, file] of html.matchAll(/<script src="(assets\/vendor\/[^"?]+)/g)) {
+  if (!fs.existsSync(path.join(root, file))) errors.push(`${file}: referenciado no index.html mas não existe`);
+}
 if (versions.size > 1) errors.push(`?v= diferente entre as tags: ${[...versions].join(', ')} (rode node scripts/bump-version.js)`);
 
 function walk(dir) {

@@ -6,7 +6,9 @@
 //
 // Corpo: { codigo, nome, email, senha }  →  { ok: true, tenant_id }
 // Deploy: npx supabase functions deploy cadastro --project-ref ezfoymdesmarpunmixbs --use-api --no-verify-jwt
-import { createClient } from "npm:@supabase/supabase-js@2";
+// Item 7 (16/11): versão exata, a mesma do site (index.html); "@2" pegava a última 2.x a cada deploy.
+import { createClient } from "npm:@supabase/supabase-js@2.117.0";
+import { comCors } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -17,13 +19,9 @@ const SENHA_MIN = 8;
 const SENHA_MAX = 72;
 const CONVITE_RUIM = "Código de convite inválido, vencido ou já usado.";
 
+// Item 7 (16/11): os cabeçalhos CORS (só do site oficial) vêm de comCors (../_shared/cors.ts).
 function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Content-Type": "application/json",
-  };
+  return { "Content-Type": "application/json" };
 }
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders() });
@@ -34,8 +32,7 @@ function internalError(publicMsg: string, detail?: unknown) {
 }
 function normalizar(c: string) { return c.toUpperCase().replace(/[^A-Z0-9]/g, ""); }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
+Deno.serve(comCors(async (req) => {
   if (req.method !== "POST") return json({ error: "Método não permitido" }, 405);
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: "Corpo inválido" }, 400); }
@@ -96,4 +93,4 @@ Deno.serve(async (req) => {
   } catch (e) {
     return internalError("Erro inesperado no cadastro.", e);
   }
-});
+}, "POST, OPTIONS"));
