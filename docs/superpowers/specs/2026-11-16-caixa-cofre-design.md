@@ -17,8 +17,13 @@ destino do dinheiro que sai da gaveta: hoje a sangria e o fim da noite não têm
    gaveta e separe R$ X para o cofre". X = contado − troco. Os R$ X viram uma transferência do caixa para o
    cofre, com status **a recolher**. O esperado da próxima abertura daquele caixa é o troco.
 3. **Sangria vai ao cofre.** "Saída do caixa" em dinheiro, no modo por operador, passa a ser transferência do
-   caixa para o cofre, a recolher. Diária de freelancer e saída para pagar alguém continuam como saída comum.
-4. **Recolher.** Um administrador (ou o dono) confirma cada transferência a recolher contando o dinheiro
+   caixa para o cofre, a recolher. Saem da gaveta sem passar pelo cofre só (decisão do dono, 16/11):
+   - **Pagamento de funcionário** (diária de freelancer, vale, pagamento do dia): operador de caixa e admin podem
+     lançar, com o nome de quem recebeu obrigatório. A "Diária de freelancer" de hoje entra aqui.
+   - **Outro pagamento** (fornecedor, gelo, entregador etc.): **só administrador ou dono**, com motivo
+     obrigatório. O operador não vê essa opção, e o servidor recusa se ele tentar.
+4. **Recolher.** Um administrador (ou o dono), **logado na própria conta, no celular ou PC dele** (decisão do
+   dono, 16/11; sem PIN no aparelho do caixa, sem mudança na staff-auth), confirma cada transferência a recolher contando o dinheiro
    recebido. Se não bater, não trava: a diferença fica registrada no extrato. **O admin pode confirmar o
    recolhimento do próprio fechamento** (decisão do dono, 16/11).
 5. **Abastecer caixa.** O admin lança "Cofre → Caixa X, R$ Y" (repor troco, reforço). Soma no esperado do
@@ -109,8 +114,9 @@ destino do dinheiro que sai da gaveta: hoje a sangria e o fim da noite não têm
 - Fechamento: escolha "Passar o caixa (jantar)" ou "Fechar no fim da noite". No fim da noite, depois da contagem
   conferida, a tela mostra "Deixe R$ T de troco na gaveta e separe R$ X para o cofre" e o comprovante impresso
   traz os dois valores.
-- Novo Lançamento › Saída do caixa: no modo por operador, em dinheiro, o texto diz "vai para o cofre (a
-  recolher)".
+- Novo Lançamento, no modo por operador: as opções viram Entrada no caixa, **Sangria (vai para o cofre)**,
+  **Pagamento de funcionário** (nome obrigatório) e, só para admin/dono, **Outro pagamento** (motivo
+  obrigatório).
 - Tela **Cofre** (menu do Caixa, só admin/dono): saldo esperado, lista "A recolher" com botão Confirmar (pede o
   valor contado), botões Abastecer caixa, Outra saída, Contar cofre; extrato com filtro por data. Primeiro uso:
   pede o saldo inicial.
