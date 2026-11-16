@@ -79,13 +79,14 @@ revoke all on function public.lgpd_venda_por_id(jsonb, text, text[], text[], tex
 --   dentro de "João Pedro".
 -- 20261120 (revisão final 15/11): v_outros tem dois tipos de fonte.
 -- - Cadastros de pessoas identificadas: outros sócios não anonimizados, dependentes de
---   outros sócios, colaboradores (cantina2:users), entregadores (cantina2:quemLevou),
+--   outros sócios, colaboradores (cantina2:users), produtos do cardápio atual
+--   (cantina2:products), entregadores (cantina2:quemLevou),
 --   fornecedores (nome, razaoSocial, contato), nome do clube (cantina2:settings.clubName) e
 --   do estabelecimento (tenant_owners.business_name). Bloqueiam também por igualdade
 --   exata: um homônimo cadastrado é outra pessoa.
 -- - Textos de venda e pedido (customerName, orders.who, requesterName, deliveredBy e
 --   items[].name, na tabela e nos blobs cantina2:sales, cantina2:orders, cantina2:scheduled
---   e cantina2:requests) e nomes de produto: só entram se forem diferentes de todos os
+--   e cantina2:requests, inclusive o nome de produto histórico dos itens): só entram se forem diferentes de todos os
 --   nomes antigos (comparados com lgpd_dobrar e lgpd_colapsar). "José Lima Filho" protege;
 --   "José Lima" exato não bloqueia: num pedido costuma ser o próprio sócio (pedido de
 --   agendamento, pedido sem venda, venda antiga sem memberId), e bloquear deixaria o nome
@@ -187,7 +188,7 @@ begin
   -- (lgpd_dobrar), sem vazios e sem repetição. Sempre só do mesmo tenant. Dois tipos de
   -- fonte (ver o comentário no topo da função):
   -- - cadastros: bloqueiam também quando o nome é igual ao do sócio (homônimo real);
-  -- - textos de venda/pedido e nomes de produto: só entram se forem diferentes de todos os
+  -- - textos de venda/pedido (inclusive items[].name histórico): só entram se forem diferentes de todos os
   --   nomes antigos (o nome exato do sócio num pedido é ele mesmo, não um terceiro).
   with vendas as (
     -- Vendas da tabela e, no mesmo formato (customerName, memberId, items), os blobs de
@@ -222,13 +223,14 @@ begin
     select d.name from public.member_dependents d
      where d.tenant_id = p_tenant and d.member_id <> p_member_id
     union all
-    -- Cadastros em blob: colaboradores (name), entregadores (nome), fornecedores (nome,
-    -- razaoSocial e contato, a pessoa de contato do cadastro genérico).
+    -- Cadastros em blob: colaboradores e produtos do cardápio atual (name), entregadores
+    -- (nome), fornecedores (nome, razaoSocial e contato, a pessoa de contato do cadastro
+    -- genérico).
     select f.nome from public.app_data a
       cross join lateral jsonb_array_elements(case when jsonb_typeof(a.value) = 'array' then a.value else '[]'::jsonb end) as u(v)
       cross join lateral (values (u.v->>'name'), (u.v->>'nome'), (u.v->>'razaoSocial'), (u.v->>'contato')) as f(nome)
      where a.tenant_id = p_tenant
-       and a.key in ('cantina2:users', 'cantina2:quemLevou', 'cantina2:fornecedores')
+       and a.key in ('cantina2:users', 'cantina2:products', 'cantina2:quemLevou', 'cantina2:fornecedores')
        and jsonb_typeof(u.v) = 'object'
     union all
     -- Nome do clube (configurações) e do estabelecimento (cadastro do dono).
@@ -237,13 +239,8 @@ begin
     union all
     select t.business_name from public.tenant_owners t where t.tenant_id = p_tenant
   ), textos as (
-    -- Produtos do cardápio.
-    select u.v->>'name' as nome from public.app_data a
-      cross join lateral jsonb_array_elements(case when jsonb_typeof(a.value) = 'array' then a.value else '[]'::jsonb end) as u(v)
-     where a.tenant_id = p_tenant and a.key = 'cantina2:products' and jsonb_typeof(u.v) = 'object'
-    union all
     -- Cliente avulso ou de outro sócio: customerName do que não é deste sócio.
-    select v.d->>'customerName' from vendas v
+    select v.d->>'customerName' as nome from vendas v
      where not v.do_socio
     union all
     -- Itens: produto (mesmo fora do cardápio) e quem levou. Quem pediu entra quando não é o
