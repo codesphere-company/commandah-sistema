@@ -5,7 +5,7 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
-  { id:'2026-11-21-cofre', data:'21/11/2026', itens:[
+  { id:'2026-11-16-cofre', data:'16/11/2026', itens:[
     { titulo:'Troco por caixa',
       texto:'Em Configurações › Geral › Caixa por operador, cada caixa tem o campo "Troco (R$)": o dinheiro que fica na gaveta de uma noite para a outra. O que passar do troco vai para o cofre.',
       onde:'Configurações › Geral › Caixa por operador', perms:['cofre'] },
