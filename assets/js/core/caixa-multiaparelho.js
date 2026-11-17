@@ -211,7 +211,9 @@ function modoCaixaPorOperador(){ return !!(state.settings && state.settings.caix
 function listaDeCaixas(){
   const l = state.settings && state.settings.caixas;
   const ok = Array.isArray(l) ? l.filter(c=>c && typeof c.id==='string' && c.id) : [];
-  return ok.length ? ok.map(c=>({ id:c.id, nome:String(c.nome||'').trim() || c.id })) : [{ id:'cx1', nome:'Caixa 1' }, { id:'cx2', nome:'Caixa 2' }];
+  // cofre (16/11): troco = o que fica na gaveta no fim da noite; inválido ou negativo vira 0 (o servidor lê o dele).
+  const troco = c=>{ const v=Number(c&&c.troco); return Number.isFinite(v)&&v>0 ? Math.round(v*100)/100 : 0; };
+  return ok.length ? ok.map(c=>({ id:c.id, nome:String(c.nome||'').trim() || c.id, troco:troco(c) })) : [{ id:'cx1', nome:'Caixa 1', troco:0 }, { id:'cx2', nome:'Caixa 2', troco:0 }];
 }
 function caixaDoAparelho(){ try{ return localStorage.getItem(CAIXA_DO_APARELHO_KEY) || null; }catch(e){ return null; } }
 function marcarCaixaDoAparelho(id){ try{ if(id) localStorage.setItem(CAIXA_DO_APARELHO_KEY, String(id)); else localStorage.removeItem(CAIXA_DO_APARELHO_KEY); }catch(e){} }
@@ -283,9 +285,12 @@ async function refreshCashState(){
     if(porOperador){
       const antes = JSON.stringify([state.cashTurnos||null, state.cashSession||null]);
       const before = state.cashSession && state.cashSession.id;
+      const travadoFech = state.cashSession && state.cashSession.status==='travado_fechamento' ? state.cashSession.id : null;
       aplicarTurnosNoEstado(rt);
       if(JSON.stringify([state.cashTurnos, state.cashSession]) !== antes) changed = true;
-      if((state.cashSession && state.cashSession.id) !== before){ const rh = await storageApi.get(STORE.cashHistory); state.cashHistory = parseAppDataValue(rh, []) || []; }
+      if((state.cashSession && state.cashSession.id) !== before){ const rh = await storageApi.get(STORE.cashHistory); state.cashHistory = parseAppDataValue(rh, []) || [];
+        // cofre (16/11): o dono liberou o fechamento travado, que era de fim da noite: avisa o que separar.
+        if(travadoFech && !state.cashSession && currentUser && typeof avisoSeparaCofreDoTurno==='function' && !document.querySelector('#modalRoot .modal')) setTimeout(()=>avisoSeparaCofreDoTurno(travadoFech), 0); }
     }else{
       const session = parseAppDataValue(rs, null);
       if(JSON.stringify(session) !== JSON.stringify(state.cashSession)){

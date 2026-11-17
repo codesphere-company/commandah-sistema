@@ -58,7 +58,9 @@ function renderConfigSistema(){
     // Caixa por operador (13/11): só admin/dono vê e grava (a RLS de settings já é só do admin).
     if(document.getElementById('cfgCaixaPorOperador') && isAdminUser()){
       state.settings.caixaPorOperador = document.getElementById('cfgCaixaPorOperador').checked;
-      state.settings.caixas = [...document.querySelectorAll('.cfg-caixa-nome')].map(el=>({ id:el.dataset.id, nome:el.value.trim()||el.dataset.id }));
+      // cofre (16/11): o troco de cada caixa vai junto do nome; o servidor lê daqui no fim da noite.
+      const trocos = [...document.querySelectorAll('.cfg-caixa-troco')];
+      state.settings.caixas = [...document.querySelectorAll('.cfg-caixa-nome')].map(el=>{ const t=trocos.find(x=>x.dataset.id===el.dataset.id); const v=t?parseFloat(String(t.value).replace(',','.')):0; return { id:el.dataset.id, nome:el.value.trim()||el.dataset.id, troco:Number.isFinite(v)&&v>0?Math.round(v*100)/100:0 }; });
       const cdp = document.getElementById('cfgCaixaDoApp'); if(cdp) state.settings.caixaDoApp = cdp.value || 'cx1';
     }
     // Item 4 (auditoria 11/11): só admin/dono grava; ausente = desligado.
@@ -83,7 +85,7 @@ function blocoConferenciaBarrar(s){
 function blocoCaixaPorOperador(s){
   if(!isAdminUser()) return '';
   const caixas = listaDeCaixas(), doApp = s.caixaDoApp || 'cx1', deste = caixaDoAparelho() || '';
-  return `<div class="settings-section" id="cfgCaixaBloco"><h3>Caixa por operador</h3><p class="sub">Cada caixa tem o seu turno, aberto e fechado por quem opera. Desligado, o estabelecimento usa um caixa só.</p><label class="kh-ligar"><input type="checkbox" id="cfgCaixaPorOperador" ${s.caixaPorOperador?'checked':''}> <b>Usar caixa por operador</b></label><div class="grid3" style="margin-top:10px">${caixas.map(c=>`<div class="field"><label>Nome do caixa (${h(c.id)})</label><input class="cfg-caixa-nome" data-id="${h(c.id)}" value="${h(c.nome)}"></div>`).join('')}</div><div style="margin:6px 0 10px"><button type="button" class="op-btn" onclick="adicionarCaixaNaLista()">＋ Adicionar caixa</button></div><div class="grid3"><div class="field"><label for="cfgCaixaDoApp">Caixa do app (celular do garçom)</label><select id="cfgCaixaDoApp">${caixas.map(c=>`<option value="${h(c.id)}" ${c.id===doApp?'selected':''}>${h(c.nome)}</option>`).join('')}</select></div><div class="field"><label for="cfgEsteComputador">Este computador é o…</label><select id="cfgEsteComputador" onchange="marcarEsteComputadorComoCaixa(this.value)"><option value="">(nenhum: usa o caixa do app)</option>${caixas.map(c=>`<option value="${h(c.id)}" ${c.id===deste?'selected':''}>${h(c.nome)}</option>`).join('')}</select><small class="sub">Vale só para este aparelho.</small></div></div></div>`;
+  return `<div class="settings-section" id="cfgCaixaBloco"><h3>Caixa por operador</h3><p class="sub">Cada caixa tem o seu turno, aberto e fechado por quem opera. Desligado, o estabelecimento usa um caixa só.</p><label class="kh-ligar"><input type="checkbox" id="cfgCaixaPorOperador" ${s.caixaPorOperador?'checked':''}> <b>Usar caixa por operador</b></label><div class="grid3" style="margin-top:10px">${caixas.map(c=>`<div class="field"><label>Nome do caixa (${h(c.id)})</label><input class="cfg-caixa-nome" data-id="${h(c.id)}" value="${h(c.nome)}"><label style="margin-top:6px">Troco (R$)</label><input class="cfg-caixa-troco" data-id="${h(c.id)}" type="number" min="0" step="0.01" inputmode="decimal" value="${c.troco?String(c.troco):''}" placeholder="0,00"></div>`).join('')}</div><div style="margin:6px 0 10px"><button type="button" class="op-btn" onclick="adicionarCaixaNaLista()">＋ Adicionar caixa</button></div><div class="grid3"><div class="field"><label for="cfgCaixaDoApp">Caixa do app (celular do garçom)</label><select id="cfgCaixaDoApp">${caixas.map(c=>`<option value="${h(c.id)}" ${c.id===doApp?'selected':''}>${h(c.nome)}</option>`).join('')}</select></div><div class="field"><label for="cfgEsteComputador">Este computador é o…</label><select id="cfgEsteComputador" onchange="marcarEsteComputadorComoCaixa(this.value)"><option value="">(nenhum: usa o caixa do app)</option>${caixas.map(c=>`<option value="${h(c.id)}" ${c.id===deste?'selected':''}>${h(c.nome)}</option>`).join('')}</select><small class="sub">Vale só para este aparelho.</small></div></div></div>`;
 }
 function marcarEsteComputadorComoCaixa(id){
   if(!isAdminUser()) return;
@@ -99,7 +101,7 @@ function adicionarCaixaNaLista(){
   while(campos.some(el=>el.dataset.id==='cx'+n)) n++;
   const id='cx'+n, nome='Caixa '+n;
   const grade=campos.length&&campos[campos.length-1].closest('.grid3'); if(!grade) return;
-  grade.insertAdjacentHTML('beforeend',`<div class="field"><label>Nome do caixa (${h(id)})</label><input class="cfg-caixa-nome" data-id="${h(id)}" value="${h(nome)}"></div>`);
+  grade.insertAdjacentHTML('beforeend',`<div class="field"><label>Nome do caixa (${h(id)})</label><input class="cfg-caixa-nome" data-id="${h(id)}" value="${h(nome)}"><label style="margin-top:6px">Troco (R$)</label><input class="cfg-caixa-troco" data-id="${h(id)}" type="number" min="0" step="0.01" inputmode="decimal" value="" placeholder="0,00"></div>`);
   ['cfgCaixaDoApp','cfgEsteComputador'].forEach(sid=>{ const sel=document.getElementById(sid); if(sel) sel.insertAdjacentHTML('beforeend',`<option value="${h(id)}">${h(nome)}</option>`); });
 }
 async function resetOrderCounter(){ if(!await confirmarAcao('Reiniciar a numeração de pedidos para #1?')) return; if(!await setOrderCounter(0,true)) return; renderAll(); toast('Numeração reiniciada.'); }
