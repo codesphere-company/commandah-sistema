@@ -55,7 +55,7 @@ function accountantSheets(from, to){
     debtRows.push([fmtD(e.at), m.name, m.code||'', e.type==='debt'?'Débito':e.type==='payment'?'Pagamento':'Crédito', round(v), fiadoMethodLabel(e.method), e.reason||'', e.reversed?'Sim':'Não']); }));
   const closings=(state.cashHistory||[]).filter(c=>c.closedAt && inP(localDay(c.closedAt)));
   const moves=(state.cashMovements||[]).filter(mv=>mv.at && inP(localDay(mv.at)));
-  const supr=moves.filter(mv=>mv.type==='suprimento').reduce((a,mv)=>a+(Number(mv.amount)||0),0), sang=moves.filter(mv=>mv.type==='sangria').reduce((a,mv)=>a+(Number(mv.amount)||0),0), diaria=moves.filter(mv=>mv.type==='sangria'&&mv.categoria==='diaria').reduce((a,mv)=>a+(Number(mv.amount)||0),0); // 08/11: diária de freelancer separada das retiradas
+  const supr=moves.filter(mv=>mv.type==='suprimento').reduce((a,mv)=>a+(Number(mv.amount)||0),0), sang=moves.filter(mv=>mv.type==='sangria').reduce((a,mv)=>a+(Number(mv.amount)||0),0), diaria=moves.filter(ehPagamentoDeFuncionario).reduce((a,mv)=>a+(Number(mv.amount)||0),0); // 08/11: diária de freelancer separada das retiradas
   const diffs=closings.reduce((a,c)=>a+(Number(c.diff)||0),0), dateBR=d=>new Date(d+'T12:00:00').toLocaleDateString('pt-BR');
   const cols=colunasDeFormas([tot.m]), rotulo=c=>c.method==='fiado'?'Fiado (a prazo)':c.label;
   const fCols=colunasDeFormas(closings.map(c=>c.fiadoPorForma)).filter(c=>c.method!=='dinheiro');
@@ -70,7 +70,7 @@ function accountantSheets(from, to){
       ['Formas de pagamento das vendas do período'], ...cols.map(c=>[rotulo(c), round(tot.m[c.method])]), [],
       ['Fiado lançado no período', round(fiadoLanc)], ['Fiado recebido no período', round(fiadoRec)], ['Descontado do salário', round(fiadoSalario)], [],
       ['Vendas canceladas (quantidade)', canceled.length], ['Vendas canceladas (valor)', round(canceled.reduce((a,sl)=>a+(Number(sl.total)||0),0))], [],
-      ['Fechamentos de caixa', closings.length], ['Entradas (suprimentos)', round(supr)], ['Saídas (sangrias, sem diárias)', round(sang-diaria)], ['Diárias de freelancer', round(diaria)], ['Soma das diferenças de caixa (contado − esperado)', round(diffs)]
+      ['Fechamentos de caixa', closings.length], ['Entradas (suprimentos)', round(supr)], ['Saídas (sangrias, sem diárias)', round(sang-diaria)], [rotuloPagFuncionario(), round(diaria)], ['Soma das diferenças de caixa (contado − esperado)', round(diffs)]
     ], [52,18]],
     ['Vendas por dia', [['Data','Vendas','Faturamento',...cols.map(c=>c.label),'Descontos','Desconto colaborador','Serviço'],
       ...Object.keys(days).sort().map(d=>{ const x=days[d]; return [dateBR(d), x.n, round(x.fat), ...cols.map(c=>round(x.m[c.method])), round(x.desc), round(x.colab), round(x.serv)]; }),
@@ -416,7 +416,7 @@ function renderRelatoriosInner(){
   if(report==='Vendas com divergência'){renderVendasDivergentes(document.getElementById('view-relatorios'));return;}
   if(report==='Histórico de Itens Vendidos'){renderSoldItemsReport(sales);return;}
   if(report==='Ranking de Atendimentos'){renderAttendanceRankingReport(sales);return;}
-  if(report==='Histórico do Caixa'){const rows=state.cashHistory.map(c=>`<tr data-date="${reportDate(c.openedAt)}"><td>${h(c.id)}</td><td>${reportDateTime(c.openedAt)}</td><td>${reportDateTime(c.closedAt)}</td><td>${fmt(c.openingAmount)}</td><td>${c.expectedAmount!=null?fmt(c.expectedAmount):'—'}</td><td>${c.countedAmount!=null?fmt(c.countedAmount):'—'}</td><td>${c.diff!=null?fmt(c.diff):'—'}</td><td>${fmt(Object.values(c.totals||{}).reduce((a,b)=>a+b,0))}</td><td>${c.diarias!=null?fmt(c.diarias):'—'/* revisão final, item 7: fechamento de antes da diária não tem o campo */}</td><td>${h(c.closedBy||'—')}</td><td>Fechado</td><td>${h(resumoPorForma(c))}</td></tr>`).join('');reportShell(report,['Id','Aberto em','Fechado em','Troco inicial','Dinheiro esperado','Dinheiro contado','Diferença','Total vendido (todas as formas)','Diárias de freelancer','Usuário','Status','Por forma'],rows,{extra:'<div class="field"><label>Últimos registros</label><input type="number" value="30" min="1"></div>'});return;}
+  if(report==='Histórico do Caixa'){const rows=state.cashHistory.map(c=>`<tr data-date="${reportDate(c.openedAt)}"><td>${h(c.id)}</td><td>${reportDateTime(c.openedAt)}</td><td>${reportDateTime(c.closedAt)}</td><td>${fmt(c.openingAmount)}</td><td>${c.expectedAmount!=null?fmt(c.expectedAmount):'—'}</td><td>${c.countedAmount!=null?fmt(c.countedAmount):'—'}</td><td>${c.diff!=null?fmt(c.diff):'—'}</td><td>${fmt(Object.values(c.totals||{}).reduce((a,b)=>a+b,0))}</td><td>${c.diarias!=null?fmt(c.diarias):'—'/* revisão final, item 7: fechamento de antes da diária não tem o campo */}</td><td>${h(c.closedBy||'—')}</td><td>Fechado</td><td>${h(resumoPorForma(c))}</td></tr>`).join('');reportShell(report,['Id','Aberto em','Fechado em','Troco inicial','Dinheiro esperado','Dinheiro contado','Diferença','Total vendido (todas as formas)',rotuloPagFuncionario(),'Usuário','Status','Por forma'],rows,{extra:'<div class="field"><label>Últimos registros</label><input type="number" value="30" min="1"></div>'});return;}
   if(report==='Meu Delivery'){renderDeliveryReport(sales);return;}
   if(report==='Recebimentos (Pedidos e Fiado)'){renderReceiptsReport(sales);return;}
   if(report==='Resumo Financeiro'){renderFinancialSummaryReport(sales);return;}

@@ -211,7 +211,9 @@ function modoCaixaPorOperador(){ return !!(state.settings && state.settings.caix
 function listaDeCaixas(){
   const l = state.settings && state.settings.caixas;
   const ok = Array.isArray(l) ? l.filter(c=>c && typeof c.id==='string' && c.id) : [];
-  return ok.length ? ok.map(c=>({ id:c.id, nome:String(c.nome||'').trim() || c.id })) : [{ id:'cx1', nome:'Caixa 1' }, { id:'cx2', nome:'Caixa 2' }];
+  // cofre (16/11): troco = o que fica na gaveta no fim da noite; inválido ou negativo vira 0 (o servidor lê o dele).
+  const troco = c=>{ const v=Number(c&&c.troco); return Number.isFinite(v)&&v>0 ? Math.round(v*100)/100 : 0; };
+  return ok.length ? ok.map(c=>({ id:c.id, nome:String(c.nome||'').trim() || c.id, troco:troco(c) })) : [{ id:'cx1', nome:'Caixa 1', troco:0 }, { id:'cx2', nome:'Caixa 2', troco:0 }];
 }
 function caixaDoAparelho(){ try{ return localStorage.getItem(CAIXA_DO_APARELHO_KEY) || null; }catch(e){ return null; } }
 function marcarCaixaDoAparelho(id){ try{ if(id) localStorage.setItem(CAIXA_DO_APARELHO_KEY, String(id)); else localStorage.removeItem(CAIXA_DO_APARELHO_KEY); }catch(e){} }
@@ -241,6 +243,29 @@ function aplicarTurnosNoEstado(lidos){
   state.cashTurnosFalhou = false; // leitura deu certo: limpa o aviso (Task 4 mostra "Não foi possível ler o caixa. Tentando de novo…" enquanto true)
   state.cashTurnos = lidos.turnos; state.cashUltimaContagem = lidos.contagens;
   state.cashSession = lidos.turnos[caixaQueVale()] || null;
+}
+// cofre (16/11): com o modo ligado, toda saída manual (sangria, pagamento de funcionário, outro pagamento) grava pelo
+// servidor (cash_turno_saida), nunca por save('cashMovements'). O id do lançamento é gerado UMA vez por formulário
+// (mov.id): repetir a chamada com o mesmo id não grava de novo. true = gravou (lista do servidor já no estado).
+async function lancarSaidaDoTurno(mov){
+  if(!isCloudMode() || !state.cashSession){ toast('O caixa por operador precisa da conexão com o servidor.', 'error'); return false; }
+  const cx = caixaQueVale();
+  // Espera a fila de lançamentos deste aparelho (troco, estorno ainda não enviados) antes do rpc e reaplica o
+  // que ainda restar pendente depois, para a lista do servidor não apagar lançamento local (cofre, 16/11).
+  await (saveQueues.cashMovements||Promise.resolve()).catch(()=>{});
+  const { data, error } = await supabaseClient.rpc('cash_turno_saida', { p_caixa:cx, p_turno_id:state.cashSession.id, p_mov:mov });
+  if(error || !data){
+    const m = String((error && error.message) || '');
+    toast(/nome de quem recebeu/.test(m) ? 'Informe o nome de quem recebeu.' : /motivo obrigatorio/.test(m) ? 'Informe o motivo do pagamento.' : /so administrador/.test(m) ? 'Só o administrador lança outro pagamento.' : /valor invalido/.test(m) ? 'Informe um valor válido.' : 'Não foi possível lançar a saída: '+(m||'erro no servidor')+'. Tente de novo.', 'error');
+    return false;
+  }
+  if(!data.ok){ await aplicarRespostaDoTurno(cx, data); return false; }
+  if(Array.isArray(data.movements)){
+    const later = cashMovementsDiff(cashMovementsBase, state.cashMovements||[]);
+    setCashMovementsBase(data.movements);
+    state.cashMovements = applyCashMovementsDiffLocal(data.movements, later);
+  }
+  return true;
 }
 // Polling do caixa por operador (sem realtime, decisão do plano): 5 s enquanto o turno deste aparelho
 // está travado ou, na sessão do dono, há pendência com pedido ao dono; senão 30 s. Desligado ou fora
@@ -283,9 +308,12 @@ async function refreshCashState(){
     if(porOperador){
       const antes = JSON.stringify([state.cashTurnos||null, state.cashSession||null]);
       const before = state.cashSession && state.cashSession.id;
+      const travadoFech = state.cashSession && state.cashSession.status==='travado_fechamento' ? state.cashSession.id : null;
       aplicarTurnosNoEstado(rt);
       if(JSON.stringify([state.cashTurnos, state.cashSession]) !== antes) changed = true;
-      if((state.cashSession && state.cashSession.id) !== before){ const rh = await storageApi.get(STORE.cashHistory); state.cashHistory = parseAppDataValue(rh, []) || []; }
+      if((state.cashSession && state.cashSession.id) !== before){ const rh = await storageApi.get(STORE.cashHistory); state.cashHistory = parseAppDataValue(rh, []) || [];
+        // cofre (16/11): o dono liberou o fechamento travado, que era de fim da noite: avisa o que separar.
+        if(travadoFech && !state.cashSession && currentUser && typeof avisoSeparaCofreDoTurno==='function' && !document.querySelector('#modalRoot .modal')) setTimeout(()=>avisoSeparaCofreDoTurno(travadoFech), 0); }
     }else{
       const session = parseAppDataValue(rs, null);
       if(JSON.stringify(session) !== JSON.stringify(state.cashSession)){
