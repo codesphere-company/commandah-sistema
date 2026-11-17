@@ -244,6 +244,23 @@ function aplicarTurnosNoEstado(lidos){
   state.cashTurnos = lidos.turnos; state.cashUltimaContagem = lidos.contagens;
   state.cashSession = lidos.turnos[caixaQueVale()] || null;
 }
+// cofre (16/11): com o modo ligado, toda saída manual (sangria, pagamento de funcionário, outro pagamento) grava pelo
+// servidor (cash_turno_saida), nunca por save('cashMovements'). O id do lançamento é gerado UMA vez por formulário
+// (mov.id): repetir a chamada com o mesmo id não grava de novo. true = gravou (lista do servidor já no estado).
+async function lancarSaidaDoTurno(mov){
+  if(!isCloudMode() || !state.cashSession){ toast('O caixa por operador precisa da conexão com o servidor.', 'error'); return false; }
+  const cx = caixaQueVale();
+  const { data, error } = await supabaseClient.rpc('cash_turno_saida', { p_caixa:cx, p_turno_id:state.cashSession.id, p_mov:mov });
+  if(error || !data){
+    const m = String((error && error.message) || '');
+    toast(/nome de quem recebeu/.test(m) ? 'Informe o nome de quem recebeu.' : /motivo obrigatorio/.test(m) ? 'Informe o motivo do pagamento.' : /so administrador/.test(m) ? 'Só o administrador lança outro pagamento.' : /valor invalido/.test(m) ? 'Informe um valor válido.' : 'Não foi possível lançar a saída: '+(m||'erro no servidor')+'. Tente de novo.', 'error');
+    return false;
+  }
+  if(!data.ok){ await aplicarRespostaDoTurno(cx, data); return false; }
+  state.cashMovements = Array.isArray(data.movements) ? data.movements : state.cashMovements;
+  setCashMovementsBase(state.cashMovements);
+  return true;
+}
 // Polling do caixa por operador (sem realtime, decisão do plano): 5 s enquanto o turno deste aparelho
 // está travado ou, na sessão do dono, há pendência com pedido ao dono; senão 30 s. Desligado ou fora
 // da nuvem não faz nada (o setInterval de 30 s de estabelecimento.js cuida do caminho antigo).
