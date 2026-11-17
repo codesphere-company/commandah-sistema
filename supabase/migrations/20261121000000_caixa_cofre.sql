@@ -20,11 +20,32 @@
 --   contagem faz esse papel.
 -- * Diferença em centavos inteiros (cash_turno_dif). Diferença nunca trava nada.
 -- * cash_cofre_entrada é interna: o fechamento no fim da noite e a sangria
---   (próximas tarefas) a chamam dentro da mesma transação que mexe na gaveta.
+--   a chamam dentro da mesma transação que mexe na gaveta.
 -- * Datas dos lançamentos por clock_timestamp(): dentro de uma transação now() é
 --   o mesmo para tudo, e a ordem "depois da última contagem" depende da hora real.
 -- * Toda RPC que mexe no saldo trava o cofre do estabelecimento (advisory lock),
 --   para uma contagem não calcular o esperado no meio de uma confirmação.
+--
+-- A SOLUCAO (segunda parte: fim da noite e saídas do turno)
+-- ---------------------------------------------------------
+-- * Fechamento: p_closed.fimDaNoite = true (booleano) é o fim da noite; ausente
+--   ou qualquer outra coisa é passagem de caixa (aparelho antigo não move
+--   dinheiro). No fim da noite, cash_turno_concluir_fechamento lê o troco do
+--   caixa (settings.caixas[].troco, nunca do aparelho) e, se contado > troco em
+--   centavos, grava na mesma transação a entrada a recolher (contado − troco) e
+--   põe ultima_contagem = troco; senão ultima_contagem = contado. troco,
+--   paraCofre e fimDaNoite ficam no fechamento do histórico, e cash_turno_fechar
+--   devolve cofre: {troco, paraCofre} quando conclui. Fechamento travado só vai
+--   ao cofre quando a liberação/recontagem concluir (usa o valor contado).
+--   A assinatura de cash_turno_concluir_fechamento continua returns void (está
+--   em produção e tem três chamadores).
+-- * cash_turno_saida: sangria, pagamento de funcionário e outro pagamento (só
+--   admin/dono) no turno aberto. Sangria em dinheiro grava a saída da gaveta
+--   (cantina2:cashMovements, origin 'cofre' + cofreId) e a entrada a recolher no
+--   cofre juntas. Pix/cartão e pagamentos não vão ao cofre.
+-- * cash_movements_apply (caminho do site para os lançamentos), com o modo
+--   ligado: lançamento do cofre não se altera nem se apaga, e sangria manual nova
+--   passa por cash_turno_saida. Os automáticos (troco, fiado, parcial) seguem.
 --
 -- RETESTE (bancada): node db/t-cofre.js
 -- =====================================================================
@@ -444,9 +465,394 @@ $function$;
 revoke all on function public.cash_cofre_recolher_fechado(text, numeric) from public, anon;
 grant execute on function public.cash_cofre_recolher_fechado(text, numeric) to authenticated;
 
+-- ---------------------------------------------------------------------
+-- Fim da noite (fechamento do turno)
+-- ---------------------------------------------------------------------
+-- cofre (16/11): troco fixo do caixa, de cantina2:settings → caixas[] → troco. Número ou texto
+-- numérico ("150.5"); ausente, inválido ou negativo vale 0 (tudo vai ao cofre). Em centavos.
+create or replace function public.cash_caixa_troco(p_tenant text, p_caixa text)
+returns numeric
+language sql
+stable
+security definer
+set search_path to ''
+as $function$
+  select coalesce((
+    select round(greatest(case
+             when jsonb_typeof(c->'troco') = 'number' then (c->>'troco')::numeric
+             when jsonb_typeof(c->'troco') = 'string' and btrim(c->>'troco') ~ '^[0-9]{1,9}([.,][0-9]{1,6})?$'
+               then replace(btrim(c->>'troco'), ',', '.')::numeric
+             else 0 end, 0), 2)
+      from public.app_data a,
+           jsonb_array_elements(case when jsonb_typeof(a.value) = 'object' and jsonb_typeof(a.value->'caixas') = 'array'
+                                     then a.value->'caixas' else '[]'::jsonb end) c
+     where a.tenant_id = p_tenant and a.key = 'cantina2:settings'
+       and jsonb_typeof(c) = 'object' and c->>'id' = p_caixa
+     limit 1), 0);
+$function$;
+revoke all on function public.cash_caixa_troco(text, text) from public, anon, authenticated;
+
+-- Conclui o fechamento: copiado de 20261116000000_caixa_por_operador.sql; muda o fim da noite
+-- (cofre, 16/11). Mesma assinatura e returns void (três chamadores em produção). troco/paraCofre/
+-- fimDaNoite mandados pelo aparelho são descartados: só o servidor calcula. A entrada no cofre não
+-- se repete para o mesmo turno (tentativa repetida).
+create or replace function public.cash_turno_concluir_fechamento(p_tenant text, p_caixa text, p_turno jsonb, p_closed jsonb)
+returns void
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+declare
+  v_history jsonb;
+  v_closed jsonb;
+  v_ultima numeric;
+  v_troco numeric;
+  v_para numeric := 0;
+  v_fim boolean := jsonb_typeof(p_closed->'fimDaNoite') = 'boolean' and (p_closed->>'fimDaNoite')::boolean;
+begin
+  v_closed := (p_closed - 'pendencia' - 'fimDaNoite' - 'troco' - 'paraCofre') || jsonb_build_object(
+    'status', 'closed',
+    'caixaId', p_caixa,
+    'liberacoes', coalesce(p_turno->'liberacoes', '[]'::jsonb));
+  v_ultima := (v_closed->>'countedAmount')::numeric;
+
+  if v_fim and v_ultima is not null then
+    v_troco := public.cash_caixa_troco(p_tenant, p_caixa);
+    if round(v_ultima * 100) > round(v_troco * 100) then
+      v_para := public.cash_turno_dif(v_ultima, v_troco);
+      if not exists (select 1 from public.cash_cofre
+                      where tenant_id = p_tenant and turno_id = v_closed->>'id' and origem = 'fim_da_noite') then
+        perform public.cash_cofre_entrada(p_tenant, p_caixa, v_closed->>'id', v_para, 'fim_da_noite', p_turno->>'operatorId');
+      end if;
+      v_ultima := v_troco;
+    end if;
+    v_closed := v_closed || jsonb_build_object('fimDaNoite', true, 'troco', v_troco, 'paraCofre', v_para);
+  end if;
+
+  insert into public.app_data (tenant_id, key, value)
+  values (p_tenant, 'cantina2:cashHistory', '[]'::jsonb)
+  on conflict (tenant_id, key) do nothing;
+
+  select value into v_history from public.app_data
+   where tenant_id = p_tenant and key = 'cantina2:cashHistory'
+   for update;
+  if jsonb_typeof(v_history) <> 'array' then
+    v_history := '[]'::jsonb;
+  end if;
+
+  if not exists (select 1 from jsonb_array_elements(v_history) e where e->>'id' = v_closed->>'id') then
+    v_history := jsonb_build_array(v_closed) || v_history;
+    update public.app_data set value = v_history, updated_at = now()
+     where tenant_id = p_tenant and key = 'cantina2:cashHistory';
+  end if;
+
+  update public.cash_turnos
+     set turno = null, ultima_contagem = v_ultima, updated_at = now()
+   where tenant_id = p_tenant and caixa_id = p_caixa;
+end;
+$function$;
+revoke all on function public.cash_turno_concluir_fechamento(text, text, jsonb, jsonb) from public, anon, authenticated;
+
+-- cofre (16/11): {troco, paraCofre} do fechamento já concluído (lido do histórico, onde
+-- cash_turno_concluir_fechamento gravou); null se foi passagem de caixa.
+create or replace function public.cash_turno_cofre_resumo(p_tenant text, p_turno_id text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path to ''
+as $function$
+  select (select case when e->'fimDaNoite' = 'true'::jsonb
+                      then jsonb_build_object('troco', e->'troco', 'paraCofre', e->'paraCofre') end
+            from public.app_data a,
+                 jsonb_array_elements(case when jsonb_typeof(a.value) = 'array' then a.value else '[]'::jsonb end) e
+           where a.tenant_id = p_tenant and a.key = 'cantina2:cashHistory' and e->>'id' = p_turno_id
+           limit 1);
+$function$;
+revoke all on function public.cash_turno_cofre_resumo(text, text) from public, anon, authenticated;
+
+-- Copiado de 20261116000000_caixa_por_operador.sql; muda só a resposta quando conclui
+-- (cofre, 16/11): acrescenta cofre {troco, paraCofre} (null na passagem de caixa).
+create or replace function public.cash_turno_fechar(p_caixa text, p_turno_id text, p_closed jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+declare
+  v_tenant text := public.cash_turno_checar();
+  v_me text := public.current_staff_id();
+  v_turno jsonb;
+  v_closed jsonb;
+  v_dif numeric;
+begin
+  if p_closed is null or jsonb_typeof(p_closed) <> 'object' or p_closed->>'id' is distinct from p_turno_id
+     or jsonb_typeof(p_closed->'countedAmount') <> 'number' or jsonb_typeof(p_closed->'expectedAmount') <> 'number'
+     or (p_closed->>'countedAmount')::numeric < 0 then
+    raise exception 'fechamento de caixa invalido';
+  end if;
+
+  select turno into v_turno from public.cash_turnos
+   where tenant_id = v_tenant and caixa_id = p_caixa
+   for update;
+
+  if v_turno is null or v_turno->>'id' is distinct from p_turno_id then
+    return public.cash_turno_resp(false, v_turno, 'turno_mudou');
+  end if;
+  if v_turno->>'status' is distinct from 'open' then
+    return public.cash_turno_resp(false, v_turno, 'nao_aberto');
+  end if;
+  if not public.is_admin_like() and v_turno->>'operatorId' is distinct from v_me then
+    return public.cash_turno_resp(false, v_turno, 'outro_operador');
+  end if;
+
+  v_closed := p_closed - 'pendencia' - 'fechadoNoLugarDe';
+  if v_turno->>'operatorId' is distinct from v_me then
+    -- Turno esquecido: admin/dono fecha no lugar de quem abriu.
+    v_closed := v_closed || jsonb_build_object('fechadoNoLugarDe',
+      jsonb_build_object('id', v_turno->'operatorId', 'nome', v_turno->'operatorName'));
+  end if;
+
+  v_dif := public.cash_turno_dif((p_closed->>'countedAmount')::numeric, (p_closed->>'expectedAmount')::numeric);
+  if v_dif = 0 then
+    perform public.cash_turno_concluir_fechamento(v_tenant, p_caixa, v_turno, v_closed);
+    return public.cash_turno_resp(true, null, null)
+        || jsonb_build_object('cofre', public.cash_turno_cofre_resumo(v_tenant, p_turno_id));
+  end if;
+
+  v_turno := v_turno || jsonb_build_object(
+    'status', 'travado_fechamento',
+    'pendencia', jsonb_build_object(
+      'id', gen_random_uuid()::text, 'tipo', 'fechamento',
+      'contouId', v_me, 'contouNome', public.cash_turno_nome(v_tenant, v_me),
+      'esperado', p_closed->'expectedAmount', 'contado', p_closed->'countedAmount', 'diferenca', v_dif,
+      'pedidoDono', false, 'at', public.cash_turno_agora(),
+      'closed', v_closed));
+  update public.cash_turnos set turno = v_turno, updated_at = now()
+   where tenant_id = v_tenant and caixa_id = p_caixa;
+  return public.cash_turno_resp(true, v_turno, null);
+end;
+$function$;
+revoke all on function public.cash_turno_fechar(text, text, jsonb) from public, anon;
+grant execute on function public.cash_turno_fechar(text, text, jsonb) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Saídas do turno (sangria, pagamento de funcionário, outro pagamento)
+-- ---------------------------------------------------------------------
+-- cofre (16/11): p_mov = {id, categoria: 'sangria'|'funcionario'|'outro', amount, method,
+-- description, pessoa, note, at}. Grava no topo de cantina2:cashMovements com os mesmos campos do
+-- lançamento do site (type 'sangria', cashSessionId = turno), para o esperado do fechamento contar.
+-- Sangria em dinheiro: origin 'cofre' + cofreId e a entrada a recolher, na mesma transação.
+-- Pagamento de funcionário: nome obrigatório. Outro pagamento: só admin/dono, motivo obrigatório.
+-- id repetido (tentativa repetida): devolve a lista sem gravar de novo. Devolve {ok, motivo?,
+-- turno, movements}.
+create or replace function public.cash_turno_saida(p_caixa text, p_turno_id text, p_mov jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+declare
+  v_tenant text := public.cash_turno_checar();
+  v_me text := public.current_staff_id();
+  v_turno jsonb;
+  v_list jsonb;
+  v_id text;
+  v_cat text;
+  v_amount numeric;
+  v_method text;
+  v_desc text;
+  v_pessoa text;
+  v_at jsonb;
+  v_mov jsonb;
+begin
+  if v_me is null then
+    raise exception 'sem permissao para operar o caixa';
+  end if;
+  if p_mov is null or jsonb_typeof(p_mov) <> 'object' or coalesce(p_mov->>'id', '') = '' or length(p_mov->>'id') > 100 then
+    raise exception 'lancamento invalido';
+  end if;
+  v_id := p_mov->>'id';
+  v_cat := p_mov->>'categoria';
+  if v_cat is null or v_cat not in ('sangria', 'funcionario', 'outro') then
+    raise exception 'categoria invalida';
+  end if;
+  if jsonb_typeof(p_mov->'amount') is distinct from 'number' then
+    raise exception 'valor invalido';
+  end if;
+  v_amount := (p_mov->>'amount')::numeric;
+  if v_amount <= 0 then
+    raise exception 'valor invalido';
+  end if;
+  v_method := coalesce(nullif(btrim(left(coalesce(p_mov->>'method', ''), 60)), ''), 'dinheiro');
+  v_desc := nullif(btrim(left(coalesce(p_mov->>'description', ''), 500)), '');
+  v_pessoa := nullif(btrim(left(coalesce(p_mov->>'pessoa', ''), 60)), '');
+
+  if v_cat = 'funcionario' then
+    if v_pessoa is null then
+      raise exception 'nome de quem recebeu obrigatorio';
+    end if;
+    v_desc := 'Pagamento de funcionário: ' || v_pessoa;
+  elsif v_cat = 'outro' then
+    if not public.is_admin_like() then
+      raise exception 'so administrador lanca outro pagamento';
+    end if;
+    if v_desc is null then
+      raise exception 'motivo obrigatorio';
+    end if;
+  else
+    v_desc := coalesce(v_desc, case when v_method = 'dinheiro' then 'Sangria para o cofre' else 'Sangria' end);
+  end if;
+
+  -- Hora escolhida na tela (como o lançamento do site); inválida ou ausente = agora.
+  begin
+    v_at := to_jsonb(to_char((p_mov->>'at')::timestamptz at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'));
+  exception when others then
+    v_at := null;
+  end;
+  v_at := coalesce(v_at, public.cash_turno_agora());
+
+  select turno into v_turno from public.cash_turnos
+   where tenant_id = v_tenant and caixa_id = p_caixa
+   for update;
+
+  if v_turno is null or v_turno->>'id' is distinct from p_turno_id then
+    return public.cash_turno_resp(false, v_turno, 'turno_mudou');
+  end if;
+  if v_turno->>'status' is distinct from 'open' then
+    return public.cash_turno_resp(false, v_turno, 'nao_aberto');
+  end if;
+  if not public.is_admin_like() and v_turno->>'operatorId' is distinct from v_me then
+    return public.cash_turno_resp(false, v_turno, 'outro_operador');
+  end if;
+
+  insert into public.app_data (tenant_id, key, value)
+  values (v_tenant, 'cantina2:cashMovements', '[]'::jsonb)
+  on conflict (tenant_id, key) do nothing;
+
+  select value into v_list from public.app_data
+   where tenant_id = v_tenant and key = 'cantina2:cashMovements'
+   for update;
+  if jsonb_typeof(v_list) <> 'array' then
+    v_list := '[]'::jsonb;
+  end if;
+
+  if exists (select 1 from jsonb_array_elements(v_list) m where m->>'id' = v_id) then
+    return public.cash_turno_resp(true, v_turno, null) || jsonb_build_object('movements', v_list);
+  end if;
+
+  v_mov := jsonb_build_object(
+    'id', v_id, 'cashSessionId', p_turno_id, 'type', 'sangria', 'amount', p_mov->'amount',
+    'method', v_method, 'reason', v_desc, 'description', v_desc,
+    'note', left(coalesce(p_mov->>'note', ''), 500),
+    'operatorId', v_me, 'operatorName', coalesce(public.cash_turno_nome(v_tenant, v_me), ''), 'at', v_at);
+  if v_cat = 'funcionario' then
+    v_mov := v_mov || jsonb_build_object('categoria', 'funcionario', 'pessoa', v_pessoa);
+  elsif v_cat = 'outro' then
+    v_mov := v_mov || jsonb_build_object('categoria', 'outro');
+  elsif v_method = 'dinheiro' then
+    v_mov := v_mov || jsonb_build_object('origin', 'cofre',
+      'cofreId', public.cash_cofre_entrada(v_tenant, p_caixa, p_turno_id, v_amount, 'sangria', v_me));
+  end if;
+
+  v_list := jsonb_build_array(v_mov) || v_list;
+  update public.app_data set value = v_list, updated_at = now()
+   where tenant_id = v_tenant and key = 'cantina2:cashMovements';
+  return public.cash_turno_resp(true, v_turno, null) || jsonb_build_object('movements', v_list);
+end;
+$function$;
+revoke all on function public.cash_turno_saida(text, text, jsonb) from public, anon;
+grant execute on function public.cash_turno_saida(text, text, jsonb) to authenticated;
+
+-- Copiado de 20261010010000_caixa_com_trava.sql; acrescenta a guarda do cofre (16/11), só com o
+-- caixa por operador ligado: lançamento do cofre (origin 'cofre') não se altera nem se apaga por
+-- aqui (reenviar igual passa: aparelho com a base atrasada), lançamento novo com origin 'cofre' é
+-- recusado e sangria manual nova (sem origin) passa por cash_turno_saida. Os automáticos (troco,
+-- fiado, parcial) têm origin e seguem por aqui. Desligado: sem mudança.
+create or replace function public.cash_movements_apply(p_upserts jsonb, p_delete_ids jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+declare
+  v_tenant text := public.current_tenant_id();
+  v_list jsonb;
+  v_up jsonb := coalesce(p_upserts, '[]'::jsonb);
+  v_del jsonb := coalesce(p_delete_ids, '[]'::jsonb);
+begin
+  if v_tenant is null or not public.cash_can_write() then
+    raise exception 'sem permissao para lancar no caixa';
+  end if;
+  if jsonb_typeof(v_up) <> 'array' or jsonb_typeof(v_del) <> 'array'
+     or jsonb_array_length(v_up) > 200 or jsonb_array_length(v_del) > 200 then
+    raise exception 'lancamentos invalidos';
+  end if;
+  if exists (select 1 from jsonb_array_elements(v_up) e
+              where jsonb_typeof(e) <> 'object' or coalesce(e->>'id', '') = '') then
+    raise exception 'lancamento sem id';
+  end if;
+
+  insert into public.app_data (tenant_id, key, value)
+  values (v_tenant, 'cantina2:cashMovements', '[]'::jsonb)
+  on conflict (tenant_id, key) do nothing;
+
+  select value into v_list from public.app_data
+   where tenant_id = v_tenant and key = 'cantina2:cashMovements'
+   for update;
+  if jsonb_typeof(v_list) <> 'array' then
+    v_list := '[]'::jsonb;
+  end if;
+
+  if public.caixa_por_operador_ligado() then
+    if exists (select 1 from jsonb_array_elements(v_list) m
+                where m->>'origin' = 'cofre'
+                  and m->>'id' = any(array(select jsonb_array_elements_text(v_del))))
+       or exists (select 1 from jsonb_array_elements(v_up) u
+                    left join lateral (select m as elem from jsonb_array_elements(v_list) m
+                                        where m->>'id' = u->>'id' limit 1) s on true
+                   where (u->>'origin' = 'cofre' or s.elem->>'origin' = 'cofre')
+                     and s.elem is distinct from u) then
+      raise exception 'lancamento do cofre: nao pode ser alterado nem excluido no caixa';
+    end if;
+    if exists (select 1 from jsonb_array_elements(v_up) u
+                where u->>'type' = 'sangria' and coalesce(u->>'origin', '') = ''
+                  and not exists (select 1 from jsonb_array_elements(v_list) m where m->>'id' = u->>'id')) then
+      raise exception 'use a saida do turno para lancar sangria';
+    end if;
+  end if;
+
+  -- Editado continua na mesma posição; novo entra no topo (como o unshift do site).
+  select coalesce(jsonb_agg(coalesce(
+           (select u from jsonb_array_elements(v_up) u where u->>'id' = m.elem->>'id' limit 1),
+           m.elem) order by m.ord), '[]'::jsonb)
+    into v_list
+    from jsonb_array_elements(v_list) with ordinality as m(elem, ord)
+   where not coalesce(m.elem->>'id' = any(array(select jsonb_array_elements_text(v_del))), false);
+
+  v_list := coalesce((select jsonb_agg(u order by n.ord)
+                        from jsonb_array_elements(v_up) with ordinality as n(u, ord)
+                       where not exists (select 1 from jsonb_array_elements(v_list) m where m->>'id' = u->>'id')), '[]'::jsonb)
+            || v_list;
+
+  update public.app_data set value = v_list, updated_at = now()
+   where tenant_id = v_tenant and key = 'cantina2:cashMovements';
+
+  return v_list;
+end;
+$function$;
+revoke all on function public.cash_movements_apply(jsonb, jsonb) from public, anon;
+grant execute on function public.cash_movements_apply(jsonb, jsonb) to authenticated;
+
 -- =====================================================================
 -- ROLLBACK
 -- =====================================================================
+-- Recriar ANTES de dropar a tabela (as versões novas chamam cash_cofre_entrada):
+--   cash_movements_apply de 20261010010000_caixa_com_trava.sql;
+--   cash_turno_concluir_fechamento e cash_turno_fechar de 20261116000000_caixa_por_operador.sql.
+-- drop function if exists public.cash_turno_saida(text, text, jsonb);
+-- drop function if exists public.cash_turno_cofre_resumo(text, text);
+-- drop function if exists public.cash_caixa_troco(text, text);
 -- drop function if exists public.cash_cofre_recolher_fechado(text, numeric);
 -- drop function if exists public.cash_cofre_contar(numeric, text);
 -- drop function if exists public.cash_cofre_saida(numeric, text);
