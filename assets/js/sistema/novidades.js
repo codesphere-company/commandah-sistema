@@ -5,6 +5,23 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-21-cofre', data:'21/11/2026', itens:[
+    { titulo:'Troco por caixa',
+      texto:'Em Configurações › Caixas, cada caixa tem o seu troco: o dinheiro que fica na gaveta de uma noite para a outra. O que passar do troco vai para o cofre.',
+      onde:'Configurações › Caixas', perms:['cofre'] },
+    { titulo:'Fim da noite separa o dinheiro do cofre',
+      texto:'Ao fechar o caixa, escolha "Passar o caixa" (troca de operador, o dinheiro continua na gaveta) ou "Fechar no fim da noite". No fim da noite o sistema avisa: "Deixe R$ X de troco na gaveta e separe R$ Y para o cofre."',
+      onde:'Caixa › Fechar', perms:['cofre'] },
+    { titulo:'Sangria vai para o cofre',
+      texto:'A sangria tirada do caixa entra na lista "A recolher" do cofre. Quando o dinheiro chegar lá, o administrador confirma e conta o valor; se não bater, a diferença fica registrada no extrato.',
+      onde:'Caixa › Novo lançamento e Cofre', perms:['cofre'] },
+    { titulo:'Pagamento de funcionário e outro pagamento',
+      texto:'Novo lançamento ganhou "Pagamento de funcionário" (com o nome de quem recebeu), que o operador também pode lançar. "Outro pagamento" só o administrador lança.',
+      onde:'Caixa › Novo lançamento', perms:['cofre'] },
+    { titulo:'Nova tela Cofre',
+      texto:'Mostra o saldo do cofre, o que falta recolher e o extrato. Dá para contar o cofre, abastecer um caixa com troco, registrar outra saída (com motivo) e recolher o dinheiro de um caixa que já fechou. Só aparece para o administrador e quando o caixa por operador está ligado.',
+      onde:'Menu Principal › Cofre', perms:['cofre'] },
+  ] },
   { id:'2026-11-16-seguranca', data:'16/11/2026', itens:[
     { titulo:'Planilhas mais seguras',
       texto:'O leitor e gerador de planilhas do Excel foi atualizado para uma versão mais nova e segura. Importar e exportar produtos e clientes e gerar planilhas dos relatórios continua do mesmo jeito.',

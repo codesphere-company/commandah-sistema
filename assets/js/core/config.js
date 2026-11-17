@@ -108,7 +108,7 @@ function seloEmBreve(label){ return label==='Minha Assinatura' ? 'Em breve' : 'P
 function avisoEmConstrucao(label){ toast(label==='Minha Assinatura' ? label+' chega em breve.' : label+' faz parte do plano Pro e chega em breve.'); }
 const RIBBON_TABS = [
   { id:'principal', label:'Principal', groups:[
-      { label:'Caixa', items:[ {label:'Abrir/Fechar', icon:ICN.lock, view:'caixa'} ] },
+      { label:'Caixa', items:[ {label:'Abrir/Fechar', icon:ICN.lock, view:'caixa'}, {label:'Cofre', icon:ICN.lock, view:'cofre', soAdmin:true, soModoCaixa:true /* cofre (16/11): só com o caixa por operador ligado */} ] },
       { label:'Pedidos', items:[
           {label:'Mesas/Comandas', icon:ICN.table, view:'comandas'},
           {label:'Caixa/PDV', icon:ICN.cart, view:'balcao'},
@@ -183,7 +183,7 @@ const SIMPLE_RIBBON_COZINHA = [
 const ROLE_PERMS = {
   admin: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','produtos','insumos','usuarios','relatorios','cozinha',
     'categorias','complementos','observacoes','perguntas','fornecedores','pagamentos','contascategorias','contas','locais','quemlevou','impressoras','estacoes','origens',
-    'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr','senha-propria','cancelar-comanda','receber-fiado','relatorios-gerencia','pausar-produto','conferir-pagamentos'],
+    'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr','senha-propria','cancelar-comanda','receber-fiado','relatorios-gerencia','pausar-produto','conferir-pagamentos','cofre' /* cofre (16/11): só admin e dono */],
   caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','quemlevou','impressoras','estacoes','origens','relatorios','painel-senhas','totem','ajuda','mobile-qr','senha-propria','cancelar-comanda','receber-fiado','pausar-produto'],
   // 08/11 (pedido do dono): Garçom só atende comandas pelo app (sem caixa, fiado, cancelamento ou relatórios).
   garcom: ['comandas','senha-propria','mobile-qr'],

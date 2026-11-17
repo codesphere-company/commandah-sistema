@@ -2,7 +2,7 @@
 let activeRibbonTab = null, activeView = null, visibleTabs = [];
 let activeViewRibbonTab = null, viewHistory = [];
 let activeRibbonAction = '';
-const VIEW_LABELS = {caixa:'Caixa',balcao:'Ficha',comandas:'Comandas',delivery:'Delivery','fila-atendimento':'Fila de Atendimento',agendamentos:'Agendamentos',cardapio:'Cardápio Digital',cozinha:'Monitor de Cozinha',produtos:'Produtos',insumos:'Insumos',associados:'Clientes',usuarios:'Colaboradores',relatorios:'Relatórios',
+const VIEW_LABELS = {caixa:'Caixa',cofre:'Cofre',balcao:'Ficha',comandas:'Comandas',delivery:'Delivery','fila-atendimento':'Fila de Atendimento',agendamentos:'Agendamentos',cardapio:'Cardápio Digital',cozinha:'Monitor de Cozinha',produtos:'Produtos',insumos:'Insumos',associados:'Clientes',usuarios:'Colaboradores',relatorios:'Relatórios',
   categorias:'Categorias',complementos:'Complementos e Tamanhos',observacoes:'Observações',perguntas:'Perguntas',fornecedores:'Fornecedores',pagamentos:'Formas de Pagamento',
   contascategorias:'Categorias de Contas',conferencia:'Conferência de pagamentos',contas:'Contas a Pagar/Receber',locais:'Locais e Áreas do Clube',impressoras:'Impressoras',estacoes:'Estações',origens:'Origens de Pedido','config-sistema':'Configurações do Sistema',backup:'Backup',logs:'Logs',
   'painel-senhas':'Painel de Senhas',ajuda:'Ajuda e Suporte',diagnostico:'Diagnóstico de Serviços',totem:'Totem de Autoatendimento',cupons:'Promoções e Cupons',modulos:'Central de Módulos','mobile-qr':'Acesso Mobile — Garçom'};
@@ -69,6 +69,8 @@ function updateShellGap(){
 }
 window.addEventListener('resize', ()=>{ if(currentUser) updateShellGap(); });
 // Nome no menu lateral das telas da área Principal (no ribbon eram rótulos de botão).
+// cofre (16/11): o item Cofre só aparece com o caixa por operador ligado (soModoCaixa).
+function itemEscondido(it){ return HIDDEN_MODULES.has(it.label) || (!!it.soModoCaixa && !((typeof modoCaixaPorOperador==='function' && modoCaixaPorOperador()) && ribbonItemAction(it, userPermissions(currentUser)).enabled)); }
 const SIDEBAR_LABELS = {caixa:'Caixa', comandas:'Comandas', balcao:'Ficha', delivery:'Delivery', cozinha:'Cozinha', associados:'Clientes'};
 // Visual A (22/10): o menu lateral mostra direto as telas da primeira área ("Principal": caixa,
 // comandas, balcão...) e, abaixo, as outras áreas; clicar numa área abre a faixa de atalhos dela.
@@ -76,7 +78,7 @@ function renderRibbonTabs(){
   const el = document.getElementById('ribbonTabs');
   const allowed = userPermissions(currentUser);
   const [home, ...areas] = visibleTabs;
-  const homeItems = home ? home.groups.flatMap(g=>g.items).filter(it=>!HIDDEN_MODULES.has(it.label)) : [];
+  const homeItems = home ? home.groups.flatMap(g=>g.items).filter(it=>!itemEscondido(it)) : [];
   const links = homeItems.map(it=>{
     const a = ribbonItemAction(it, allowed);
     const active = activeRibbonTab===home.id && it.view && it.view===activeView;
@@ -100,7 +102,7 @@ function renderRibbonToolbar(){
   el.parentElement.classList.toggle('is-empty', !tab || tab===visibleTabs[0]);
   if(!tab || tab===visibleTabs[0]){ el.innerHTML=''; updateShellGap(); return; }
   el.classList.toggle('reports-mode',tab.id==='relatorios');
-  const groups = tab.groups.map(g=>({...g, items:g.items.filter(it=>!HIDDEN_MODULES.has(it.label))})).filter(g=>g.items.length);
+  const groups = tab.groups.map(g=>({...g, items:g.items.filter(it=>!itemEscondido(it))})).filter(g=>g.items.length);
   el.innerHTML = groups.map(g=>`
     <div class="rb-group">
       <div class="rb-icons">${g.items.map(it=>{
@@ -367,6 +369,7 @@ function renderAll(){
   renderScoreboard();
   const allowed = userPermissions(currentUser);
   if(allowed.includes('caixa')){renderCaixa();enhanceCashMovementGrid();}
+  if(allowed.includes('cofre')&&activeView==='cofre') renderCofre(); // cofre (16/11)
   if(allowed.includes('balcao')) renderBalcao();
   if(allowed.includes('comandas')) renderComandas();
   if(allowed.includes('delivery')) renderDelivery();
@@ -433,7 +436,7 @@ function renderScoreboard(){
    configuração tinham o título de cinco jeitos (aba com borda, caixa pequena, h2 solto, cartão, ou
    nenhum). Telas sem o cabeçalho padrão recebem um igual, com o nome do menu; o título antigo some
    pelo CSS (.tela-com-cabecalho). As telas de operação (caixa, comandas, ficha...) ficam como estão. */
-const TELAS_SEM_CABECALHO = new Set(['caixa','comandas','balcao','delivery','cozinha','principal','totem','garcom']);
+const TELAS_SEM_CABECALHO = new Set(['caixa','cofre','comandas','balcao','delivery','cozinha','principal','totem','garcom']);
 function tituloDaTelaAtiva(){
   if(activeRibbonAction) return activeRibbonAction;
   const it = RIBBON_TABS.flatMap(t=>t.groups.flatMap(g=>g.items)).find(i=>i.view===activeView);
