@@ -193,6 +193,7 @@ begin
   if p_valor is null or p_valor <= 0 then
     raise exception 'valor invalido';
   end if;
+  p_valor := round(p_valor, 2); -- cofre (16/11): centavos exatos
   if p_origem is null or p_origem not in ('fim_da_noite', 'sangria', 'recolher_fechado') then
     raise exception 'origem invalida';
   end if;
@@ -264,6 +265,7 @@ begin
   if p_contado is null or p_contado < 0 then
     raise exception 'valor invalido';
   end if;
+  p_contado := round(p_contado, 2); -- cofre (16/11): centavos exatos
   perform public.cash_cofre_travar(v_tenant);
 
   select * into v_row from public.cash_cofre
@@ -313,6 +315,11 @@ begin
     raise exception 'caixa invalido';
   end if;
   if p_valor is null or p_valor <= 0 then
+    raise exception 'valor invalido';
+  end if;
+  -- cofre (16/11): centavos exatos, como o front (arredondaCentavos).
+  p_valor := round(p_valor, 2);
+  if p_valor <= 0 then
     raise exception 'valor invalido';
   end if;
   perform public.cash_cofre_travar(v_tenant);
@@ -381,6 +388,11 @@ begin
   if p_valor is null or p_valor <= 0 then
     raise exception 'valor invalido';
   end if;
+  -- cofre (16/11): centavos exatos, como o front (arredondaCentavos).
+  p_valor := round(p_valor, 2);
+  if p_valor <= 0 then
+    raise exception 'valor invalido';
+  end if;
   if v_motivo is null then
     raise exception 'motivo obrigatorio';
   end if;
@@ -410,6 +422,7 @@ begin
   if p_contado is null or p_contado < 0 then
     raise exception 'valor invalido';
   end if;
+  p_contado := round(p_contado, 2); -- cofre (16/11): centavos exatos
   perform public.cash_cofre_travar(v_tenant);
   v_esperado := public.cash_cofre_saldo(v_tenant);
   v_dif := public.cash_turno_dif(p_contado, v_esperado);
@@ -441,6 +454,11 @@ begin
     raise exception 'caixa invalido';
   end if;
   if p_valor is null or p_valor <= 0 then
+    raise exception 'valor invalido';
+  end if;
+  -- cofre (16/11): centavos exatos, como o front (arredondaCentavos).
+  p_valor := round(p_valor, 2);
+  if p_valor <= 0 then
     raise exception 'valor invalido';
   end if;
   perform public.cash_cofre_travar(v_tenant);
@@ -682,7 +700,7 @@ begin
   if jsonb_typeof(p_mov->'amount') is distinct from 'number' then
     raise exception 'valor invalido';
   end if;
-  v_amount := (p_mov->>'amount')::numeric;
+  v_amount := round((p_mov->>'amount')::numeric, 2); -- cofre (16/11): centavos exatos
   if v_amount <= 0 then
     raise exception 'valor invalido';
   end if;
@@ -744,7 +762,7 @@ begin
   end if;
 
   v_mov := jsonb_build_object(
-    'id', v_id, 'cashSessionId', p_turno_id, 'type', 'sangria', 'amount', p_mov->'amount',
+    'id', v_id, 'cashSessionId', p_turno_id, 'type', 'sangria', 'amount', to_jsonb(v_amount),
     'method', v_method, 'reason', v_desc, 'description', v_desc,
     'note', left(coalesce(p_mov->>'note', ''), 500),
     'operatorId', v_me, 'operatorName', coalesce(public.cash_turno_nome(v_tenant, v_me), ''), 'at', v_at);
@@ -875,6 +893,7 @@ grant execute on function public.cash_movements_apply(jsonb, jsonb) to authentic
 -- =====================================================================
 -- ROLLBACK
 -- =====================================================================
+-- ATENÇÃO: reverter o FRONT ANTES desta migration (o front novo depende de cash_turno_saida e cash_cofre_*).
 -- Recriar ANTES de dropar a tabela (as versões novas chamam cash_cofre_entrada):
 --   cash_movements_apply de 20261010010000_caixa_com_trava.sql;
 --   cash_turno_concluir_fechamento e cash_turno_fechar de 20261116000000_caixa_por_operador.sql.

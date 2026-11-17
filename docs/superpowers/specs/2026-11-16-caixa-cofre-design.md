@@ -145,3 +145,15 @@ destino do dinheiro que sai da gaveta: hoje a sangria e o fim da noite não têm
 - Nomes das RPCs e colunas, formato do extrato, como a sangria-RPC convive com `cashMovements` no blob (desde
   que gaveta e cofre gravem juntos no servidor).
 - Onde fica a tela Cofre no menu e o layout, seguindo o visual atual do Caixa.
+
+## Publicação
+
+Com o modo ligado, um aparelho com o front antigo que lançar "Saída do caixa" ou "Diária" pelo apply recebe exceção e a fila de lançamentos daquele aparelho trava (troco e estornos seguintes também falham, e os pendentes se perdem ao recarregar). Um admin em aparelho antigo que salvar Configurações apaga o `troco` de `settings.caixas`. Por isso a ordem abaixo é obrigatória (cofre, 16/11):
+
+1. Combinar com o dono: bar fechado e todos os caixas fechados (nenhum turno aberto ou travado).
+2. Aplicar a migration `20261121000000_caixa_cofre.sql` (só com "sim" do dono).
+3. Fazer o merge do PR (publica o front).
+4. Recarregar TODOS os aparelhos (caixas, celulares dos garçons, cozinha, notebook do admin), um após o outro, sem uso do sistema no meio.
+5. Só depois configurar o troco de cada caixa em Configurações › Geral › Caixa por operador.
+
+Rollback: reverter o front ANTES de reverter a migration (o front novo depende de `cash_turno_saida` e `cash_cofre_*`); depois seguir o bloco ROLLBACK da migration.

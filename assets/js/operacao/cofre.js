@@ -5,6 +5,7 @@
 let cofreDados = null;          // última leitura do servidor (cash_cofre_ler)
 let cofreResultado = null;      // resultado da última contagem: { esperado, contado, diferenca }
 let cofreCarregando = false;
+let cofreRedesenhar = false; // cofre (16/11): ação terminou durante uma leitura de fundo; refaz a leitura ao fim dela
 
 const COFRE_ORIGENS = {
   fim_da_noite:'Fim da noite', sangria:'Sangria', recolher_fechado:'Recolhido de caixa fechado',
@@ -52,7 +53,7 @@ async function renderCofre(){
   // Quem está digitando num campo da tela não perde o que escreveu por causa de um renderAll de fundo.
   const foco = document.activeElement;
   if(cofreDados && foco && el.contains(foco) && /^(INPUT|SELECT|TEXTAREA)$/.test(foco.tagName)) return;
-  if(cofreCarregando) return;
+  if(cofreCarregando){ cofreRedesenhar = true; return; }
   if(!isCloudMode() || !modoCaixaPorOperador()){ el.innerHTML = cofreCasca('<div class="cash-empty">O cofre precisa do caixa por operador ligado em Configurações.</div>'); return; }
   cofreCarregando = true;
   try{
@@ -61,6 +62,7 @@ async function renderCofre(){
     cofreDados = data;
   } finally { cofreCarregando = false; }
   cofreDesenhar();
+  if(cofreRedesenhar){ cofreRedesenhar = false; renderCofre(); }
 }
 function cofreCasca(corpo){
   return `<div class="consumer-workspace"><section class="cash-window"><header class="cash-title">Cofre</header>${corpo}</section></div>`;

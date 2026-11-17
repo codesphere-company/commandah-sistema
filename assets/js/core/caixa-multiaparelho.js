@@ -250,6 +250,9 @@ function aplicarTurnosNoEstado(lidos){
 async function lancarSaidaDoTurno(mov){
   if(!isCloudMode() || !state.cashSession){ toast('O caixa por operador precisa da conexão com o servidor.', 'error'); return false; }
   const cx = caixaQueVale();
+  // Espera a fila de lançamentos deste aparelho (troco, estorno ainda não enviados) antes do rpc e reaplica o
+  // que ainda restar pendente depois, para a lista do servidor não apagar lançamento local (cofre, 16/11).
+  await (saveQueues.cashMovements||Promise.resolve()).catch(()=>{});
   const { data, error } = await supabaseClient.rpc('cash_turno_saida', { p_caixa:cx, p_turno_id:state.cashSession.id, p_mov:mov });
   if(error || !data){
     const m = String((error && error.message) || '');
@@ -257,8 +260,11 @@ async function lancarSaidaDoTurno(mov){
     return false;
   }
   if(!data.ok){ await aplicarRespostaDoTurno(cx, data); return false; }
-  state.cashMovements = Array.isArray(data.movements) ? data.movements : state.cashMovements;
-  setCashMovementsBase(state.cashMovements);
+  if(Array.isArray(data.movements)){
+    const later = cashMovementsDiff(cashMovementsBase, state.cashMovements||[]);
+    setCashMovementsBase(data.movements);
+    state.cashMovements = applyCashMovementsDiffLocal(data.movements, later);
+  }
   return true;
 }
 // Polling do caixa por operador (sem realtime, decisão do plano): 5 s enquanto o turno deste aparelho
