@@ -44,8 +44,10 @@
 --   (cantina2:cashMovements, origin 'cofre' + cofreId) e a entrada a recolher no
 --   cofre juntas. Pix/cartão e pagamentos não vão ao cofre.
 -- * cash_movements_apply (caminho do site para os lançamentos), com o modo
---   ligado: lançamento do cofre não se altera nem se apaga, e sangria manual nova
---   passa por cash_turno_saida. Os automáticos (troco, fiado, parcial) seguem.
+--   ligado: lançamento do cofre não se altera nem se apaga; sangria nova só se
+--   for automática (troco, fiado-estorno, parcial-estorno, reabertura, sem
+--   categoria), o resto passa por cash_turno_saida; operador não lança "outro
+--   pagamento" nem altera uma saída já gravada.
 --
 -- RETESTE (bancada): node db/t-cofre.js
 -- =====================================================================
@@ -767,8 +769,9 @@ grant execute on function public.cash_turno_saida(text, text, jsonb) to authenti
 -- Copiado de 20261010010000_caixa_com_trava.sql; acrescenta a guarda do cofre (16/11), só com o
 -- caixa por operador ligado: lançamento do cofre (origin 'cofre') não se altera nem se apaga por
 -- aqui (reenviar igual passa: aparelho com a base atrasada), lançamento novo com origin 'cofre' é
--- recusado e sangria manual nova (sem origin) passa por cash_turno_saida. Os automáticos (troco,
--- fiado, parcial) têm origin e seguem por aqui. Desligado: sem mudança.
+-- recusado e sangria nova só entra se for automática (origin na lista branca, sem categoria); o
+-- resto passa por cash_turno_saida. Quem não é admin/dono não lança "outro pagamento" nem altera
+-- tipo/valor/forma/categoria/origem de uma saída já gravada. Desligado: sem mudança.
 create or replace function public.cash_movements_apply(p_upserts jsonb, p_delete_ids jsonb)
 returns jsonb
 language plpgsql
@@ -815,10 +818,35 @@ begin
                      and s.elem is distinct from u) then
       raise exception 'lancamento do cofre: nao pode ser alterado nem excluido no caixa';
     end if;
+    -- Revisão r1: "outro pagamento" é só de admin/dono, em lançamento novo ou editado.
+    if not public.is_admin_like()
+       and exists (select 1 from jsonb_array_elements(v_up) u where u->>'categoria' = 'outro') then
+      raise exception 'so administrador lanca outro pagamento';
+    end if;
+    -- Sangria nova só se for um dos automáticos que o site gera (origin na lista: troco
+    -- agendamento.js, fiado-estorno agendamento.js, parcial-estorno cozinha.js, reabertura
+    -- comandas.js) e sem categoria (sangria, funcionário, outro e diária vão por cash_turno_saida).
     if exists (select 1 from jsonb_array_elements(v_up) u
-                where u->>'type' = 'sangria' and coalesce(u->>'origin', '') = ''
+                where u->>'type' = 'sangria'
+                  and (coalesce(u->>'origin', '') not in ('troco', 'fiado-estorno', 'parcial-estorno', 'reabertura')
+                       or u ? 'categoria')
                   and not exists (select 1 from jsonb_array_elements(v_list) m where m->>'id' = u->>'id')) then
       raise exception 'use a saida do turno para lancar sangria';
+    end if;
+    -- Revisão r1: quem não é admin/dono não muda tipo, valor, forma, categoria nem origem de uma
+    -- saída já gravada (nem transforma um lançamento em saída). O site não edita lançamento de
+    -- operador (OP-17); os automáticos só são criados ou apagados.
+    if not public.is_admin_like()
+       and exists (select 1 from jsonb_array_elements(v_up) u
+                     join lateral (select m as elem from jsonb_array_elements(v_list) m
+                                    where m->>'id' = u->>'id' limit 1) s on true
+                    where (u->>'type' = 'sangria' or s.elem->>'type' = 'sangria')
+                      and (u->'type' is distinct from s.elem->'type'
+                           or u->'amount' is distinct from s.elem->'amount'
+                           or u->'method' is distinct from s.elem->'method'
+                           or u->'categoria' is distinct from s.elem->'categoria'
+                           or u->'origin' is distinct from s.elem->'origin')) then
+      raise exception 'so administrador altera saida do caixa';
     end if;
   end if;
 
