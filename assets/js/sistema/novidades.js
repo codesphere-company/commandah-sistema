@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-18-permissoes-rolagem', data:'18/11/2026', itens:[
+    { titulo:'Permissões do colaborador sem barra dupla',
+      texto:'A lista de permissões próprias do colaborador agora aparece inteira. Só a janela rola, sem uma segunda barra de rolagem dentro dela.',
+      onde:'Cadastros › Colaboradores › Acesso', perms:['usuarios'] },
+  ] },
   { id:'2026-11-16-cofre', data:'16/11/2026', itens:[
     { titulo:'Troco por caixa',
       texto:'Em Configurações › Geral › Caixa por operador, cada caixa tem o campo "Troco (R$)": o dinheiro que fica na gaveta de uma noite para a outra. O que passar do troco vai para o cofre.',
