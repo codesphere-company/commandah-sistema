@@ -10,6 +10,25 @@ function reportItemQty(i){ return i.weight?fmtKg(i.weight.kg):String(Number(i.qt
 function reportSaleWho(s){ const m=s.memberId?state.members.find(x=>x.id===s.memberId):null; return m?m.name:(s.customerName||'Avulso'); }
 function reportSalePayments(s){ return (s.payments||[]).map(p=>paymentMethodLabel(p.method)+' '+fmt(p.amount)).join(' + ')||'—'; }
 function salePayIsFiado(p){ return methodBucket(normalizarMetodo(p.method))==='fiado'; }
+// 20/11: o que entrou no período, usado pelo Resumo Financeiro e por Recebimentos. Vendas fechadas contam
+// pela data do pagamento, sem a parte deixada no fiado; o fiado pago entra pela data em que foi pago,
+// inclusive conta antiga. Estorno e "crédito de troco" (troco que virou saldo) ficam de fora. O fiado
+// descontado do salário vem marcado com salario:true, porque não entra dinheiro.
+function receiptEntries(from, to){
+  const dentro=d=>(!from||d>=from)&&(!to||d<=to), out=[];
+  state.sales.filter(s=>saleCountsAsRevenue(s)&&dentro(saleRevenueDay(s))).forEach(s=>(s.payments||[]).forEach(p=>{
+    const valor=Number(p.amount)||0; if(valor<=0||salePayIsFiado(p)) return;
+    const avulso=!['comanda','delivery','totem'].includes(s.type);
+    out.push({ kind:avulso?'avulso':'pedido', origem:typeLabel(s.type)||'Pedido', cliente:reportSaleWho(s), colaborador:s.operatorName||'—', codigo:String(s.orderNumber||s.id||'—'), forma:paymentMethodLabel(p.method), at:s.closedAt||s.openedAt, valor, caixa:s.cashSessionId||'—', salario:false });
+  }));
+  (state.members||[]).forEach(m=>(m.debtHistory||[]).forEach(e=>{
+    if(e.type!=='payment'||e.reversed||!reportValidDate(e.at)||/crédito de troco/i.test(e.reason||'')||!dentro(localDay(e.at))) return;
+    const valor=Number(e.value)||0; if(valor<=0) return;
+    const salario=e.method==='salario';
+    out.push({ kind:'fiado', origem:'Fiado', cliente:m.name||'—', colaborador:e.user||'—', codigo:'—', forma:salario?'Descontado do salário':paymentMethodLabel(e.method), at:e.at, valor, caixa:'—', salario });
+  }));
+  return out.sort((a,b)=>new Date(b.at)-new Date(a.at));
+}
 function reportItemDetails(i, sale){
   const c=i.customization||{}, linhas=customizationLines(i).slice(), obs=c.v===2?c.notes:(i.notes||c.notes);
   if(obs) linhas.push('Obs.: '+obs);
