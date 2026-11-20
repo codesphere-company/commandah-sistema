@@ -5,6 +5,20 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-20-relatorios-recebido', data:'20/11/2026', itens:[
+    { titulo:'Recebido sem o fiado em aberto',
+      texto:'O Resumo Financeiro e Recebimentos agora mostram só o dinheiro que entrou: o que foi pago na hora, mais o fiado pago, inclusive conta antiga. O que ficou no fiado entra quando o cliente pagar. O descontado do salário aparece à parte.',
+      onde:'Relatórios › Resumo Financeiro e Recebimentos', perms:['relatorios-gerencia'] },
+    { titulo:'Filtros de Recebimentos e do Resumo Financeiro funcionando',
+      texto:'Em Recebimentos, Todos, Fiado, Pedidos, Avulsos, o período e a busca por cliente ou colaborador agora filtram de verdade, com o total no fim. No Resumo Financeiro dá para escolher o mês, o ano e ver por mês.',
+      onde:'Relatórios › Recebimentos e Resumo Financeiro', perms:['relatorios-gerencia'] },
+    { titulo:'Ranking pelo garçom que atendeu',
+      texto:'O Ranking de Atendimentos conta cada pedido para quem lançou os itens, não para quem fechou no caixa. Quando dois atendem a mesma mesa, o valor é dividido pela parte de cada um.',
+      onde:'Relatórios › Ranking de Atendimentos', perms:['relatorios-gerencia'] },
+    { titulo:'Histórico de Pedidos pela data de fechamento',
+      texto:'O Histórico de Pedidos agora abre pela data de fechamento: um pedido aberto ontem e fechado hoje aparece em hoje. Dá para trocar para a data de abertura em Pesquisar.',
+      onde:'Relatórios › Histórico de Pedidos', perms:['relatorios-gerencia'] },
+  ] },
   { id:'2026-11-18-permissoes-rolagem', data:'18/11/2026', itens:[
     { titulo:'Permissões do colaborador sem barra dupla',
       texto:'A lista de permissões próprias do colaborador agora aparece inteira. Só a janela rola, sem uma segunda barra de rolagem dentro dela.',
