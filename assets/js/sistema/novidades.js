@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-20-credito-servico-parcial', data:'20/11/2026', itens:[
+    { titulo:'Comanda de sócio com crédito e serviço fecha certo depois do parcial',
+      texto:'Quando o sócio tinha crédito e a comanda tinha taxa de serviço, pagar em parcial o valor mostrado deixava alguns reais de serviço sobrando. Agora o parcial que cobre a conta zera a comanda, e o crédito usado nunca passa do saldo do sócio.',
+      onde:'Comandas › Pagamento e app do garçom', perms:['caixa','comandas'] },
+  ] },
   { id:'2026-11-20-relatorios-recebido', data:'20/11/2026', itens:[
     { titulo:'Recebido sem o fiado em aberto',
       texto:'O Resumo Financeiro e Recebimentos agora mostram só o dinheiro que entrou: o que foi pago na hora, mais o fiado pago, inclusive conta antiga. O que ficou no fiado entra quando o cliente pagar. O descontado do salário aparece à parte.',

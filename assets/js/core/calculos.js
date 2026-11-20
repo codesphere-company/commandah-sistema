@@ -21,13 +21,28 @@ function staffDiscountLabel(pct){ return 'Desconto colaborador ('+String(pct).re
 // descontoColaborador() % (padrão 20) sobre o consumo, sozinho, antes de cupom/crédito/serviço. Só vale
 // em comanda: quem calcula comanda passa applyStaffDiscount:true (padrão false). A dívida do colaborador
 // não entra no total (é descontada do salário, não cobrada na comanda).
+// Crédito do sócio usado na comanda (20/11, resto de 08/11). O parcial já pago inclui o serviço. Antes o
+// crédito era min(saldo, consumo - parcial) e o serviço caía sobre o resto, então um parcial que cobria a
+// conta mostrada (consumo - crédito + serviço) encolhia o crédito e sobrava serviço a pagar (100 de
+// consumo, 50 de crédito, 10%: paga 55 e ainda faltava 5,50). Agora é o menor valor, em centavos, que com
+// o serviço sobre o que sobra zera a conta junto com o parcial; nunca passa do saldo nem do consumo. Sem
+// parcial dá o mesmo de antes (min(saldo, consumo)).
+function creditoDaComanda(afterCoupon, partialPaid, available, applyService){
+  const teto = arredondaCentavos(Math.min(available, afterCoupon));
+  const rate = applyService ? serviceChargeAmount(1) : 0;
+  const falta = x => { const sobra = arredondaCentavos(afterCoupon - x); return arredondaCentavos(sobra + (applyService ? arredondaCentavos(serviceChargeAmount(sobra)) : 0) - partialPaid); };
+  let x = Math.min(teto, Math.max(0, arredondaCentavos(afterCoupon - partialPaid / (1 + rate))));
+  while(x < teto && falta(x) > 0.004) x = Math.min(teto, arredondaCentavos(x + 0.01));
+  while(x > 0.004 && falta(arredondaCentavos(x - 0.01)) <= 0.004) x = arredondaCentavos(x - 0.01);
+  return x;
+}
 function comandaTotals({ subtotal, discount = 0, partialPaid = 0, member = null, applyService = true, includeDebt = true, applyStaffDiscount = false }){
   const colaborador = applyStaffDiscount && memberIsColaborador(member);
   const staffDiscountPct = colaborador ? descontoColaborador() : 0;
   const staffDiscount = colaborador ? arredondaCentavos(subtotal * staffDiscountPct / 100) : 0;
   const afterCoupon = Math.max(0, subtotal - staffDiscount - discount);
   const available = memberAvailableCredit(member);
-  const creditApplied = available > TOLERANCIA_CENTAVO ? arredondaCentavos(Math.min(available, Math.max(0, afterCoupon - partialPaid))) : 0;
+  const creditApplied = available > TOLERANCIA_CENTAVO ? creditoDaComanda(afterCoupon, partialPaid, available, applyService) : 0;
   const afterCredit = Math.max(0, afterCoupon - creditApplied);
   const service = applyService ? arredondaCentavos(serviceChargeAmount(afterCredit)) : 0;
   const debt = includeDebt && !memberIsColaborador(member) ? memberDebtDue(member) : 0;
