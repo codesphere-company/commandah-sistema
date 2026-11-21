@@ -105,6 +105,7 @@ function situacaoEmissor(linha: LinhaEmissor | null) {
 }
 const SEM_EMISSOR = "Este estabelecimento ainda não tem emissor de NFC-e. O administrador cadastra o token da Brasil NFe em Configurações › NFC-e.";
 const FALHA_EMISSOR = "Não foi possível ler o emissor de NFC-e agora. Tente de novo em alguns segundos.";
+const FALHA_NOTAS = "Não foi possível consultar a NFC-e desta comanda agora. Feche e abra de novo em alguns segundos.";
 
 async function brasilNfe(token: string, path: string, body: unknown) {
   const res = await fetch(`${API}/${path}`, {
@@ -217,8 +218,15 @@ Deno.serve(comCors(async (req) => {
   if (!/^[A-Za-z0-9_-]{1,80}$/.test(saleId)) return json({ error: "Comanda inválida." }, 400);
 
   if (body.action === "consultar") {
-    const { data } = await admin.from("nfce_notas").select("*").eq("tenant_id", who.tenantId).eq("sale_id", saleId)
+    // 21/11: antes o erro da consulta era ignorado e a resposta vinha com lista vazia; a tela dizia
+    // "Nenhuma NFC-e emitida" para uma comanda com nota autorizada (pedido #68 do clube) e oferecia
+    // emitir de novo. Agora a falha volta como erro: a tela mostra o aviso e esconde o botão de emitir.
+    const { data, error } = await admin.from("nfce_notas").select("*").eq("tenant_id", who.tenantId).eq("sale_id", saleId)
       .order("created_at", { ascending: false }).limit(10);
+    if (error) {
+      console.error("[nfce] consultar:", error);
+      return json({ error: FALHA_NOTAS }, 503);
+    }
     return json({ notas: (data || []).map(publicRow) });
   }
   if (body.action === "cancelar") {
@@ -279,15 +287,19 @@ Deno.serve(comCors(async (req) => {
   if (!trava) return json({ error: "Outra NFC-e está sendo emitida agora. Tente de novo em alguns segundos." }, 503);
   try {
     // Já autorizada neste ambiente: devolve a mesma (clique duplo, nova tentativa depois de timeout).
-    const { data: jaTem } = await admin.from("nfce_notas").select("*").eq("tenant_id", who.tenantId).eq("sale_id", saleId)
+    // 21/11: erro nestas duas leituras não pode passar como "nada encontrado" (emitiria por cima ou
+    // reusaria o identificador de uma nota cancelada, o caso do t214). Para e pede nova tentativa.
+    const { data: jaTem, error: errJaTem } = await admin.from("nfce_notas").select("*").eq("tenant_id", who.tenantId).eq("sale_id", saleId)
       .eq("ambiente", ambiente).eq("status", "autorizada").maybeSingle();
+    if (errJaTem) { console.error("[nfce] emitir, leitura da autorizada:", errJaTem); return json({ error: FALHA_NOTAS }, 503); }
     if (jaTem) return json({ nota: publicRow(jaTem), repetida: true });
 
     // t214: depois de um cancelamento a Brasil NFe continua achando a nota antiga pelo identificador
     // (e diz que foi emitida). Com o mesmo identificador, a consulta abaixo regravava a nota cancelada
     // como autorizada, sem emitir. Cada cancelamento da comanda pede um identificador novo.
-    const { data: canceladas } = await admin.from("nfce_notas").select("chave").eq("tenant_id", who.tenantId).eq("sale_id", saleId)
+    const { data: canceladas, error: errCanc } = await admin.from("nfce_notas").select("chave").eq("tenant_id", who.tenantId).eq("sale_id", saleId)
       .eq("ambiente", ambiente).eq("status", "cancelada");
+    if (errCanc) { console.error("[nfce] emitir, leitura das canceladas:", errCanc); return json({ error: FALHA_NOTAS }, 503); }
     const chavesCanceladas = new Set((canceladas || []).map((c) => c.chave).filter(Boolean));
     const identificador = chavesCanceladas.size ? baseId + "-" + (chavesCanceladas.size + 1) : baseId;
 
