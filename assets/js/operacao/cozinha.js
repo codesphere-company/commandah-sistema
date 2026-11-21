@@ -175,7 +175,9 @@ function renderComandaPartials(saleId){
   const el = document.getElementById('comandaPartialWrap'); if(!el) return;
   const s = state.sales.find(x=>x.id===saleId); const list = (s&&s.partialPayments||[]).filter(p=>!p.reversed);
   if(!list.length){ el.innerHTML=''; return; }
-  const paid = comandaPartialPaid(s), due = Math.max(0, arredondaCentavos(saleTotal(currentSaleDraft.items)-paid));
+  // 21/11: "Falta" era itens − parcial, sem o crédito do sócio e o serviço; com crédito, a faixa
+  // dizia "Falta R$ 45" com o total da comanda em R$ 0. Agora é o total da tela sem a pendência anterior.
+  const paid = comandaPartialPaid(s), tt = gcComandaTotals({ ...s, items: currentSaleDraft.items }), due = Math.max(0, arredondaCentavos(tt.total - tt.debt));
   const admin = currentUser && (currentUser.role==='admin' || sessionIsOwner);
   el.innerHTML = `<div class="partial-box"><div class="partial-head"><span>Já pago (parcial): <b class="mono">${fmt(paid)}</b></span><span>Falta: <b class="mono">${fmt(due)}</b></span></div>${list.map(p=>`<div class="partial-line"><span>${comandaShortTime(p.at)} · ${h(paymentMethodLabel(p.method))}${p.who?' · '+h(p.who):''}</span><span class="mono">${fmt(p.amount)}${admin?` <button class="op-mini" title="Estornar este pagamento" onclick="reversePartialPayment(${jsArg(saleId)},${jsArg(p.id)})">↩</button>`:''}</span></div>`).join('')}</div>`;
 }

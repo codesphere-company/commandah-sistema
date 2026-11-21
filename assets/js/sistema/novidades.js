@@ -5,6 +5,14 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-21-falta-parcial', data:'21/11/2026', itens:[
+    { titulo:'"Falta" da comanda com parcial considera o crédito e o serviço',
+      texto:'Na faixa do pagamento parcial e na comanda impressa, o "Falta" contava só os itens menos o parcial. Com crédito do sócio ou taxa de serviço, mostrava um valor diferente do total da comanda. Agora é a mesma conta do total, e a comanda impressa mostra o crédito e o serviço.',
+      onde:'Comandas › Receber parcial e Imprimir', perms:['caixa','comandas'] },
+    { titulo:'Formas de Pagamento sem o salário na participação',
+      texto:'Em Recebimentos, aba Formas de Pagamento, o descontado do salário entrava na porcentagem de participação, mas não no total recebido. Agora a porcentagem é só do dinheiro que entrou, e o salário aparece como "não entra no caixa".',
+      onde:'Relatórios › Recebimentos', perms:['relatorios-gerencia'] },
+  ] },
   { id:'2026-11-20-credito-servico-parcial', data:'20/11/2026', itens:[
     { titulo:'Comanda de sócio com crédito e serviço fecha certo depois do parcial',
       texto:'Quando o sócio tinha crédito e a comanda tinha taxa de serviço, pagar em parcial o valor mostrado deixava alguns reais de serviço sobrando. Agora o parcial que cobre a conta zera a comanda, e o crédito usado nunca passa do saldo do sócio.',

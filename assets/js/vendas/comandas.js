@@ -666,7 +666,10 @@ function dadosComandaParaImprimir(saleId){
   const fonte = currentSaleDraft && currentSaleDraft.id===saleId ? currentSaleDraft.items : s.items;
   const items = (fonte||[]).filter(i=>!i.canceled);
   const total = saleTotal(items), parcial = comandaPartialPaid(s);
-  const payLines = ['Conta em aberto'].concat(parcial>TOLERANCIA_CENTAVO ? ['Ja pago (parcial): '+fmt(parcial), 'Falta: '+fmt(Math.max(0, total-parcial))] : []);
+  // 21/11: "Falta" usa a mesma conta da tela (crédito do sócio, serviço e desconto do colaborador).
+  const tt = gcComandaTotals({ ...s, items }), falta = Math.max(0, arredondaCentavos(tt.total - tt.debt));
+  const ajustes = [tt.staffDiscount>TOLERANCIA_CENTAVO ? 'Desconto colaborador: -'+fmt(tt.staffDiscount) : '', tt.creditApplied>TOLERANCIA_CENTAVO ? 'Credito do socio: -'+fmt(tt.creditApplied) : '', tt.service>TOLERANCIA_CENTAVO ? 'Servico: '+fmt(tt.service) : ''].filter(Boolean);
+  const payLines = ['Conta em aberto'].concat(ajustes, parcial>TOLERANCIA_CENTAVO ? ['Ja pago (parcial): '+fmt(parcial)] : [], parcial>TOLERANCIA_CENTAVO || ajustes.length ? ['Falta: '+fmt(falta)] : []);
   return { who: member ? member.name : (s.customerName||'Cliente avulso'), cota: member ? member.code : '', items, orderNumber: s.orderNumber, payLines };
 }
 function imprimirComandaCompleta(saleId){
