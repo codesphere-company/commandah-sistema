@@ -175,10 +175,17 @@ function openProductModal(id){
     const codeChanged = !p || String(p.code||'').toLowerCase()!==code.toLowerCase();
     const sameCode = code && codeChanged && state.products.find(x=>x.id!==(p&&p.id) && String(x.code||'').toLowerCase()===code.toLowerCase());
     if(sameCode){ toast('O código '+code+' já é do produto "'+sameCode.name+'". Use outro código ou deixe em branco.'); return; }
+    // 21/11: o Código PDV vai na NFC-e como código do produto. Em branco, ganha o próximo número livre;
+    // repetido (só quando novo ou trocado), recusa.
+    let pdvCode=document.getElementById('pCustomCode').value.trim();
+    const pdvChanged = !p || String(p.pdvCode||'').trim()!==pdvCode;
+    const samePdv = pdvCode && pdvChanged && state.products.find(x=>x.id!==(p&&p.id) && String(x.pdvCode||'').trim()===pdvCode);
+    if(samePdv){ toast('O código PDV '+pdvCode+' já é do produto "'+samePdv.name+'". Use outro ou deixe em branco para numerar sozinho.'); return; }
+    if(!pdvCode) pdvCode=nextPdvCode();
     const data = { code, image:window.productImageDraft||'', kind:document.getElementById('pKind').value, name, category:document.getElementById('pCat').value, price,
       measure:document.getElementById('pMeasure').value, minStock, sortOrder, active:document.getElementById('pActive').checked, recipe:tempRecipe.filter(r=>r.insumoId),
       manualCost:parseFloat(document.getElementById('pManualCost').value)||0, description:document.getElementById('pDescription').value.trim(),
-      pdvCode:document.getElementById('pCustomCode').value.trim(), noServiceFee:document.getElementById('pNoService').checked,
+      pdvCode, noServiceFee:document.getElementById('pNoService').checked,
       estacao:document.getElementById('pEstacao').value, askCopos:document.getElementById('pAskCopos').value, kitchenItem:document.getElementById('pEstacao').value==='cozinha', channels:{pdv:document.getElementById('pChPdv').checked,mobile:document.getElementById('pChMobile').checked,qr:document.getElementById('pChQr').checked,online:document.getElementById('pChOnline').checked},
       observationIds:[...document.querySelectorAll('.pObservation:checked')].map(x=>x.value) };
     // questionIds/complementIds/sizeIds (modelo antigo) ficam como estão no produto: não são mais editados aqui.

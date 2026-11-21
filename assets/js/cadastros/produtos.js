@@ -172,7 +172,9 @@ function exportProductsPackage(){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));a.download='pacote-produtos-'+todayStr()+'.ccprod';a.click();URL.revokeObjectURL(a.href);logAction('Pacote de produtos exportado (.ccprod)');
 }
 function refreshProductList(){productOptionsOpen=false;renderProdutos();toast('Lista de produtos atualizada.');}
-function duplicateSelectedProduct(){productOptionsOpen=false;const source=state.products.find(p=>p.id===selectedProductId);if(!source){toast('Selecione um produto para duplicar.');return;}const copy=JSON.parse(JSON.stringify(source));copy.id=uid();copy.code='';copy.pdvCode='';copy.name=source.name+' — Cópia';copy.sortOrder=state.products.length+1;state.products.push(copy);selectedProductId=copy.id;save('products');renderProdutos();toast('Produto duplicado. Revise o cadastro antes de utilizar.');logAction('Produto duplicado: '+source.name);}
+// 21/11: próximo Código PDV livre (maior número usado + 1). O Código PDV vai na NFC-e como código do produto.
+function nextPdvCode(){ const max=(state.products||[]).reduce((m,p)=>{ const n=/^\d+$/.test(String(p.pdvCode||'').trim())?Number(p.pdvCode):0; return n>m?n:m; },0); return String(max+1); }
+function duplicateSelectedProduct(){productOptionsOpen=false;const source=state.products.find(p=>p.id===selectedProductId);if(!source){toast('Selecione um produto para duplicar.');return;}const copy=JSON.parse(JSON.stringify(source));copy.id=uid();copy.code='';copy.pdvCode=nextPdvCode();copy.name=source.name+' — Cópia';copy.sortOrder=state.products.length+1;state.products.push(copy);selectedProductId=copy.id;save('products');renderProdutos();toast('Produto duplicado. Revise o cadastro antes de utilizar.');logAction('Produto duplicado: '+source.name);}
 function openProductOrderModal(){
   productOptionsOpen=false;
   const list=state.products.filter(p=>productKind(p)===produtosTab).sort((a,b)=>(Number(a.sortOrder)||0)-(Number(b.sortOrder)||0)||a.name.localeCompare(b.name,'pt-BR'));

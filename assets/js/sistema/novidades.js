@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-21-nfce-codigo-agrupar', data:'21/11/2026', itens:[
+    { titulo:'NFC-e com o código curto do produto e itens iguais juntos',
+      texto:'Na nota fiscal, o código do produto passou a ser o Código PDV do cadastro (por exemplo, 123), e não mais um código interno comprido. E o mesmo produto lançado várias vezes, pelo mesmo preço, sai numa linha só com a quantidade somada (8 x 3,00 em vez de 8 linhas). Produto sem Código PDV ganha o próximo número livre ao salvar.',
+      onde:'NFC-e e Produtos › Editar', perms:['produtos','caixa'] },
+  ] },
   { id:'2026-11-21-falta-parcial', data:'21/11/2026', itens:[
     { titulo:'"Falta" da comanda com parcial considera o crédito e o serviço',
       texto:'Na faixa do pagamento parcial e na comanda impressa, o "Falta" contava só os itens menos o parcial. Com crédito do sócio ou taxa de serviço, mostrava um valor diferente do total da comanda. Agora é a mesma conta do total, e a comanda impressa mostra o crédito e o serviço.',

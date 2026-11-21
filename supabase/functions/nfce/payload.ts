@@ -4,7 +4,7 @@
 // Formato: https://brasilnfe.com.br/api/nf-e-e-nfc-e (exemplos "nfce-simples" e "nfce-completa").
 
 export type Fiscal = { ncm?: string; cest?: string; cfop?: string; csosn?: string; origem?: string; status?: string };
-export type Product = { id: string; name?: string; code?: string; measure?: string; fiscal?: Fiscal | null };
+export type Product = { id: string; name?: string; code?: string; pdvCode?: string; measure?: string; fiscal?: Fiscal | null };
 export type SaleItem = { productId?: string; name?: string; qty?: number; price?: number; canceled?: boolean;
   // venda por peso, 05/11: peça pesada (qty 1, price = valor da peça já arredondado)
   weight?: { kg: number; pricePerKg: number } };
@@ -37,7 +37,17 @@ export function buildNfcePayload(sale: Sale, products: Product[], opts: { ambien
     return { payload: null, problems: ["A comanda precisa estar fechada (e não cancelada) para emitir a NFC-e."], total: 0 };
   }
   const byId = new Map(products.map((p) => [p.id, p]));
-  const itens = (sale.items || []).filter((i) => !i.canceled && Number(i.qty) > 0);
+  // 21/11 (pedido do dono): o mesmo produto lançado várias vezes, pelo mesmo preço e com o mesmo nome,
+  // vira uma linha só na nota com a quantidade somada (o cupom mostrava 8 linhas de "1 UN x 3,00").
+  // Venda por peso fica uma linha por peça (cada uma tem peso e valor próprios).
+  const grupos = new Map<string, SaleItem>();
+  for (const i of (sale.items || []).filter((i) => !i.canceled && Number(i.qty) > 0)) {
+    const key = i.weight ? "peso:" + grupos.size : [i.productId || "", cents(Number(i.price) || 0), String(i.name || "").trim()].join("|");
+    const g = grupos.get(key);
+    if (g) g.qty = Math.round(((Number(g.qty) || 0) + (Number(i.qty) || 0)) * 10000) / 10000;
+    else grupos.set(key, { ...i });
+  }
+  const itens = [...grupos.values()];
   if (!itens.length) problems.push("A comanda não tem itens.");
 
   const produtos = itens.map((i, idx) => {
@@ -56,7 +66,9 @@ export function buildNfcePayload(sale: Sale, products: Product[], opts: { ambien
     const qtd = w ? Number(w.kg) : Number(i.qty) || 0, unit = cents(Number(w ? w.pricePerKg : i.price) || 0);
     const item: Record<string, unknown> = {
       NmProduto: nome.slice(0, 120),
-      CodProdutoServico: String((p && (p.code && p.code !== "0" ? p.code : p.id)) || "ITEM" + (idx + 1)).slice(0, 60),
+      // 21/11: código curto do cadastro (Código PDV, ex. "123"); sem ele, o código personalizado;
+      // sem nenhum, o id interno (antes saía sempre o id, ex. "mvjkl5kd3cnfi").
+      CodProdutoServico: String((p && ([p.pdvCode, p.code].map((c) => String(c ?? "").trim()).find((c) => c && c !== "0") || p.id)) || "ITEM" + (idx + 1)).slice(0, 60),
       EAN: "SEM GTIN",
       NCM: ncm,
       Quantidade: qtd,
