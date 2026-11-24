@@ -43,6 +43,22 @@ O MCP do Supabase está sem token (OPS-14). **Desde 09/10 as migrations são apl
 - **Planilha** (`C:\Users\fabri\Documents\commandah\Dados fiscais - para o contador.xlsx`, salva pelo escritório em 24/11): sem código novo. A aba "Produtos_Ajustados" bate com o banco nos 504 produtos, exceto o CSOSN 101 (343 itens; fica 102, aceito em 11/11) e os 3 emprestados (ficam sem dados fiscais). "Observação do contador" segue vazia.
 - **Gravado em produção com "pode" do dono:** CEST apagado nos 218 produtos com CFOP 5101/5102 que tinham CEST (194 sorvetes e picolés 23.001.00, 18 de açougue e espetos crus, 7 vinhos, pão de alho, queijo coalho). Cópia em `app_data` `backup:cantina2:products:2026-11-24-cest`. Conferido: 572 produtos, 0 sem ST com CEST, 0 com CSOSN 500 sem CEST, 169 com CEST (eram 387), nenhum outro campo mudou.
 - **Fiscal ainda em aberto:** nota de teste de cada Pix; NCM do Jacobinho e do Kapo (nota de compra no dia 28/11); secret `NFCE_PRODUCAO=liberada` depois dos testes de Pix.
+- **Mensagem de resposta ao escritório redigida em 24/11** (o dono envia):
+
+  > Boa tarde! Obrigado pelo retorno.
+  >
+  > Já ajustamos o cadastro conforme a orientação de vocês:
+  > - O CEST ficou só nos produtos com substituição tributária (CFOP 5.405 / CSOSN 500). Tiramos dos produtos com CFOP 5.101 e 5.102, como sorvetes, carnes, vinhos e outros.
+  > - O CEST das bebidas foi mantido.
+  > - O PIS/COFINS segue com CST 49.
+  >
+  > Uma observação sobre a planilha: na aba "Produtos_Ajustados" ainda aparece CSOSN 101 em vários itens. Seguimos com o 102, como vocês já tinham confirmado.
+  >
+  > Ainda faltam o NCM do Jacobinho e do Kapo. Vamos mandar a nota de compra deles nos próximos dias.
+  >
+  > Quando sair a primeira NFC-e real pelo sistema novo, enviamos uma cópia para vocês conferirem.
+  >
+  > Obrigado!
 
 ### 21/11, noite — NFC-e do #68, decisões e roteiro do clube
 - **PR #322** (merge `fa17371`, sem mudança no site): `consultar` da função `nfce` devolvia lista vazia quando a leitura de `nfce_notas` falhava; agora volta 503 com aviso e o quadro esconde "Emitir". No `emitir`, as leituras da autorizada e das canceladas também param com 503. Função publicada do branch; conferido no site depois do deploy (o #68 mostra a nota 20). Detalhes na seção NFC-e mais abaixo.
