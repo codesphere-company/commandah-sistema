@@ -10,6 +10,11 @@ const NOVIDADES = [
       texto:'No menu lateral, WhatsApp mostra as conversas do número da lanchonete. Quando um cliente escreve, aparece um aviso com som em qualquer tela e um número no menu; Responder abre a conversa. Dá para responder em texto (Enter envia), usar as respostas prontas de chave Pix e horário da cozinha, ver foto e baixar PDF recebidos e ligar a conversa ao cadastro do cliente para ver a cota e a conta. Áudio continua só no celular.',
       onde:'Menu lateral › WhatsApp', perms:['whatsapp'] },
   ]},
+  { id:'2026-11-25-padrao-venda', data:'25/11/2026', itens:[
+    { titulo:'Botões de quantidade maiores na Ficha, nas comandas e no app do garçom',
+      texto:'Os botões de menos e mais da quantidade ficaram maiores (44 pixels), mais fáceis de acertar no tablet e no celular, e com ícones desenhados no lugar dos símbolos. As categorias da Ficha também cresceram um pouco. Nenhum passo da venda mudou.',
+      onde:'Ficha, Comandas e app do garçom' },
+  ]},
   { id:'2026-11-25-padrao-janelas', data:'25/11/2026', itens:[
     { titulo:'Salvar sempre à vista nas janelas de cadastro',
       texto:'Nas janelas de cadastro (produto, cliente, colaborador e as outras), o título e os botões Voltar e Salvar ficam fixos enquanto você rola o formulário. Antes, em telas mais baixas, o Salvar ficava escondido lá embaixo. A janela do colaborador também ficou do tamanho certo para os campos que tem.',

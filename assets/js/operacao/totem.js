@@ -24,7 +24,7 @@ function renderTotem(){
   const available=state.products.filter(p=>p.active!==false&&!hiddenInSelfService(p,state.complementos)&&(!p.channels||p.channels.online!==false)).sort((a,b)=>(Number(a.sortOrder)||0)-(Number(b.sortOrder)||0)),categories=[...new Set(available.map(p=>p.category||'Sem categoria'))];
   const draftMember = cardapioDraft.memberId ? state.members.find(m=>m.id===cardapioDraft.memberId) : null;
   el.innerHTML = `<div class="panel" style="max-width:920px;margin:0 auto">
-    <div style="display:flex;align-items:center;gap:12px"><h2 style="flex:1;text-align:center">Totem de autoatendimento</h2><button class="op-btn" onclick="toggleTotemFullscreen()">⛶ Tela cheia</button><button class="op-btn" onclick="clearSelfServiceDraft()">✕ Cancelar</button></div>
+    <div style="display:flex;align-items:center;gap:12px"><h2 style="flex:1;text-align:center">Totem de autoatendimento</h2><button class="op-btn" onclick="toggleTotemFullscreen()">⛶ Tela cheia</button><button class="op-btn" onclick="clearSelfServiceDraft()"><span class="b-ic" aria-hidden="true">${ICN.x}</span> Cancelar</button></div>
     <p class="sub" style="text-align:center">Toque no seu produto, informe sua cota e envie — o pedido já cai direto na cozinha.</p>
     <div class="grid2">
       <div class="field"><label>Sou associado — digite sua cota</label><input id="totCota" inputmode="numeric" autocomplete="off" placeholder="Número da cota" value="${h(draftMember&&draftMember.code||'')}"><p class="sub" id="totCotaInfo">${draftMember?'Olá, '+h(String(draftMember.name||'').split(' ')[0])+'!':'Deixe em branco se não for associado.'}</p></div>
