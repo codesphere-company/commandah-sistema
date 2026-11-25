@@ -20,7 +20,7 @@ Comanda/PDV de bares e lanchonetes. Primeiro cliente: a lanchonete do **Clube Ol
 
 - **Banco:** leitura livre (`npx supabase db query --remote --read-only ...`). Escrita, `migration repair`, deploy de função e secrets **só com o "sim" do dono no chat**, com `--yes`. Migration: `npx supabase db query --linked --yes -f <arquivo> < /dev/null` e depois `npx supabase migration repair --yes --status applied <versão> --linked`. Deploy: `npx supabase functions deploy <nome> --project-ref ezfoymdesmarpunmixbs --use-api --yes` (`whatsapp` com `--no-verify-jwt`).
 - **Merge na `main`:** o Claude mergeia pela conta `codesphere-company`, depois de perguntar. O check exigido é `syntax-check` (`node scripts/check-app.js` e `check-load-order.js`; `node scripts/bump-version.js` a cada mudança em `assets/`).
-- **Publicar em commandah.com.br:** hoje é manual (o Claude roda `wrangler deploy` com uma cópia limpa da `main`). Publicação automática a cada merge: em andamento (ver Pendências).
+- **Publicar em commandah.com.br:** automático a cada push na `main` (`.github/workflows/publicar-cloudflare.yml` + `wrangler.jsonc`, secret `CLOUDFLARE_API_TOKEN`). Na mão, mesmo resultado: `git archive origin/main | tar -x -C _site` na raiz e `npx wrangler deploy` (login do wrangler na conta Cloudflare do Fabricio).
 - **VPS:** chave SSH própria do Claude `~/.ssh/commandah_vps`. Nunca pedir a senha do root nem colar chaves no chat. Instalação e manutenção em `infra/evolution/README.md`.
 - **Bancada de testes:** `../auditoria-2026-11-03` (Playwright + `fakesupa` + Postgres local; `bash db/up.sh`). Outras sessões usam a mesma bancada (porta 54400, Postgres 54329): para rodar em paralelo, `BENCH_PG_PORT=54339 BENCH_PG_DATA=<pasta> FAKE_PORT=54500`. Login por PIN na bancada com `FAKE_STAFF_AUTH=1`.
 - **Fluxo:** brainstorming → spec (`docs/superpowers/specs/`) → plano (`docs/superpowers/plans/`) → execução com teste que falha primeiro → revisão final por outro agente → publicação com o "sim". Novidade em `assets/js/sistema/novidades.js` a cada publicação.
@@ -52,7 +52,7 @@ Comanda/PDV de bares e lanchonetes. Primeiro cliente: a lanchonete do **Clube Ol
 
 ## Pendências (em ordem)
 
-1. **Publicação automática** de commandah.com.br a cada merge na `main` (GitHub Action com chave do Cloudflare) e trocar o `CLAUDE.md` para o endereço novo.
+1. **Publicação automática:** workflow pronto; falta o dono criar o token do Cloudflare e gravar o secret `CLOUDFLARE_API_TOKEN` no GitHub.
 2. **WhatsApp etapa 3:** gerador de Pix copia e cola (BR Code) + QR e "Mandar conta" da comanda pelo WhatsApp. Depois a **etapa 4:** no fiado, a conta vai sozinha ao fechar (com a hora), aviso de "cota liberada" depois do pagamento e lista de "Não enviadas".
 3. **Sair do github.io:** redirecionar para `commandah.com.br` mantendo `downloads/` (o agente baixa de lá) e lançar o agente com a origem nova.
 4. **Clube, 28/11** (roteiro de 25 passos: https://claude.ai/artifact/DWwoRpDkE1zuUaZLPieM3C): recarregar aparelhos, agente 2.4.0 na Cozinha, Bematech, cupom no papel, caixa por operador com cofre, notas de teste com Pix e Pix CNPJ, PIN dos garçons, nota de compra do Jacobinho e do Kapo.
