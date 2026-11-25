@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 25/11/2026 (pedido do dono: "deixa apenas o link do commandah.com.br"): o endereço oficial é
+     https://commandah.com.br. Quem abrir o antigo (github.io) vai direto para lá. O GitHub Pages continua
+     no ar só para downloads/ (o agente de impressão instalado busca a atualização nesse endereço). -->
+<script>if(/\.github\.io$/i.test(location.hostname))location.replace('https://commandah.com.br/'+location.search+location.hash);</script>
 <!-- SEG-12 (auditoria 2026-10-07): o navegador só carrega código e só conversa com os endereços
      abaixo (Supabase, CDNs das bibliotecas, Google Fonts, captcha da Cloudflare e o agente de
      impressão local). 'unsafe-inline' continua porque o sistema inteiro é script inline; o SEG-02
