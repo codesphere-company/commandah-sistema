@@ -16,7 +16,8 @@
 /* UX-03: no PC do caixa (1366x768) a janela da comanda e a do delivery cabem na tela, com Pagamento/Salvar visíveis */
 .cash-order-modal{min-height:min(650px,calc(100dvh - 24px))!important}
 .delivery-modal{min-height:min(690px,calc(100dvh - 24px))!important}
-@media (max-height:800px){.op-window{min-height:min(520px,calc(100dvh - 182px + var(--shell-gap,0px)))}.rb-caption{display:none}}
+/* 25/11 (central de configurações): a legenda dos grupos da faixa voltou a aparecer até 800 px de altura (PC 1366x768). */
+@media (max-height:800px){.op-window{min-height:min(520px,calc(100dvh - 182px + var(--shell-gap,0px)))}}
 /* UX-05: ações perigosas separadas no fim do menu, cada uma com explicação */
 .pdv-options-danger{border-top:1px solid var(--c-border-strong);margin-top:8px;padding-top:8px}
 .pdv-options-inner .pdv-options-danger .danger{border:0;margin:0;padding:12px 8px;text-align:left;color:var(--c-danger)}
@@ -1072,3 +1073,42 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .dono-qr{display:flex;justify-content:center;margin:8px 0 12px}
 .dono-qr img,.dono-qr canvas{background:#fff;padding:8px;border-radius:var(--r-sm)}
 #donoMfaChave{font-family:var(--font-mono,monospace);word-break:break-all;background:var(--c-surface-3);padding:2px 6px;border-radius:6px}
+
+/* 25/11: central de configurações (sistema/central-config.js), proposta B aprovada pelo dono. Linhas de 68 px
+   com ícone, nome e descrição, em grupos. Dentro de um item, a faixa vira a barra .cc-barra (Voltar + itens do grupo). */
+.cc{max-width:1180px;margin:0 auto}
+.cc-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;margin-bottom:8px}
+.cc-head h1{margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em}
+.cc-busca{position:relative;display:block;width:min(340px,100%)}
+.cc-busca svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--c-text-3);pointer-events:none}
+#ccBusca{width:100%;min-height:44px;padding-left:40px}
+.cc-grupo{margin-top:22px}
+.cc-grupo h2{margin:0 0 8px;font-size:15px;font-weight:700;color:var(--c-text)}
+.cc-lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--r-md);overflow:hidden}
+.cc-item{display:flex;align-items:center;gap:14px;min-height:68px;padding:10px 16px;border:0;border-radius:0;box-shadow:1px 1px 0 var(--c-border);background:none;text-align:left;color:var(--c-text);cursor:pointer;font:inherit}
+.cc-item:hover{background:var(--c-surface-2)}
+.cc-item .ic{flex:0 0 40px;height:40px;border-radius:10px;background:var(--c-surface-3);display:flex;align-items:center;justify-content:center;color:var(--c-text-2)}
+.cc-item .ic svg{width:20px;height:20px;stroke:currentColor}
+.cc-item:hover .ic{background:var(--c-primary-soft);color:var(--c-primary-text)}
+.cc-item .tx{flex:1;min-width:0}
+.cc-item .t{display:block;font-size:14px;font-weight:600}
+.cc-item .d{display:block;font-size:13px;color:var(--c-text-3);line-height:1.35;margin-top:1px}
+.cc-item .go{display:flex;color:var(--c-text-3);flex-shrink:0}
+.cc-item .go svg{width:16px;height:16px}
+.cc-item .trava{font-size:12px;font-weight:600;color:var(--c-text-3);white-space:nowrap}
+.cc-item.disabled{opacity:.42;cursor:not-allowed}
+.cc-item.disabled:hover{background:none}
+.cc-item.disabled:hover .ic{background:var(--c-surface-3);color:var(--c-text-2)}
+.cc-vazio{padding:28px 0;color:var(--c-text-3)}
+.cc-barra{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;overflow-x:auto;scrollbar-width:thin}
+.cc-voltar{display:flex;align-items:center;gap:6px;min-height:44px;padding:0 14px 0 10px;border:1px solid var(--c-border-control);border-radius:var(--r-md);background:var(--c-surface);font-size:14px;font-weight:600;color:var(--c-text);flex-shrink:0;cursor:pointer}
+.cc-voltar svg{width:18px;height:18px}
+.cc-voltar:hover{border-color:var(--c-primary);color:var(--c-primary-text)}
+.cc-irmaos{display:flex;gap:4px;padding-left:12px;border-left:1px solid var(--c-border)}
+.cc-irmaos button{flex:0 0 auto;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border:0;border-radius:var(--r-md);background:none;font-size:13px;font-weight:500;color:var(--c-text-2);white-space:nowrap;cursor:pointer}
+.cc-irmaos button .ic{display:flex}
+.cc-irmaos button svg{width:18px;height:18px;stroke:currentColor}
+.cc-irmaos button:hover{background:var(--c-surface-3)}
+.cc-irmaos button.active{background:var(--c-primary-soft);color:var(--c-primary-text);font-weight:700}
+.cc-irmaos button.disabled{opacity:.42;cursor:not-allowed}
+@media(max-width:1100px){.cc-irmaos button .ic{display:none}.cc-irmaos button{padding:0 10px}}

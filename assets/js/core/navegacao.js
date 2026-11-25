@@ -4,7 +4,7 @@ let activeViewRibbonTab = null, viewHistory = [];
 let activeRibbonAction = '';
 const VIEW_LABELS = {caixa:'Caixa',cofre:'Cofre',balcao:'Ficha',comandas:'Comandas',delivery:'Delivery','fila-atendimento':'Fila de Atendimento',agendamentos:'Agendamentos',cardapio:'Cardápio Digital',cozinha:'Monitor de Cozinha',produtos:'Produtos',insumos:'Insumos',associados:'Clientes',usuarios:'Colaboradores',relatorios:'Relatórios',
   categorias:'Categorias',complementos:'Complementos e Tamanhos',observacoes:'Observações',perguntas:'Perguntas',fornecedores:'Fornecedores',pagamentos:'Formas de Pagamento',
-  contascategorias:'Categorias de Contas',conferencia:'Conferência de pagamentos',contas:'Contas a Pagar/Receber',locais:'Locais e Áreas do Clube',impressoras:'Impressoras',estacoes:'Estações',origens:'Origens de Pedido','config-sistema':'Configurações do Sistema',backup:'Backup',logs:'Logs',
+  contascategorias:'Categorias de Contas',conferencia:'Conferência de pagamentos',contas:'Contas a Pagar/Receber',locais:'Locais e Áreas do Clube',impressoras:'Impressoras',estacoes:'Estações',origens:'Origens de Pedido','config-sistema':'Configurações do Sistema','config-central':'Configurações',backup:'Backup',logs:'Logs',
   'painel-senhas':'Painel de Senhas',ajuda:'Ajuda e Suporte',diagnostico:'Diagnóstico de Serviços',totem:'Totem de Autoatendimento',cupons:'Promoções e Cupons',modulos:'Central de Módulos','mobile-qr':'Acesso Mobile — Garçom'};
 function buildNav(){
   const allowed = userPermissions(currentUser);
@@ -91,7 +91,10 @@ function renderRibbonTabs(){
   el.innerHTML = links + (areaLinks ? `<div class="sb-sep">Gestão</div>${areaLinks}` : '');
   // Trocar de área abre a primeira tela da faixa (pedido do dono, 22/10): antes só a faixa mudava e
   // a tela da área anterior continuava no meio.
-  el.onclick = (e)=>{ const btn=e.target.closest('button[data-tab]'); if(!btn) return; const mudou=activeRibbonTab!==btn.dataset.tab; activeRibbonTab=btn.dataset.tab; renderRibbonTabs(); renderRibbonToolbar();
+  el.onclick = (e)=>{ const btn=e.target.closest('button[data-tab]'); if(!btn) return;
+    // 25/11: Configurações abre sempre a central (também quando já se está dentro de um item da área).
+    if(visibleTabs.find(t=>t.id===btn.dataset.tab)?.central){ openConfigCentral(); return; }
+    const mudou=activeRibbonTab!==btn.dataset.tab; activeRibbonTab=btn.dataset.tab; renderRibbonTabs(); renderRibbonToolbar();
     if(mudou) document.querySelector('#ribbonToolbar button[data-abre]')?.click(); };
 }
 function renderRibbonToolbar(){
@@ -101,6 +104,15 @@ function renderRibbonToolbar(){
   // A primeira área não tem faixa: os atalhos dela já estão no menu lateral.
   el.parentElement.classList.toggle('is-empty', !tab || tab===visibleTabs[0]);
   if(!tab || tab===visibleTabs[0]){ el.innerHTML=''; updateShellGap(); return; }
+  // 25/11 (central de configurações, sistema/central-config.js): a área Configurações não tem faixa de
+  // atalhos. Na central a faixa some; dentro de um item vira a barra de Voltar com os itens do mesmo grupo.
+  if(tab.central){
+    const naCentral = activeView==='config-central';
+    el.parentElement.classList.toggle('is-empty', naCentral);
+    el.classList.remove('reports-mode','rb-compacta');
+    el.innerHTML = naCentral ? '' : barraCentralConfig(tab, allowed);
+    updateShellGap(); return;
+  }
   el.classList.toggle('reports-mode',tab.id==='relatorios');
   const groups = tab.groups.map(g=>({...g, items:g.items.filter(it=>!itemEscondido(it))})).filter(g=>g.items.length);
   el.innerHTML = groups.map(g=>`
@@ -395,6 +407,7 @@ function renderAll(){
   if(allowed.includes('origens')) renderOrigens();
   if(allowed.includes('contas') || (contasTab==='fiado' && allowed.includes('receber-fiado'))){ renderContas(); applyFiadoStatementSettings(); }
   if(allowed.includes('config-sistema')) renderConfigSistema();
+  renderCentralConfig(); // 25/11: só desenha com a central aberta; todo papel vê (itens sem permissão ficam apagados)
   if(allowed.includes('backup')){renderBackup();enhanceBackupActions();}
   if(allowed.includes('logs')) renderLogs();
   if(allowed.includes('painel-senhas')) renderPainelSenhas();

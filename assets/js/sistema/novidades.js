@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-central-configuracoes', data:'25/11/2026', itens:[
+    { titulo:'Configurações em uma página só, com busca',
+      texto:'Ao tocar em Configurações no menu lateral, abre uma página com todas as configurações em 5 grupos (Estabelecimento, Equipe e acesso, Áreas e impressão, Dados e registros, Plano e ajuda), cada uma com uma linha explicando o que faz. Use a busca para achar pelo nome. Dentro de uma configuração, a barra de cima tem o botão Voltar e as outras do mesmo grupo. A faixa de botões pequenos saiu.',
+      onde:'Configurações' },
+  ]},
   { id:'2026-11-25-whatsapp-conectar', data:'25/11/2026', itens:[
     { titulo:'WhatsApp da lanchonete no Commandah (plano Pro)',
       texto:'Em Configurações › WhatsApp, o administrador conecta o número separado da lanchonete lendo um QR com o celular, como no WhatsApp Web. A tela mostra se está conectado e com qual número. Use um número só da lanchonete, não o que os clientes já usam. As conversas, o aviso de mensagem nova e o envio da conta chegam nas próximas etapas.',

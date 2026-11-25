@@ -16,6 +16,12 @@ const STORE = {
 };
 const ICN = {
   // UX-10: ícones de traço novos (pagamento e itens do menu que repetiam desenho)
+  // 25/11 (central de configurações): escudo para Privacidade (LGPD), que repetia a chave de Alterar Minha Senha,
+  // lupa da busca e seta das linhas da central.
+  shield:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5.5c0 4.3 2.9 7.9 7 9.5 4.1-1.6 7-5.2 7-9.5V6z"/><path d="m9.5 12 1.8 1.8 3.4-3.6"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>',
+  chevRight:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>',
+  chevLeft:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>',
   alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg>',
   cash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6.5 9.5h.01M17.5 14.5h.01"/></svg>',
   pix:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 9-9 9-9-9z"/><path d="M8.5 12h7"/></svg>',
@@ -152,16 +158,40 @@ const RIBBON_TABS = [
       { label:'Ferramentas', items:[ {label:'Bina', icon:ICN.user, perm:'config-sistema', action:'toggleAppRibbonMenu', actionArg:'bina'}, {label:'Mapas', icon:ICN.map, perm:'config-sistema', action:'toggleAppRibbonMenu', actionArg:'maps'}, {label:'Painel de Senhas', icon:ICN.grid, view:'painel-senhas'}, {label:'Balança', icon:ICN.scale, perm:'config-sistema', action:'openScaleConfig'} ] },
       { label:'Módulos (Recursos Premium)', items:[ {label:'Mobile', icon:ICN.phone, view:'mobile-qr'}, {label:'Connect', icon:ICN.link, perm:'modulos', action:'openAppModuleConfig', actionArg:'Connect'}, {label:'Emissão Fiscal', icon:ICN.stamp, perm:'modulos', action:'openAppModuleConfig', actionArg:'Emissão Fiscal'}, {label:'TEF', icon:ICN.plug, perm:'modulos', action:'openAppModuleConfig', actionArg:'TEF'} ] }
   ]},
-  { id:'config', label:'Configurações', groups:[
-      { label:'Configurações', items:[
-          {label:'Configurações do Sistema', icon:ICN.gear, perm:'config-sistema', action:'openSystemSettings'}, {label:'Numeração de Pedidos', icon:ICN.hash, perm:'config-sistema', action:'openNumberingSettings'},
-          {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios'}, {label:'Alterar Minha Senha', icon:ICN.key, perm:'senha-propria', action:'openChangePinModal'}, {label:'Backup', icon:ICN.save, view:'backup'}, {label:'Privacidade (LGPD)', icon:ICN.key, perm:'config-sistema', action:'openPrivacySettings'}, {label:'NFC-e (nota fiscal)', icon:ICN.receipt, perm:'config-sistema', action:'openNfceSettings'},
-          {label:'WhatsApp', icon:ICN.bot, perm:'whatsapp', action:'openWhatsAppSettings'} /* 25/11: WhatsApp etapa 1 (Evolution, plano Pro) */
+  // 25/11 (dono aprovou a proposta B: "menu superior das configurações pequeno e desconexo"): a área abre a
+  // central de configurações (sistema/central-config.js) em vez da faixa. Os 20 itens foram reagrupados em
+  // 5 grupos; nomes e permissões ficaram iguais. `desc` aparece na central e entra na busca.
+  { id:'config', label:'Configurações', central:true, groups:[
+      { label:'Estabelecimento', items:[
+          {label:'Configurações do Sistema', icon:ICN.gear, perm:'config-sistema', action:'openSystemSettings', desc:'Dados da casa, cupom, horário da cozinha e versão.'},
+          {label:'Numeração de Pedidos', icon:ICN.hash, perm:'config-sistema', action:'openNumberingSettings', desc:'Número inicial e sequência dos pedidos.'},
+          {label:'NFC-e (nota fiscal)', icon:ICN.receipt, perm:'config-sistema', action:'openNfceSettings', desc:'Emissor, série e ambiente da nota fiscal.'},
+          {label:'WhatsApp', icon:ICN.bot, perm:'whatsapp', action:'openWhatsAppSettings', desc:'Conectar o número do estabelecimento.'} /* 25/11: WhatsApp etapa 1 (Evolution, plano Pro) */
       ]},
-      { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Quem Levou', icon:ICN.handoff, view:'quemlevou'}, {label:'Estações', icon:ICN.station, view:'estacoes'}, {label:'Origens de Pedido', icon:ICN.route, view:'origens'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },
-      { label:'Logs e Fila de Eventos', items:[ {label:'Logs', icon:ICN.scroll, perm:'logs', action:'openLogsView', actionArg:'Logs'}, {label:'Fila de Eventos', icon:ICN.inbox, perm:'logs', action:'openLogsView', actionArg:'Fila de Eventos'}, {label:'Erros do Sistema', icon:ICN.alert, perm:'logs', action:'openLogsView', actionArg:'Erros do Sistema'} ] },
-      { label:'Versão Premium', items:[ {label:'Minha Assinatura', icon:ICN.star, perm:'config-sistema', action:'openSubscriptionView'} ] },
-      { label:'Ajuda e Suporte', items:[ {label:'Ajuda e Suporte', icon:ICN.headset, view:'ajuda'}, {label:'Novidades', icon:ICN.megaphone, perm:'ajuda', action:'abrirNovidades'}, {label:'Diagnóstico de Serviços', icon:ICN.pulse, view:'diagnostico'} ] }
+      { label:'Equipe e acesso', items:[
+          {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios', desc:'Quem usa o sistema, PIN e permissões.'},
+          {label:'Alterar Minha Senha', icon:ICN.key, perm:'senha-propria', action:'openChangePinModal', desc:'Trocar o seu próprio PIN.'},
+          {label:'Privacidade (LGPD)', icon:ICN.shield, perm:'config-sistema', action:'openPrivacySettings', desc:'Dados pessoais de clientes e sócios.'}
+      ]},
+      { label:'Áreas e impressão', items:[
+          {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais', desc:'Churrasqueiras, mesas e áreas onde se entrega.'},
+          {label:'Quem Levou', icon:ICN.handoff, view:'quemlevou', desc:'Pessoas que levam os pedidos até o cliente.'},
+          {label:'Estações', icon:ICN.station, view:'estacoes', desc:'Bar, cozinha e outros pontos de preparo.'},
+          {label:'Origens de Pedido', icon:ICN.route, view:'origens', desc:'De onde vem cada pedido.'},
+          {label:'Impressoras', icon:ICN.printer, view:'impressoras', desc:'Impressoras do caixa, da cozinha e do bar.'}
+      ]},
+      { label:'Dados e registros', items:[
+          {label:'Backup', icon:ICN.save, view:'backup', desc:'Cópia de segurança dos dados.'},
+          {label:'Logs', icon:ICN.scroll, perm:'logs', action:'openLogsView', actionArg:'Logs', desc:'Quem fez o quê, e quando.'},
+          {label:'Fila de Eventos', icon:ICN.inbox, perm:'logs', action:'openLogsView', actionArg:'Fila de Eventos', desc:'Eventos aguardando envio.'},
+          {label:'Erros do Sistema', icon:ICN.alert, perm:'logs', action:'openLogsView', actionArg:'Erros do Sistema', desc:'Erros registrados nos aparelhos.'}
+      ]},
+      { label:'Plano e ajuda', items:[
+          {label:'Minha Assinatura', icon:ICN.star, perm:'config-sistema', action:'openSubscriptionView', desc:'Plano do Commandah.'},
+          {label:'Ajuda e Suporte', icon:ICN.headset, view:'ajuda', desc:'Tirar dúvidas e falar com o suporte.'},
+          {label:'Novidades', icon:ICN.megaphone, perm:'ajuda', action:'abrirNovidades', desc:'O que mudou nas últimas versões.'},
+          {label:'Diagnóstico de Serviços', icon:ICN.pulse, view:'diagnostico', desc:'Conferir se os serviços estão funcionando.'}
+      ]}
   ]}
 ];
 const SIMPLE_RIBBON_COZINHA = [
