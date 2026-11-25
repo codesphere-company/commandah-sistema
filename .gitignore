@@ -21,3 +21,4 @@ desktop.ini
 .env
 .env.*
 supabase/.env
+!infra/evolution/.env.example
