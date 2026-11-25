@@ -10,6 +10,11 @@ const NOVIDADES = [
       texto:'No menu lateral, WhatsApp mostra as conversas do número da lanchonete. Quando um cliente escreve, aparece um aviso com som em qualquer tela e um número no menu; Responder abre a conversa. Dá para responder em texto (Enter envia), usar as respostas prontas de chave Pix e horário da cozinha, ver foto e baixar PDF recebidos e ligar a conversa ao cadastro do cliente para ver a cota e a conta. Áudio continua só no celular.',
       onde:'Menu lateral › WhatsApp', perms:['whatsapp'] },
   ]},
+  { id:'2026-11-25-padrao-caixa', data:'25/11/2026', itens:[
+    { titulo:'Caixa mais fácil de ler',
+      texto:'O título do caixa mostra o selo "Aberto". Os valores da movimentação não quebram mais em duas linhas, e o Resumo traz cada valor alinhado à direita do nome. O botão Fechar Caixa ficou maior e, em telas menores, fica sempre à vista embaixo. Nenhum valor ou passo do caixa mudou.',
+      onde:'Caixa', perms:['caixa'] },
+  ]},
   { id:'2026-11-25-padrao-venda', data:'25/11/2026', itens:[
     { titulo:'Botões de quantidade maiores na Ficha, nas comandas e no app do garçom',
       texto:'Os botões de menos e mais da quantidade ficaram maiores (44 pixels), mais fáceis de acertar no tablet e no celular, e com ícones desenhados no lugar dos símbolos. As categorias da Ficha também cresceram um pouco. Nenhum passo da venda mudou.',
