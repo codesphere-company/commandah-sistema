@@ -67,14 +67,14 @@ function renderProductGradeCards(){
   const el = document.getElementById('pGradeCards'); if(!el||!productSizesDraft) return;
   const d = productSizesDraft, g = psdGrade();
   if(g){
-    el.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0">${(g.sizes||[]).map(s=>{
+    el.innerHTML = `<div class="tam-cards">${(g.sizes||[]).map(s=>{
       const e = d.sizes[s.id];
-      return `<div style="border:1px solid var(--c-border-strong,#c9d0d9);border-radius:6px;padding:8px 14px;min-width:120px;text-align:center;${e&&e.active===false?'opacity:.55':''}">
-        <b style="font-size:17px">${h(s.sigla||s.nome)}</b><div class="sub" style="margin:2px 0">${h(s.nome)}</div>
+      return `<div class="tam-card${e&&e.active===false?' tam-pausado':''}">
+        <b class="tam-card-sigla">${h(s.sigla||s.nome)}</b><div class="sub tam-card-nome">${h(s.nome)}</div>
         <button type="button" class="link-btn" onclick="openProductSizeTab(${jsArg(s.id)})">Configurar →</button></div>`;
     }).join('')}</div>`;
   } else {
-    el.innerHTML = `<div style="margin:6px 0"><button type="button" class="link-btn" onclick="openProductSizeTab()">Configurar opções do produto →</button></div>`;
+    el.innerHTML = `<div class="tam-link"><button type="button" class="link-btn" onclick="openProductSizeTab()">Configurar opções do produto →</button></div>`;
   }
 }
 function openProductSizeTab(sizeId){
@@ -120,20 +120,20 @@ function psdRulesHtml(target){
   const t = jsArg(target);
   const livres = (state.complementos||[]).filter(c=>c&&c.recordKind==='optionGroup'&&c.active!==false&&!rules.some(r=>r.groupId===c.id))
     .sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR'));
-  const num = (i,f,v)=>`<input type="number" min="0" step="1" style="width:60px" value="${h(v)}" onchange="setRuleField(${t},${i},'${f}',this.value)">`;
+  const num = (i,f,v)=>`<input type="number" min="0" step="1" class="tam-num" value="${h(v)}" onchange="setRuleField(${t},${i},'${f}',this.value)">`;
   return `${rules.map((r,i)=>{
     const g = psdGroup(r.groupId);
-    return `<div style="border:1px solid var(--c-border-strong,#c9d0d9);border-radius:6px;padding:10px;margin-top:10px">
-      <div style="display:flex;justify-content:space-between;gap:8px"><b>${g?h(g.nome):'(grupo removido)'}${g&&g.active===false?' <small>(pausado)</small>':''}</b>
+    return `<div class="tam-regra">
+      <div class="tam-regra-topo"><b>${g?h(g.nome):'(grupo removido)'}${g&&g.active===false?' <small>(pausado)</small>':''}</b>
         <span>${g?`<button type="button" class="link-btn" onclick="editRuleGroup(${jsArg(r.groupId)})"><span class="b-ic" aria-hidden="true">${ICN.pencil}</span> editar lista</button> `:''}<button type="button" class="link-btn" onclick="removeGroupRule(${t},${i})"><span class="b-ic" aria-hidden="true">${ICN.x}</span> remover</button></span></div>
-      <div class="row" style="align-items:flex-end;margin-top:6px">
+      <div class="row tam-regra-campos">
         <div class="field"><label>Mínimo</label>${num(i,'min',r.min)}</div>
         <div class="field"><label>Máximo</label>${num(i,'max',r.max)}</div>
         <div class="field"><label>Inclusos no preço</label>${num(i,'included',r.included)}</div></div>
-      ${g?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${(g.options||[]).map(o=>`<span class="tag tag-gray" style="${o.active===false?'opacity:.5':''}">${h(o.nome)}${Number(o.preco)?` <small>+ ${h(fmt(o.preco))}</small>`:''}</span>`).join('')}</div>`:''}
-      <p class="sub" style="margin:6px 0 0">Mínimo ou máximo 0 = sem limite (lança quantos precisar). Os inclusos já estão no preço; opção com preço só cobra o que passar dos inclusos.</p></div>`;
-  }).join('')||'<p class="empty" style="padding:10px">Nenhum grupo de opções ainda.</p>'}
-  <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
+      ${g?`<div class="tam-opcoes">${(g.options||[]).map(o=>`<span class="tag tag-gray${o.active===false?' tam-op-pausada':''}">${h(o.nome)}${Number(o.preco)?` <small>+ ${h(fmt(o.preco))}</small>`:''}</span>`).join('')}</div>`:''}
+      <p class="sub tam-nota">Mínimo ou máximo 0 = sem limite (lança quantos precisar). Os inclusos já estão no preço; opção com preço só cobra o que passar dos inclusos.</p></div>`;
+  }).join('')||'<p class="empty tam-vazio">Nenhum grupo de opções ainda.</p>'}
+  <div class="tam-acoes">
     <button type="button" class="op-btn primary" onclick="newGroupForProduct(${t})">+ Grupo de opções</button>
     ${livres.length?`<select id="pGroupPick-${h(target)}"><option value="">Usar grupo já cadastrado…</option>${livres.map(g=>`<option value="${h(g.id)}">${h(g.nome)}</option>`).join('')}</select><button type="button" class="op-btn" onclick="addGroupRule(${t})">Adicionar</button>`:''}
   </div>`;
@@ -224,32 +224,32 @@ function renderProductSizesPane(product){
   const e = d.sizes[d.sel], gs = (g.sizes||[]).find(s=>s.id===d.sel);
   const cards = (g.sizes||[]).map(s=>{
     const x = d.sizes[s.id], n = parseFloat(x.price), on = s.id===d.sel;
-    return `<div onclick="selectProductSize(${jsArg(s.id)})" style="cursor:pointer;border:${on?'2px solid var(--c-primary,#2f6fd6)':'1px solid var(--c-border-strong,#c9d0d9)'};border-radius:6px;padding:8px 10px;${x.active?'':'opacity:.55'}">
-      <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:18px">${h(s.sigla||s.nome)}</b>
+    return `<div onclick="selectProductSize(${jsArg(s.id)})" class="tam-sel${on?' tam-sel-on':''}${x.active?'':' tam-pausado'}">
+      <div class="tam-sel-topo"><b class="tam-sel-sigla">${h(s.sigla||s.nome)}</b>
         <input type="checkbox" title="Oferecer este tamanho" ${x.active?'checked':''} onclick="event.stopPropagation()" onchange="toggleSizeActive(${jsArg(s.id)},this.checked)"></div>
-      <div style="display:flex;justify-content:space-between;gap:8px;margin-top:4px"><span>${h(s.nome)}</span><span data-size-price="${h(s.id)}">${Number.isFinite(n)?h(fmt(n)):'—'}</span></div></div>`;
+      <div class="tam-sel-linha"><span>${h(s.nome)}</span><span data-size-price="${h(s.id)}">${Number.isFinite(n)?h(fmt(n)):'—'}</span></div></div>`;
   }).join('');
   const ch = e ? e.channels : {};
   const chk = (k,l)=>`<label><input type="checkbox" ${ch[k]?'checked':''} onchange="setSizeChannel('${k}',this.checked)"> ${l}</label>`;
   const custoFicha = e ? e.recipe.reduce((s,r)=>{const i=state.insumos.find(x=>x.id===r.insumoId);return s+(i?(Number(i.costPerUnit)||0)*(Number(r.qty)||0):0);},0) : 0;
   const painel = !e||!gs ? '' : `
-    <div style="flex:1;min-width:0">
-      <div class="row" style="align-items:flex-end">
+    <div class="tam-painel">
+      <div class="row tam-row-fim">
         <div class="field"><label>Tamanho</label><input value="${h(gs.nome+(gs.sigla?' ('+gs.sigla+')':''))}" disabled></div>
         <div class="field"><label>Preço de venda</label><input type="number" step="0.01" min="0" value="${h(e.price)}" onchange="setSizeField('price',this.value)"></div>
         <div class="field"><label>Custo</label><input type="number" step="0.01" min="0" value="${h(e.cost)}" placeholder="${h(fmt(custoFicha))}" onchange="setSizeField('cost',this.value)"></div></div>
       ${e.active?'':'<p class="sub">Tamanho desligado: não aparece na venda. Ligue a caixinha do cartão para oferecê-lo.</p>'}
-      <p style="font-size:12px;font-weight:700;margin:12px 0 6px">Disponível em</p>
+      <p class="tam-subtitulo">Disponível em</p>
       <div class="channel-checks">${chk('pdv','PDV Desktop')}${chk('mobile','Comanda Mobile')}${chk('qr','Cardápio Digital (cliente)')}${chk('online','Totem de Autoatendimento')}</div>
-      <p style="font-size:12px;font-weight:700;margin:12px 0 6px">Ficha técnica do tamanho</p>
+      <p class="tam-subtitulo">Ficha técnica do tamanho</p>
       ${e.recipe.map((r,idx)=>`<div class="recipe-row"><select onchange="setSizeRecipe(${idx},'insumoId',this.value)">${state.insumos.map(i=>`<option value="${h(i.id)}" ${r.insumoId===i.id?'selected':''}>${h(i.name)} (${h(i.unit)})</option>`).join('')}</select>
-        <input type="number" step="0.01" value="${h(r.qty)}" onchange="setSizeRecipe(${idx},'qty',this.value)"><button type="button" class="btn btn-sm btn-danger" onclick="removeSizeRecipeRow(${idx})">Remover</button></div>`).join('')||'<p class="empty" style="padding:6px 0">Sem insumos próprios neste tamanho.</p>'}
+        <input type="number" step="0.01" value="${h(r.qty)}" onchange="setSizeRecipe(${idx},'qty',this.value)"><button type="button" class="btn btn-sm btn-danger" onclick="removeSizeRecipeRow(${idx})">Remover</button></div>`).join('')||'<p class="empty tam-vazio-curto">Sem insumos próprios neste tamanho.</p>'}
       <button type="button" class="btn btn-sm" onclick="addSizeRecipeRow()">+ Adicionar insumo</button>
-      <p style="font-size:12px;font-weight:700;margin:14px 0 0">Grupos de opções deste tamanho</p>
+      <p class="tam-subtitulo tam-subtitulo-grupos">Grupos de opções deste tamanho</p>
       ${psdRulesHtml('size')}
       ${psdCopyHtml()}
     </div>`;
-  el.innerHTML = `<div style="display:flex;gap:14px"><div style="display:flex;flex-direction:column;gap:8px;width:170px;flex:none">${cards}</div>${painel}</div>`;
+  el.innerHTML = `<div class="tam-layout"><div class="tam-lista">${cards}</div>${painel}</div>`;
 }
 
 // ---------- copiar regras ----------
@@ -260,12 +260,12 @@ function psdCopyHtml(){
   const prods = productsUsingGradeSize(d.gradeId, d.sel).filter(p=>p.id!==d.productId);
   if(!outros.length && !prods.length) return '';
   const aberto = d.copyOpen;
-  return `<div class="btns" style="margin-top:10px"><button type="button" class="op-btn" onclick="toggleCopyPanel()">Copiar para…</button></div>
-    ${aberto?`<div style="border:1px dashed var(--c-border-strong,#9aa4b2);border-radius:6px;padding:10px;margin-top:8px">
-      <p class="sub" style="margin-top:0">Copia só as regras de grupo (não o preço) deste tamanho. Os outros produtos só são alterados quando você salvar este.</p>
-      ${outros.length?`<b style="font-size:12px">Outros tamanhos deste produto</b>${outros.map(s=>`<label class="item-line"><span>${h(s.nome)}</span><input type="checkbox" class="pCopySize" value="${h(s.id)}"></label>`).join('')}`:''}
-      ${prods.length?`<b style="font-size:12px">Mesmo tamanho em outros produtos da grade</b>${prods.map(p=>`<label class="item-line"><span>${h(p.name)}</span><input type="checkbox" class="pCopyProd" value="${h(p.id)}"></label>`).join('')}`:''}
-      <button type="button" class="op-btn primary" style="margin-top:8px" onclick="runCopyGroupRules()">Copiar</button></div>`:''}`;
+  return `<div class="btns tam-copiar-btns"><button type="button" class="op-btn" onclick="toggleCopyPanel()">Copiar para…</button></div>
+    ${aberto?`<div class="tam-copiar">
+      <p class="sub tam-copiar-nota">Copia só as regras de grupo (não o preço) deste tamanho. Os outros produtos só são alterados quando você salvar este.</p>
+      ${outros.length?`<b class="tam-copiar-titulo">Outros tamanhos deste produto</b>${outros.map(s=>`<label class="item-line"><span>${h(s.nome)}</span><input type="checkbox" class="pCopySize" value="${h(s.id)}"></label>`).join('')}`:''}
+      ${prods.length?`<b class="tam-copiar-titulo">Mesmo tamanho em outros produtos da grade</b>${prods.map(p=>`<label class="item-line"><span>${h(p.name)}</span><input type="checkbox" class="pCopyProd" value="${h(p.id)}"></label>`).join('')}`:''}
+      <button type="button" class="op-btn primary tam-copiar-ok" onclick="runCopyGroupRules()">Copiar</button></div>`:''}`;
 }
 function toggleCopyPanel(){ productSizesDraft.copyOpen = !productSizesDraft.copyOpen; renderProductSizesPane(); }
 function runCopyGroupRules(){
