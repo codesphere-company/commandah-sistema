@@ -297,3 +297,7 @@ body.tv-mode .kbtn-ready{width:110px!important;font-size:var(--fs-title)!importa
 :is(#app,#modalRoot) .cli-tabela{min-width:1200px}
 :is(#app,#modalRoot) .cli-span2{grid-column:span 2}
 :is(#app,#modalRoot) .cli-secao{font-size:13px;border-bottom:1px solid var(--c-border-strong);padding-bottom:8px}
+
+/* 25/11: administrador escolhe o caixa na tela do Caixa (operacao/caixa.js) */
+.cx-escolher-lista{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:14px 0}
+.cx-escolher{min-width:140px;min-height:48px}
