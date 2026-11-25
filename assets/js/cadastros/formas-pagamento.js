@@ -31,11 +31,11 @@ function renderPaymentMethods(el){
       <h3 id="formaGrupo_${g.chave}">${h(g.titulo)}</h3><p class="forma-grupo-sub">${h(g.sub)}</p>
       <div class="forma-botoes">${itens.map(f=>{
         const on = !!f[g.chave];
-        return `<div class="forma-botao ${on?'on':'off'}"><button type="button" class="forma-chip" data-method="${h(f.method)}" data-grupo="${g.chave}" aria-pressed="${on}" onclick="alternarForma(${jsArg(f.method)},${jsArg(g.chave)})" title="${on?'Clique para desligar':'Clique para ligar'}"><span class="forma-estado" aria-hidden="true">${on?'✓':'○'}</span><span class="forma-nome">${h(f.nome)}</span><small class="forma-situacao">${on?'Ligada':'Desligada'}</small></button><button type="button" class="forma-lapis" data-method="${h(f.method)}" onclick="abrirEdicaoForma(${jsArg(f.method)})" aria-label="Editar ${h(f.nome)}" title="Editar">✎</button></div>`;
+        return `<div class="forma-botao ${on?'on':'off'}"><button type="button" class="forma-chip" data-method="${h(f.method)}" data-grupo="${g.chave}" aria-pressed="${on}" onclick="alternarForma(${jsArg(f.method)},${jsArg(g.chave)})" title="${on?'Clique para desligar':'Clique para ligar'}"><span class="forma-estado" aria-hidden="true">${on?ICN.check:'<i class="forma-anel"></i>'}</span><span class="forma-nome">${h(f.nome)}</span><small class="forma-situacao">${on?'Ligada':'Desligada'}</small></button><button type="button" class="forma-lapis" data-method="${h(f.method)}" onclick="abrirEdicaoForma(${jsArg(f.method)})" aria-label="Editar ${h(f.nome)}" title="Editar"><span class="b-ic" aria-hidden="true">${ICN.pencil}</span></button></div>`;
       }).join('')}</div></section>`;
   };
   el.innerHTML = `<section class="finance-page formas-page">
-    <div class="finance-top"><span class="finance-title-tab" style="margin-left:0">Formas de Pagamento</span><div class="finance-actions"><button type="button" class="op-btn primary" id="formaNova" onclick="abrirEdicaoForma(null)">＋ &nbsp; Nova forma</button></div></div>
+    <div class="finance-top"><span class="finance-title-tab" style="margin-left:0">Formas de Pagamento</span><div class="finance-actions"><button type="button" class="op-btn primary" id="formaNova" onclick="abrirEdicaoForma(null)"><span class="b-ic" aria-hidden="true">${ICN.plus}</span> Nova forma</button></div></div>
     <div class="formas-corpo">
       <p class="formas-ajuda">${pode?'Clique numa forma para ligar ou desligar naquele grupo. O lápis abre a edição.':h(AVISO_SO_CONSULTA)}</p>
       ${FORMAS_GRUPOS.map(grupo).join('')}

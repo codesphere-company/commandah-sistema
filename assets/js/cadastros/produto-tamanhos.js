@@ -125,7 +125,7 @@ function psdRulesHtml(target){
     const g = psdGroup(r.groupId);
     return `<div style="border:1px solid var(--c-border-strong,#c9d0d9);border-radius:6px;padding:10px;margin-top:10px">
       <div style="display:flex;justify-content:space-between;gap:8px"><b>${g?h(g.nome):'(grupo removido)'}${g&&g.active===false?' <small>(pausado)</small>':''}</b>
-        <span>${g?`<button type="button" class="link-btn" onclick="editRuleGroup(${jsArg(r.groupId)})">✎ editar lista</button> `:''}<button type="button" class="link-btn" onclick="removeGroupRule(${t},${i})">✕ remover</button></span></div>
+        <span>${g?`<button type="button" class="link-btn" onclick="editRuleGroup(${jsArg(r.groupId)})"><span class="b-ic" aria-hidden="true">${ICN.pencil}</span> editar lista</button> `:''}<button type="button" class="link-btn" onclick="removeGroupRule(${t},${i})"><span class="b-ic" aria-hidden="true">${ICN.x}</span> remover</button></span></div>
       <div class="row" style="align-items:flex-end;margin-top:6px">
         <div class="field"><label>Mínimo</label>${num(i,'min',r.min)}</div>
         <div class="field"><label>Máximo</label>${num(i,'max',r.max)}</div>

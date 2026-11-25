@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-padrao-icones', data:'25/11/2026', itens:[
+    { titulo:'Ícones desenhados nos botões',
+      texto:'Os botões dos cadastros (Novo, Editar, Excluir, Imprimir, Duplicar, Exportar, Opções...) trocaram os símbolos de texto por ícones desenhados, iguais aos do menu lateral. Nada mudou no que cada botão faz.',
+      onde:'Cadastros' },
+  ]},
   { id:'2026-11-25-central-relatorios', data:'25/11/2026', itens:[
     { titulo:'Relatórios em uma página só, com busca',
       texto:'Ao tocar em Relatórios no menu lateral, abre uma página com os 20 relatórios em grupos (Vendas, Caixa, Auditoria, Financeiro, Estoque), cada um com uma linha dizendo o que mostra, igual à página de Configurações. Dentro de um relatório, a barra de cima tem o botão Voltar e os outros relatórios do mesmo grupo. A faixa de 4 linhas de botões pequenos saiu. Em Financeiro, os atalhos voltaram a aparecer grandes, com o nome do grupo.',
