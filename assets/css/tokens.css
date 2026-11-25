@@ -61,6 +61,9 @@
   --sh-3:0 16px 40px rgba(16,24,40,.16);
   --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-6:24px;
   --hit-touch:48px;
+  /* 25/11 (padrão, lote 2): altura mínima de tudo que se toca (botão, campo, aba) e dos botões que fecham
+     venda ou caixa (Cobrar, Confirmar pagamento, Fechar Caixa). */
+  --hit:44px; --hit-sale:56px;
 }
 html[data-theme="dark"]{
   color-scheme:dark;
