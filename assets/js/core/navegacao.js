@@ -461,7 +461,7 @@ function padronizarCabecalhoDaTela(){
   if(padrao){
     if(cab) cab.remove(); v.classList.remove('tela-com-cabecalho');
     // Algumas telas do padrão não tinham o × (Logs, Backup, Ajuda, Histórico do Caixa...): ganha o mesmo.
-    if(!padrao.querySelector('.op-controls')) padrao.insertAdjacentHTML('beforeend','<span class="op-controls"><button type="button" onclick="closeOperationalWindow()" aria-label="Fechar" title="Fechar">×</button></span>');
+    if(!padrao.querySelector('.op-controls')) padrao.insertAdjacentHTML('beforeend','<span class="op-controls"><button type="button" onclick="closeOperationalWindow()" aria-label="Fechar" title="Fechar">'+ICN.x+'</button></span>');
     return;
   }
   const antigo = v.querySelector('.finance-title-tab, .full-report-title, .report-window > .op-titlebar, .daily-summary-head h2, :scope > .panel > h2:first-child');
@@ -469,7 +469,7 @@ function padronizarCabecalhoDaTela(){
   if(!titulo) return;
   if(!cab){ cab = document.createElement('header'); cab.className = 'tela-cabecalho'; v.prepend(cab); }
   else if(cab !== v.firstElementChild) v.prepend(cab);
-  if(cab.dataset.t !== titulo){ cab.dataset.t = titulo; cab.innerHTML = `<h1>${h(titulo)}</h1><span class="op-controls"><button type="button" onclick="closeOperationalWindow()" aria-label="Fechar" title="Fechar">×</button></span>`; }
+  if(cab.dataset.t !== titulo){ cab.dataset.t = titulo; cab.innerHTML = `<h1>${h(titulo)}</h1><span class="op-controls"><button type="button" onclick="closeOperationalWindow()" aria-label="Fechar" title="Fechar">${ICN.x}</button></span>`; }
   if(!v.classList.contains('tela-com-cabecalho')) v.classList.add('tela-com-cabecalho');
 }
 (function(){

@@ -65,7 +65,7 @@ function openItemChoice(productId, channel, onDone){
   root.id = 'itemChoiceRoot';
   root.className = 'item-choice-backdrop';
   root.innerHTML = `<div class="item-choice-box" role="dialog" aria-modal="true" aria-labelledby="icTitle">
-    <header class="ic-head"><h3 id="icTitle">${h(product.name)}</h3><button type="button" class="ic-close" aria-label="Fechar" onclick="closeItemChoice()">&times;</button></header>
+    <header class="ic-head"><h3 id="icTitle">${h(product.name)}</h3><button type="button" class="ic-close" aria-label="Fechar" onclick="closeItemChoice()">${ICN.x}</button></header>
     <div class="ic-body">
       <div id="icChoices"></div>
       ${observations.length ? `<fieldset class="ic-section"><legend>Observações rápidas</legend>${observations.map(o => `<label class="ic-check"><input type="checkbox" class="ic-obs" value="${h(o.id)}"><span>${h(o.texto)}</span></label>`).join('')}</fieldset>` : ''}

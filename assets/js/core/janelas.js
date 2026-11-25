@@ -8,7 +8,7 @@ function openModal(title, bodyHtml, wide, locked=false){
   const pagandoAvulso = typeof _singleFlightBusy!=='undefined' && _singleFlightBusy.has('finalizeSale:balcao');
   if(!pagandoAvulso && root.dataset.avulsoPendente==='true' && typeof currentSaleDraft!=='undefined' && currentSaleDraft && currentSaleDraft.avulsoNp && !(currentSaleDraft.items||[]).some(i=>i.sent)) currentSaleDraft = null;
   delete root.dataset.avulsoPendente;
-  root.innerHTML = `<div class="modal-overlay" id="modalOverlay"><div class="modal${wide?' wide':''}"><button class="modal-close" id="modalCloseBtn" ${locked?'style="display:none"':''}>&times;</button><h3 class="modal-title">${h(title)}</h3>${bodyHtml}</div></div>`;
+  root.innerHTML = `<div class="modal-overlay" id="modalOverlay"><div class="modal${wide?' wide':''}"><button class="modal-close" id="modalCloseBtn" aria-label="Fechar" title="Fechar" ${locked?'style="display:none"':''}>${ICN.x}</button><h3 class="modal-title">${h(title)}</h3>${bodyHtml}</div></div>`;
   if(/Pergunta/i.test(title))root.querySelector('.modal').classList.add('question-record-modal');
   document.getElementById('modalCloseBtn').onclick = closeModal;
   document.getElementById('modalOverlay').addEventListener('click', e=>{ if(e.target.id==='modalOverlay') closeModal(); });}

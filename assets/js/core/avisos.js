@@ -236,7 +236,7 @@ function abrirLiberacaoDoDono(cx){
   const m = document.createElement('div');
   m.id = 'donoLiberaRoot'; m.dataset.pendencia = String(p.id);
   m.className = 'modal-overlay'; m.style.zIndex = '450';
-  m.innerHTML = '<div class="modal" role="dialog" aria-modal="true"><button class="modal-close" id="donoFechar" aria-label="Fechar">&times;</button>'
+  m.innerHTML = '<div class="modal" role="dialog" aria-modal="true"><button class="modal-close" id="donoFechar" aria-label="Fechar">'+ICN.x+'</button>'
     + '<h3 class="modal-title">Liberar '+h(nomeDoCaixa(cx))+'</h3>'
     + '<div class="cash-close-body"><p class="sub">'+(fechamento?'Fechamento':'Abertura')+' do turno de '+h(t.operatorName||'—')+'. A contagem não confere.</p>'
     + '<div class="cash-summary-line">Contou: <b>'+h(p.contouNome||'—')+'</b>'+(p.at?' às '+h(timeFmt(p.at)):'')+'</div>'

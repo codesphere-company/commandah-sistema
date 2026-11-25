@@ -16,7 +16,7 @@ async function abrirProdutosEmFalta(){
     : '<tr><td colspan="3" class="empty">Nenhum produto cadastrado.</td></tr>';
   openModal('Produtos em falta', `<div class="count-body">
     <p class="sub" style="margin:0">Acabou um produto? Desligue a chave e ele sai da Ficha, das comandas e do app do garçom. Ligue de novo quando voltar.</p>
-    <div class="count-top"><div class="op-search"><span>⌕</span><input id="pfSearch" placeholder="Pesquisar produto..." oninput="filtrarProdutosEmFalta(this.value)"></div></div>
+    <div class="count-top"><div class="op-search"><input id="pfSearch" placeholder="Pesquisar produto..." oninput="filtrarProdutosEmFalta(this.value)"></div></div>
     <div class="finance-grid count-grid"><table><thead><tr><th>Produto</th><th>Categoria</th><th>Situação</th></tr></thead><tbody id="pfRows">${linhas}</tbody></table></div>
     <div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 &nbsp; Voltar</button></div>
   </div>`, true);

@@ -101,7 +101,7 @@ function comandaPanelHtml(s){
   const t = gcComandaTotals(s);
   const meta = [s.orderNumber?'Pedido #'+s.orderNumber:'', 'aberta há '+fmtOpenDuration(kOrderAgeMin(s.openedAt)), s.operatorName||'', s.local||''].filter(Boolean);
   return `<aside class="comanda-panel" aria-label="Comanda selecionada" data-sale="${h(s.id)}">
-    <div class="cp-head"><span class="cp-num">${h(info.quota||(s.orderNumber?'#'+s.orderNumber:''))}</span><span class="cp-name">${h(info.person)}</span><button class="cp-close" type="button" onclick="fecharResumoComanda()" title="Fechar resumo" aria-label="Fechar resumo">×</button></div>
+    <div class="cp-head"><span class="cp-num">${h(info.quota||(s.orderNumber?'#'+s.orderNumber:''))}</span><span class="cp-name">${h(info.person)}</span><button class="cp-close" type="button" onclick="fecharResumoComanda()" title="Fechar resumo" aria-label="Fechar resumo">${ICN.x}</button></div>
     <div class="cp-meta">${meta.map(h).join(' · ')}</div>
     ${s.locked?`<span class="tag tag-red">Pedido bloqueado</span>`:''}
     <div class="cp-items">${grouped.length?grouped.map(g=>`<div class="cp-item"><span class="cp-qty">${g.weight?h(itemQtyLabel(g)):g.qty+'×'}</span><span class="cp-iname">${h(g.name)}</span><span class="mono">${fmt(g.price*g.qty)}</span></div>`).join(''):'<p class="cp-empty">Nenhum item lançado ainda.</p>'}</div>
