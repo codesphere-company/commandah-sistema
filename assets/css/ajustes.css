@@ -262,7 +262,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .view.active:has(>.workspace-gray){height:100%}
 .workspace-gray{margin:-24px -24px -44px;padding:0;height:calc(100% + 68px);min-height:0;max-width:none;background:var(--c-surface)}
 .workspace-gray>.op-window{width:100%;height:100%;min-height:0;margin:0;border:0;border-radius:0;box-shadow:none;background:var(--c-surface)}
-.workspace-gray>.op-window>.op-titlebar{height:auto;min-height:0;padding:18px 20px 6px;border-bottom:0;font-size:20px;font-weight:600;letter-spacing:-.01em}
+.workspace-gray>.op-window>.op-titlebar,.workspace-gray>.settings-window>.op-titlebar{height:auto;min-height:0;padding:18px 20px 6px;border-bottom:0;font-size:20px;font-weight:600;letter-spacing:-.01em} /* 25/11 (padrão, lote 5): Configurações junto (a regra estava repetida mais abaixo) */
 .workspace-gray>.op-window>.op-toolbar{flex-wrap:wrap;row-gap:8px;flex-shrink:0}.workspace-gray>.op-window>.op-tabs,.workspace-gray>.op-window>.op-titlebar{flex-shrink:0}
 @media(max-width:760px){.view.active:has(>.workspace-gray){height:auto}.workspace-gray{margin:-16px;height:auto}}
 /* Visual A, etapa 4 (22/10): app do garçom com topo claro, saudação e comandas em lista */
@@ -895,7 +895,6 @@ body.tv-mode .kfechada-faixa{font-size:22px}
 @media print{.tela-cabecalho .op-controls{display:none}}
 .tela-com-cabecalho .workspace-gray>section.record-modal>h3:first-child{display:none} /* Numeração de Pedidos: título repetido */
 .tela-com-cabecalho .full-report-head{justify-content:flex-end;gap:10px;height:auto;padding-top:0;padding-bottom:10px} /* botões Imprimir/Exportar à direita, como nas outras */
-.workspace-gray>.settings-window>.op-titlebar{height:auto;min-height:0;padding:18px 20px 6px;border-bottom:0;font-size:20px;font-weight:600;letter-spacing:-.01em} /* Configurações com o mesmo título das outras */
 
 /* 07/11: permissões próprias do colaborador (Editar colaborador › Acesso e Permissões). */
 .perm-proprias-lista{margin-top:8px;padding:4px 10px;border:1px solid var(--line,#ddd);border-radius:8px}
@@ -1161,3 +1160,11 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .mod-ic svg{width:28px;height:28px;stroke:currentColor}
 .ribbon-flyout .b-ic{margin-right:0}
 .pp-marca svg{width:14px;height:14px;display:block}
+
+/* 25/11 (padrão, lote 5): cabeçalho único de tela, como a central. O título e a barra de ferramentas viram um bloco
+   só (mesmo fundo, a busca alinhada com o título) e os relatórios param de repetir o título logo abaixo do cabeçalho
+   (o h2 de detReportHtml em gestao/relatorios-comum.js; o cabeçalho da tela já diz o nome). */
+.workspace-gray>.op-window>.op-toolbar{min-height:0;background:var(--c-surface);padding:8px 20px 14px;border-bottom:1px solid var(--c-border)}
+#view-relatorios .det-report-head h2{display:none}
+#view-relatorios .det-report-head{justify-content:flex-end}
+@media(max-width:760px){.workspace-gray>.op-window>.op-toolbar{padding:8px 16px 12px}}

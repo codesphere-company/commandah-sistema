@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-padrao-cabecalho', data:'25/11/2026', itens:[
+    { titulo:'Título e botões das telas num bloco só',
+      texto:'Nos cadastros, o título da tela e a barra com a busca e os botões passaram a formar um bloco só, com a busca alinhada ao título. Nos relatórios, o nome do relatório não aparece mais duas vezes.',
+      onde:'Cadastros e relatórios' },
+  ]},
   { id:'2026-11-25-padrao-icones-sistema', data:'25/11/2026', itens:[
     { titulo:'Ícones desenhados em Configurações e nos Módulos',
       texto:'O menu de Configurações do Sistema (Geral, Ajustes do Cupom, Horário da Cozinha, Sobre), as páginas dos Módulos e os menus de Apps e Marketing trocaram os símbolos e emojis por ícones desenhados, iguais aos do resto do sistema.',
