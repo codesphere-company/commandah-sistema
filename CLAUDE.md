@@ -5,7 +5,7 @@ Comanda/PDV de bares e lanchonetes, em produção. Estado atual e decisões: `do
 ## Stack
 - Front: HTML/CSS/JS puro, **sem build, sem npm**. Bibliotecas por CDN com versão fixa + SRI: supabase-js, qrcodejs, Turnstile. A SheetJS (xlsx) fica no próprio site, em `assets/vendor/` (versão no nome do arquivo, sem `?v=`).
 - Back: Supabase (Postgres + RLS + RPCs + Edge Functions em Deno/TS). Agente de impressão em C# (Windows).
-- Deploy: **GitHub Pages direto da `main`** (merge = produção na hora). Sem prévia de PR: a conta da Netlify foi apagada em 07/11/2026; o único endereço é `https://codesphere-company.github.io/commandah-sistema/`.
+- Deploy: **merge na `main` = produção na hora.** Endereço oficial `https://commandah.com.br` (Cloudflare Workers, publicado pelo workflow `publicar-cloudflare.yml` com `wrangler.jsonc`); o GitHub Pages (`https://codesphere-company.github.io/commandah-sistema/`) ainda publica junto até o redirecionamento. Sem prévia de PR.
 
 ## Comandos
 - Rodar local: `npx serve .` ou `python -m http.server` na raiz e abrir `http://localhost:<porta>/` (login real precisa do domínio publicado por causa do Turnstile).
@@ -13,7 +13,7 @@ Comanda/PDV de bares e lanchonetes, em produção. Estado atual e decisões: `do
 - Depois de mudar qualquer arquivo de `assets/js` ou `assets/css`: `node scripts/bump-version.js` (troca o `?v=`; o CI recusa o PR sem isso).
 - Não há testes automáticos nem lint. Mudança de tela: conferir no Chrome (captura) e na bancada local (`../auditoria-2026-11-03`) antes do merge, e no site oficial logo depois.
 - Migrations e Edge Functions: ver "Como o Claude trabalha aqui" em `docs/HANDOFF.md` (CLI do Supabase desta máquina).
-- Edge Functions só aceitam chamada de navegador vinda de `https://codesphere-company.github.io` (item 7, `_shared/cors.ts`). Para testar de outra origem (localhost, prévia, domínio novo), acrescente a origem no secret `ALLOWED_ORIGINS` (separado por vírgula, sem barra no fim).
+- Edge Functions só aceitam chamada de navegador vinda de `https://codesphere-company.github.io` (fixo em `_shared/cors.ts`) e das origens do secret `ALLOWED_ORIGINS` (hoje `https://commandah.com.br` e `www`). Para testar de outra origem (localhost, prévia), acrescente no secret (separado por vírgula, sem barra no fim).
 
 ## Mapa das pastas
 ```

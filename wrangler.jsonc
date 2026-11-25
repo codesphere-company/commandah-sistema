@@ -1,0 +1,12 @@
+// Site do Commandah em https://commandah.com.br (Cloudflare Workers, só arquivos estáticos; 25/11/2026).
+// Quem usa: .github/workflows/publicar-cloudflare.yml (monta a pasta _site com os arquivos versionados).
+{
+  "name": "commandah-sistema",
+  "compatibility_date": "2026-11-23",
+  "assets": { "directory": "./_site" },
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "commandah.com.br", "custom_domain": true },
+    { "pattern": "www.commandah.com.br", "custom_domain": true }
+  ]
+}
