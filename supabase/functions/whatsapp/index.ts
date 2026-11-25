@@ -171,7 +171,8 @@ async function conectar(tenantId: string) {
     });
     let qr = r.ok ? qrDe(r.body) : null;
     // Instância já existe na Evolution (conectou antes ou a tela foi aberta de novo): só pede QR novo.
-    if (!r.ok && (r.status === 403 || r.status === 409)) {
+    // A Evolution real (v2.3.8, conferido no VPS em 25/11) não devolve o QR no create: ele vem no connect.
+    if (!r.ok && (r.status === 403 || r.status === 409) || (r.ok && !qr)) {
       r = await evolution("GET", `/instance/connect/${nome}`);
       qr = r.ok ? qrDe(r.body) : null;
     }
