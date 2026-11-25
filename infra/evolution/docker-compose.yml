@@ -46,6 +46,7 @@ services:
       - "443:443"
     environment:
       DOMINIO: ${DOMINIO}
+      DOMINIO_ANTIGO: ${DOMINIO_ANTIGO:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

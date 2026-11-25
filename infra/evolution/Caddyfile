@@ -1,6 +1,7 @@
 # HTTPS automático (Let's Encrypt) para o endereço do servidor do WhatsApp.
 # O /manager (painel da Evolution) fica fechado para a internet: o Commandah só usa a API.
-{$DOMINIO} {
+# DOMINIO_ANTIGO (opcional): endereço anterior, atendido junto durante a troca (25/11: DuckDNS -> whats.commandah.com.br).
+{$DOMINIO} {$DOMINIO_ANTIGO} {
 	@manager path /manager*
 	respond @manager 404
 	reverse_proxy evolution:8080

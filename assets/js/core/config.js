@@ -132,7 +132,9 @@ const RIBBON_TABS = [
           // 08/11 (pedido do dono): caixa e cozinha pausam o produto que acabou sem abrir o cadastro.
           {label:'Produtos em falta', icon:ICN.box, perm:'pausar-produto', action:'abrirProdutosEmFalta'}
       ]},
-      { label:'Clientes', items:[ {label:'Clientes', icon:ICN.users, view:'associados'} ] }
+      { label:'Clientes', items:[ {label:'Clientes', icon:ICN.users, view:'associados'} ] },
+      // 25/11 (WhatsApp etapa 2): conversas do número da lanchonete (operacao/whatsapp.js). Some para quem não tem a permissão.
+      { label:'Atendimento', items:[ {label:'WhatsApp', icon:ICN.bot, view:'whatsapp', perm:'whatsapp', escondeSemPerm:true} ] }
   ]},
   { id:'produtos', label:'Produtos', groups:[
       { label:'Produtos', items:[ {label:'Produtos', icon:ICN.burger, view:'produtos'} ] },

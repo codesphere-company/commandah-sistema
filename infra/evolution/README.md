@@ -79,3 +79,14 @@ Configurações › WhatsApp › Conectar número, e ler o QR com o celular do *
 - Ver erros: `docker compose logs --tail 100 evolution`
 - Reiniciar: `docker compose restart evolution`
 - Não atualizar a imagem sem testar: a versão está fixada de propósito.
+- Mudou o `.env`? `docker compose up -d` recria só a Evolution (o celular continua conectado).
+
+### Limpar mensagens antigas (etapa 2)
+
+Desde a etapa 2 a Evolution guarda as mensagens (`DATABASE_SAVE_DATA_NEW_MESSAGE=true`) para o Commandah abrir
+foto e PDF. O Commandah apaga o histórico dele com mais de 90 dias sozinho; no servidor, rode uma vez por mês:
+
+```bash
+cd /opt/evolution
+docker compose exec postgres psql -U evolution -d evolution -c "delete from \"Message\" where \"messageTimestamp\" < extract(epoch from now() - interval '90 days');"
+```
