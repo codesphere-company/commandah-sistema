@@ -21,6 +21,8 @@
 // webhook messages.update   -> situação da mensagem enviada (entregue, lida, erro).
 // POST { action: "enviar_texto", jid, texto } -> manda pela Evolution e grava a saída com o nome de quem enviou
 // POST { action: "midia", evo_id }            -> { base64, mime } da foto/PDF (buscado na Evolution na hora)
+// Etapa 3: POST { action: "enviar_conta", jid, texto, brcode, qr_png, rodape, valor } -> manda a conta em ordem
+//          (texto, Pix copia e cola, QR, rodapé); { ok, enviadas }.
 // As duas ações: dono, admin e caixa, com plano Pro.
 import { createClient } from "npm:@supabase/supabase-js@2.117.0";
 import { comCors } from "../_shared/cors.ts";
@@ -219,6 +221,61 @@ async function enviarTexto(tenantId: string, nome: string, body: { jid?: unknown
   return json({ ok: true, mensagem: { evo_id: evoId, criada_em: quando } });
 }
 
+// ---------- Etapa 3: mandar a conta ----------
+// CRC16-CCITT do BR Code (o mesmo de assets/js/core/pix-brcode.js): só aceita Pix copia e cola íntegro.
+function pixCrc16(t: string): string {
+  let crc = 0xFFFF;
+  for (let i = 0; i < t.length; i++) {
+    crc ^= t.charCodeAt(i) << 8;
+    for (let b = 0; b < 8; b++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+  }
+  return crc.toString(16).toUpperCase().padStart(4, "0");
+}
+const pixValido = (s: string) => /^000201[\x20-\x7E]{20,480}6304[0-9A-F]{4}$/.test(s) && pixCrc16(s.slice(0, -4)) === s.slice(-4);
+const brl = (v: number) => "R$ " + v.toFixed(2).replace(".", ",");
+
+// Manda, em ordem: o texto da conta, o Pix copia e cola sozinho (fácil de copiar), o QR e o rodapé. Para no
+// primeiro envio que falhar (503 com quantas foram), para o cliente não receber metade fora de ordem.
+async function enviarConta(tenantId: string, nome: string, body: Record<string, unknown>) {
+  const jid = typeof body.jid === "string" ? body.jid : "";
+  const texto = typeof body.texto === "string" ? body.texto.trim() : "";
+  const rodape = typeof body.rodape === "string" ? body.rodape.trim() : "";
+  const brcode = typeof body.brcode === "string" ? body.brcode.trim() : "";
+  const qr = typeof body.qr_png === "string" ? body.qr_png.replace(/^data:image\/png;base64,/, "") : "";
+  const valor = Number(body.valor);
+  if (!individual(jid)) return json({ ok: false, erro: "Conversa inválida." }, 400);
+  if (!texto || texto.length > 4096 || rodape.length > 1000) return json({ ok: false, erro: "Texto da conta inválido." }, 400);
+  if (brcode && !pixValido(brcode)) return json({ ok: false, erro: "O Pix copia e cola não confere. Revise a chave, o nome e a cidade em Configurações." }, 400);
+  if (qr && (qr.length > 200000 || !/^[A-Za-z0-9+/=]+$/.test(qr))) return json({ ok: false, erro: "QR do Pix inválido." }, 400);
+  const passos: { tipo: "texto" | "imagem"; conteudo: string }[] = [{ tipo: "texto", conteudo: texto }];
+  if (brcode) passos.push({ tipo: "texto", conteudo: brcode });
+  if (qr) passos.push({ tipo: "imagem", conteudo: qr });
+  if (rodape) passos.push({ tipo: "texto", conteudo: rodape });
+  const nomeInst = encodeURIComponent(tenantId);
+  const legenda = "QR do Pix" + (Number.isFinite(valor) && valor > 0 ? " · " + brl(valor) : "");
+  let enviadas = 0;
+  for (const p of passos) {
+    let r;
+    try {
+      r = p.tipo === "texto"
+        ? await evolution("POST", `/message/sendText/${nomeInst}`, { number: jid, text: p.conteudo })
+        : await evolution("POST", `/message/sendMedia/${nomeInst}`, { number: jid, mediatype: "image", mimetype: "image/png", media: p.conteudo, fileName: "pix.png", caption: legenda });
+    } catch (e) {
+      console.error("[whatsapp] enviar_conta:", e);
+      return json({ ok: false, erro: FORA_DO_AR, enviadas }, 503);
+    }
+    const evoId = r.ok ? String(((r.body?.key as Item | undefined) || {}).id || "") : "";
+    if (!evoId) { console.error("[whatsapp] enviar_conta:", r.status); return json({ ok: false, erro: FORA_DO_AR, enviadas }, 503); }
+    await registrar(tenantId, {
+      jid, telefone: jid.endsWith("@lid") ? null : telefoneDe(jid), nome: null, evoId, direcao: "saida",
+      tipo: p.tipo, texto: p.tipo === "texto" ? p.conteudo : legenda, arquivo: null, mime: p.tipo === "imagem" ? "image/png" : null,
+      enviadaPor: nome, quando: new Date().toISOString(),
+    });
+    enviadas++;
+  }
+  return json({ ok: true, enviadas });
+}
+
 async function midia(tenantId: string, body: { evo_id?: unknown }) {
   const evoId = typeof body.evo_id === "string" ? body.evo_id : "";
   if (!evoId) return json({ ok: false, erro: "Mensagem não encontrada." }, 404);
@@ -351,8 +408,9 @@ Deno.serve(comCors(async (req) => {
     let body: { action?: string; jid?: unknown; texto?: unknown; evo_id?: unknown } = {};
     try { body = await req.json(); } catch { /* corpo vazio */ }
     if (body.action === "situacao") return await situacao(quem.tenantId, quem.isAdmin);
-    if (body.action === "enviar_texto" || body.action === "midia") {
+    if (body.action === "enviar_texto" || body.action === "midia" || body.action === "enviar_conta") {
       if (!(await planoPro(quem.tenantId))) return json({ ok: false, erro: "Plano Pro" }, 402);
+      if (body.action === "enviar_conta") return await enviarConta(quem.tenantId, quem.nome, body as Record<string, unknown>);
       return body.action === "enviar_texto" ? await enviarTexto(quem.tenantId, quem.nome, body) : await midia(quem.tenantId, body);
     }
     if (body.action === "conectar" || body.action === "desconectar") {

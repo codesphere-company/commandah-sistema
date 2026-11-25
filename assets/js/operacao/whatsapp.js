@@ -16,7 +16,7 @@ const WA_FALHA = 'Não foi possível falar com o WhatsApp agora. Tente de novo e
 async function waInvocar(body){
   try {
     const r = await supabaseClient.functions.invoke('whatsapp', { body });
-    if(r.error){ let c=null; try { c = await r.error.context.json(); } catch(e){ /* sem corpo */ } return { ok:false, erro:(c&&c.erro)||WA_FALHA }; }
+    if(r.error){ let c=null; try { c = await r.error.context.json(); } catch(e){ /* sem corpo */ } return { ...(c && typeof c==='object' ? c : {}), ok:false, erro:(c&&c.erro)||WA_FALHA }; } // etapa 3: mantém o 'enviadas' do erro
     return r.data || { ok:false, erro:WA_FALHA };
   } catch(e){ return { ok:false, erro:WA_FALHA }; }
 }
@@ -41,7 +41,8 @@ async function waTickAvisos(){
   const p = await waPlano(); if(!p.pro) return;
   const { data, error } = await supabaseClient.from('whatsapp_conversas')
     .select('jid,nome_contato,telefone,nao_lidas,ultima_em,ultima_texto,ultima_direcao').gt('nao_lidas', 0).limit(100);
-  if(error || !Array.isArray(data)) return;
+  // Etapa 3 (t75): a pessoa pode ter saído do sistema enquanto a consulta voltava.
+  if(error || !Array.isArray(data) || !currentUser) return;
   const total = data.reduce((s,c)=>s+(Number(c.nao_lidas)||0), 0);
   const maior = data.reduce((m,c)=>Math.max(m, waMs(c.ultima_em)), 0);
   const naTela = activeView==='whatsapp' && !document.hidden;
@@ -124,7 +125,7 @@ async function waEntrar(){
   v.innerHTML = `<div class="wa-tela">
     <aside class="wa-lista" aria-label="Conversas">
       <input id="waPesquisa" type="search" placeholder="Pesquisar conversa" aria-label="Pesquisar conversa" oninput="waBuscaTxt=this.value;waDesenharLista()">
-      <div class="wa-filtros" role="group" aria-label="Filtro"><button type="button" class="wa-filtro ativo" data-f="todas" onclick="waTrocarFiltro('todas')">Todas</button><button type="button" class="wa-filtro" data-f="nao" onclick="waTrocarFiltro('nao')">Não lidas</button></div>
+      <div class="wa-filtros" role="group" aria-label="Filtro"><button type="button" class="wa-filtro ativo" data-f="todas" onclick="waTrocarFiltro('todas')">Todas</button><button type="button" class="wa-filtro" data-f="nao" onclick="waTrocarFiltro('nao')">Não lidas</button><button type="button" class="wa-filtro" data-f="conta" onclick="waTrocarFiltro('conta')">Conta enviada</button></div>
       <div class="wa-conversas"></div>
     </aside>
     <section class="wa-chat-area" aria-label="Conversa">
@@ -226,10 +227,12 @@ function waDia(iso){
   if(d.toDateString()===ontem.toDateString()) return 'Ontem';
   return d.toLocaleDateString('pt-BR');
 }
+// Etapa 3: conversa de cliente com comanda aberta e conta enviada (aguardando o Pix).
+function waContaEnviada(c){ return !!(c && c.member_id && (state.sales||[]).some(s=>s.status==='open' && s.memberId===c.member_id && s.contaEnviada)); }
 function waDesenharLista(){
   const box = document.querySelector('#view-whatsapp .wa-conversas'); if(!box) return;
   const termo = waBuscaTxt.trim().toLowerCase();
-  const lista = waConvs.filter(c=>(waFiltro!=='nao' || c.nao_lidas>0) && (!termo || waNomeConversa(c).toLowerCase().includes(termo) || String(c.telefone||'').includes(termo.replace(/\D/g,'')||'§')));
+  const lista = waConvs.filter(c=>(waFiltro!=='nao' || c.nao_lidas>0) && (waFiltro!=='conta' || waContaEnviada(c)) && (!termo || waNomeConversa(c).toLowerCase().includes(termo) || String(c.telefone||'').includes(termo.replace(/\D/g,'')||'§')));
   if(!lista.length){ box.innerHTML = `<p class="sub wa-vazio">${waCarregou ? (waConvs.length ? 'Nenhuma conversa com esse filtro.' : 'Nenhuma conversa ainda. Quando um cliente mandar mensagem, ela aparece aqui.') : 'Carregando…'}</p>`; return; }
   box.innerHTML = lista.map(c=>`<button type="button" class="wa-conversa ${c.jid===waAberta?'ativa':''} ${c.nao_lidas>0?'nao-lida':''}" onclick="waAbrirConversa(${jsArg(c.jid)})">
       <span class="wa-conv-topo"><b>${h(waNomeConversa(c))}</b><small>${h(c.ultima_em ? (waDia(c.ultima_em)==='Hoje' ? waHora(c.ultima_em) : waDia(c.ultima_em)) : '')}</small></span>
@@ -290,11 +293,13 @@ function waDesenharCliente(){
   if(m){
     const aberta = (state.sales||[]).find(s=>s.status==='open' && s.memberId===m.id);
     const deve = Math.max(0, Number(m.debt)||0);
-    if(box.dataset.membro===m.id+'|'+(aberta?aberta.id:'')+'|'+deve) return;
-    box.dataset.membro = m.id+'|'+(aberta?aberta.id:'')+'|'+deve;
+    const chave = m.id+'|'+(aberta?aberta.id+(aberta.contaEnviada?'e':''):'')+'|'+deve;
+    if(box.dataset.membro===chave) return;
+    box.dataset.membro = chave;
     box.innerHTML = `<h4>Cliente</h4><p class="wa-cli-nome">${m.code?`<span class="tag tag-gray">Cota ${h(m.code)}</span> `:''}<b>${h(m.name)}</b></p>
-      <p class="sub">${aberta ? 'Comanda aberta' : 'Sem comanda aberta'}</p>
+      <p class="sub">${aberta ? 'Comanda aberta' + (aberta.orderNumber ? ' #' + h(aberta.orderNumber) : '') : 'Sem comanda aberta'}</p>${aberta && typeof contaEnviadaSelo==='function' ? contaEnviadaSelo(aberta) : ''}
       <p class="sub">${deve>TOLERANCIA_CENTAVO ? 'Deve ' + h(fmt(deve)) : 'Sem saldo devedor'}</p>
+      ${aberta && typeof contaWhatsappPode==='function' && contaWhatsappPode(aberta) ? `<button type="button" class="op-btn primary wa-mandar-conta" onclick="abrirMandarConta(${jsArg(aberta.id)})">Mandar conta com Pix</button>` : ''}
       <button type="button" class="op-btn" onclick="waVincular(null)">Trocar cliente</button>`;
     return;
   }
