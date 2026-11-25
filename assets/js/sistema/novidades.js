@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-central-relatorios', data:'25/11/2026', itens:[
+    { titulo:'Relatórios em uma página só, com busca',
+      texto:'Ao tocar em Relatórios no menu lateral, abre uma página com os 20 relatórios em grupos (Vendas, Caixa, Auditoria, Financeiro, Estoque), cada um com uma linha dizendo o que mostra, igual à página de Configurações. Dentro de um relatório, a barra de cima tem o botão Voltar e os outros relatórios do mesmo grupo. A faixa de 4 linhas de botões pequenos saiu. Em Financeiro, os atalhos voltaram a aparecer grandes, com o nome do grupo.',
+      onde:'Relatórios e Financeiro', perms:['relatorios','relatorios-gerencia','logs'] },
+  ]},
   { id:'2026-11-25-padrao-lote-2', data:'25/11/2026', itens:[
     { titulo:'Botões e campos mais fáceis de tocar',
       texto:'Nos cadastros, nos relatórios e nas janelas, a busca, os campos, as abas e os botões Editar e Excluir das listas passaram a ter pelo menos 44 pixels de altura, o tamanho mínimo confortável para o dedo no tablet.',
