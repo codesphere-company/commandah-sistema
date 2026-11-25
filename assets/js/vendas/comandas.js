@@ -133,7 +133,7 @@ function renderComandaDetail(id, keepRequester){
   document.getElementById('view-comandas').innerHTML = `<div class="table-workspace comanda-inline" data-sale="${h(s.id)}">
     <div class="record-body">
     <div class="cash-order-head">
-      <div class="cash-order-ident"><button class="op-btn comanda-inline-back" onclick="closeComandaView()" title="Voltar para as comandas (Esc)"><span class="b-ic" aria-hidden="true">${ICN.chevLeft}</span> Comandas</button><span class="cash-order-quota">${quotaNum}</span><span class="delivery-open-badge">Em Aberto</span><strong>${h(person)} &nbsp;·&nbsp; Pedido ${s.orderNumber?'#'+s.orderNumber:''}</strong></div>
+      <div class="cash-order-ident"><button class="op-btn comanda-inline-back" onclick="closeComandaView()" title="Voltar para as comandas (Esc)"><span class="b-ic" aria-hidden="true">${ICN.chevLeft}</span> Comandas</button><span class="cash-order-quota">${quotaNum}</span><span class="delivery-open-badge">Em Aberto</span>${typeof contaEnviadaSelo==='function'?contaEnviadaSelo(s):''}<strong>${h(person)} &nbsp;·&nbsp; Pedido ${s.orderNumber?'#'+s.orderNumber:''}</strong></div>
       ${member&&Number(member.debt)<-TOLERANCIA_CENTAVO?`<div class="cash-order-balance"><span class="tag tag-green cash-order-balance-tag" title="Abatido automaticamente no pagamento desta comanda">✓ Crédito: ${fmt(-Number(member.debt))}</span></div>`:member&&Number(member.debt)>TOLERANCIA_CENTAVO?`<div class="cash-order-balance"><span class="tag tag-red cash-order-balance-tag" title="Saldo devedor deste sócio">Deve: ${fmt(Number(member.debt))}</span></div>`:''}
     </div>
     <div class="cash-order-layout">
@@ -147,6 +147,7 @@ function renderComandaDetail(id, keepRequester){
           ${member&&hasPerm('associados')?`<button onclick="editMember(${jsArg(member.id)})"><span class="icn">${ICN.idcard}</span> Editar Cadastro</button>`:''}
           <button onclick="openNovoPedidoModal(${jsArg(s.id)})" ${locked?'disabled':''}><span class="icn">${ICN.plus}</span> Novo Pedido</button>
           <button onclick="openPartialPayment(${jsArg(s.id)})" ${locked?'disabled':''}><span class="icn">${ICN.cash}</span> Receber parcial</button>
+          ${typeof contaWhatsappPode==='function' && contaWhatsappPode(s)?`<button class="conta-wa-botao" onclick="abrirMandarConta(${jsArg(s.id)})"><span class="icn">${ICN.bot}</span> Mandar conta pelo WhatsApp</button>`:''}
           <div class="pdv-menu-wrap" style="position:relative">
             <button id="comandaMoreBtn" onclick="toggleComandaOrderOptions()" aria-haspopup="true"><span class="icn">${ICN.menu}</span> Mais Opções</button>
             <div id="comandaOrderOptions" class="pdv-options-panel" style="left:0;right:auto;bottom:100%;top:auto;margin-bottom:6px;width:290px">
