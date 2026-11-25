@@ -3,7 +3,7 @@
 > Leia este arquivo no início de qualquer conversa nova sobre o projeto. Ele é curto de propósito: só o estado de agora e o que falta.
 > O texto completo de cada sessão até 25/11/2026 está em [`historico/handoff-ate-2026-11-25.md`](historico/handoff-ate-2026-11-25.md); de 11/10 para trás, em [`historico/handoff-ate-2026-10-11.md`](historico/handoff-ate-2026-10-11.md). Procure lá pela data ("21/11, noite") ou pelo número do PR.
 
-Última atualização: **2026-11-25, noite** (WhatsApp etapa 2 publicada, PR #348; site no domínio próprio `commandah.com.br`; Supabase Pro; HANDOFF comprimido).
+Última atualização: **2026-11-25, noite** (padrão visual: lotes 11, 12a e 12b publicados, 12c sem PR; WhatsApp etapa 2 publicada, PR #348; site no domínio próprio `commandah.com.br`; Supabase Pro; HANDOFF comprimido).
 
 ## O que é
 
@@ -41,7 +41,11 @@ Comanda/PDV de bares e lanchonetes. Primeiro cliente: a lanchonete do **Clube Ol
 
 **Impressão** — agente 2.4.0 no Caixa1, Caixa 2 e Pc Fabricio; **Cozinha ainda na 2.3.0**. Depois de reinstalar um agente, conferir o `deviceAgentId` da regra "imprimir tudo". Bematech da cozinha talvez precise ir para ESC/POS. Chave de assinatura em `%USERPROFILE%\.commandah\agente-chave-privada.xml` (guardar cópia num pendrive). **O agente só aceita a origem do github.io na impressão local de reserva** (`LocalServer.cs`, `Config.cs`): precisa de versão nova que aceite `commandah.com.br` (a impressão pela nuvem não é afetada).
 
-**Visual** — central de Configurações (#334) e padrão visual lotes 1 a 10 publicados (#335–#345, #347). Faltam os lotes 11 a 13 (11 mexe no caixa: só visual, fora de dia de jogo). Guia: https://claude.ai/artifact/G6jYTNHuJHguVMSHccxaiH.
+**Visual** — central de Configurações (#334). Padrão visual (guia: https://claude.ai/artifact/G6jYTNHuJHguVMSHccxaiH): lotes 1 a 12b publicados (#335–#345, #347, #349 Caixa e Pagamento, #352 e #355 estilo inline virando classe em Tamanhos, Impressoras, Clientes e Relatórios).
+- **Lote 12c** (`comandas.js` e `pagamento.js`, inline → classes `cmd-*`/`pag-*`): pronto no branch `design/lote-12c-inline-venda` (worktree `.claude/worktrees/agent-ac79bf7af056cf33b`), **sem PR**. A classe nova `cmd-qtd` colidia com uma que já existia e virou `cmd-qtd-num`. Falta rodar de novo a checagem de estilo calculado; a última rodada foi parada por falta de memória no PC. Ficam inline os `display:none` que o JS troca, a barra de progresso do pagamento, o `${style}` das opções e a margem da janela de impressão.
+- **Checagem dos lotes 12:** `estilo-igual.js` compara o `getComputedStyle` e a posição de cada elemento entre duas cópias do app, em claro e escuro, nos cenários `cen-*.js` (Tamanhos, Impressoras e Clientes, Relatórios, Venda). Os arquivos estão no scratchpad da sessão 93888a47 e se perdem com limpeza; copiar para a bancada antes de reaproveitar. Antes de mexer, conferir se o nome da classe nova já existe (`git grep`).
+- **Falta o lote 13:** limpeza das camadas de CSS. Apagar os `border-radius:0` mortos e as definições repetidas (`.op-titlebar`, `.qty-ctrl`, `.modal`) e reduzir os 575 `!important`. Risco médio, porque um erro na cascata aparece em telas longe da mudança; conferir com a mesma checagem nas 98 telas do `t14-ux-capturas.js`.
+- **Testes:** t13 "PIN errado", t18 "Novo Pedido confirma", t11 (janela de Novidades na frente) e as falhas de t2/t54/t55 (servidor falso) acontecem igual no main; investigar à parte.
 
 **WhatsApp (plano Pro)** — desenho `docs/superpowers/specs/2026-11-25-whatsapp-design.md`; telas aprovadas https://claude.ai/artifact/HnigvmnkXEXP9Wf5DEAta2.
 - **Etapa 1 (#332):** Configurações › WhatsApp conecta o número pelo QR (só admin; caixa vê a situação).
