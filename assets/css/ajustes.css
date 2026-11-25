@@ -1141,3 +1141,16 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 /* 25/11 (padrão, lote 3): Relatórios virou central (sem faixa). Na faixa das outras áreas, nome comprido quebra
    em duas linhas em vez de esticar o botão: Financeiro (8 atalhos, nomes longos) caía no modo compacto em 1366. */
 .ribbon-toolbar:not(.rb-compacta) .rb-icons button .lb{white-space:normal;max-width:112px;text-align:center;line-height:1.25}
+
+/* 25/11 (padrão, lote 4): ícone SVG do ICN nos botões (.b-ic), no lugar dos símbolos de texto ✓ ▣ ＋ ✎ ✕ ↻ ▾ ▤ ⚙ ▧ ⇩
+   e "•••". Mesmo traço dos ícones do menu; herda a cor do botão (no primário, branco). */
+.b-ic{display:inline-flex;align-items:center;flex:0 0 auto;vertical-align:-4px;margin-right:6px;color:inherit}
+.b-ic svg{width:18px;height:18px;stroke:currentColor;display:block}
+.op-btn .b-ic{margin-right:0;color:var(--c-text-3)}
+.op-btn.primary .b-ic,.consumer-save .b-ic{color:inherit}
+.op-btn[disabled] .b-ic{opacity:.6}
+.b-ic-fim{margin:0 0 0 4px}
+.op-btn .b-ic-fim{margin:0}
+.forma-estado svg{width:18px;height:18px;display:block}
+.forma-anel{display:block;width:14px;height:14px;margin:2px;border:1.5px solid currentColor;border-radius:50%}
+.tag svg{width:13px;height:13px;vertical-align:-2px;stroke:currentColor}
