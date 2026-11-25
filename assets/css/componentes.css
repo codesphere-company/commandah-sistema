@@ -229,3 +229,19 @@ body.tv-mode .kbtn-ready{width:110px!important;font-size:var(--fs-title)!importa
 }
 .wa-lista input,.wa-cliente input,.wa-compor textarea{box-sizing:border-box;padding:8px 10px;border:1px solid var(--c-border-input);border-radius:8px;background:var(--c-surface);color:var(--c-text);font:inherit}
 .wa-lista input:focus,.wa-cliente input:focus,.wa-compor textarea:focus{outline:2px solid var(--c-focus);outline-offset:1px}
+
+/* ============ MANDAR CONTA PELO WHATSAPP (25/11, etapa 3; vendas/conta-whatsapp.js) ============ */
+.conta-wa{display:flex;flex-direction:column;gap:10px;max-width:560px}
+.conta-wa p{margin:0}
+.conta-wa-pix{display:flex;gap:10px;align-items:center}
+.conta-wa-pix input{width:20px;height:20px}
+.conta-wa-falta{color:var(--c-warning)}
+.conta-wa-previa{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--c-bg);border:1px solid var(--c-border);border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.5;max-height:40vh;overflow-y:auto}
+.conta-wa .wa-erro:empty{display:none}
+.conta-wa-acoes{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.conta-enviada-tag{margin-left:8px;white-space:nowrap}
+.cc-conta{color:var(--c-warning)}
+.wa-cliente .conta-enviada-tag{display:inline-block;margin:0 0 8px}
+.wa-mandar-conta{display:block;width:100%;margin-bottom:8px}
+.cash-order-links button.conta-wa-botao{white-space:normal;text-align:left;line-height:1.25;height:auto}
+.conta-wa-previa b{font-weight:700}

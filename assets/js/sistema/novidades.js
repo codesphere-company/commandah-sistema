@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-26-whatsapp-conta-pix', data:'26/11/2026', itens:[
+    { titulo:'Mandar a conta da comanda pelo WhatsApp, com Pix copia e cola e QR (plano Pro)',
+      texto:'Na comanda aberta de um cliente, "Mandar conta pelo WhatsApp" manda pelo número da lanchonete o texto com os itens e o total, o Pix copia e cola com o valor, o QR do Pix e o pedido do comprovante. A comanda fica com o selo "Conta enviada · aguardando Pix" até você conferir o comprovante e dar baixa como sempre. Na tela WhatsApp, o painel do cliente tem "Mandar conta com Pix" e a lista ganhou o filtro "Conta enviada". Para o Pix ir junto, preencha a chave, o nome e a cidade em Configurações › Sistema › Ajustes do Cupom. Colaborador não recebe conta.',
+      onde:'Comanda › Mandar conta pelo WhatsApp', perms:['whatsapp'] },
+  ]},
   { id:'2026-11-26-whatsapp-conversas', data:'26/11/2026', itens:[
     { titulo:'Conversas do WhatsApp dentro do Commandah (plano Pro)',
       texto:'No menu lateral, WhatsApp mostra as conversas do número da lanchonete. Quando um cliente escreve, aparece um aviso com som em qualquer tela e um número no menu; Responder abre a conversa. Dá para responder em texto (Enter envia), usar as respostas prontas de chave Pix e horário da cozinha, ver foto e baixar PDF recebidos e ligar a conversa ao cadastro do cliente para ver a cota e a conta. Áudio continua só no celular.',
