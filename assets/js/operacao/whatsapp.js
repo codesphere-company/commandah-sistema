@@ -10,6 +10,7 @@ let waProCache = { uid:null, pro:null, conectado:null };   // situação do plan
 let waBaseAviso = null, waBaseUid = null;                  // maior ultima_em já avisada (por usuário)
 let waNaoLidasTotal = 0;
 let waConvs = [], waMsgs = [], waAberta = null, waFiltro = 'todas', waBuscaTxt = '', waCarregou = false;
+let waEnviando = false, waChatAssinatura = '';
 const WA_FALHA = 'Não foi possível falar com o WhatsApp agora. Tente de novo em alguns segundos.';
 
 async function waInvocar(body){
@@ -39,21 +40,28 @@ async function waTickAvisos(){
   if(!currentUser || !hasPerm('whatsapp') || !isCloudMode() || document.hidden) return;
   const p = await waPlano(); if(!p.pro) return;
   const { data, error } = await supabaseClient.from('whatsapp_conversas')
-    .select('jid,nome_contato,telefone,nao_lidas,ultima_em,ultima_texto').gt('nao_lidas', 0).limit(100);
+    .select('jid,nome_contato,telefone,nao_lidas,ultima_em,ultima_texto,ultima_direcao').gt('nao_lidas', 0).limit(100);
   if(error || !Array.isArray(data)) return;
   const total = data.reduce((s,c)=>s+(Number(c.nao_lidas)||0), 0);
-  const maior = data.reduce((m,c)=>(c.ultima_em && (!m || c.ultima_em>m)) ? c.ultima_em : m, null);
+  const maior = data.reduce((m,c)=>Math.max(m, waMs(c.ultima_em)), 0);
   const naTela = activeView==='whatsapp' && !document.hidden;
   // Primeira consulta do usuário: o que chegou até 15 s antes (o intervalo do aviso) ainda toca; o mais antigo
   // só entra no contador. Sem isso, mensagem que chegasse entre o login e a primeira consulta não avisava.
-  if(waBaseUid!==currentUser.id){ waBaseUid = currentUser.id; waBaseAviso = new Date(Date.now()-15000).toISOString(); }
-  {
-    const novas = data.filter(c=>c.ultima_em && c.ultima_em>waBaseAviso && !(naTela && c.jid===waAberta));
-    if(novas.length) waAvisar(novas.sort((a,b)=>a.ultima_em<b.ultima_em?1:-1)[0], novas.length);
-    if(maior && maior>waBaseAviso) waBaseAviso = maior;
-  }
+  if(waBaseUid!==currentUser.id){ waBaseUid = currentUser.id; waBaseAviso = Date.now()-15000; }
+  // Revisão final: só avisa se a última mensagem é do cliente (resposta pelo celular da lanchonete não toca).
+  const novas = data.filter(c=>c.ultima_direcao==='entrada' && waMs(c.ultima_em)>waBaseAviso && !(naTela && c.jid===waAberta));
+  if(novas.length) waAvisar(novas.sort((a,b)=>waMs(b.ultima_em)-waMs(a.ultima_em))[0], novas.length);
+  if(maior>waBaseAviso) waBaseAviso = maior;
   waDefinirContador(total);
-  if(naTela) waCarregarConversas();
+  // Na tela, o que mudou de não lidas (outro aparelho leu, chegou mensagem) entra na lista sem consulta extra.
+  if(waConvs.length) waSincronizarNaoLidas(data);
+}
+const waMs = s => Date.parse(s||'') || 0;
+function waSincronizarNaoLidas(naoLidas){
+  const mapa = new Map(naoLidas.map(c=>[c.jid, c]));
+  let mudou = false;
+  waConvs.forEach(c=>{ const n = mapa.has(c.jid) ? Number(mapa.get(c.jid).nao_lidas)||0 : 0; if(c.nao_lidas!==n && !(c.jid===waAberta && activeView==='whatsapp')){ c.nao_lidas = n; mudou = true; } });
+  if(mudou) waDesenharLista();
 }
 function waDefinirContador(n){
   if(n===waNaoLidasTotal) return;
@@ -87,7 +95,7 @@ function waBip(){
 
 /* ---------- Tela ---------- */
 function waAbrirConversa(jid, trocarTela){
-  waAberta = jid; waMsgs = [];
+  waAberta = jid; waMsgs = []; waMsgsCarregadas = false; waChatAssinatura = '';
   const cli = document.querySelector('#view-whatsapp .wa-cliente'); if(cli) cli.dataset.membro = '';
   if(trocarTela && activeView!=='whatsapp') openRibbonView('whatsapp','WhatsApp');
   else renderWhatsApp();
@@ -130,7 +138,7 @@ async function waEntrar(){
     <aside class="wa-cliente" aria-label="Cliente"></aside>
   </div>`;
   document.getElementById('waTexto').addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); waEnviar(); } });
-  await waCarregarConversas();
+  await waCarregarConversas(true);
   if(waAberta) waCarregarMensagens(true);
   waDesenharChat(); waDesenharCliente();
   waLigarTela();
@@ -140,28 +148,64 @@ function waLigarTela(){
   waTelaTimer = setInterval(()=>{
     if(activeView!=='whatsapp'){ clearInterval(waTelaTimer); waTelaTimer=null; return; }
     if(document.hidden) return;
-    waCarregarConversas(); if(waAberta) waCarregarMensagens(false);
-  }, 4000);
+    waTelaVolta++;
+    waCarregarConversas(false); if(waAberta) waCarregarMensagens(false, false);
+  }, 5000);
 }
-async function waCarregarConversas(){
-  const { data, error } = await supabaseClient.from('whatsapp_conversas')
-    .select('jid,telefone,nome_contato,member_id,nao_lidas,ultima_texto,ultima_em,ultima_direcao')
-    .order('ultima_em', { ascending:false }).limit(200);
+// Revisão final (25/11, egress): com a tela aberta, depois da primeira carga só vem o que mudou — conversas com
+// última mensagem mais nova, mensagens novas da conversa aberta e, a cada 3 voltas, a situação (✓✓) das últimas
+// saídas ainda não lidas. As não lidas de outras conversas chegam pelo aviso de 10 s (waSincronizarNaoLidas).
+let waTelaVolta = 0, waMsgsCarregadas = false;
+const WA_COLS_CONV = 'jid,telefone,nome_contato,member_id,nao_lidas,ultima_texto,ultima_em,ultima_direcao';
+const WA_COLS_MSG = 'evo_id,direcao,tipo,texto,arquivo_nome,mime,enviada_por,situacao,criada_em';
+// Desde quando buscar: a linha mais nova menos 60 s de folga. A hora do WhatsApp vem em segundos inteiros e a
+// da resposta enviada pelo Commandah em milissegundos; sem a folga, mensagem do mesmo segundo ficava de fora.
+// O que vier repetido é descartado pelo evo_id/jid.
+function waMaisNovo(linhas, campo){ const m = linhas.reduce((x,l)=>Math.max(x, waMs(l[campo])), 0); return new Date(Math.max(0, m - 60000)).toISOString(); }
+async function waCarregarConversas(completo){
+  const desde = !completo && waCarregou ? waMaisNovo(waConvs, 'ultima_em') : null;
+  let q = supabaseClient.from('whatsapp_conversas').select(WA_COLS_CONV);
+  q = desde ? q.gt('ultima_em', desde) : q.order('ultima_em', { ascending:false }).limit(200);
+  const { data, error } = await q;
   if(error || !Array.isArray(data)) return;
-  waConvs = data; waCarregou = true;
-  waDefinirContador(data.reduce((s,c)=>s+(c.jid===waAberta && activeView==='whatsapp' ? 0 : (Number(c.nao_lidas)||0)), 0));
+  if(desde){
+    const mapa = new Map(waConvs.map(c=>[c.jid, c]));
+    const mudou = data.filter(c=>JSON.stringify(mapa.get(c.jid))!==JSON.stringify(c));
+    if(!mudou.length) return;
+    mudou.forEach(c=>mapa.set(c.jid, c));
+    waConvs = [...mapa.values()].sort((a,b)=>waMs(b.ultima_em)-waMs(a.ultima_em));
+  } else { waConvs = data; waCarregou = true; }
+  waDefinirContador(waConvs.reduce((s,c)=>s+(Number(c.nao_lidas)||0), 0));
   waDesenharLista(); waDesenharCliente();
 }
-async function waCarregarMensagens(marcar){
+async function waCarregarMensagens(marcar, completo = true){
   const jid = waAberta; if(!jid) return;
-  const { data, error } = await supabaseClient.from('whatsapp_mensagens')
-    .select('evo_id,direcao,tipo,texto,arquivo_nome,mime,enviada_por,situacao,criada_em')
-    .eq('jid', jid).order('criada_em', { ascending:false }).limit(80);
-  if(error || !Array.isArray(data) || jid!==waAberta) return;
-  const antes = waMsgs.length ? waMsgs[waMsgs.length-1].evo_id + waMsgs.length + waMsgs.map(m=>m.situacao).join() : '';
-  waMsgs = data.reverse();
-  const depois = waMsgs.length ? waMsgs[waMsgs.length-1].evo_id + waMsgs.length + waMsgs.map(m=>m.situacao).join() : '';
-  if(antes!==depois) waDesenharChat();
+  const incremental = !completo && waMsgsCarregadas && waMsgs.length;
+  let data, error;
+  if(incremental){
+    ({ data, error } = await supabaseClient.from('whatsapp_mensagens').select(WA_COLS_MSG)
+      .eq('jid', jid).gt('criada_em', waMaisNovo(waMsgs, 'criada_em')).order('criada_em', { ascending:true }).limit(80));
+    if(error || !Array.isArray(data) || jid!==waAberta) return;
+    const ja = new Set(waMsgs.map(m=>m.evo_id));
+    const novas = data.filter(m=>!ja.has(m.evo_id));
+    let mudou = novas.length > 0;
+    waMsgs = waMsgs.concat(novas);
+    const pendentes = waMsgs.slice(-10).filter(m=>m.direcao==='saida' && m.situacao!=='lida' && m.situacao!=='erro' && m.evo_id).map(m=>m.evo_id);
+    if(pendentes.length && waTelaVolta % 3 === 0){
+      const r = await supabaseClient.from('whatsapp_mensagens').select('evo_id,situacao').in('evo_id', pendentes);
+      if(!r.error && Array.isArray(r.data) && jid===waAberta){
+        const sit = new Map(r.data.map(x=>[x.evo_id, x.situacao]));
+        waMsgs.forEach(m=>{ if(sit.has(m.evo_id) && sit.get(m.evo_id)!==m.situacao){ m.situacao = sit.get(m.evo_id); mudou = true; } });
+      }
+    }
+    if(mudou) waDesenharChat();
+  } else {
+    ({ data, error } = await supabaseClient.from('whatsapp_mensagens').select(WA_COLS_MSG)
+      .eq('jid', jid).order('criada_em', { ascending:false }).limit(80));
+    if(error || !Array.isArray(data) || jid!==waAberta) return;
+    waMsgs = data.reverse(); waMsgsCarregadas = true;
+    waDesenharChat();
+  }
   const c = waConvs.find(x=>x.jid===jid);
   if(marcar || (c && c.nao_lidas>0)){
     const r = await supabaseClient.rpc('whatsapp_marcar_lida', { p_jid: jid });
@@ -173,7 +217,7 @@ function waTrocarFiltro(f){
   document.querySelectorAll('#view-whatsapp .wa-filtro').forEach(b=>b.classList.toggle('ativo', b.dataset.f===f));
   waDesenharLista();
 }
-function waVoltarLista(){ waAberta = null; waMsgs = []; const t=document.querySelector('#view-whatsapp .wa-tela'); if(t) t.classList.remove('chat-aberto'); waDesenharChat(); waDesenharCliente(); waDesenharLista(); }
+function waVoltarLista(){ waAberta = null; waMsgs = []; waMsgsCarregadas = false; const t=document.querySelector('#view-whatsapp .wa-tela'); if(t) t.classList.remove('chat-aberto'); waDesenharChat(); waDesenharCliente(); waDesenharLista(); }
 function waHora(iso){ const d=new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
 function waDia(iso){
   const d=new Date(iso); if(isNaN(d)) return '';
@@ -200,8 +244,15 @@ function waDesenharChat(){
   const c = waConvs.find(x=>x.jid===waAberta);
   nome.textContent = waAberta ? waNomeConversa(c) + (c && c.telefone && c.nome_contato ? ' · ' + waFormatarNumero(c.telefone) : '') : '';
   const enviar = document.getElementById('waEnviar'), texto = document.getElementById('waTexto');
-  if(enviar) enviar.disabled = !waAberta; if(texto) texto.disabled = !waAberta;
-  if(!waAberta){ chat.innerHTML = `<p class="sub wa-vazio">Escolha uma conversa à esquerda.</p>`; resp.innerHTML=''; return; }
+  // Revisão final: durante o envio o botão fica travado mesmo com redesenho (evita mandar duas vezes).
+  if(enviar) enviar.disabled = !waAberta || waEnviando; if(texto) texto.disabled = !waAberta;
+  if(!waAberta){ waChatAssinatura = ''; chat.innerHTML = `<p class="sub wa-vazio">Escolha uma conversa à esquerda.</p>`; resp.innerHTML=''; return; }
+  // Revisão final: renderAll() redesenha a toda hora; o chat só é refeito quando as mensagens mudam, e só desce
+  // para o fim se a pessoa já estava no fim ou chegou mensagem nova (não atrapalha quem lê o histórico).
+  const assinatura = waAberta + '|' + waMsgsCarregadas + '|' + waMsgs.map(m=>m.evo_id + ':' + (m.situacao||'')).join(',');
+  if(assinatura===waChatAssinatura) { waDesenharRespostas(resp); return; }
+  const qtdAntes = Number(chat.dataset.qtd||0), noFim = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 60, topo = chat.scrollTop;
+  waChatAssinatura = assinatura; chat.dataset.qtd = waMsgs.length;
   let dia = '';
   chat.innerHTML = waMsgs.map(m=>{
     const d = waDia(m.criada_em), sep = d!==dia ? `<div class="wa-dia">${h(d)}</div>` : ''; dia = d;
@@ -213,8 +264,11 @@ function waDesenharChat(){
     else corpo = `<span class="wa-texto">${h(m.texto||'')}</span>`;
     const meta = `<small class="wa-meta">${m.direcao==='saida' && m.enviada_por ? h(m.enviada_por)+' · ' : ''}${h(waHora(m.criada_em))}${m.direcao==='saida' && m.situacao ? ' · '+h(WA_SITUACAO[m.situacao]||'') : ''}</small>`;
     return `${sep}<div class="wa-bolha ${m.direcao==='saida'?'saida':'entrada'}">${corpo}${meta}</div>`;
-  }).join('') || `<p class="sub wa-vazio">Carregando a conversa…</p>`;
-  chat.scrollTop = chat.scrollHeight;
+  }).join('') || `<p class="sub wa-vazio">${waMsgsCarregadas ? 'Sem mensagens nos últimos 90 dias.' : 'Carregando a conversa…'}</p>`;
+  chat.scrollTop = (noFim || waMsgs.length > qtdAntes) ? chat.scrollHeight : topo;
+  waDesenharRespostas(resp);
+}
+function waDesenharRespostas(resp){
   // Respostas prontas: só as que têm o dado configurado.
   const prontas = [];
   const pix = String((state.settings||{}).pixKey||'').trim();
@@ -266,20 +320,22 @@ async function waVincular(memberId){
 }
 async function waEnviar(){
   const t = document.getElementById('waTexto'), b = document.getElementById('waEnviar'), err = document.querySelector('#view-whatsapp .wa-erro-envio');
-  if(!t || !waAberta || (b && b.disabled && b.dataset.enviando)) return;
+  if(!t || !waAberta || waEnviando) return; // revisão final: um envio por vez, mesmo com o botão redesenhado
   const texto = t.value.trim(); if(!texto) return;
   const jid = waAberta;
-  if(b){ b.disabled = true; b.dataset.enviando = '1'; b.textContent = 'Enviando…'; }
+  waEnviando = true;
+  if(b){ b.disabled = true; b.textContent = 'Enviando…'; }
   if(err) err.textContent = '';
-  const r = await waInvocar({ action:'enviar_texto', jid, texto });
-  if(b){ b.disabled = !waAberta; delete b.dataset.enviando; b.textContent = 'Enviar'; }
+  let r;
+  try { r = await waInvocar({ action:'enviar_texto', jid, texto }); } finally { waEnviando = false; }
+  if(b){ b.disabled = !waAberta; b.textContent = 'Enviar'; }
   if(!r.ok){ if(err) err.textContent = r.erro || WA_FALHA; return; } // o texto fica no campo para tentar de novo
   if(t.value.trim()===texto) t.value = '';
   if(jid===waAberta){
     waMsgs.push({ evo_id:r.mensagem && r.mensagem.evo_id, direcao:'saida', tipo:'texto', texto, enviada_por:(currentUser&&currentUser.name)||'', situacao:'enviada', criada_em:(r.mensagem&&r.mensagem.criada_em)||new Date().toISOString() });
     waDesenharChat();
   }
-  waCarregarConversas();
+  waCarregarConversas(false);
 }
 async function waVerMidia(evoId, tipo, nome){
   const r = await waInvocar({ action:'midia', evo_id: evoId });

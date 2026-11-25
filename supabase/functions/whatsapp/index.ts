@@ -128,9 +128,25 @@ const texto = (v: unknown) => (typeof v === "string" && v ? v : null);
 const individual = (jid: string) => /@(s\.whatsapp\.net|lid)$/.test(jid);
 const telefoneDe = (jid: string) => (jid.split("@")[0].split(":")[0].replace(/\D/g, "") || null);
 
+// Revisão final (25/11): o que não é conteúdo (reação, apagar/editar, chaves de criptografia, enquete) não vira
+// mensagem nem conta como não lida. Mensagem temporária / de ver uma vez vem embrulhada: desembrulha antes.
+const SEM_CONTEUDO = ["reactionMessage", "protocolMessage", "editedMessage", "senderKeyDistributionMessage",
+  "messageContextInfo", "pollUpdateMessage", "keepInChatMessage", "pinInChatMessage", "encReactionMessage"];
+const EMBRULHOS = ["ephemeralMessage", "viewOnceMessage", "viewOnceMessageV2", "viewOnceMessageV2Extension"];
+function desembrulhar(message: Item | undefined): Item {
+  let m = (message || {}) as Item;
+  for (let i = 0; i < 3; i++) {
+    const k = EMBRULHOS.find((e) => m[e] && typeof m[e] === "object");
+    if (!k) break;
+    m = (((m[k] as Item).message as Item | undefined) || {}) as Item;
+  }
+  return m;
+}
+const temConteudo = (m: Item) => Object.keys(m).some((k) => !SEM_CONTEUDO.includes(k));
+
 // Tipo, texto, arquivo e mime pela chave da mensagem da Evolution/Baileys.
 function conteudo(message: Item | undefined) {
-  const m = (message || {}) as Record<string, Item | undefined>;
+  const m = desembrulhar(message) as Record<string, Item | undefined>;
   const doc = m.documentMessage || (m.documentWithCaptionMessage?.message as Record<string, Item> | undefined)?.documentMessage;
   if (typeof m.conversation === "string") return { tipo: "texto", texto: m.conversation as unknown as string, arquivo: null, mime: null };
   if (m.extendedTextMessage) return { tipo: "texto", texto: texto(m.extendedTextMessage.text), arquivo: null, mime: null };
@@ -158,6 +174,7 @@ async function mensagensRecebidas(tenantId: string, data: unknown) {
     const key = (item.key || {}) as Item;
     const jid = String(key.remoteJid || ""), evoId = String(key.id || "");
     if (!evoId || !individual(jid)) continue;
+    if (!temConteudo(desembrulhar(item.message as Item | undefined))) continue;
     const alt = String(key.remoteJidAlt || key.senderPn || "");
     const telefone = jid.endsWith("@lid") ? (alt ? telefoneDe(alt) : null) : telefoneDe(jid);
     const ts = Number(item.messageTimestamp);

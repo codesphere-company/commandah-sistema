@@ -107,7 +107,11 @@ begin
   on conflict (tenant_id, jid) do update set
     telefone       = coalesce(excluded.telefone, whatsapp_conversas.telefone),
     nome_contato   = coalesce(excluded.nome_contato, whatsapp_conversas.nome_contato),
-    nao_lidas      = whatsapp_conversas.nao_lidas + excluded.nao_lidas,
+    -- Respondeu (pelo Commandah ou pelo celular da lanchonete) = leu, como no próprio WhatsApp.
+    -- Saída atrasada (mais antiga que a última mensagem) não zera.
+    nao_lidas      = case when p_direcao = 'saida'
+                           and (whatsapp_conversas.ultima_em is null or v_quando >= whatsapp_conversas.ultima_em)
+                          then 0 else whatsapp_conversas.nao_lidas + excluded.nao_lidas end,
     ultima_texto   = case when whatsapp_conversas.ultima_em is null or v_quando >= whatsapp_conversas.ultima_em
                           then excluded.ultima_texto else whatsapp_conversas.ultima_texto end,
     ultima_direcao = case when whatsapp_conversas.ultima_em is null or v_quando >= whatsapp_conversas.ultima_em
