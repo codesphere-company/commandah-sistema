@@ -674,8 +674,9 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
   .settings-section:has(>.brand-previews) div[style*="display:flex"]{flex-wrap:wrap}
 }
 /* Barra dos cadastros (Produtos, Clientes, Locais...): botões com 40 px, como no celular (eram 46-47;
-   pedido do dono em 23/10, fecha a auditoria de design). Ícone menor para caber. */
-.op-toolbar .op-btn{height:40px}
+   pedido do dono em 23/10, fecha a auditoria de design). Ícone menor para caber.
+   25/11 (padrão, lote 2): 44 px (--hit), o mínimo de toque do tablet; continua menor que os 46-47 antigos. */
+.op-toolbar .op-btn{height:var(--hit)}
 .op-toolbar .op-btn .op-ico{font-size:18px}
 /* Barra dos cadastros numa linha só em 1366 px: botão do tamanho do texto (a largura mínima de 126 px
    jogava o "Novo" para uma segunda linha e tirava duas linhas da lista). No celular continua o
@@ -1126,3 +1127,13 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .ic-close svg{width:22px;height:22px;display:block}
 .ic-close:hover{background:var(--c-surface-3);color:var(--c-text)}
 .pdv-sheet-title{align-items:center;padding:0 4px 0 14px}
+
+/* 25/11 (padrão, lote 2): nada clicável abaixo de 44 px (--hit). A auditoria mediu 12 alturas de botão
+   (25 a 54 px): busca 36, campos 39-41, abas das janelas 39, Editar/Excluir das tabelas 30 (.btn-sm),
+   botões de linha 26 (.op-mini). Só a altura muda; texto, cor e posição ficam. */
+.op-search input,.product-window .op-search input,.complement-window .op-search input,.type-size-window .op-search input{height:var(--hit)}
+.btn-sm{min-height:var(--hit);padding-top:0;padding-bottom:0}
+.op-mini{min-height:var(--hit);min-width:var(--hit)}
+.record-tabs button{min-height:var(--hit)}
+.field input:not([type=checkbox]):not([type=radio]),.field select{min-height:var(--hit)}
+.link-btn{display:inline-flex;align-items:center;min-height:var(--hit)}

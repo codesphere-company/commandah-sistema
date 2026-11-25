@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-padrao-lote-2', data:'25/11/2026', itens:[
+    { titulo:'Botões e campos mais fáceis de tocar',
+      texto:'Nos cadastros, nos relatórios e nas janelas, a busca, os campos, as abas e os botões Editar e Excluir das listas passaram a ter pelo menos 44 pixels de altura, o tamanho mínimo confortável para o dedo no tablet.',
+      onde:'Cadastros, relatórios e janelas' },
+  ]},
   { id:'2026-11-25-padrao-lote-1', data:'25/11/2026', itens:[
     { titulo:'Lupa e botão de fechar mais nítidos',
       texto:'A lupa das buscas e o × de fechar telas e janelas passaram a ser desenhados como os outros ícones do sistema. O × ficou com uma área maior para tocar no tablet. Nada mudou no funcionamento.',
