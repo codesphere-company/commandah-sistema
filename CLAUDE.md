@@ -12,7 +12,7 @@ Comanda/PDV de bares e lanchonetes, em produção. Estado atual e decisões: `do
 - Checar (o mesmo que o CI faz): `node scripts/check-app.js` e `node scripts/check-load-order.js` (precisa de `npm i --no-save acorn@8.14.0 acorn-walk@8.3.4`).
 - Depois de mudar qualquer arquivo de `assets/js` ou `assets/css`: `node scripts/bump-version.js` (troca o `?v=`; o CI recusa o PR sem isso).
 - Não há testes automáticos nem lint. Mudança de tela: conferir no Chrome (captura) e na bancada local (`../auditoria-2026-11-03`) antes do merge, e no site oficial logo depois.
-- Migrations e Edge Functions: ver "Limitação importante" em `docs/HANDOFF.md` (CLI do Supabase desta máquina).
+- Migrations e Edge Functions: ver "Como o Claude trabalha aqui" em `docs/HANDOFF.md` (CLI do Supabase desta máquina).
 - Edge Functions só aceitam chamada de navegador vinda de `https://codesphere-company.github.io` (item 7, `_shared/cors.ts`). Para testar de outra origem (localhost, prévia, domínio novo), acrescente a origem no secret `ALLOWED_ORIGINS` (separado por vírgula, sem barra no fim).
 
 ## Mapa das pastas
