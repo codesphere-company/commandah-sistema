@@ -21,7 +21,7 @@ function nfceNotaHtml(n){
   if(n.status==='autorizada'){
     const left = NFCE_CANCEL_MIN - nfceMinutesSince(n.created_at);
     return `<p style="margin:4px 0"><span class="tag tag-green">✓ Autorizada</span>${amb} nº ${h(String(n.numero||'—'))} · série ${h(String(n.serie||'—'))} · ${h(when)}<br><span class="sub mono" style="word-break:break-all">Chave ${h(n.chave||'—')}</span></p>
-    ${n.id?`<button class="op-btn" onclick="printNfceDanfe(${jsArg(n.id)})">▣ &nbsp; Imprimir cupom da NFC-e</button>`:''}
+    ${n.id?`<button class="op-btn" onclick="printNfceDanfe(${jsArg(n.id)})"><span class="b-ic" aria-hidden="true">${ICN.printer}</span> Imprimir cupom da NFC-e</button>`:''}
     ${left>0?(isAdminUser()?`<button class="op-btn" onclick="openCancelNfce(${jsArg(n.sale_id)})">⊘ &nbsp; Cancelar NFC-e (faltam ${left} min)</button>`:'<span class="sub">Só o administrador cancela NFC-e.</span>'):'<span class="sub">Prazo de cancelamento (30 min) encerrado.</span>'}`;
   }
   return `<p style="margin:4px 0"><span class="tag tag-red">✗ ${n.status==='rejeitada'?'Recusada pela SEFAZ':'Falha no envio'}</span>${amb} ${h(when)}<br><span class="sub">${n.cod_status?h(String(n.cod_status))+' · ':''}${h(n.motivo||'')}</span></p>`;
@@ -33,7 +33,7 @@ async function loadNfceBox(saleId, flash){
   const notas = r.notas || [], ok = notas.find(n=>n.status==='autorizada');
   box.innerHTML = `<b>NFC-e</b>${flash||''}
     ${r.error?`<p class="sub" style="margin:4px 0">${h(r.error)}</p>`:notas.length?notas.slice(0,3).map(nfceNotaHtml).join(''):'<p class="sub" style="margin:4px 0">Nenhuma NFC-e emitida para esta comanda.</p>'}
-    ${!ok&&!r.error?`<button class="op-btn" id="nfceEmitBtn" onclick="emitNfceForSale(${jsArg(saleId)})">▤ &nbsp; ${nfceSettings().ambiente===1?'Emitir NFC-e':'Emitir NFC-e de teste (homologação)'}</button>`:''}`;
+    ${!ok&&!r.error?`<button class="op-btn" id="nfceEmitBtn" onclick="emitNfceForSale(${jsArg(saleId)})"><span class="b-ic" aria-hidden="true">${ICN.doc}</span> ${nfceSettings().ambiente===1?'Emitir NFC-e':'Emitir NFC-e de teste (homologação)'}</button>`:''}`;
 }
 // 08/11 (pedido do dono): só o administrador (ou o dono) cancela NFC-e; a função nfce também recusa.
 function openCancelNfce(saleId){

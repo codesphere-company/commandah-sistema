@@ -1154,3 +1154,10 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .forma-estado svg{width:18px;height:18px;display:block}
 .forma-anel{display:block;width:14px;height:14px;margin:2px;border:1.5px solid currentColor;border-radius:50%}
 .tag svg{width:13px;height:13px;vertical-align:-2px;stroke:currentColor}
+.settings-nav button{display:flex;align-items:center;gap:10px;min-height:var(--hit)} /* lote 4: menu de Configurações do Sistema com ícone */
+.settings-nav button .b-ic{margin:0;color:var(--c-text-3)}
+.settings-nav button.active .b-ic{color:inherit}
+.mod-ic{flex:0 0 56px;height:56px;border-radius:var(--r-md);background:var(--c-surface-3);color:var(--c-text-2);display:flex;align-items:center;justify-content:center}
+.mod-ic svg{width:28px;height:28px;stroke:currentColor}
+.ribbon-flyout .b-ic{margin-right:0}
+.pp-marca svg{width:14px;height:14px;display:block}
