@@ -70,8 +70,8 @@ function updateShellGap(){
 window.addEventListener('resize', ()=>{ if(currentUser) updateShellGap(); });
 // Nome no menu lateral das telas da área Principal (no ribbon eram rótulos de botão).
 // cofre (16/11): o item Cofre só aparece com o caixa por operador ligado (soModoCaixa).
-function itemEscondido(it){ return HIDDEN_MODULES.has(it.label) || (!!it.soModoCaixa && !((typeof modoCaixaPorOperador==='function' && modoCaixaPorOperador()) && ribbonItemAction(it, userPermissions(currentUser)).enabled)); }
-const SIDEBAR_LABELS = {caixa:'Caixa', comandas:'Comandas', balcao:'Ficha', delivery:'Delivery', cozinha:'Cozinha', associados:'Clientes'};
+function itemEscondido(it){ return HIDDEN_MODULES.has(it.label) || (!!it.escondeSemPerm && !ribbonItemAction(it, userPermissions(currentUser)).enabled) || (!!it.soModoCaixa && !((typeof modoCaixaPorOperador==='function' && modoCaixaPorOperador()) && ribbonItemAction(it, userPermissions(currentUser)).enabled)); }
+const SIDEBAR_LABELS = {caixa:'Caixa', comandas:'Comandas', balcao:'Ficha', delivery:'Delivery', cozinha:'Cozinha', associados:'Clientes', whatsapp:'WhatsApp'};
 // Visual A (22/10): o menu lateral mostra direto as telas da primeira área ("Principal": caixa,
 // comandas, balcão...) e, abaixo, as outras áreas; clicar numa área abre a faixa de atalhos dela.
 function renderRibbonTabs(){
@@ -82,7 +82,7 @@ function renderRibbonTabs(){
   const links = homeItems.map(it=>{
     const a = ribbonItemAction(it, allowed);
     const active = activeRibbonTab===home.id && it.view && it.view===activeView;
-    return `<button class="sb-link ${a.enabled?'':'disabled'} ${a.emConstrucao?'em-construcao':''} ${active?'active':''}" title="${a.reason}" onclick="activeRibbonTab=${jsArg(home.id)};${a.onclick}"><span class="ic">${it.icon||''}</span>${SIDEBAR_LABELS[it.view]||it.label}${a.emConstrucao?`<span class="selo-obra">${seloEmBreve(it.label)}</span>`:''}</button>`;
+    return `<button class="sb-link ${a.enabled?'':'disabled'} ${a.emConstrucao?'em-construcao':''} ${active?'active':''}" title="${a.reason}" onclick="activeRibbonTab=${jsArg(home.id)};${a.onclick}"><span class="ic">${it.icon||''}</span>${SIDEBAR_LABELS[it.view]||it.label}${it.view==='whatsapp' && typeof waNaoLidasTotal!=='undefined' && waNaoLidasTotal>0 ? `<span class="sb-badge" aria-label="${waNaoLidasTotal} não lidas">${waNaoLidasTotal>99?'99+':waNaoLidasTotal}</span>` : ''}${a.emConstrucao?`<span class="selo-obra">${seloEmBreve(it.label)}</span>`:''}</button>`;
   }).join('');
   const areaLinks = areas.map(t=>{
     const first = t.groups[0] && t.groups[0].items[0];
@@ -395,6 +395,7 @@ function renderAll(){
   if(allowed.includes('insumos')) renderInsumos();
   if(allowed.includes('produtos')) renderProdutos();
   if(allowed.includes('associados')) renderAssociados();
+  if(allowed.includes('whatsapp') && activeView==='whatsapp') renderWhatsApp(); // WhatsApp etapa 2 (25/11)
   if(allowed.includes('usuarios')) renderUsuarios();
   if(allowed.includes('relatorios')) renderRelatorios();
   if(allowed.includes('categorias')) renderCrudView('view-categorias','categorias');

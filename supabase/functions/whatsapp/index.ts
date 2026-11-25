@@ -12,7 +12,16 @@
 // webhook, então o segredo (64 hex, um por estabelecimento, whatsapp_instancias.webhook_segredo) vai na URL
 // e é comparado em tempo constante com o da instância citada. Sem JWT: publicar com --no-verify-jwt; as
 // ações do app conferem o JWT aqui dentro, como a nfce.
-// Eventos tratados na etapa 1: qrcode.updated e connection.update. Mensagens chegam na etapa 2.
+// Eventos tratados na etapa 1: qrcode.updated e connection.update.
+//
+// Etapa 2 — conversas (25/11/2026; plano docs/superpowers/plans/2026-11-25-whatsapp-etapa2.md):
+// webhook messages.upsert   -> grava em whatsapp_mensagens/whatsapp_conversas (whatsapp_registrar_mensagem,
+//                              idempotente pelo id da Evolution). Só conversa individual: grupo, status e canal
+//                              são ignorados. Jid @lid: o telefone vem de key.remoteJidAlt / key.senderPn.
+// webhook messages.update   -> situação da mensagem enviada (entregue, lida, erro).
+// POST { action: "enviar_texto", jid, texto } -> manda pela Evolution e grava a saída com o nome de quem enviou
+// POST { action: "midia", evo_id }            -> { base64, mime } da foto/PDF (buscado na Evolution na hora)
+// As duas ações: dono, admin e caixa, com plano Pro.
 import { createClient } from "npm:@supabase/supabase-js@2.117.0";
 import { comCors } from "../_shared/cors.ts";
 
@@ -55,10 +64,14 @@ async function caller(req: Request) {
   if (error || !data?.user) return null;
   const uid = data.user.id;
   const { data: owner } = await admin.from("tenant_owners").select("tenant_id").eq("user_id", uid).maybeSingle();
-  if (owner) return (await donoSessaoOk(jwt, uid)) ? { tenantId: owner.tenant_id as string, isAdmin: true } : null;
+  if (owner) return (await donoSessaoOk(jwt, uid)) ? { tenantId: owner.tenant_id as string, isAdmin: true, nome: "Dono" } : null;
   const { data: staff } = await admin.from("tenant_staff").select("tenant_id, role, active").eq("auth_user_id", uid).maybeSingle();
   if (staff && staff.active && (staff.role === "admin" || staff.role === "caixa")) {
-    return { tenantId: staff.tenant_id as string, isAdmin: staff.role === "admin" };
+    // Nome de quem respondeu (etapa 2): o mesmo staff_name que o login por PIN guarda no usuário.
+    const meta = (data.user.user_metadata || {}) as { staff_name?: unknown };
+    const nome = typeof meta.staff_name === "string" && meta.staff_name.trim() ? meta.staff_name.trim().slice(0, 80)
+      : (staff.role === "admin" ? "Administrador" : "Caixa");
+    return { tenantId: staff.tenant_id as string, isAdmin: staff.role === "admin", nome };
   }
   return null;
 }
@@ -107,6 +120,128 @@ function iguais(a: string, b: string): boolean {
   return dif === 0;
 }
 
+// ---------- Etapa 2: mensagens ----------
+type Item = Record<string, unknown>;
+const lista = (d: unknown): Item[] => (Array.isArray(d) ? d : d && typeof d === "object" ? [d] : []) as Item[];
+const texto = (v: unknown) => (typeof v === "string" && v ? v : null);
+// Só conversa individual (o número de um cliente). Grupo, status e canal ficam de fora.
+const individual = (jid: string) => /@(s\.whatsapp\.net|lid)$/.test(jid);
+const telefoneDe = (jid: string) => (jid.split("@")[0].split(":")[0].replace(/\D/g, "") || null);
+
+// Revisão final (25/11): o que não é conteúdo (reação, apagar/editar, chaves de criptografia, enquete) não vira
+// mensagem nem conta como não lida. Mensagem temporária / de ver uma vez vem embrulhada: desembrulha antes.
+const SEM_CONTEUDO = ["reactionMessage", "protocolMessage", "editedMessage", "senderKeyDistributionMessage",
+  "messageContextInfo", "pollUpdateMessage", "keepInChatMessage", "pinInChatMessage", "encReactionMessage"];
+const EMBRULHOS = ["ephemeralMessage", "viewOnceMessage", "viewOnceMessageV2", "viewOnceMessageV2Extension"];
+function desembrulhar(message: Item | undefined): Item {
+  let m = (message || {}) as Item;
+  for (let i = 0; i < 3; i++) {
+    const k = EMBRULHOS.find((e) => m[e] && typeof m[e] === "object");
+    if (!k) break;
+    m = (((m[k] as Item).message as Item | undefined) || {}) as Item;
+  }
+  return m;
+}
+const temConteudo = (m: Item) => Object.keys(m).some((k) => !SEM_CONTEUDO.includes(k));
+
+// Tipo, texto, arquivo e mime pela chave da mensagem da Evolution/Baileys.
+function conteudo(message: Item | undefined) {
+  const m = desembrulhar(message) as Record<string, Item | undefined>;
+  const doc = m.documentMessage || (m.documentWithCaptionMessage?.message as Record<string, Item> | undefined)?.documentMessage;
+  if (typeof m.conversation === "string") return { tipo: "texto", texto: m.conversation as unknown as string, arquivo: null, mime: null };
+  if (m.extendedTextMessage) return { tipo: "texto", texto: texto(m.extendedTextMessage.text), arquivo: null, mime: null };
+  if (m.imageMessage) return { tipo: "imagem", texto: texto(m.imageMessage.caption), arquivo: null, mime: texto(m.imageMessage.mimetype) };
+  if (doc) return { tipo: "documento", texto: texto(doc.caption), arquivo: texto(doc.fileName) || texto(doc.title), mime: texto(doc.mimetype) };
+  if (m.audioMessage) return { tipo: "audio", texto: null, arquivo: null, mime: texto(m.audioMessage.mimetype) };
+  if (m.videoMessage) return { tipo: "outro", texto: texto(m.videoMessage.caption) || "Vídeo", arquivo: null, mime: texto(m.videoMessage.mimetype) };
+  if (m.stickerMessage) return { tipo: "outro", texto: "Figurinha", arquivo: null, mime: null };
+  return { tipo: "outro", texto: null, arquivo: null, mime: null };
+}
+
+async function registrar(tenantId: string, a: {
+  jid: string; telefone: string | null; nome: string | null; evoId: string; direcao: "entrada" | "saida";
+  tipo: string; texto: string | null; arquivo: string | null; mime: string | null; enviadaPor: string | null; quando: string;
+}) {
+  const { error } = await admin.rpc("whatsapp_registrar_mensagem", {
+    p_tenant: tenantId, p_jid: a.jid, p_telefone: a.telefone, p_nome: a.nome, p_evo_id: a.evoId, p_direcao: a.direcao,
+    p_tipo: a.tipo, p_texto: a.texto, p_arquivo: a.arquivo, p_mime: a.mime, p_enviada_por: a.enviadaPor, p_criada_em: a.quando,
+  });
+  if (error) throw error;
+}
+
+async function mensagensRecebidas(tenantId: string, data: unknown) {
+  for (const item of lista(data)) {
+    const key = (item.key || {}) as Item;
+    const jid = String(key.remoteJid || ""), evoId = String(key.id || "");
+    if (!evoId || !individual(jid)) continue;
+    if (!temConteudo(desembrulhar(item.message as Item | undefined))) continue;
+    const alt = String(key.remoteJidAlt || key.senderPn || "");
+    const telefone = jid.endsWith("@lid") ? (alt ? telefoneDe(alt) : null) : telefoneDe(jid);
+    const ts = Number(item.messageTimestamp);
+    const quando = new Date(Number.isFinite(ts) && ts > 0 ? ts * 1000 : Date.now()).toISOString();
+    const c = conteudo(item.message as Item | undefined);
+    const fromMe = key.fromMe === true;
+    await registrar(tenantId, {
+      jid, telefone, nome: fromMe ? null : texto(item.pushName), evoId, direcao: fromMe ? "saida" : "entrada",
+      tipo: c.tipo, texto: c.texto, arquivo: c.arquivo, mime: c.mime, enviadaPor: null, quando,
+    });
+  }
+}
+
+const SITUACAO_EVO: Record<string, string> = { SERVER_ACK: "enviada", DELIVERY_ACK: "entregue", READ: "lida", PLAYED: "lida", ERROR: "erro" };
+async function situacoesMensagens(tenantId: string, data: unknown) {
+  for (const item of lista(data)) {
+    const evoId = String(item.keyId || (item.key as Item | undefined)?.id || "");
+    const sit = SITUACAO_EVO[String(item.status || "").toUpperCase()];
+    if (!evoId || !sit) continue;
+    const { error } = await admin.rpc("whatsapp_atualizar_situacao", { p_tenant: tenantId, p_evo_id: evoId, p_situacao: sit });
+    if (error) throw error;
+  }
+}
+
+async function enviarTexto(tenantId: string, nome: string, body: { jid?: unknown; texto?: unknown }) {
+  const jid = typeof body.jid === "string" ? body.jid : "";
+  const txt = typeof body.texto === "string" ? body.texto.trim() : "";
+  if (!individual(jid)) return json({ ok: false, erro: "Conversa inválida." }, 400);
+  if (!txt || txt.length > 4096) return json({ ok: false, erro: "Escreva a mensagem (até 4096 caracteres)." }, 400);
+  let r;
+  try {
+    r = await evolution("POST", `/message/sendText/${encodeURIComponent(tenantId)}`, { number: jid, text: txt });
+  } catch (e) {
+    console.error("[whatsapp] enviar_texto:", e);
+    return json({ ok: false, erro: FORA_DO_AR }, 503);
+  }
+  const evoId = r.ok ? String(((r.body?.key as Item | undefined) || {}).id || "") : "";
+  if (!evoId) { console.error("[whatsapp] enviar_texto:", r.status, r.body); return json({ ok: false, erro: FORA_DO_AR }, 503); }
+  const quando = new Date().toISOString();
+  const telefone = jid.endsWith("@lid") ? null : telefoneDe(jid);
+  await registrar(tenantId, { jid, telefone, nome: null, evoId, direcao: "saida", tipo: "texto", texto: txt, arquivo: null, mime: null, enviadaPor: nome, quando });
+  return json({ ok: true, mensagem: { evo_id: evoId, criada_em: quando } });
+}
+
+async function midia(tenantId: string, body: { evo_id?: unknown }) {
+  const evoId = typeof body.evo_id === "string" ? body.evo_id : "";
+  if (!evoId) return json({ ok: false, erro: "Mensagem não encontrada." }, 404);
+  const { data: msg, error } = await admin.from("whatsapp_mensagens").select("jid, direcao, mime")
+    .eq("tenant_id", tenantId).eq("evo_id", evoId).maybeSingle();
+  if (error) throw error;
+  if (!msg) return json({ ok: false, erro: "Mensagem não encontrada." }, 404);
+  try {
+    const r = await evolution("POST", `/chat/getBase64FromMediaMessage/${encodeURIComponent(tenantId)}`, {
+      message: { key: { id: evoId, remoteJid: msg.jid, fromMe: msg.direcao === "saida" } }, convertToMp4: false,
+    });
+    const b64 = r.ok && typeof r.body?.base64 === "string" ? r.body.base64 as string : "";
+    if (!b64) {
+      console.error("[whatsapp] midia:", r.status);
+      return json({ ok: false, erro: "Não deu para abrir o arquivo. Veja no celular da lanchonete." }, r.status === 400 || r.status === 404 ? 404 : 503);
+    }
+    return json({ ok: true, base64: b64, mime: texto(r.body?.mimetype) || msg.mime || "application/octet-stream" });
+  } catch (e) {
+    console.error("[whatsapp] midia:", e);
+    return json({ ok: false, erro: FORA_DO_AR }, 503);
+  }
+}
+
 async function webhook(k: string, req: Request) {
   let corpo: { event?: string; instance?: string; data?: Record<string, unknown> } = {};
   try { corpo = await req.json(); } catch { return json({ ok: false, erro: "corpo inválido" }, 400); }
@@ -115,6 +250,8 @@ async function webhook(k: string, req: Request) {
   if (!linha || !k || !iguais(k, linha.webhook_segredo)) return json({ ok: false }, 401);
   const evento = String(corpo.event || "").toLowerCase().replace(/_/g, ".");
   const data = corpo.data || {};
+  if (evento === "messages.upsert") { await mensagensRecebidas(tenantId, corpo.data); return json({ ok: true }); }
+  if (evento === "messages.update") { await situacoesMensagens(tenantId, corpo.data); return json({ ok: true }); }
   if (evento === "qrcode.updated") {
     const qr = qrDe(data);
     if (qr) await gravar(tenantId, "aguardando_qr", linha.numero, qr);
@@ -211,9 +348,13 @@ Deno.serve(comCors(async (req) => {
     if (k !== null) return await webhook(k, req);
     const quem = await caller(req);
     if (!quem) return json({ ok: false, erro: "Entre de novo no Commandah." }, 401);
-    let body: { action?: string } = {};
+    let body: { action?: string; jid?: unknown; texto?: unknown; evo_id?: unknown } = {};
     try { body = await req.json(); } catch { /* corpo vazio */ }
     if (body.action === "situacao") return await situacao(quem.tenantId, quem.isAdmin);
+    if (body.action === "enviar_texto" || body.action === "midia") {
+      if (!(await planoPro(quem.tenantId))) return json({ ok: false, erro: "Plano Pro" }, 402);
+      return body.action === "enviar_texto" ? await enviarTexto(quem.tenantId, quem.nome, body) : await midia(quem.tenantId, body);
+    }
     if (body.action === "conectar" || body.action === "desconectar") {
       if (!quem.isAdmin) return json({ ok: false, erro: "Só o administrador conecta ou desconecta o WhatsApp." }, 403);
       if (!(await planoPro(quem.tenantId))) return json({ ok: false, erro: "Plano Pro" }, 402);

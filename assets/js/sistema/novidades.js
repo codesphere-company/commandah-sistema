@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-26-whatsapp-conversas', data:'26/11/2026', itens:[
+    { titulo:'Conversas do WhatsApp dentro do Commandah (plano Pro)',
+      texto:'No menu lateral, WhatsApp mostra as conversas do número da lanchonete. Quando um cliente escreve, aparece um aviso com som em qualquer tela e um número no menu; Responder abre a conversa. Dá para responder em texto (Enter envia), usar as respostas prontas de chave Pix e horário da cozinha, ver foto e baixar PDF recebidos e ligar a conversa ao cadastro do cliente para ver a cota e a conta. Áudio continua só no celular.',
+      onde:'Menu lateral › WhatsApp', perms:['whatsapp'] },
+  ]},
   { id:'2026-11-25-padrao-caixa', data:'25/11/2026', itens:[
     { titulo:'Caixa mais fácil de ler',
       texto:'O título do caixa mostra o selo "Aberto". Os valores da movimentação não quebram mais em duas linhas, e o Resumo traz cada valor alinhado à direita do nome. O botão Fechar Caixa ficou maior e, em telas menores, fica sempre à vista embaixo. Nenhum valor ou passo do caixa mudou.',
