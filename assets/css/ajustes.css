@@ -1216,3 +1216,23 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .seg-toggle button{min-height:38px} /* com o padding de 3 px do grupo, a área fica com 44 px */
 .gc-footer .b-ic,.gc-btn-review .b-ic,.gc-btn-back .b-ic{margin-right:4px}
 .gc-footer .b-ic-fim{margin:0 0 0 4px}
+
+/* 25/11 (padrão, lote 11): Caixa e Pagamento, só o desenho. Nenhum texto, valor ou passo muda.
+   - Título do caixa aberto com selo "Aberto" e o Id num selo, no lugar de "— Id: 1" no meio do nome.
+   - Valores e datas da movimentação sem quebrar linha ("R$ / 100,00" quebrava em duas).
+   - Resumo em pares: rótulo à esquerda, valor à direita.
+   - Fechar Caixa com 56 px e sempre à vista em 1024 (a barra fica presa embaixo quando o Resumo desce).
+   - Pagamento com fundo --c-surface (a janela herdava o --c-surface-2 do .record-modal).
+   - Rodapé de status numa linha só até 1100 px (quebrava em duas em 1024). */
+.cash-title{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.cash-selo{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--c-border);background:var(--c-surface);color:var(--c-text-2);font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
+/* o selo "Aberto" vem do CSS (::after) para o texto do título continuar só o nome do caixa (t55 lê o título) */
+.cash-title-aberto::after{content:"● Aberto";order:1;display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:var(--c-success-soft);color:var(--c-success);font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
+.cash-title-aberto .cash-selo{order:2}
+.cash-movement-table td.mono,.cash-movement-table tfoot td,.cash-movement-table td:first-child{white-space:nowrap}
+.cash-summary-line:has(>b){display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.cash-summary-line>b{white-space:nowrap;margin-left:auto}
+.cash-window-actions .op-btn.cash-fechar{min-height:56px;min-width:170px;font-size:var(--fs-lg);font-weight:700}
+@media(max-width:1050px){.cash-open-layout{overflow:clip}.cash-window-actions{position:sticky;bottom:0;z-index:3;box-shadow:0 -6px 14px rgba(0,0,0,.10)}.cash-window-actions .op-btn.cash-fechar{flex:1 1 100%;order:-1}}
+#modalRoot .modal.pay-modal{background:var(--c-surface)!important}
+@media(max-width:1100px){.statusbar{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;gap:14px;scrollbar-width:none}.statusbar .st-metrics{flex-wrap:nowrap;gap:14px}}

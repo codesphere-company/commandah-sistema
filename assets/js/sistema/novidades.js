@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-padrao-caixa', data:'25/11/2026', itens:[
+    { titulo:'Caixa mais fácil de ler',
+      texto:'O título do caixa mostra o selo "Aberto". Os valores da movimentação não quebram mais em duas linhas, e o Resumo traz cada valor alinhado à direita do nome. O botão Fechar Caixa ficou maior e, em telas menores, fica sempre à vista embaixo. Nenhum valor ou passo do caixa mudou.',
+      onde:'Caixa', perms:['caixa'] },
+  ]},
   { id:'2026-11-25-padrao-venda', data:'25/11/2026', itens:[
     { titulo:'Botões de quantidade maiores na Ficha, nas comandas e no app do garçom',
       texto:'Os botões de menos e mais da quantidade ficaram maiores (44 pixels), mais fáceis de acertar no tablet e no celular, e com ícones desenhados no lugar dos símbolos. As categorias da Ficha também cresceram um pouco. Nenhum passo da venda mudou.',

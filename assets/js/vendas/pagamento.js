@@ -92,7 +92,7 @@ function openPaymentModal(mode, comandaId){
       <div id="payChangeChoice" style="display:none;gap:8px;margin-top:10px"></div>
     </div>
     <button class="btn btn-primary btn-block" id="confirmPayBtn">Confirmar pagamento</button></div></div>`,true);
-  const modal=document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal','pay-modal'); modal.style.width='960px';
+  const modal=document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal','pay-modal','janela-g'); // 25/11 (padrão, lote 11): largura G (960) da escala do lote 9, no lugar do style.width
   const selMember = document.getElementById('paySelMember');
   let staffDiscount = 0, finalTotal = subtotal, discount = 0, selectedMethodKey = 'A', creditApplied = 0, changeDecision = 'troco', appliedCouponCode = '', serviceAmount = 0, debtIncluded = 0;
   tempPayments = [];
