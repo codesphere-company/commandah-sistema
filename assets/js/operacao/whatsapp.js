@@ -41,7 +41,8 @@ async function waTickAvisos(){
   const p = await waPlano(); if(!p.pro) return;
   const { data, error } = await supabaseClient.from('whatsapp_conversas')
     .select('jid,nome_contato,telefone,nao_lidas,ultima_em,ultima_texto,ultima_direcao').gt('nao_lidas', 0).limit(100);
-  if(error || !Array.isArray(data)) return;
+  // Etapa 3 (t75): a pessoa pode ter saído do sistema enquanto a consulta voltava.
+  if(error || !Array.isArray(data) || !currentUser) return;
   const total = data.reduce((s,c)=>s+(Number(c.nao_lidas)||0), 0);
   const maior = data.reduce((m,c)=>Math.max(m, waMs(c.ultima_em)), 0);
   const naTela = activeView==='whatsapp' && !document.hidden;
