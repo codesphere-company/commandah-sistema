@@ -8,7 +8,7 @@ function renderOrigens(){
   const ro = !podeEditarCatalogo(); // M5: só consulta para quem não é administrador
   const rows = state.origens.length ? state.origens.map(o=>{
     const emUso = state.users.some(u=>u.origem===o.chave) || state.impressoras.some(p=>p.origem===o.chave);
-    return `<tr><td><b>${h(o.nome)}</b><br><small class="mono" style="color:var(--muted)">${h(o.chave)}</small></td>
+    return `<tr><td><b>${h(o.nome)}</b><br><small class="mono imp-chave">${h(o.chave)}</small></td>
     <td>${state.users.filter(u=>u.origem===o.chave).length} usuário(s)</td>
     <td>${state.impressoras.filter(p=>p.origem===o.chave).length} impressora(s)</td>
     <td>${ro?'—':`<button class="btn btn-sm" onclick="openOrigemModal(${jsArg(o.id)})">Editar</button>
@@ -17,7 +17,7 @@ function renderOrigens(){
   el.innerHTML = `<div class="panel"><h2>Origens de Pedido</h2>
     <p class="sub">Uma origem é de onde um pedido chega (Caixa, App do Garçom, Totem, iFood, WhatsApp — o que fizer sentido pro seu negócio). Impressoras e usuários se vinculam a uma origem pra saber pra onde rotear cada pedido.</p>
     ${ro?`<p class="sub"><b>${AVISO_SO_CONSULTA}</b></p>`:'<button class="btn btn-primary" onclick="openOrigemModal()">+ Nova origem</button>'}
-    <table style="margin-top:14px"><tr><th>Origem</th><th>Usuários</th><th>Impressoras vinculadas</th><th>Ações</th></tr>${rows}</table>
+    <table class="imp-tabela"><tr><th>Origem</th><th>Usuários</th><th>Impressoras vinculadas</th><th>Ações</th></tr>${rows}</table>
   </div>`;
 }
 function openOrigemModal(id){
@@ -55,7 +55,7 @@ function renderEstacoes(){
   const ro = !podeEditarCatalogo(); // M5: só consulta para quem não é administrador
   const rows = state.estacoes.length ? state.estacoes.map(e=>{
     const emUso = state.products.some(p=>p.estacao===e.chave) || state.impressoras.some(p=>p.estacao===e.chave);
-    return `<tr><td><b>${h(e.nome)}</b><br><small class="mono" style="color:var(--muted)">${h(e.chave)}</small></td>
+    return `<tr><td><b>${h(e.nome)}</b><br><small class="mono imp-chave">${h(e.chave)}</small></td>
     <td>${({imprime:'Só imprimir',tela:'Só tela (Monitor)',ambos:'Imprimir + Tela'})[e.saida]||e.saida}</td>
     <td>${state.impressoras.filter(p=>p.estacao===e.chave).length} impressora(s)</td>
     <td>${ro?'—':`<button class="btn btn-sm" onclick="openEstacaoModal(${jsArg(e.id)})">Editar</button>
@@ -64,7 +64,7 @@ function renderEstacoes(){
   el.innerHTML = `<div class="panel"><h2>Estações</h2>
     <p class="sub">Uma estação é qualquer ponto de preparo do seu estabelecimento (Cozinha, Bar, Churrasqueira, Sobremesas, Confeitaria — o que fizer sentido pro seu negócio). Cada uma define se o pedido é impresso, mostrado num monitor/TV, ou os dois. Crie, edite ou remova estações livremente — produtos e impressoras se conectam a elas.</p>
     ${ro?`<p class="sub"><b>${AVISO_SO_CONSULTA}</b></p>`:'<button class="btn btn-primary" onclick="openEstacaoModal()">+ Nova estação</button>'}
-    <table style="margin-top:14px"><tr><th>Estação</th><th>Modo de saída</th><th>Impressoras vinculadas</th><th>Ações</th></tr>${rows}</table>
+    <table class="imp-tabela"><tr><th>Estação</th><th>Modo de saída</th><th>Impressoras vinculadas</th><th>Ações</th></tr>${rows}</table>
   </div>`;
 }
 function openEstacaoModal(id){
@@ -107,26 +107,26 @@ let lastAgentProbeAt = Date.now(); // o login já procura o agente (afterLogin)
 function renderImpressoras(){
   const el = document.getElementById('view-impressoras');
   const rows = state.impressoras.length ? state.impressoras.map(p=>`
-    <tr><td>${h(p.nome)}${p.osName?`<br><small class="mono" style="color:var(--muted)">${h(p.osName)}</small>`:''}${p.ip?`<br><small class="mono" style="color:var(--muted)">rede: ${h(p.ip)}</small>`:''}</td><td>${h(printStationName(p.estacao)||'—')}</td><td>${h(origemLabel(p.origem)||'—')}</td>
-    <td>${p.agentUrl?`<span class="mono" style="font-size:12px">${h(p.agentUrl)}</span>`:'<span class="sub" style="font-size:12px">— (mesmo computador)</span>'}</td>
+    <tr><td>${h(p.nome)}${p.osName?`<br><small class="mono imp-chave">${h(p.osName)}</small>`:''}${p.ip?`<br><small class="mono imp-chave">rede: ${h(p.ip)}</small>`:''}</td><td>${h(printStationName(p.estacao)||'—')}</td><td>${h(origemLabel(p.origem)||'—')}</td>
+    <td>${p.agentUrl?`<span class="mono imp-agente">${h(p.agentUrl)}</span>`:'<span class="sub imp-agente">— (mesmo computador)</span>'}</td>
     <td id="impStatus-${p.id}"><span class="tag tag-gray">verificando...</span></td>
     <td><button class="btn btn-sm" onclick="openImpressoraModal(${jsArg(p.id)})">Editar</button>
     <button class="btn btn-sm btn-danger" onclick="deleteImpressora(${jsArg(p.id)})">Excluir</button></td></tr>`).join('')
     : `<tr><td colspan="6" class="empty">Nenhuma impressora cadastrada.</td></tr>`;
   el.innerHTML = `<div class="panel"><h2>Impressoras</h2>
     ${supabaseClient?`<p class="sub">Abra o agente de impressão em cada computador que tem impressora ligada no USB e conecte com o código que aparece nele. As impressoras de rede (cabo de rede ou Wi-Fi, sem computador) são encontradas pelos computadores conectados na mesma rede. Depois é só escolher aqui o que cada impressora imprime e fazer o teste.</p>
-    <div id="printSetupAuto"><div class="ps-block"><p class="sub" style="margin:0">Carregando…</p></div></div>
-    <div id="printQueueBox" class="ps-block"><p class="sub" style="margin:0">Carregando a fila de impressão…</p></div>`:''}
+    <div id="printSetupAuto"><div class="ps-block"><p class="sub imp-carregando">Carregando…</p></div></div>
+    <div id="printQueueBox" class="ps-block"><p class="sub imp-carregando">Carregando a fila de impressão…</p></div>`:''}
     <details class="ps-advanced" ${!supabaseClient||psAdvancedOpen?'open':''} ontoggle="psAdvancedOpen=this.open"><summary>Configuração manual e token antigo (avançado)</summary>
-    <p class="sub">Cada impressora atende uma estação. Gerencie quais estações existem e o modo de saída (imprimir/tela) de cada uma em <a href="#" onclick="switchView('estacoes');return false" style="color:var(--c-primary-text);font-weight:600">Configurações → Áreas do Clube → Estações</a>.</p>
-    <div id="agentStatusBox" class="tag tag-gray" style="margin-bottom:14px">Verificando agentes de impressão...</div>
-    ${supabaseClient?`<div class="field" style="margin-bottom:14px"><label>Token do agente de impressão</label>
+    <p class="sub">Cada impressora atende uma estação. Gerencie quais estações existem e o modo de saída (imprimir/tela) de cada uma em <a href="#" onclick="switchView('estacoes');return false" class="imp-link">Configurações → Áreas do Clube → Estações</a>.</p>
+    <div id="agentStatusBox" class="tag tag-gray">Verificando agentes de impressão...</div>
+    ${supabaseClient?`<div class="field imp-campo"><label>Token do agente de impressão</label>
       <div id="printTokenStatus" class="sub">Verificando...</div>
       <button class="btn btn-sm" onclick="regeneratePrintAgentToken()">Gerar/Regenerar token</button>
       <p class="sub">Cole esse token no agente de impressão local (ele pede na primeira vez que roda, ou quando você regenerar). Regenerar invalida o token anterior — os agentes já configurados param até você colar o novo.</p>
     </div>`:''}
     <button class="btn btn-primary" onclick="openImpressoraModal()">+ Nova impressora</button>
-    <table style="margin-top:14px"><tr><th>Nome</th><th>Estação</th><th>Origem atendida</th><th>Agente (rede)</th><th>Status</th><th>Ações</th></tr>${rows}</table>
+    <table class="imp-tabela"><tr><th>Nome</th><th>Estação</th><th>Origem atendida</th><th>Agente (rede)</th><th>Status</th><th>Ações</th></tr>${rows}</table>
     </details>
     ${renderTicketConfigHtml()}
   </div>`;
