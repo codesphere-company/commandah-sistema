@@ -143,6 +143,10 @@ async function mandarConta(){
     if(err) err.textContent = ((r && r.erro) || 'Não foi possível falar com o WhatsApp agora.') + parte;
     return;
   }
+  // Revisão final: a conversa criada pelo envio fica ligada à cliente (a ligação automática não liga quando
+  // dois cadastros têm o mesmo telefone), para o painel e o filtro "Conta enviada" acharem.
+  const m = contaWhatsappMembro(s);
+  if(m) supabaseClient.rpc('whatsapp_vincular_cliente', { p_jid:contaWaAtual.jid, p_member_id:m.id }).then(()=>{}, ()=>{});
   s.contaEnviada = { em:new Date().toISOString(), por:(currentUser && currentUser.name) || '', valor:t.total, jid:contaWaAtual.jid };
   save('sales');
   logAction('Conta mandada pelo WhatsApp — comanda #' + (s.orderNumber||'') + ' (' + fmt(t.total) + ')');
@@ -155,5 +159,9 @@ function contaEnviadaSelo(s){
   if(!s || !s.contaEnviada) return '';
   const c = s.contaEnviada;
   const quando = c.em ? new Date(c.em).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+  // Revisão final: a comanda mudou depois do envio (item novo, parcial): o Pix que o cliente tem é de outro valor.
+  let atual = null; try { atual = contaWhatsappTotais(s).total; } catch(e){ /* sem total: mostra o selo normal */ }
+  if(atual!==null && Number(c.valor) > 0 && Math.abs(atual - Number(c.valor)) > TOLERANCIA_CENTAVO)
+    return `<span class="tag tag-red conta-enviada-tag" title="${h('Mandada com ' + fmt(c.valor) + '; agora a comanda está em ' + fmt(atual) + '. Mande a conta de novo.')}">Conta enviada · valor mudou</span>`;
   return `<span class="tag tag-amber conta-enviada-tag" title="${h('Mandada' + (quando ? ' em ' + quando : '') + (c.por ? ' por ' + c.por : '') + (c.valor ? ' · ' + fmt(c.valor) : ''))}">Conta enviada · aguardando Pix</span>`;
 }

@@ -19,7 +19,19 @@ function pixNormalizarChave(chave){
   if(c.includes('@')) return c.toLowerCase();
   if(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(c)) return c.toLowerCase();
   if(c.startsWith('+')) return '+' + c.replace(/\D/g, '');
-  return c.replace(/\D/g, '');
+  // Revisão final (25/11): telefone digitado sem o +55 virava uma chave com cara de CPF (11 dígitos) e o banco
+  // recusava, ou pior, achava a chave de outra pessoa. 11 dígitos só ficam como CPF se o dígito verificador
+  // confere; 10 dígitos (fixo com DDD) e 12–13 começando com 55 viram telefone.
+  const d = c.replace(/\D/g, '');
+  if(d.length===11) return pixCpfValido(d) ? d : '+55' + d;
+  if(d.length===10) return '+55' + d;
+  if((d.length===12 || d.length===13) && d.startsWith('55')) return '+' + d;
+  return d;
+}
+function pixCpfValido(d){
+  if(!/^\d{11}$/.test(d) || /^(\d)\1{10}$/.test(d)) return false;
+  const dv = n => { let s = 0; for(let i = 0; i < n; i++) s += Number(d[i]) * (n + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
+  return dv(9) === Number(d[9]) && dv(10) === Number(d[10]);
 }
 // Sem acento e só letras, números e espaço (o BR Code aceita só ASCII nesses campos).
 function pixTextoSimples(t, max){
