@@ -124,7 +124,7 @@
   - Evolution lenta: mensagem "Não foi possível falar com o WhatsApp agora" em até 12 s;
   - matriz de perfis salva com versão 3 ganha `whatsapp` no caixa; sem erro no console.
 - [ ] **Step 2:** Rodar → FALHA.
-- [ ] **Step 3:** Implementar (molde visual do artboard Conectar; QR em `<img src>` vindo da função — `data:image/png` já é permitido? conferir `img-src` da CSP; se não for, avisar o dono antes de mudar a CSP).
+- [ ] **Step 3:** Implementar (molde visual do artboard Conectar; QR em `<img src>` vindo da função; `data:` já está no `img-src` da CSP, sem mudança nela).
 - [ ] **Step 4:** Rodar t70 → ok; t57, t67 → ok.
 - [ ] **Step 5:** `node scripts/bump-version.js && node scripts/check-app.js && node scripts/check-load-order.js`; commit `feat(whatsapp): Configurações › WhatsApp com QR (etapa 1)`.
 
