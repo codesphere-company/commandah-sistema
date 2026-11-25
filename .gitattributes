@@ -10,3 +10,4 @@
 
 # Item 7 (16/11): bibliotecas copiadas do fornecedor ficam byte a byte (hash conferido no commit)
 assets/vendor/** -text
+infra/evolution/** text eol=lf
