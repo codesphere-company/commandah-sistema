@@ -59,7 +59,7 @@ function aplicarFiltroDivergencias(){
 function renderVendasDivergentes(el){
   el = el || document.getElementById('view-relatorios'); if(!el) return;
   const p = divergenciasPeriodo(), lista = vendasComDivergencia();
-  const filtros = `<div class="field"><label for="dvFrom">De</label><input id="dvFrom" type="date" value="${h(p.from)}"></div><div class="field"><label for="dvTo">Até</label><input id="dvTo" type="date" value="${h(p.to)}"></div><button class="op-btn primary" onclick="aplicarFiltroDivergencias()">⌕ &nbsp; Pesquisar</button>`;
+  const filtros = `<div class="field"><label for="dvFrom">De</label><input id="dvFrom" type="date" value="${h(p.from)}"></div><div class="field"><label for="dvTo">Até</label><input id="dvTo" type="date" value="${h(p.to)}"></div><button class="op-btn primary" onclick="aplicarFiltroDivergencias()"><span class="b-ic" aria-hidden="true">${ICN.search}</span> Pesquisar</button>`;
   const linhas = lista.map(s=>{
     const motivos = ((s.conferencia||{}).divergencias||[]).map(d=>`<li>${h(motivoDivergencia(d,s))}</li>`).join('');
     return `<tr data-divergente="${h(s.id)}" onclick="openOrderHistoryDetail(${jsArg(s.id)})" style="cursor:pointer"><td>${h(reportWhen(s.closedAt||s.conferencia.em))}</td><td>#${h(String(s.orderNumber||s.id))}</td><td>${h(s.operatorName||'—')}</td><td class="mono">${fmt(s.total)}</td><td style="min-width:280px"><ul class="det-motivos" style="margin:0;padding-left:16px">${motivos||'<li>—</li>'}</ul></td></tr>`;

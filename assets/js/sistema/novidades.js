@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-padrao-icones-gestao', data:'25/11/2026', itens:[
+    { titulo:'Ícones desenhados também nos relatórios e no financeiro',
+      texto:'Imprimir, Exportar, Pesquisar, Voltar, Dia anterior e os botões de Contas, Fiado, Cupons e Logs também passaram a usar ícones desenhados no lugar dos símbolos de texto.',
+      onde:'Relatórios e Financeiro', perms:['relatorios','relatorios-gerencia','contas','receber-fiado','cupons','logs'] },
+  ]},
   { id:'2026-11-25-padrao-icones', data:'25/11/2026', itens:[
     { titulo:'Ícones desenhados nos botões',
       texto:'Os botões dos cadastros (Novo, Editar, Excluir, Imprimir, Duplicar, Exportar, Opções...) trocaram os símbolos de texto por ícones desenhados, iguais aos do menu lateral. Nada mudou no que cada botão faz.',

@@ -125,14 +125,14 @@ function conferenciaDesenhar(el, nuvem){
       <label>Até <input type="date" id="confAte" value="${h(confEstado.ate)}" onchange="conferenciaFiltro('ate',this.value)"></label>
       <label>Forma <select id="confForma" onchange="conferenciaFiltro('forma',this.value)">${opcoesForma}</select></label>
       <label>Situação <select id="confSituacao" onchange="conferenciaFiltro('situacao',this.value)">${opcoesSit}</select></label>
-      <div class="finance-actions"><button class="op-btn" onclick="conferenciaExportar()">⇩ &nbsp; Exportar planilha</button></div>
+      <div class="finance-actions"><button class="op-btn" onclick="conferenciaExportar()"><span class="b-ic" aria-hidden="true">${ICN.download}</span> Exportar planilha</button></div>
     </div>
     ${confEstado.erro?`<p class="conf-aviso">${h(confEstado.erro)}</p>`:''}
     ${nuvem?'':'<p class="conf-aviso">A conferência só funciona com o sistema conectado à nuvem.</p>'}
     <div class="conf-totais">${totaisHtml || '<span class="sub">Nenhum pagamento no período.</span>'}${linhas.length?`<div class="conf-total conf-total-geral"><span>Total</span><b>${fmt(totalGeral)}</b><small>${linhas.length} pagamento${linhas.length===1?'':'s'}</small></div>`:''}</div>
     <div class="conf-acoes">
-      <button class="op-btn primary" id="confBtnConfirmar" onclick="conferenciaConfirmar()">✓ &nbsp; Confirmar selecionados</button>
-      <button class="op-btn" id="confBtnNaoRecebido" onclick="conferenciaPedirNota()">✕ &nbsp; Marcar como não recebido</button>
+      <button class="op-btn primary" id="confBtnConfirmar" onclick="conferenciaConfirmar()"><span class="b-ic" aria-hidden="true">${ICN.check}</span> Confirmar selecionados</button>
+      <button class="op-btn" id="confBtnNaoRecebido" onclick="conferenciaPedirNota()"><span class="b-ic" aria-hidden="true">${ICN.x}</span> Marcar como não recebido</button>
       <button class="op-btn" id="confBtnVoltar" onclick="conferenciaVoltar()">↩ &nbsp; Voltar para a conferir</button>
       <span class="sub" id="confContagem">${confEstado.selecao.size} selecionado(s)</span>
     </div>
@@ -197,7 +197,7 @@ function conferenciaPedirNota(){
   const chaves = conferenciaChavesMarcadas();
   if(!chaves.length){ toast('Marque ao menos um pagamento.'); return; }
   confEstado.pendente = chaves;
-  openModal('Marcar como não recebido', `<div class="field"><label for="confNota">Observação (obrigatória)</label><textarea id="confNota" rows="3" maxlength="300" placeholder="Ex.: não apareceu no extrato do dia"></textarea></div><p class="sub">${chaves.length} pagamento(s). É só um registro: a venda, o caixa e o fiado não mudam.</p><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" id="confNotaOk" onclick="conferenciaNaoRecebido()">✓ Marcar</button></div>`);
+  openModal('Marcar como não recebido', `<div class="field"><label for="confNota">Observação (obrigatória)</label><textarea id="confNota" rows="3" maxlength="300" placeholder="Ex.: não apareceu no extrato do dia"></textarea></div><p class="sub">${chaves.length} pagamento(s). É só um registro: a venda, o caixa e o fiado não mudam.</p><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button><button class="consumer-save" id="confNotaOk" onclick="conferenciaNaoRecebido()"><span class="b-ic" aria-hidden="true">${ICN.check}</span> Marcar</button></div>`);
   setTimeout(()=>{ const n = document.getElementById('confNota'); if(n) n.focus(); }, 50);
 }
 async function conferenciaNaoRecebido(){
