@@ -130,9 +130,9 @@ function renderItemChoice(focusKey){
       const q = Number(picks[o.id]) || 0, canAdd = !max || total < max;
       const key = rule.groupId + '|' + o.id;
       return `<div class="ic-opt"><span>${h(o.nome)}${Number(o.preco) ? ` <small>+ ${fmt(o.preco)}</small>` : ''}</span><span class="ic-qty">`
-        + `<button type="button" data-ic-key="${h(key + '|-1')}" aria-label="${h('Tirar ' + o.nome)}" ${q <= 0 ? 'disabled' : ''} onclick="itemChoiceStep(${jsArg(rule.groupId)},${jsArg(o.id)},-1)">−</button>`
+        + `<button type="button" data-ic-key="${h(key + '|-1')}" aria-label="${h('Tirar ' + o.nome)}" ${q <= 0 ? 'disabled' : ''} onclick="itemChoiceStep(${jsArg(rule.groupId)},${jsArg(o.id)},-1)"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button>`
         + `<span class="mono">${q}</span>`
-        + `<button type="button" data-ic-key="${h(key + '|1')}" aria-label="${h('Pôr ' + o.nome)}" ${canAdd ? '' : 'disabled'} onclick="itemChoiceStep(${jsArg(rule.groupId)},${jsArg(o.id)},1)">+</button></span></div>`;
+        + `<button type="button" data-ic-key="${h(key + '|1')}" aria-label="${h('Pôr ' + o.nome)}" ${canAdd ? '' : 'disabled'} onclick="itemChoiceStep(${jsArg(rule.groupId)},${jsArg(o.id)},1)"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button></span></div>`;
     }).join('') || '<p class="sub">Nenhuma opção ativa neste grupo.</p>';
     html += '</div>';
   });

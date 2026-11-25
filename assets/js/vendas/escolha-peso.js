@@ -49,7 +49,7 @@ function openWeightChoice(productId, onDone){
         <input id="wsPrice" class="mono" inputmode="decimal" autocomplete="off" maxlength="12" value="${h(_wsPriceBR(original))}" ${admin ? '' : 'readonly aria-readonly="true"'}>
         ${admin ? '' : `<button type="button" class="op-btn ws-unlock" id="wsPriceUnlock" onclick="weightChoiceOpenPin()">Alterar (PIN do admin)</button>`}
       </div>
-      <p class="ws-price-note" id="wsPriceNote">${admin ? '' : '🔒 Só administrador altera.'}</p>
+      <p class="ws-price-note" id="wsPriceNote">${admin ? '' : 'Só administrador altera.'}</p>
       ${admin ? '' : weightChoicePinPanelHtml()}
       <div class="ws-label" id="wsPiecesLabel">Peças (peso da etiqueta, kg)</div>
       <div class="ws-pieces" id="wsPieces" role="list" aria-labelledby="wsPiecesLabel"></div>
@@ -123,7 +123,7 @@ function renderWeightChoice(){
         <input class="ws-kg mono" data-ws-row="${h(row.id)}" inputmode="decimal" autocomplete="off" maxlength="12" aria-label="${h('Peso da peça ' + (i + 1))}" placeholder="${last ? 'peso da próxima' : ''}" value="${h(row.text)}">
         <span class="ws-parsed mono">${h(c.kg)}</span>
         <span class="ws-val mono">${h(c.val)}</span>
-        ${last ? '<span class="ws-del-ph"></span>' : `<button type="button" class="ws-del" aria-label="${h('Tirar a peça ' + (i + 1))}" onclick="weightChoiceRemove(${jsArg(row.id)})">✕</button>`}
+        ${last ? '<span class="ws-del-ph"></span>' : `<button type="button" class="ws-del" aria-label="${h('Tirar a peça ' + (i + 1))}" onclick="weightChoiceRemove(${jsArg(row.id)})"><span class="b-ic" aria-hidden="true">${ICN.x}</span></button>`}
       </div>
       <small class="ws-err">${h(c.err)}</small>
     </div>`;
@@ -291,7 +291,7 @@ async function weightChoicePinConfirm(){
   st.override = Math.abs(price - st.original) < 0.005 ? null : { original: st.original, by, operator, at: new Date().toISOString() };
   const field = document.getElementById('wsPrice'); if(field) field.value = st.priceText;
   const note = document.getElementById('wsPriceNote');
-  if(note) note.textContent = st.override ? 'Alterado por ' + by + ' (antes R$ ' + _wsPriceBR(st.original) + ').' : '🔒 Só administrador altera.';
+  if(note) note.textContent = st.override ? 'Alterado por ' + by + ' (antes R$ ' + _wsPriceBR(st.original) + ').' : 'Só administrador altera.';
   pinEl.value = '';
   const panel = document.getElementById('wsPinPanel'); if(panel) panel.hidden = true;
   st.rows.forEach(_wsPaintRow);

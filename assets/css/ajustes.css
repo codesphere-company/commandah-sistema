@@ -117,7 +117,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .cmd-hist .cmd-qtd{width:1%;white-space:nowrap;text-align:center}
 .cmd-hist .cmd-qtd{color:var(--c-text)}
 .cmd-hist .cmd-qtd .qty-ctrl{display:inline-flex;align-items:center;gap:6px}
-.cmd-hist .cmd-qtd .qty-ctrl button{min-width:26px;min-height:26px}
+.cmd-hist .cmd-qtd .qty-ctrl button{min-width:var(--hit);min-height:var(--hit)} /* lote 10: era 26 px */
 .cmd-item-nome{font-weight:600;color:var(--c-text)}
 .cmd-hist .cmd-row small.cmd-item-det{display:inline;margin:0;font-size:var(--fs-xs);color:var(--c-text-3)}
 .cmd-hist .cmd-row.is-canceled{opacity:.7}
@@ -244,7 +244,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .balcao-cart #pdvNote{width:100%;height:44px;padding:0 12px;border:1px solid var(--c-border-input);border-radius:var(--r-md);background:var(--c-surface);color:var(--c-text);font:inherit;font-size:var(--fs-md);box-sizing:border-box}
 .bc-items{flex:1 1 auto;min-height:60px;overflow-y:auto;border-top:1px solid var(--c-border)}
 .bc-items .item-line{font-size:var(--fs-md);padding:10px 0;border-bottom:1px solid var(--c-border);color:var(--c-text)}
-.bc-items .qty-ctrl button{min-width:32px;min-height:32px}
+.bc-items .qty-ctrl button{min-width:var(--hit);min-height:var(--hit)} /* lote 10: era 32 px */
 .balcao-cart .cash-order-total{display:flex;justify-content:space-between;align-items:baseline;font-size:var(--fs-2xl);font-weight:700;color:var(--c-text)}
 .bc-actions{display:grid;grid-template-columns:1fr 2fr;gap:10px}
 .bc-actions .op-btn{min-height:54px;justify-content:center}
@@ -319,7 +319,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .np-line-sub{font-weight:700;white-space:nowrap}
 .np-line-ctrl{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .np-line .qty-ctrl{gap:6px}
-.np-line .qty-ctrl button{min-width:38px;min-height:38px;font-size:var(--fs-xl)}
+.np-line .qty-ctrl button{min-width:var(--hit);min-height:var(--hit);font-size:var(--fs-xl)} /* lote 10: era 38 px */
 .np-line .qty-ctrl .mono{display:inline-block;min-width:30px;text-align:center;font-weight:700;font-size:var(--fs-lg)}
 .np-cart-head .sub{font-size:var(--fs-sm)}
 .np-side-foot{border-top:1px solid var(--c-border);padding-top:10px;display:grid;gap:10px}
@@ -1204,3 +1204,15 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 #modalRoot .modal.janela-p{width:min(480px,calc(100vw - 32px))!important;max-width:none!important}
 #modalRoot .modal.janela-m{width:min(720px,calc(100vw - 32px))!important;max-width:none!important}
 #modalRoot .modal.janela-g{width:min(960px,calc(100vw - 32px))!important;max-width:none!important}
+
+/* 25/11 (padrão, lote 10): telas de venda (Ficha, Comandas, garçom), só o desenho. O − e o + da quantidade eram texto
+   de 32 px (.qty-ctrl button tinha 4 tamanhos: componentes.css:11 e ajustes.css:120, :247, :322); agora são o ícone
+   do ICN em 44 px. Categorias da Ficha e o seletor de ordem das Comandas também com 44 px. Nenhum passo mudou. */
+.qty-ctrl button{display:inline-flex;align-items:center;justify-content:center;min-width:var(--hit);min-height:var(--hit);padding:0}
+.qty-ctrl button svg{width:18px;height:18px;stroke:currentColor;display:block}
+.qty-ctrl button .b-ic{margin:0}
+.balcao-cats button{min-height:var(--hit)}
+.balcao-cats-current{min-height:var(--hit)}
+.seg-toggle button{min-height:38px} /* com o padding de 3 px do grupo, a área fica com 44 px */
+.gc-footer .b-ic,.gc-btn-review .b-ic,.gc-btn-back .b-ic{margin-right:4px}
+.gc-footer .b-ic-fim{margin:0 0 0 4px}

@@ -38,7 +38,7 @@ const HELP_SHEETS = {
       <li>Escolha <b>Quem está pedindo</b> (titular ou dependente).</li>
       <li>Toque na categoria e nos produtos. Para procurar, use <b>Todos os produtos</b>.</li>
       <li>Na revisão, confira as quantidades, o local e a observação (ex.: "sem cebola").</li>
-      <li>Toque <b>✓ Enviar pedido</b>. O pedido vai direto para a cozinha, a churrasqueira ou o bar, e a ficha imprime lá. Bebida lacrada e o que não tem preparo saem <b>no bar</b>. Não precisa avisar o caixa.</li></ol>
+      <li>Toque <b>Enviar pedido</b>. O pedido vai direto para a cozinha, a churrasqueira ou o bar, e a ficha imprime lá. Bebida lacrada e o que não tem preparo saem <b>no bar</b>. Não precisa avisar o caixa.</li></ol>
     <h3>Situações comuns</h3><ul>
       <li>Comanda com <b>🔒</b>: o caixa travou a comanda (ex.: já pediu a conta). Fale com o caixa.</li>
       <li>Sócio com <b>consumo bloqueado</b>: não insista. Peça para ele passar no caixa.</li>

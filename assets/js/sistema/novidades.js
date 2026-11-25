@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-padrao-venda', data:'25/11/2026', itens:[
+    { titulo:'Botões de quantidade maiores na Ficha, nas comandas e no app do garçom',
+      texto:'Os botões de menos e mais da quantidade ficaram maiores (44 pixels), mais fáceis de acertar no tablet e no celular, e com ícones desenhados no lugar dos símbolos. As categorias da Ficha também cresceram um pouco. Nenhum passo da venda mudou.',
+      onde:'Ficha, Comandas e app do garçom' },
+  ]},
   { id:'2026-11-25-padrao-janelas', data:'25/11/2026', itens:[
     { titulo:'Salvar sempre à vista nas janelas de cadastro',
       texto:'Nas janelas de cadastro (produto, cliente, colaborador e as outras), o título e os botões Voltar e Salvar ficam fixos enquanto você rola o formulário. Antes, em telas mais baixas, o Salvar ficava escondido lá embaixo. A janela do colaborador também ficou do tamanho certo para os campos que tem.',
