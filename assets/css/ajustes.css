@@ -63,6 +63,8 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 #toastRoot{position:fixed;top:calc(var(--top-banner-offset,0px) + 12px);left:50%;transform:translateX(-50%);z-index:300;display:flex;flex-direction:column;align-items:center;gap:8px;width:max-content;max-width:min(440px,calc(100vw - 32px));pointer-events:none}
 #toastRoot .toast{position:static;pointer-events:none;display:flex;align-items:center;gap:10px}
 #toastRoot .toast-erro{pointer-events:auto}
+/* 25/11: o aviso de mensagem do WhatsApp tem os botões Responder e Depois (operacao/whatsapp.js) */
+#toastRoot .wa-toast{pointer-events:auto;flex-direction:column;align-items:stretch}
 #toastRoot .toast-erro{background:var(--c-danger-soft);color:var(--c-text);border:1px solid var(--c-danger)} /* UX P3 (06/11): sem a faixa grossa à esquerda; o fundo vermelho claro já diz que é erro */
 #toastRoot .toast-close{background:none;border:0;color:inherit;font-size:var(--fs-title);line-height:1;min-width:32px;min-height:32px;cursor:pointer}
 /* UX-04: janela de confirmação do sistema (acima dos modais) */
