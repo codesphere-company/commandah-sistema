@@ -1112,3 +1112,17 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .cc-irmaos button.active{background:var(--c-primary-soft);color:var(--c-primary-text);font-weight:700}
 .cc-irmaos button.disabled{opacity:.42;cursor:not-allowed}
 @media(max-width:1100px){.cc-irmaos button .ic{display:none}.cc-irmaos button{padding:0 10px}}
+
+/* 25/11 (padrão, lote 1): lupa e × em SVG, iguais aos da central de configurações. A lupa era o símbolo "⌕"
+   desenhado pelo CSS (estrutura.css:420) e, em 14 telas, também um <span>⌕</span>: os dois se sobrepunham e
+   viravam "dois anéis". O × de fechar era texto de 32 px; agora é o ícone ICN.x numa área de toque de 44 px. */
+:root{--ic-lupa:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='m20 20-4.2-4.2'/%3E%3C/svg%3E")}
+.op-search:before{content:'';left:13px;top:50%;width:18px;height:18px;transform:translateY(-50%);font-size:0;background:var(--c-text-3);-webkit-mask:var(--ic-lupa) center/18px 18px no-repeat;mask:var(--ic-lupa) center/18px 18px no-repeat;pointer-events:none;z-index:1}
+.op-titlebar .op-controls>button,.op-titlebar .op-controls>span,.tela-cabecalho .op-controls>button,.modal-close,.cp-close,.pdv-sheet-title>button{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:0;border:0;border-radius:var(--r-md);background:none;color:var(--c-text-2);cursor:pointer}
+.op-titlebar .op-controls>button:hover,.tela-cabecalho .op-controls>button:hover,.modal-close:hover,.cp-close:hover,.pdv-sheet-title>button:hover{background:var(--c-surface-3);color:var(--c-text)}
+.op-titlebar .op-controls>button,.tela-cabecalho .op-controls>button{margin:-6px -10px -6px 0} /* a área cresce para 44 px sem aumentar o cabeçalho */
+.op-titlebar .op-controls svg,.tela-cabecalho .op-controls svg,.modal-close svg,.cp-close svg,.pdv-sheet-title>button svg{width:20px;height:20px;display:block}
+.ic-close{display:inline-flex;align-items:center;justify-content:center;border-radius:var(--r-md)}
+.ic-close svg{width:22px;height:22px;display:block}
+.ic-close:hover{background:var(--c-surface-3);color:var(--c-text)}
+.pdv-sheet-title{align-items:center;padding:0 4px 0 14px}

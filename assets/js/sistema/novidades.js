@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-padrao-lote-1', data:'25/11/2026', itens:[
+    { titulo:'Lupa e botão de fechar mais nítidos',
+      texto:'A lupa das buscas e o × de fechar telas e janelas passaram a ser desenhados como os outros ícones do sistema. O × ficou com uma área maior para tocar no tablet. Nada mudou no funcionamento.',
+      onde:'Buscas, telas e janelas' },
+  ]},
   { id:'2026-11-25-central-configuracoes', data:'25/11/2026', itens:[
     { titulo:'Configurações em uma página só, com busca',
       texto:'Ao tocar em Configurações no menu lateral, abre uma página com todas as configurações em 5 grupos (Estabelecimento, Equipe e acesso, Áreas e impressão, Dados e registros, Plano e ajuda), cada uma com uma linha explicando o que faz. Use a busca para achar pelo nome. Dentro de uma configuração, a barra de cima tem o botão Voltar e as outras do mesmo grupo. A faixa de botões pequenos saiu.',

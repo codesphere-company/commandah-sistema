@@ -41,7 +41,7 @@ function openWeightChoice(productId, onDone){
   root.id = 'weightChoiceRoot';
   root.className = 'item-choice-backdrop';
   root.innerHTML = `<div class="item-choice-box ws-box" role="dialog" aria-modal="true" aria-labelledby="wsTitle">
-    <header class="ic-head"><h3 id="wsTitle">${h(product.name)}</h3><button type="button" class="ic-close" aria-label="Fechar" onclick="closeWeightChoice()">&times;</button></header>
+    <header class="ic-head"><h3 id="wsTitle">${h(product.name)}</h3><button type="button" class="ic-close" aria-label="Fechar" onclick="closeWeightChoice()">${ICN.x}</button></header>
     <div class="ic-body">
       <label class="ws-label" for="wsPrice">Preço do quilo</label>
       <div class="ws-price">

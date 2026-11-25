@@ -130,9 +130,9 @@ function renderProdutos(){
   const avgCost=list.length?list.reduce((s,p)=>s+productCost(p),0)/list.length:0;
   const avgPrice=list.length?list.reduce((s,p)=>s+(Number(p.price)||0),0)/list.length:0;
   el.innerHTML = `<div class="workspace-gray"><section class="op-window product-window">
-    <header class="op-titlebar"><span>Produtos</span><span class="op-controls"><span onclick="closeOperationalWindow()" style="cursor:pointer" title="Fechar">×</span></span></header>
+    <header class="op-titlebar"><span>Produtos</span><span class="op-controls"><button type="button" onclick="closeOperationalWindow()" aria-label="Fechar" title="Fechar">${ICN.x}</button></span></header>
     <div class="op-toolbar">
-      <div class="op-search"><span>⌕</span><input id="productSearch" placeholder="Pesquisar aqui..." value="${h(productSearchQuery)}"></div><div class="op-toolbar-spacer"></div>
+      <div class="op-search"><input id="productSearch" placeholder="Pesquisar aqui..." value="${h(productSearchQuery)}"></div><div class="op-toolbar-spacer"></div>
       <div style="position:relative"><button class="op-btn" onclick="toggleProductOptions()"><span class="op-ico">•••</span> Opções <span style="margin-left:8px">▾</span></button>${productOptionsOpen?`<div class="pdv-menu product-options-menu" style="top:48px;right:0;left:auto;min-width:270px"><button onclick="productOptionsOpen=false;window.print()">▣ &nbsp; Imprimir</button><button onclick="openProductOrderModal()">↕ &nbsp; Ajustar Ordem</button><button onclick="openFiscalBulkModal()">▤ &nbsp; Dados fiscais (NFC-e)</button><div class="menu-title">Exportar Produtos</div><button onclick="exportProductsXlsx()">▧ &nbsp; Para arquivo Excel (.xlsx)</button><button onclick="exportProductsPackage()">▧ &nbsp; Para arquivo Commandah (.ccprod)</button><div class="menu-title">Importar Produtos</div><button onclick="openProductImportWizard()">▧ &nbsp; De arquivo Excel (.xlsx)</button><button onclick="pickProductsImport('json')">▧ &nbsp; De arquivo Commandah (.ccprod)</button></div>`:''}</div>
       <button class="op-btn" onclick="refreshProductList()">↻ &nbsp; Atualizar Lista</button>
       <button class="op-btn" onclick="duplicateSelectedProduct()" data-needs-selection ${selectedProductId?'':'disabled'}>▣ &nbsp; Duplicar</button>
