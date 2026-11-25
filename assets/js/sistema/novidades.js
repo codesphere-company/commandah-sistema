@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-whatsapp-conectar', data:'25/11/2026', itens:[
+    { titulo:'WhatsApp da lanchonete no Commandah (plano Pro)',
+      texto:'Em Configurações › WhatsApp, o administrador conecta o número separado da lanchonete lendo um QR com o celular, como no WhatsApp Web. A tela mostra se está conectado e com qual número. Use um número só da lanchonete, não o que os clientes já usam. As conversas, o aviso de mensagem nova e o envio da conta chegam nas próximas etapas.',
+      onde:'Configurações › WhatsApp', perms:['whatsapp'] },
+  ]},
   { id:'2026-11-24-clientes-cota-ordenar', data:'24/11/2026', itens:[
     { titulo:'Clientes: cota no topo e lista que ordena pela coluna',
       texto:'No cadastro do cliente, a Cota passou a ser o primeiro campo, acima do Nome (antes ficava em Dados Secundários). Na lista de Clientes, clique no título de qualquer coluna para ordenar: o primeiro clique ordena de A a Z (ou do menor para o maior), o segundo inverte e o terceiro volta à ordem normal. A cota ordena como número (2, 18, 180). A pesquisa filtra enquanto você digita, sem precisar do botão Buscar.',

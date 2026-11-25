@@ -101,7 +101,7 @@ const HIDDEN_MODULES = new Set(['Emissão Fiscal']); // a NFC-e de verdade fica 
 // Decisão do dono (31/10): em vez de esconder, esses módulos aparecem no menu com o selo
 // "Em construção" e, no clique, só avisam (não abrem a tela que finge funcionar). A Fidelidade
 // voltou normal: funciona (cupons.js). Para liberar um módulo quando ficar pronto, tire o nome daqui.
-const MODULOS_EM_CONSTRUCAO = new Set(['Connect','TEF','SMS','Disparador Inteligente','Bot WhatsApp','Pix Online','Bina','Mapas','Balança','Minha Assinatura','Meu Delivery','Delivery']);
+const MODULOS_EM_CONSTRUCAO = new Set(['Connect','TEF','SMS','Disparador Inteligente','Pix Online','Bina','Mapas','Balança','Minha Assinatura','Meu Delivery','Delivery']);
 // 12/11 (decisão do dono): em vez de "Em construção", os recursos aparecem como do plano Pro, com "em breve"
 // porque ainda não funcionam (quem pagar não pode achar que já usa). Minha Assinatura é a cobrança, não um recurso Pro.
 function seloEmBreve(label){ return label==='Minha Assinatura' ? 'Em breve' : 'Pro · em breve'; }
@@ -149,14 +149,14 @@ const RIBBON_TABS = [
   ]},
   { id:'apps', label:'Apps', groups:[
       { label:'Outros atendimentos', items:[ {label:'Fila de Atendimento', icon:ICN.queue, view:'fila-atendimento'}, {label:'Agendados', icon:ICN.calendar, view:'agendamentos'}, {label:'Cardápio Digital', icon:ICN.menuBook, view:'cardapio'} ] },
-      { label:'Atendimento', items:[ {label:'Bot WhatsApp', icon:ICN.bot, perm:'config-sistema', action:'openWhatsAppBotConfig'} ] },
       { label:'Ferramentas', items:[ {label:'Bina', icon:ICN.user, perm:'config-sistema', action:'toggleAppRibbonMenu', actionArg:'bina'}, {label:'Mapas', icon:ICN.map, perm:'config-sistema', action:'toggleAppRibbonMenu', actionArg:'maps'}, {label:'Painel de Senhas', icon:ICN.grid, view:'painel-senhas'}, {label:'Balança', icon:ICN.scale, perm:'config-sistema', action:'openScaleConfig'} ] },
       { label:'Módulos (Recursos Premium)', items:[ {label:'Mobile', icon:ICN.phone, view:'mobile-qr'}, {label:'Connect', icon:ICN.link, perm:'modulos', action:'openAppModuleConfig', actionArg:'Connect'}, {label:'Emissão Fiscal', icon:ICN.stamp, perm:'modulos', action:'openAppModuleConfig', actionArg:'Emissão Fiscal'}, {label:'TEF', icon:ICN.plug, perm:'modulos', action:'openAppModuleConfig', actionArg:'TEF'} ] }
   ]},
   { id:'config', label:'Configurações', groups:[
       { label:'Configurações', items:[
           {label:'Configurações do Sistema', icon:ICN.gear, perm:'config-sistema', action:'openSystemSettings'}, {label:'Numeração de Pedidos', icon:ICN.hash, perm:'config-sistema', action:'openNumberingSettings'},
-          {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios'}, {label:'Alterar Minha Senha', icon:ICN.key, perm:'senha-propria', action:'openChangePinModal'}, {label:'Backup', icon:ICN.save, view:'backup'}, {label:'Privacidade (LGPD)', icon:ICN.key, perm:'config-sistema', action:'openPrivacySettings'}, {label:'NFC-e (nota fiscal)', icon:ICN.receipt, perm:'config-sistema', action:'openNfceSettings'}
+          {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios'}, {label:'Alterar Minha Senha', icon:ICN.key, perm:'senha-propria', action:'openChangePinModal'}, {label:'Backup', icon:ICN.save, view:'backup'}, {label:'Privacidade (LGPD)', icon:ICN.key, perm:'config-sistema', action:'openPrivacySettings'}, {label:'NFC-e (nota fiscal)', icon:ICN.receipt, perm:'config-sistema', action:'openNfceSettings'},
+          {label:'WhatsApp', icon:ICN.bot, perm:'whatsapp', action:'openWhatsAppSettings'} /* 25/11: WhatsApp etapa 1 (Evolution, plano Pro) */
       ]},
       { label:'Áreas do Clube', items:[ {label:'Locais/Áreas', icon:ICN.mapPin, view:'locais'}, {label:'Quem Levou', icon:ICN.handoff, view:'quemlevou'}, {label:'Estações', icon:ICN.station, view:'estacoes'}, {label:'Origens de Pedido', icon:ICN.route, view:'origens'}, {label:'Impressoras', icon:ICN.printer, view:'impressoras'} ] },
       { label:'Logs e Fila de Eventos', items:[ {label:'Logs', icon:ICN.scroll, perm:'logs', action:'openLogsView', actionArg:'Logs'}, {label:'Fila de Eventos', icon:ICN.inbox, perm:'logs', action:'openLogsView', actionArg:'Fila de Eventos'}, {label:'Erros do Sistema', icon:ICN.alert, perm:'logs', action:'openLogsView', actionArg:'Erros do Sistema'} ] },
@@ -183,8 +183,8 @@ const SIMPLE_RIBBON_COZINHA = [
 const ROLE_PERMS = {
   admin: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','produtos','insumos','usuarios','relatorios','cozinha',
     'categorias','complementos','observacoes','perguntas','fornecedores','pagamentos','contascategorias','contas','locais','quemlevou','impressoras','estacoes','origens',
-    'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr','senha-propria','cancelar-comanda','receber-fiado','relatorios-gerencia','pausar-produto','conferir-pagamentos','cofre' /* cofre (16/11): só admin e dono */],
-  caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','quemlevou','impressoras','estacoes','origens','relatorios','painel-senhas','totem','ajuda','mobile-qr','senha-propria','cancelar-comanda','receber-fiado','pausar-produto'],
+    'config-sistema','backup','logs','painel-senhas','ajuda','diagnostico','totem','cupons','modulos','mobile-qr','senha-propria','cancelar-comanda','receber-fiado','relatorios-gerencia','pausar-produto','conferir-pagamentos','cofre' /* cofre (16/11): só admin e dono */,'whatsapp' /* 25/11: Configurações › WhatsApp */],
+  caixa: ['caixa','balcao','comandas','delivery','fila-atendimento','agendamentos','cardapio','associados','locais','quemlevou','impressoras','estacoes','origens','relatorios','painel-senhas','totem','ajuda','mobile-qr','senha-propria','cancelar-comanda','receber-fiado','pausar-produto','whatsapp'],
   // 08/11 (pedido do dono): Garçom só atende comandas pelo app (sem caixa, fiado, cancelamento ou relatórios).
   garcom: ['comandas','senha-propria','mobile-qr'],
   // 08/11 (pedido do dono): 'pausar-produto' = tela "Produtos em falta" (RPC product_set_active). Garçom não tem.
@@ -193,8 +193,9 @@ const ROLE_PERMS = {
 // Tokens que surgiram depois de a matriz de perfis já poder estar salva: matriz salva antes da versão
 // indicada recebe o padrão do papel ('receber-fiado', OP-08, versão 2; 'pausar-produto', 08/11, versão 3).
 // Matriz salva a partir da versão respeita o que o dono desmarcou.
-const ROLE_PERMS_NOVAS = [['receber-fiado',2],['pausar-produto',3]];
-const ROLE_PERMS_VERSAO = 3;
+// 'whatsapp' (25/11, versão 4): admin e caixa veem a situação do WhatsApp; conectar é do admin (conferido na função).
+const ROLE_PERMS_NOVAS = [['receber-fiado',2],['pausar-produto',3],['whatsapp',4]];
+const ROLE_PERMS_VERSAO = 4;
 function rolePermissions(role){const custom=state&&state.settings&&state.settings.rolePermissions&&state.settings.rolePermissions[role];if(!Array.isArray(custom))return ROLE_PERMS[role]||[];
   // 'receber-fiado' (OP-08) e 'pausar-produto' (08/11) surgiram depois: matriz salva antes deles recebe o padrão do papel.
   const versao=Number(state.settings.rolePermissionsVersion)||1;
