@@ -1192,3 +1192,15 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .op-sel{display:none}
 .op-sel.tem{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;padding:3px;margin:-3px 0;border-radius:var(--r-md);background:var(--c-primary-soft)}
 .op-sel.tem .op-btn .b-ic{color:var(--c-primary-text)}
+
+/* 25/11 (padrão, lote 9): janelas de cadastro (.record-modal) com cabeçalho e rodapé fixos. A janela inteira rola
+   (estrutura.css:463) e, em 1366×768, o Salvar de "Editar produto" ficava abaixo da dobra. Agora o título, o × e a
+   barra de Voltar/Salvar ficam presos em cima e embaixo enquanto o corpo rola.
+   Larguras: P 480 (confirmações), M 720 (cadastro curto) e G 960 (cadastro longo). O !important vence o
+   max-width:1020px!important de estrutura.css:455 (sai na limpeza do lote 13). */
+#modalRoot .modal.record-modal>h3{position:sticky;top:0;z-index:3}
+#modalRoot .modal.record-modal>.modal-close{position:sticky;top:0;z-index:4}
+#modalRoot .modal.record-modal .record-actions{position:sticky;bottom:0;z-index:3;margin:14px 0 0;padding:12px 16px;background:var(--c-surface)}
+#modalRoot .modal.janela-p{width:min(480px,calc(100vw - 32px))!important;max-width:none!important}
+#modalRoot .modal.janela-m{width:min(720px,calc(100vw - 32px))!important;max-width:none!important}
+#modalRoot .modal.janela-g{width:min(960px,calc(100vw - 32px))!important;max-width:none!important}

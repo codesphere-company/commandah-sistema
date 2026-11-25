@@ -48,7 +48,7 @@ function openUserModal(id){
     </select><p class="sub">Define para qual impressora o pedido vai quando esse usuário confirma um "Novo Pedido" (bar e churrasqueira têm impressoras diferentes por origem). Cadastre novas origens em Configurações → Áreas do Clube → Origens de Pedido.</p></div>
     <div class="field" id="uCaixaPrinterBox" style="display:${!u||u.origem!=='app'?'block':'none'}"><label>Impressora local deste usuário (nome exato no Windows)</label><input id="uCaixaPrinter" value="${h(u?u.caixaPrinterOsName||'':'')}" placeholder="Ex: POS-80C (Caixa 1)"><p class="sub">Se este usuário fica num ponto fixo com impressora própria (caixa, totem etc.), informe o nome exato dela. Toda venda de balcão feita por este usuário imprime automaticamente aqui, além de ir pra cozinha/bar/churrasqueira normalmente.</p></div>
     <label class="item-line"><span>Colaborador ativo</span><input id="uActive" type="checkbox" ${!u||u.active!==false?'checked':''}></label><p class="sub">O perfil define quais módulos podem ser acessados. O PIN é usado para entrar e trocar de operador.</p></section><div class="record-actions"><button class="op-btn" onclick="closeModal()">Voltar</button><button class="op-btn primary" id="uSaveBtn">Salvar e Voltar</button></div></div>`,true);
-  document.querySelector('#modalRoot .modal').classList.add('record-modal');
+  document.querySelector('#modalRoot .modal').classList.add('record-modal','janela-m'); // 25/11 (padrão, lote 9): largura M (720); eram 1000 px para 3 campos
   atualizarBlocoPermissoesProprias();
   atualizarOperaCaixa();
   document.getElementById('uSaveBtn').onclick = async ()=>{

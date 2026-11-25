@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-padrao-janelas', data:'25/11/2026', itens:[
+    { titulo:'Salvar sempre à vista nas janelas de cadastro',
+      texto:'Nas janelas de cadastro (produto, cliente, colaborador e as outras), o título e os botões Voltar e Salvar ficam fixos enquanto você rola o formulário. Antes, em telas mais baixas, o Salvar ficava escondido lá embaixo. A janela do colaborador também ficou do tamanho certo para os campos que tem.',
+      onde:'Janelas de cadastro' },
+  ]},
   { id:'2026-11-25-padrao-letras', data:'25/11/2026', itens:[
     { titulo:'Tamanhos de letra padronizados',
       texto:'As letras do sistema passaram a seguir uma escala única. Os textos menores das listas e etiquetas ficaram um pouco maiores e mais fáceis de ler.',
