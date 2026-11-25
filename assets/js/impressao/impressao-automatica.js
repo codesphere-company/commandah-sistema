@@ -135,7 +135,7 @@ function psPrinterCard(fp){
   const paper = assigned.length ? (Number(assigned[0].larguraPapel)===58?58:80) : (psPaper[fp.key]||80);
   const okAt = fp.last_ok_at ? new Date(fp.last_ok_at).getTime() : 0, errAt = fp.last_error_at ? new Date(fp.last_error_at).getTime() : 0;
   const health = errAt > okAt ? `<span class="tag tag-red" title="${h(fp.last_error||'')}">✗ Erro ${h(psTime(fp.last_error_at))}: ${h(String(fp.last_error||'').slice(0,80))}</span>`
-    : okAt ? `<span class="tag tag-green">● Imprimiu ${h(psTime(fp.last_ok_at))}</span>` : '';
+    : okAt ? `<span class="tag tag-green">${ICN.check} Imprimiu ${h(psTime(fp.last_ok_at))}</span>` : '';
   const stale = fp.silentIn ? `<span class="tag tag-red" title="Confira se a impressora está ligada e se esse computador alcança a rede dela.">não respondeu no ${h(fp.silentIn)}</span>`
     : fp.last_seen_at && psNow() - new Date(fp.last_seen_at).getTime() > 24*3600*1000 ? `<span class="tag tag-gray">não encontrada ${h(psAgo(fp.last_seen_at))}</span>` : '';
   const t = psTestResults[fp.key];
@@ -168,7 +168,7 @@ function renderPrintSetupAuto(){
     const scanOn = a.scan_network !== false, hasScanOpt = typeof a.scan_network === 'boolean';
     const oldAgent = a.version && psVersionBelow(a.version, '2.2');
     const scanRow = hasScanOpt ? `<div class="ps-scan"><label><input type="checkbox" id="psScan-${h(a.id)}" ${scanOn?'checked':''} onchange="setAgentScan(${jsArg(a.id)},this.checked,this)"> Procurar impressoras na rede sozinho</label>
-      <button type="button" class="btn btn-sm" onclick="openAddPrinterIpModal(${jsArg(a.id)})">＋ Impressora pelo IP</button>
+      <button type="button" class="btn btn-sm" onclick="openAddPrinterIpModal(${jsArg(a.id)})"><span class="b-ic" aria-hidden="true">${ICN.plus}</span> Impressora pelo IP</button>
       ${!scanOn?'<span>Só usa as impressoras USB e os IPs escolhidos.</span>':''}${oldAgent&&!scanOn?'<span class="tag tag-gray">atualize o agente para a versão 2.2: a 2.1 continua procurando na rede</span>':''}</div>` : '';
     return `<div class="ps-agent"><span class="ps-dot ${on?'on':'off'}" aria-hidden="true"></span><div class="ps-agent-info"><div class="ps-agent-name">${h(a.name)}${here}</div>
       <p class="sub">${on?'Ligado':'Desligado — visto '+h(psAgo(a.last_seen_at))}${a.machine?' · '+h(a.machine):''}${a.version?' · agente '+h(a.version):''}</p>${caixaSel}${scanRow}</div>
@@ -202,9 +202,9 @@ function renderPrintSetupAuto(){
         <div class="ps-printer-where">${p.ip?'Rede '+h(p.ip)+' · ':''}${h(orphanReason(p))}</div>
         <div><button type="button" class="btn btn-sm btn-danger" onclick="deleteImpressora(${jsArg(p.id)})">Remover</button></div></div>`).join('')}</div></div>`;
   box.innerHTML = `
-    <div class="ps-block"><div class="ps-head"><h3>Computadores com o agente</h3><button type="button" class="btn btn-primary btn-sm" onclick="openPairAgentModal()">＋ Conectar computador</button></div>
+    <div class="ps-block"><div class="ps-head"><h3>Computadores com o agente</h3><button type="button" class="btn btn-primary btn-sm" onclick="openPairAgentModal()"><span class="b-ic" aria-hidden="true">${ICN.plus}</span> Conectar computador</button></div>
       <div class="ps-list">${agentRows}${legacy}</div>${agents.length?'':steps}</div>
-    <div class="ps-block"><div class="ps-head"><h3>Impressoras encontradas</h3>${agents.length?'<button type="button" class="btn btn-sm" onclick="requestPrinterRescan()">↻ Procurar de novo</button>':''}</div>
+    <div class="ps-block"><div class="ps-head"><h3>Impressoras encontradas</h3>${agents.length?'<button type="button" class="btn btn-sm" onclick="requestPrinterRescan()"><span class="b-ic" aria-hidden="true">'+ICN.refresh+'</span> Procurar de novo</button>':''}</div>
       ${printersHtml}${printSetupError?`<p class="sub" style="margin:8px 0 0;color:var(--c-danger)">${h(printSetupError)}</p>`:''}</div>
     ${orphansHtml}`;
 }
@@ -273,7 +273,7 @@ async function testFoundPrinter(key){
   for(let i=0; i<20; i++){
     await new Promise(r=>setTimeout(r, 1500));
     const { data:row } = await supabaseClient.from('print_jobs').select('status,error').eq('id', data.id).maybeSingle();
-    if(row && row.status==='impresso'){ setPsTestResult(key, 'ok', '✓ Enviado às '+psTime(new Date())+'. Confira se o papel saiu.'); loadPrintSetup(); return; }
+    if(row && row.status==='impresso'){ setPsTestResult(key, 'ok', 'Enviado às '+psTime(new Date())+'. Confira se o papel saiu.'); loadPrintSetup(); return; }
     if(row && row.status==='erro'){ setPsTestResult(key, 'err', '✗ '+(row.error||'A impressora não imprimiu.')); loadPrintSetup(); return; }
   }
   setPsTestResult(key, 'err', '✗ Nenhum agente pegou o teste em 30 s. '+(agentName?'O computador "'+agentName+'" está ligado e com o agente aberto?':'Algum computador conectado está ligado na mesma rede da impressora?'));

@@ -105,7 +105,7 @@ function renderPrimeirosPassos(){
     <div class="pp-topo"><div><h2 id="ppTitulo">Deixe o Commandah pronto para vender</h2><p id="ppContador">${feitos} de ${passos.length} feitos</p></div>
       <button type="button" class="btn btn-sm" id="ppEsconder" onclick="esconderPrimeirosPassos()">Esconder por enquanto</button></div>
     <ol class="pp-lista">${passos.map(p=>`<li class="pp-passo${p.feito?' feito':''}${p===proximo?' proximo':''}" data-pp-passo="${h(p.id)}">
-      <span class="pp-marca" aria-hidden="true">${p.feito?'✓':''}</span>
+      <span class="pp-marca" aria-hidden="true">${p.feito?ICN.check:''}</span>
       <span class="pp-texto"><b>${h(p.titulo)}</b><small>${h(p.detalhe)}</small></span>
       ${p.feito?'<span class="pp-ok">Feito</span>':`<span class="pp-acoes">${(p.id==='nfce'||p.id==='impressoras')?`<button type="button" class="btn btn-sm" data-pp-feito="${h(p.id)}" onclick="marcarPassoFeito(${jsArg(p.id)})">Já fiz</button>`:''}<button type="button" class="btn btn-sm ${p===proximo?'btn-primary':''}" data-pp-abrir="${h(p.id)}" onclick="abrirPassoPrimeirosPassos(${jsArg(p.id)})">Abrir</button></span>`}
     </li>`).join('')}</ol></section>`;

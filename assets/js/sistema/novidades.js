@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-padrao-icones-sistema', data:'25/11/2026', itens:[
+    { titulo:'Ícones desenhados em Configurações e nos Módulos',
+      texto:'O menu de Configurações do Sistema (Geral, Ajustes do Cupom, Horário da Cozinha, Sobre), as páginas dos Módulos e os menus de Apps e Marketing trocaram os símbolos e emojis por ícones desenhados, iguais aos do resto do sistema.',
+      onde:'Configurações, Apps e Marketing', perms:['config-sistema','modulos','cupons'] },
+  ]},
   { id:'2026-11-25-padrao-icones-gestao', data:'25/11/2026', itens:[
     { titulo:'Ícones desenhados também nos relatórios e no financeiro',
       texto:'Imprimir, Exportar, Pesquisar, Voltar, Dia anterior e os botões de Contas, Fiado, Cupons e Logs também passaram a usar ícones desenhados no lugar dos símbolos de texto.',
