@@ -115,7 +115,7 @@ function comandaPanelHtml(s){
       <div class="cp-total"><span>Total</span><span class="mono">${fmt(t.total)}</span></div>
     </div>
     <div class="cp-actions">
-      <button class="op-btn" onclick="openNovoPedidoModal(${jsArg(s.id)})" ${s.locked?'disabled':''}>＋ Novo pedido</button>
+      <button class="op-btn" onclick="openNovoPedidoModal(${jsArg(s.id)})" ${s.locked?'disabled':''}><span class="b-ic" aria-hidden="true">${ICN.plus}</span> Novo pedido</button>
       <button class="op-btn" onclick="openComanda(${jsArg(s.id)})">Abrir comanda completa</button>
       <button class="op-btn primary cp-pay" onclick="comandaPanelPay(${jsArg(s.id)})" ${s.locked?'disabled':''}>Fechar conta · ${fmt(t.total)}</button>
     </div>
@@ -133,7 +133,7 @@ function renderComandaDetail(id, keepRequester){
   document.getElementById('view-comandas').innerHTML = `<div class="table-workspace comanda-inline" data-sale="${h(s.id)}">
     <div class="record-body">
     <div class="cash-order-head">
-      <div class="cash-order-ident"><button class="op-btn comanda-inline-back" onclick="closeComandaView()" title="Voltar para as comandas (Esc)">‹ &nbsp; Comandas</button><span class="cash-order-quota">${quotaNum}</span><span class="delivery-open-badge">Em Aberto</span><strong>${h(person)} &nbsp;·&nbsp; Pedido ${s.orderNumber?'#'+s.orderNumber:''}</strong></div>
+      <div class="cash-order-ident"><button class="op-btn comanda-inline-back" onclick="closeComandaView()" title="Voltar para as comandas (Esc)"><span class="b-ic" aria-hidden="true">${ICN.chevLeft}</span> Comandas</button><span class="cash-order-quota">${quotaNum}</span><span class="delivery-open-badge">Em Aberto</span><strong>${h(person)} &nbsp;·&nbsp; Pedido ${s.orderNumber?'#'+s.orderNumber:''}</strong></div>
       ${member&&Number(member.debt)<-TOLERANCIA_CENTAVO?`<div class="cash-order-balance"><span class="tag tag-green cash-order-balance-tag" title="Abatido automaticamente no pagamento desta comanda">✓ Crédito: ${fmt(-Number(member.debt))}</span></div>`:member&&Number(member.debt)>TOLERANCIA_CENTAVO?`<div class="cash-order-balance"><span class="tag tag-red cash-order-balance-tag" title="Saldo devedor deste sócio">Deve: ${fmt(Number(member.debt))}</span></div>`:''}
     </div>
     <div class="cash-order-layout">
@@ -354,7 +354,7 @@ function renderNpCatTabs(){
   if(npCategory && npCategory!=='__hist' && !cats.includes(npCategory)) npCategory = '';
   el.classList.toggle('np-cat-chosen', !!npCategory);
   if(npCategory){
-    el.innerHTML = `<button class="np-cat-tab np-cat-back" onclick="npSetCategory('')">‹ Todas as categorias</button><span class="np-cat-current">${npCategory==='__hist' ? 'Já pedidos <b>'+hist+'</b>' : h(npCategory)}</span>`;
+    el.innerHTML = `<button class="np-cat-tab np-cat-back" onclick="npSetCategory('')"><span class="b-ic" aria-hidden="true">${ICN.chevLeft}</span> Todas as categorias</button><span class="np-cat-current">${npCategory==='__hist' ? 'Já pedidos <b>'+hist+'</b>' : h(npCategory)}</span>`;
     return;
   }
   el.innerHTML = (hist?`<button class="np-cat-tab np-cat-hist" onclick="npSetCategory('__hist')">Já pedidos <b>${hist}</b></button>`:'') + `<button class="np-cat-tab active" onclick="npSetCategory('')">Todas</button>` +
@@ -483,9 +483,9 @@ function renderNpCart(){
   el.innerHTML = npCart.length ? npCart.map((i,idx)=>`
     <div class="np-line">
       <div class="np-line-top"><span class="np-line-name">${h(itemNomeTela(i))}${cartLineOptionsHtml(i,'display:block;font-weight:400;color:var(--c-text-3)')}</span><span class="mono np-line-sub">${fmt(i.price*i.qty)}</span></div>
-      ${i.weight?`<div class="np-line-ctrl"><span class="sub mono">${h(i.notes||'')}</span><div class="qty-ctrl"><span class="mono">${fmtKg(i.weight.kg)}</span><button onclick="npCartChangeQty(${idx},-1)" aria-label="Tirar peça">✕</button></div></div>`
-      :`<div class="np-line-ctrl"><span class="sub mono">${fmt(i.price)} cada</span><div class="qty-ctrl"><button onclick="npCartChangeQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${i.qty}</span><button onclick="npCartChangeQty(${idx},1)" aria-label="Aumentar">+</button></div></div>`}
-      ${i.copos!=null?`<div class="np-line-ctrl"><span class="sub">Copos</span><div class="qty-ctrl"><button onclick="npCartChangeCopos(${idx},-1)" aria-label="Menos copos">−</button><span class="mono">${i.copos||0}</span><button onclick="npCartChangeCopos(${idx},1)" aria-label="Mais copos">+</button></div></div>`:''}
+      ${i.weight?`<div class="np-line-ctrl"><span class="sub mono">${h(i.notes||'')}</span><div class="qty-ctrl"><span class="mono">${fmtKg(i.weight.kg)}</span><button onclick="npCartChangeQty(${idx},-1)" aria-label="Tirar peça"><span class="b-ic" aria-hidden="true">${ICN.x}</span></button></div></div>`
+      :`<div class="np-line-ctrl"><span class="sub mono">${fmt(i.price)} cada</span><div class="qty-ctrl"><button onclick="npCartChangeQty(${idx},-1)" aria-label="Diminuir"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button><span class="mono">${i.qty}</span><button onclick="npCartChangeQty(${idx},1)" aria-label="Aumentar"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button></div></div>`}
+      ${i.copos!=null?`<div class="np-line-ctrl"><span class="sub">Copos</span><div class="qty-ctrl"><button onclick="npCartChangeCopos(${idx},-1)" aria-label="Menos copos"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button><span class="mono">${i.copos||0}</span><button onclick="npCartChangeCopos(${idx},1)" aria-label="Mais copos"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button></div></div>`:''}
     </div>`).join('') + levarJuntoBox(npCart,'np') : '<p class="np-empty">Toque nos produtos à esquerda para adicionar.</p>';
   const totEl = document.getElementById('npCartTotal'); if(totEl) totEl.textContent = fmt(npCart.reduce((a,i)=>a+i.price*i.qty,0));
   const countEl = document.getElementById('npItemCount'); if(countEl){ const n=npCart.reduce((a,i)=>a+i.qty,0); countEl.textContent = n?n+(n===1?' item':' itens'):''; }
@@ -751,7 +751,7 @@ function renderComandaAuditItemRow(item,idx,locked){
     (hasPerm('cancelar-comanda')?act(' cmd-act-danger', 'Cancelar', ICN.trash, `openCancelComandaItem(${idx})`, locked?'disabled':''):'');
   // Venda por peso, 05/11: peça mostra o kg e só o botão de tirar.
   const weight = item.weight;
-  const qtyCell = item.sent ? (weight ? fmtKg(weight.kg) : String(qty)) : weight ? `<div class="qty-ctrl"><span class="mono">${fmtKg(weight.kg)}</span><button onclick="changeDraftQty(${idx},-1)" aria-label="Tirar peça">✕</button></div>` : `<div class="qty-ctrl"><button onclick="changeDraftQty(${idx},-1)" aria-label="Diminuir">−</button><span class="mono">${qty}</span><button onclick="changeDraftQty(${idx},1)" aria-label="Aumentar">+</button></div>`;
+  const qtyCell = item.sent ? (weight ? fmtKg(weight.kg) : String(qty)) : weight ? `<div class="qty-ctrl"><span class="mono">${fmtKg(weight.kg)}</span><button onclick="changeDraftQty(${idx},-1)" aria-label="Tirar peça"><span class="b-ic" aria-hidden="true">${ICN.x}</span></button></div>` : `<div class="qty-ctrl"><button onclick="changeDraftQty(${idx},-1)" aria-label="Diminuir"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button><span class="mono">${qty}</span><button onclick="changeDraftQty(${idx},1)" aria-label="Aumentar"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button></div>`;
   const det = weight ? [item.notes||fmtKg(weight.kg)] : itemDetalhesTela(item);
   return `<tr class="cmd-row cmd-item${item.canceled?' is-canceled':''}">
     <td class="cmd-qtd mono">${qtyCell}</td>
@@ -849,17 +849,17 @@ function openReorderComandaItem(idx){
     <div class="field" style="text-align:center">
       <label class="np-label">Quantidade</label>
       <div class="qty-ctrl" style="justify-content:center;margin-top:6px">
-        <button onclick="reorderQtyChange(-1)">−</button>
+        <button onclick="reorderQtyChange(-1)" aria-label="Diminuir"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button>
         <span class="mono" id="reorderQtyLabel" style="min-width:28px;display:inline-block;text-align:center">1</span>
-        <button onclick="reorderQtyChange(1)">+</button>
+        <button onclick="reorderQtyChange(1)" aria-label="Aumentar"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button>
       </div>
     </div>
     ${productAsksCopos(product)?`<div class="field" style="text-align:center">
       <label class="np-label">Quantidade de copos</label>
       <div class="qty-ctrl" style="justify-content:center;margin-top:6px">
-        <button onclick="reorderCoposChange(-1)">−</button>
+        <button onclick="reorderCoposChange(-1)" aria-label="Diminuir"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button>
         <span class="mono" id="reorderCoposLabel" style="min-width:28px;display:inline-block;text-align:center">${reorderCopos}</span>
-        <button onclick="reorderCoposChange(1)">+</button>
+        <button onclick="reorderCoposChange(1)" aria-label="Aumentar"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button>
       </div>
     </div>`:''}
     ${pedeLocal?`<div class="field"><label class="np-label" for="reorderLocal">Local de entrega *</label><select id="reorderLocal">${localEntregaOptionsHtml('')}</select></div>`:''}
@@ -1161,10 +1161,10 @@ function renderComandaQuickCart(){
     ${comandaQuickCart.map((i,idx)=>`
       <div class="item-line" style="flex-wrap:wrap">
         <span>${h(itemNomeTela(i))}${i.weight?`<small style="display:block;color:var(--c-text-3)">${h(i.notes||'')}</small>`:cartLineOptionsHtml(i,'display:block;color:var(--c-text-3)')}</span>
-        <div class="qty-ctrl">${i.weight?`<span class="mono">${fmtKg(i.weight.kg)}</span><button onclick="quickCartChangeQty(${idx},-1)" aria-label="Tirar peça">✕</button>`:`<button onclick="quickCartChangeQty(${idx},-1)">−</button><span class="mono">${i.qty}</span>
-        <button onclick="quickCartChangeQty(${idx},1)">+</button>`}
+        <div class="qty-ctrl">${i.weight?`<span class="mono">${fmtKg(i.weight.kg)}</span><button onclick="quickCartChangeQty(${idx},-1)" aria-label="Tirar peça"><span class="b-ic" aria-hidden="true">${ICN.x}</span></button>`:`<button onclick="quickCartChangeQty(${idx},-1)" aria-label="Diminuir"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button><span class="mono">${i.qty}</span>
+        <button onclick="quickCartChangeQty(${idx},1)" aria-label="Aumentar"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button>`}
         <span class="mono" style="min-width:70px;text-align:right">${fmt(i.price*i.qty)}</span></div>
-        ${i.copos!=null?`<div class="qty-ctrl" style="width:100%;justify-content:flex-end"><span class="sub" style="margin-right:6px">Quantidade de copos:</span><button onclick="quickCartChangeCopos(${idx},-1)">−</button><span class="mono">${i.copos||0}</span><button onclick="quickCartChangeCopos(${idx},1)">+</button></div>`:''}
+        ${i.copos!=null?`<div class="qty-ctrl" style="width:100%;justify-content:flex-end"><span class="sub" style="margin-right:6px">Quantidade de copos:</span><button onclick="quickCartChangeCopos(${idx},-1)" aria-label="Diminuir"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button><span class="mono">${i.copos||0}</span><button onclick="quickCartChangeCopos(${idx},1)" aria-label="Aumentar"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button></div>`:''}
       </div>`).join('')}
     ${levarJuntoBox(comandaQuickCart,'quick')}
     <div class="np-total"><span>Total</span><span class="mono">${fmt(total)}</span></div>
