@@ -1137,3 +1137,7 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .record-tabs button{min-height:var(--hit)}
 .field input:not([type=checkbox]):not([type=radio]),.field select{min-height:var(--hit)}
 .link-btn{display:inline-flex;align-items:center;min-height:var(--hit)}
+
+/* 25/11 (padrão, lote 3): Relatórios virou central (sem faixa). Na faixa das outras áreas, nome comprido quebra
+   em duas linhas em vez de esticar o botão: Financeiro (8 atalhos, nomes longos) caía no modo compacto em 1366. */
+.ribbon-toolbar:not(.rb-compacta) .rb-icons button .lb{white-space:normal;max-width:112px;text-align:center;line-height:1.25}

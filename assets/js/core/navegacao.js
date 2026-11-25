@@ -93,7 +93,8 @@ function renderRibbonTabs(){
   // a tela da área anterior continuava no meio.
   el.onclick = (e)=>{ const btn=e.target.closest('button[data-tab]'); if(!btn) return;
     // 25/11: Configurações abre sempre a central (também quando já se está dentro de um item da área).
-    if(visibleTabs.find(t=>t.id===btn.dataset.tab)?.central){ openConfigCentral(); return; }
+    // 25/11 (padrão, lote 3): vale para toda área com central:true (Relatórios também).
+    if(visibleTabs.find(t=>t.id===btn.dataset.tab)?.central){ openConfigCentral(btn.dataset.tab); return; }
     const mudou=activeRibbonTab!==btn.dataset.tab; activeRibbonTab=btn.dataset.tab; renderRibbonTabs(); renderRibbonToolbar();
     if(mudou) document.querySelector('#ribbonToolbar button[data-abre]')?.click(); };
 }
@@ -306,7 +307,11 @@ function saveSmartSenderConfig(){state.settings.smartSender={channel:document.ge
 function saveSmartCampaign(id){const name=document.getElementById('smartName').value.trim(),message=document.getElementById('smartText').value.trim(),scheduled=document.getElementById('smartWhen').value;if(!name||!message||!scheduled){toast('Informe nome, mensagem e agendamento.');return;}state.settings.smartCampaigns=state.settings.smartCampaigns||[];const item=state.settings.smartCampaigns.find(x=>x.id===id),data={name,message,channel:document.getElementById('smartCampaignChannel').value,audience:document.getElementById('smartAudience').value,scheduledAt:new Date(scheduled).toISOString(),active:document.getElementById('smartCampaignActive').checked};if(item)Object.assign(item,data);else state.settings.smartCampaigns.unshift({id:uid(),...data});save('settings');closeModal();toast('Campanha salva.');}
 function openSmartCampaigns(){const list=state.settings.smartCampaigns||[],rows=list.map(x=>`<tr ondblclick="openSmartCampaignConfig(${jsArg(x.id)})"><td>${h(x.name)}</td><td>${h(x.channel)}</td><td>${h(x.audience)}</td><td>${reportDateTime(x.scheduledAt)}</td><td>${x.active?'Ativa':'Pausada'}</td><td><button class="op-mini" onclick="openSmartCampaignConfig(${jsArg(x.id)})">✎</button></td></tr>`).join('');openModal('Campanhas do Disparador Inteligente',`<div class="op-toolbar"><div class="op-search"><input placeholder="Pesquisar campanha..." oninput="filterModalTable(this.value)"></div><div class="op-toolbar-spacer"></div><button class="op-btn" onclick="openSmartCampaignConfig('new')">＋ Nova Campanha</button></div><div class="finance-grid" style="height:420px"><table><thead><tr><th>Campanha</th><th>Canal</th><th>Público</th><th>Agendamento</th><th>Status</th><th>Editar</th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">Nenhuma campanha configurada.</td></tr>'}</tbody></table></div>`,true);}
 function filterModalTable(q){q=String(q||'').toLowerCase();document.querySelectorAll('#modalRoot tbody tr').forEach(r=>r.hidden=!r.textContent.toLowerCase().includes(q));}
-function updateTitle(){ document.getElementById('wbTitle').textContent = VIEW_LABELS[activeView]||'Sistema de gestão'; }
+function updateTitle(){
+  // 25/11 (padrão, lote 3): a central serve Configurações e Relatórios; o título é o da área aberta.
+  const central = activeView==='config-central' && typeof areaCentralConfig==='function' ? areaCentralConfig() : null;
+  document.getElementById('wbTitle').textContent = (central && central.label) || VIEW_LABELS[activeView]||'Sistema de gestão';
+}
 function openChangePinModal(){
   activeRibbonAction='Alterar Minha Senha'; renderRibbonToolbar();
   openModal('Alterar Senha', `<div class="record-body" style="padding:12px 14px 0">
