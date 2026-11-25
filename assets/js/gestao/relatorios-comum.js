@@ -47,7 +47,7 @@ function saleCardHtml(sale, opts){
 function detStatsHtml(lista){ return `<div class="det-stats">${lista.map(([l,v])=>`<div class="stat"><div class="lbl">${h(l)}</div><div class="val">${h(String(v))}</div></div>`).join('')}</div>`; }
 // exportCall é código fixo escrito aqui nos relatórios, nunca dado do usuário.
 function detReportHtml(title, exportCall, filtros, corpo){
-  return `<section class="det-report"><div class="det-report-head"><h2>${h(title)}</h2><div class="det-report-actions"><button class="op-btn" onclick="window.print()">▣ &nbsp; Imprimir</button>${exportCall?`<button class="op-btn" onclick="${exportCall}">▧ &nbsp; Exportar Excel</button>`:''}</div></div>${filtros?`<div class="det-filtros">${filtros}</div>`:''}${corpo}</section>`;
+  return `<section class="det-report"><div class="det-report-head"><h2>${h(title)}</h2><div class="det-report-actions"><button class="op-btn" onclick="window.print()"><span class="b-ic" aria-hidden="true">${ICN.printer}</span> Imprimir</button>${exportCall?`<button class="op-btn" onclick="${exportCall}"><span class="b-ic" aria-hidden="true">${ICN.download}</span> Exportar Excel</button>`:''}</div></div>${filtros?`<div class="det-filtros">${filtros}</div>`:''}${corpo}</section>`;
 }
 // sheets: [[nome, linhas, larguras], ...]. Traz sempre todas as linhas filtradas.
 async function exportAoaXlsx(fileName, sheets){
