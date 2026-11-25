@@ -58,38 +58,38 @@ function openPaymentModal(mode, comandaId){
       <div id="payDebtRow" style="display:none"><span>(+) Pendência anterior (fiado)</span><span class="mono" id="payDebtLine">R$ 0,00</span></div>
       <div class="pay-total-row"><span>Total a pagar</span><span class="mono" id="payFinalTotal">${fmt(subtotal)}</span></div>
     </div>
-    <div class="row" style="align-items:flex-end;margin-top:10px">
-      <div class="field" style="flex:1"><label>Cupom de desconto (opcional)</label><input id="payCoupon" placeholder="Ex: SOCIO10"></div>
+    <div class="row pag-fim">
+      <div class="field pag-flex"><label>Cupom de desconto (opcional)</label><input id="payCoupon" placeholder="Ex: SOCIO10"></div>
       <button class="btn btn-sm" id="applyCouponBtn">Aplicar</button>
     </div>
-    <label class="comp-switch" style="margin:12px 0 4px${contaColaborador?';display:none!important':''}"><input type="checkbox" id="paySplitToggle" ${contaColaborador?'disabled':''}><span></span> Rachar a conta</label>
-    <div id="paySplitBox" style="display:none;background:var(--cream);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px">
-      <div class="field" style="margin-bottom:0"><label>Dividir em quantas partes?</label><input id="paySplitCount" type="number" min="2" value="2"></div>
-      <p class="sub" style="margin:8px 0 0">Cada parte: <b class="mono" id="paySplitPerPart">R$ 0,00</b> — clique numa forma de pagamento pra lançar cada parte.</p>
+    <label class="comp-switch pag-rachar"${contaColaborador?' style="display:none!important"':''}><input type="checkbox" id="paySplitToggle" ${contaColaborador?'disabled':''}><span></span> Rachar a conta</label>
+    <div class="pag-aviso" id="paySplitBox" style="display:none">
+      <div class="field pag-mb0"><label>Dividir em quantas partes?</label><input id="paySplitCount" type="number" min="2" value="2"></div>
+      <p class="sub pag-m8-topo">Cada parte: <b class="mono" id="paySplitPerPart">R$ 0,00</b> — clique numa forma de pagamento pra lançar cada parte.</p>
     </div>
     <div class="field"><label>Associado (opcional — necessário para fiado)</label>
       <select id="paySelMember" ${contaColaborador?'disabled':''}><option value="">— Cliente avulso —</option>${memberOptions}</select></div>
-    <label class="comp-switch" id="payDebtBox" style="margin:0 0 8px" hidden><input type="checkbox" id="payChargeDebt" checked><span></span> <b id="payDebtLabel" style="font-weight:400">Cobrar a pendência anterior junto</b></label>
-    <label class="comp-switch" style="margin:0 0 8px"><input type="checkbox" id="payPrintReceipt"><span></span> <b style="font-weight:400">Imprimir comprovante (se o cliente pedir)</b></label>
+    <label class="comp-switch pag-mb8" id="payDebtBox" hidden><input type="checkbox" id="payChargeDebt" checked><span></span> <b class="pag-normal" id="payDebtLabel">Cobrar a pendência anterior junto</b></label>
+    <label class="comp-switch pag-mb8"><input type="checkbox" id="payPrintReceipt"><span></span> <b class="pag-normal">Imprimir comprovante (se o cliente pedir)</b></label>
     </div><div class="pay-col">
-    <label class="np-label" style="margin-top:0;display:block">Forma de pagamento <span style="text-transform:none;font-weight:400">(atalho de teclado entre parênteses)</span></label>
-    ${contaColaborador?'<p class="sub" id="payColabNote" style="margin:0 0 8px;font-size:13px">Comanda de colaborador: o valor vai para a conta dele (descontado do salário).</p>':''}
+    <label class="np-label pag-bloco">Forma de pagamento <span class="pag-rotulo">(atalho de teclado entre parênteses)</span></label>
+    ${contaColaborador?'<p class="sub pag-nota" id="payColabNote">Comanda de colaborador: o valor vai para a conta dele (descontado do salário).</p>':''}
     <div class="pay-method-grid" id="payMethodGrid">
       ${methods.map(m=>`<button class="pay-method-btn" data-key="${m.key}" data-method="${h(m.method)}" onclick="selectPayMethod(${jsArg(m.key)})"><span class="pay-method-icon">${m.icon}</span><span>${h(m.label)}</span><span class="pay-method-key">${m.key}</span></button>`).join('')}
     </div>
-    <div class="row" style="margin-top:10px">
-      <div class="field" style="flex:1"><label>Valor desta forma</label><input id="payPartAmount" type="number" min="0.01" step="0.01" ${contaColaborador?'readonly':''}></div>
-      <button class="btn" id="addPaymentBtn" style="align-self:flex-end${contaColaborador?';display:none':''}" ${contaColaborador?'disabled':''}>+ &nbsp; Adicionar</button>
+    <div class="row pag-mt10">
+      <div class="field pag-flex"><label>Valor desta forma</label><input id="payPartAmount" type="number" min="0.01" step="0.01" ${contaColaborador?'readonly':''}></div>
+      <button class="btn pag-adicionar" id="addPaymentBtn"${contaColaborador?' style="display:none"':''} ${contaColaborador?'disabled':''}>+ &nbsp; Adicionar</button>
     </div>
-    <p id="fiadoWarning" style="display:none;color:var(--red);font-size:12px">Este associado possui saldo devedor pendente e não pode usar fiado até quitar.</p>
+    <p class="pag-erro" id="fiadoWarning" style="display:none">Este associado possui saldo devedor pendente e não pode usar fiado até quitar.</p>
     <div id="paymentParts"></div>
     <div class="panel pay-progress-panel">
       <div class="pay-progress-track"><div class="pay-progress-fill" id="payProgressFill" style="width:0%"></div></div>
-      <div style="display:flex;justify-content:space-between;margin-top:8px">
+      <div class="pag-par">
         <div><small class="sub">Total Pago</small><br><b class="mono" id="payReceived">R$ 0,00</b></div>
-        <div style="text-align:right"><small class="sub" id="payBalanceLabel">Falta pagar</small><br><b class="mono" id="payBalance">R$ 0,00</b></div>
+        <div class="pag-direita"><small class="sub" id="payBalanceLabel">Falta pagar</small><br><b class="mono" id="payBalance">R$ 0,00</b></div>
       </div>
-      <div id="payChangeChoice" style="display:none;gap:8px;margin-top:10px"></div>
+      <div class="pag-linha" id="payChangeChoice" style="display:none"></div>
     </div>
     <button class="btn btn-primary btn-block" id="confirmPayBtn">Confirmar pagamento</button></div></div>`,true);
   const modal=document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal','pay-modal','janela-g'); // 25/11 (padrão, lote 11): largura G (960) da escala do lote 9, no lugar do style.width
@@ -156,7 +156,7 @@ function openPaymentModal(mode, comandaId){
     const balance = finalTotal-received;
     document.getElementById('paymentParts').innerHTML = tempPayments.length ? tempPayments.map((p,idx)=>`
       <div class="item-line"><span>${methodLabel(p.method)}</span><div><b class="mono">${fmt(p.amount)}</b>
-      <button class="btn btn-sm btn-danger" style="margin-left:8px" onclick="tempPayments.splice(${idx},1);renderPaymentPartsGlobal()">Remover</button></div></div>`).join('') : '<p class="empty" style="padding:12px">Escolha a forma e confirme. Para dividir em mais de uma forma, use Adicionar.</p>';
+      <button class="btn btn-sm btn-danger pag-ml8" onclick="tempPayments.splice(${idx},1);renderPaymentPartsGlobal()">Remover</button></div></div>`).join('') : '<p class="empty pag-p12">Escolha a forma e confirme. Para dividir em mais de uma forma, use Adicionar.</p>';
     document.getElementById('payReceived').textContent = fmt(received);
     document.getElementById('payBalanceLabel').textContent = balance>=0 ? 'Falta pagar' : 'Troco';
     document.getElementById('payBalance').textContent = fmt(Math.abs(balance));

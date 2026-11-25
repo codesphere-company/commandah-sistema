@@ -141,15 +141,15 @@ function renderComandaDetail(id, keepRequester){
         <div class="delivery-meta"><span class="icn">${ICN.clock}</span> Iniciado em ${reportDateTime(s.openedAt)} — <b>${fmtOpenDuration(kOrderAgeMin(s.openedAt))} aberta</b><br><span class="icn">${ICN.user}</span> Criado por: <b>${h(s.operatorName||currentUser.name)}</b></div>
         <div class="field"><input id="comandaNote" value="${h(s.notes||'')}" placeholder="Anotar observação..." onchange="saveComandaNote(${jsArg(s.id)},this.value)" ${locked?'disabled':''}></div>
         <div class="field"><label class="np-label">Mesa / Local</label><select id="comandaLocal" onchange="saveComandaLocal(${jsArg(s.id)},this.value)" ${locked?'disabled':''}><option value="">— Balcão / sem local —</option>${state.locais.map(l=>`<option value="${h(l.nome)}" ${s.local===l.nome?'selected':''}>${h(l.nome)}</option>`).join('')}</select></div>
-        <label class="comp-switch" style="margin:8px 0 0"><input type="checkbox" id="comandaLockToggle" ${locked?'checked':''} onchange="toggleComandaLock(${jsArg(s.id)},this.checked)"><span></span> Bloquear Pedido</label>
+        <label class="comp-switch cmd-m8-topo"><input type="checkbox" id="comandaLockToggle" ${locked?'checked':''} onchange="toggleComandaLock(${jsArg(s.id)},this.checked)"><span></span> Bloquear Pedido</label>
         <div class="cash-order-links">
           <button onclick="openComandaLinkClient(${jsArg(s.id)})"><span class="icn">${ICN.user}</span> ${member?'Trocar Cliente':'Vincular Cliente'}</button>
           ${member&&hasPerm('associados')?`<button onclick="editMember(${jsArg(member.id)})"><span class="icn">${ICN.idcard}</span> Editar Cadastro</button>`:''}
           <button onclick="openNovoPedidoModal(${jsArg(s.id)})" ${locked?'disabled':''}><span class="icn">${ICN.plus}</span> Novo Pedido</button>
           <button onclick="openPartialPayment(${jsArg(s.id)})" ${locked?'disabled':''}><span class="icn">${ICN.cash}</span> Receber parcial</button>
-          <div class="pdv-menu-wrap" style="position:relative">
+          <div class="pdv-menu-wrap cmd-rel">
             <button id="comandaMoreBtn" onclick="toggleComandaOrderOptions()" aria-haspopup="true"><span class="icn">${ICN.menu}</span> Mais Opções</button>
-            <div id="comandaOrderOptions" class="pdv-options-panel" style="left:0;right:auto;bottom:100%;top:auto;margin-bottom:6px;width:290px">
+            <div id="comandaOrderOptions" class="pdv-options-panel cmd-menu-cima">
               <div class="pdv-options-inner">
                 <button onclick="openComandaTransferOptions(${jsArg(s.id)})"><span class="icn">${ICN.swap}</span> Trocar para...</button>
                 <button onclick="viewComandaSummary(${jsArg(s.id)})"><span class="icn">${ICN.receipt}</span> Visualizar Conta Resumida</button>
@@ -167,13 +167,13 @@ function renderComandaDetail(id, keepRequester){
         </div>
       </aside>
       <main class="cash-order-main">
-        <div class="np-section" style="margin:0 0 12px">
+        <div class="np-section cmd-mb12">
           <label class="np-label">Adicionar produto direto</label>
           <input id="comandaQuickSearch" placeholder="Buscar produto para adicionar..." oninput="renderComandaQuickSearch(this.value)" ${locked?'disabled':''}>
-          <div id="comandaQuickSearchResults" class="np-product-grid" style="display:none;margin-top:8px"></div>
-          <div id="comandaQuickCartWrap" style="display:none;margin-top:10px"></div>
+          <div id="comandaQuickSearchResults" class="np-product-grid cmd-mt8" style="display:none"></div>
+          <div class="cmd-mt10" id="comandaQuickCartWrap" style="display:none"></div>
         </div>
-        <div class="comanda-history-panel" style="margin:0;border:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="comanda-history-head"><b>Histórico da Comanda</b><span>Toque no lançamento para esconder ou mostrar os itens</span></div><div class="finance-grid" style="flex:1;min-height:0"><table class="cmd-hist"><thead><tr><th class="cmd-qtd">Qtd</th><th>Item</th><th class="cmd-total">Valor</th><th>Entrega</th><th class="cmd-acoes"><span class="sr-only">Ações</span></th></tr></thead><tbody id="comandaAuditRows"></tbody></table></div></div>
+        <div class="comanda-history-panel cmd-painel"><div class="comanda-history-head"><b>Histórico da Comanda</b><span>Toque no lançamento para esconder ou mostrar os itens</span></div><div class="finance-grid cmd-flex"><table class="cmd-hist"><thead><tr><th class="cmd-qtd">Qtd</th><th>Item</th><th class="cmd-total">Valor</th><th>Entrega</th><th class="cmd-acoes"><span class="sr-only">Ações</span></th></tr></thead><tbody id="comandaAuditRows"></tbody></table></div></div>
         <div id="draftTotalWrap">${renderTotalWithService(0)}</div>
         <div id="comandaPartialWrap"></div>
       </main>
@@ -281,8 +281,8 @@ function openNovoPedidoModal(saleId, avulsoNome){
     <div class="np-section">
       <label class="np-label">Quem está pedindo *</label>
       <select id="npRequester">${requesterOptions}</select>
-      <p id="npRequesterWarn" class="sub" style="display:none;color:var(--red);margin:6px 0 0">Esta pessoa está bloqueada para consumir nesta cota.</p>
-      ${memberBlockedByDebt(member)?`<button class="btn btn-sm" style="margin-top:6px" onclick="openWhatsAppCollection(${jsArg(member.id)})">📱 &nbsp; Cobrar via WhatsApp</button>${currentUser&&(currentUser.role==='admin'||sessionIsOwner)?` <button class="btn btn-sm" style="margin-top:6px" onclick="releaseMemberDebtBlock(${jsArg(member.id)},${jsArg(saleId)})">🔓 &nbsp; Liberar (administrador)</button>`:''}`:''}
+      <p id="npRequesterWarn" class="sub cmd-erro" style="display:none">Esta pessoa está bloqueada para consumir nesta cota.</p>
+      ${memberBlockedByDebt(member)?`<button class="btn btn-sm cmd-mt6" onclick="openWhatsAppCollection(${jsArg(member.id)})">📱 &nbsp; Cobrar via WhatsApp</button>${currentUser&&(currentUser.role==='admin'||sessionIsOwner)?` <button class="btn btn-sm cmd-mt6" onclick="releaseMemberDebtBlock(${jsArg(member.id)},${jsArg(saleId)})">🔓 &nbsp; Liberar (administrador)</button>`:''}`:''}
     </div>` : `<select id="npRequester" style="display:none">${requesterOptions}</select>`;
   // Novo Pedido em duas colunas (pedido do dono, 09/10): cardápio à esquerda com cartões
   // legíveis e aba "Já pedidos"; à direita, sempre visíveis, quem pede, local, itens,
@@ -301,7 +301,7 @@ function openNovoPedidoModal(saleId, avulsoNome){
           <div class="np-origin-badge" title="Origem deste pedido">${h(origemLabel(currentUser.origem)||'Caixa')} · ${h(currentUser.name)}</div>
         </div>
         <div class="np-section np-cart">
-          <div class="np-cart-head"><label class="np-label" style="margin:0">Itens do pedido</label><span class="sub" id="npItemCount"></span></div>
+          <div class="np-cart-head"><label class="np-label cmd-m0">Itens do pedido</label><span class="sub" id="npItemCount"></span></div>
           <div id="npCartList"></div>
         </div>
         <div class="np-side-foot">
@@ -538,7 +538,7 @@ function explainMixedContentFix(){
   openModal('Como liberar a impressão automática', `
     <p class="sub">O site está em HTTPS (endereço seguro), mas o agente de impressão do computador roda em HTTP simples. Por padrão, o navegador bloqueia essa comunicação por segurança — é preciso liberar manualmente, uma única vez, em CADA computador que imprime.</p>
     <p><b>No Google Chrome:</b></p>
-    <ol style="padding-left:20px;font-size:13.5px;line-height:1.8">
+    <ol class="cmd-passos">
       <li>Com o sistema aberto neste computador, clique no ícone de cadeado/informações ao lado do endereço, na barra do navegador</li>
       <li>Clique em "Configurações do site" (ou "Site settings")</li>
       <li>Procure por "Conteúdo inseguro" (ou "Insecure content")</li>
@@ -587,7 +587,7 @@ async function renderPrinterQueueStatus(){
     if(!cell) continue;
     if(ok){ cell.innerHTML = '<span class="tag tag-green">● conectado</span>'; continue; }
     if(isHttpsPage && base.startsWith('http://')){
-      cell.innerHTML = '<span class="tag tag-amber">⚠ bloqueado pelo navegador (HTTPS→HTTP)</span><br><button class="btn btn-sm" onclick="explainMixedContentFix()" style="margin-top:4px">Como resolver</button>';
+      cell.innerHTML = '<span class="tag tag-amber">⚠ bloqueado pelo navegador (HTTPS→HTTP)</span><br><button class="btn btn-sm cmd-mt4" onclick="explainMixedContentFix()">Como resolver</button>';
     } else {
       cell.innerHTML = '<span class="tag tag-amber">○ não encontrado</span>';
     }
@@ -679,10 +679,10 @@ function imprimirComandaCompleta(saleId){
   const lista = impressorasParaEscolha(), caixa = receiptPrinterFor(currentUser);
   const chaves = lista.map(x=>x.key).concat(IMPRIMIR_AQUI);
   const marcada = chaves.includes(ultima) ? ultima : (caixa && (lista.find(x=>(caixa.osName && x.imp.osName===caixa.osName) || (caixa.nome && x.imp.nome===caixa.nome))||{}).key) || chaves[0];
-  const op = (key, texto)=>`<label class="comp-switch" style="display:flex;margin:0 0 10px"><input type="radio" name="imprimirEm" value="${h(key)}" ${key===marcada?'checked':''}> <b style="font-weight:400">${h(texto)}</b></label>`;
+  const op = (key, texto)=>`<label class="comp-switch cmd-opcao"><input type="radio" name="imprimirEm" value="${h(key)}" ${key===marcada?'checked':''}> <b class="cmd-normal">${h(texto)}</b></label>`;
   openModal('Onde imprimir a comanda?', `
     ${lista.map(x=>op(x.key, x.imp.nome||x.imp.osName||'Impressora')).join('')}${op(IMPRIMIR_AQUI, 'Imprimir aqui (navegador)')}
-    <div class="row" style="margin-top:12px"><button class="btn" onclick="closeModal()">Voltar</button><button class="btn btn-primary" id="imprimirEmBtn">Imprimir</button></div>`);
+    <div class="row cmd-mt12"><button class="btn" onclick="closeModal()">Voltar</button><button class="btn btn-primary" id="imprimirEmBtn">Imprimir</button></div>`);
   document.getElementById('imprimirEmBtn').onclick = ()=>{
     const el = document.querySelector('input[name="imprimirEm"]:checked'); if(!el){ toast('Escolha onde imprimir.'); return; }
     const key = el.value;
@@ -846,19 +846,19 @@ function openReorderComandaItem(idx){
   const pedeLocal = localEntregaObrigatorio() && !(item.local || (sale&&sale.local));
   openModal('Pedir novamente', `
     <p class="sub">${h(reorderName)} · <span class="mono">${fmt(reorderPrice)}</span>${rb.choice?cartLineOptionsHtml({customization:rb.choice.customization},'display:block'):''}</p>
-    <div class="field" style="text-align:center">
+    <div class="field cmd-centro">
       <label class="np-label">Quantidade</label>
-      <div class="qty-ctrl" style="justify-content:center;margin-top:6px">
+      <div class="qty-ctrl cmd-qtd-linha">
         <button onclick="reorderQtyChange(-1)" aria-label="Diminuir"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button>
-        <span class="mono" id="reorderQtyLabel" style="min-width:28px;display:inline-block;text-align:center">1</span>
+        <span class="mono cmd-qtd" id="reorderQtyLabel">1</span>
         <button onclick="reorderQtyChange(1)" aria-label="Aumentar"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button>
       </div>
     </div>
-    ${productAsksCopos(product)?`<div class="field" style="text-align:center">
+    ${productAsksCopos(product)?`<div class="field cmd-centro">
       <label class="np-label">Quantidade de copos</label>
-      <div class="qty-ctrl" style="justify-content:center;margin-top:6px">
+      <div class="qty-ctrl cmd-qtd-linha">
         <button onclick="reorderCoposChange(-1)" aria-label="Diminuir"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button>
-        <span class="mono" id="reorderCoposLabel" style="min-width:28px;display:inline-block;text-align:center">${reorderCopos}</span>
+        <span class="mono cmd-qtd" id="reorderCoposLabel">${reorderCopos}</span>
         <button onclick="reorderCoposChange(1)" aria-label="Aumentar"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button>
       </div>
     </div>`:''}
@@ -1038,7 +1038,7 @@ function openCancelComandaItem(idx){
   cancelItemIdx = idx;
   openModal('Cancelar item', `
     <p class="sub">${h(item.name)} · ${h(itemQtyLabel(item))} ${fmt(item.price)} — lançado por ${h(item.addedBy||'—')} em ${item.addedAt?reportDateTime(item.addedAt):'—'}</p>
-    <p class="sub" style="color:var(--c-danger)"><b>Esta ação não pode ser desfeita.</b> O valor sai do total da comanda e o insumo consumido é devolvido ao estoque.</p>
+    <p class="sub cmd-perigo"><b>Esta ação não pode ser desfeita.</b> O valor sai do total da comanda e o insumo consumido é devolvido ao estoque.</p>
     <div class="field"><label>Motivo (opcional)</label><input id="cancelItemReason" placeholder="Ex: lançado errado, cliente desistiu..."></div>
     <div class="row">
       <button class="btn" onclick="openComanda(${jsArg(saleId)},true)">Voltar</button>
@@ -1086,7 +1086,7 @@ function openCancelComanda(saleId){
   const activeItems = (currentSaleDraft.items||[]).filter(i=>!i.canceled);
   openModal('Cancelar comanda inteira', `
     <p class="sub">${activeItems.length} item(ns) ativo(s) — total atual <b>${fmt(saleTotal(currentSaleDraft.items))}</b>.</p>
-    <p class="sub" style="color:var(--c-danger)"><b>Esta ação não pode ser desfeita.</b> Todos os itens ainda não cancelados desta comanda são cancelados de uma vez, o insumo consumido é devolvido ao estoque e a comanda inteira sai da lista de mesas/comandas em aberto.</p>
+    <p class="sub cmd-perigo"><b>Esta ação não pode ser desfeita.</b> Todos os itens ainda não cancelados desta comanda são cancelados de uma vez, o insumo consumido é devolvido ao estoque e a comanda inteira sai da lista de mesas/comandas em aberto.</p>
     <div class="field"><label>Motivo (opcional)</label><input id="cancelComandaReason" placeholder="Ex: pedido duplicado, cliente desistiu..."></div>
     <div class="row">
       <button class="btn" onclick="openComanda(${jsArg(saleId)},true)">Voltar</button>
@@ -1157,18 +1157,18 @@ function renderComandaQuickCart(){
   wrap.style.display='';
   const total = comandaQuickCart.reduce((a,i)=>a+i.price*i.qty,0);
   const qty = comandaQuickCart.reduce((a,i)=>a+i.qty,0);
-  wrap.innerHTML = `<div class="np-cart" style="border-top:1px solid var(--c-border);padding-top:10px">
+  wrap.innerHTML = `<div class="np-cart cmd-separa">
     ${comandaQuickCart.map((i,idx)=>`
-      <div class="item-line" style="flex-wrap:wrap">
-        <span>${h(itemNomeTela(i))}${i.weight?`<small style="display:block;color:var(--c-text-3)">${h(i.notes||'')}</small>`:cartLineOptionsHtml(i,'display:block;color:var(--c-text-3)')}</span>
+      <div class="item-line cmd-quebra">
+        <span>${h(itemNomeTela(i))}${i.weight?`<small class="cmd-detalhe">${h(i.notes||'')}</small>`:cartLineOptionsHtml(i,'display:block;color:var(--c-text-3)')}</span>
         <div class="qty-ctrl">${i.weight?`<span class="mono">${fmtKg(i.weight.kg)}</span><button onclick="quickCartChangeQty(${idx},-1)" aria-label="Tirar peça"><span class="b-ic" aria-hidden="true">${ICN.x}</span></button>`:`<button onclick="quickCartChangeQty(${idx},-1)" aria-label="Diminuir"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button><span class="mono">${i.qty}</span>
         <button onclick="quickCartChangeQty(${idx},1)" aria-label="Aumentar"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button>`}
-        <span class="mono" style="min-width:70px;text-align:right">${fmt(i.price*i.qty)}</span></div>
-        ${i.copos!=null?`<div class="qty-ctrl" style="width:100%;justify-content:flex-end"><span class="sub" style="margin-right:6px">Quantidade de copos:</span><button onclick="quickCartChangeCopos(${idx},-1)" aria-label="Diminuir"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button><span class="mono">${i.copos||0}</span><button onclick="quickCartChangeCopos(${idx},1)" aria-label="Aumentar"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button></div>`:''}
+        <span class="mono cmd-valor">${fmt(i.price*i.qty)}</span></div>
+        ${i.copos!=null?`<div class="qty-ctrl cmd-copos"><span class="sub cmd-mr6">Quantidade de copos:</span><button onclick="quickCartChangeCopos(${idx},-1)" aria-label="Diminuir"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button><span class="mono">${i.copos||0}</span><button onclick="quickCartChangeCopos(${idx},1)" aria-label="Aumentar"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button></div>`:''}
       </div>`).join('')}
     ${levarJuntoBox(comandaQuickCart,'quick')}
     <div class="np-total"><span>Total</span><span class="mono">${fmt(total)}</span></div>
-    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="openComandaQuickAddConfirm()">Adicionar e enviar pra cozinha (${qty} ${qty===1?'item':'itens'})</button>
+    <button class="btn btn-primary cmd-btn-largo" onclick="openComandaQuickAddConfirm()">Adicionar e enviar pra cozinha (${qty} ${qty===1?'item':'itens'})</button>
   </div>`;
 }
 function openComandaQuickAddConfirm(){
@@ -1184,7 +1184,7 @@ function openComandaQuickAddConfirm(){
     <div class="field">
       <label class="np-label">Quem está pedindo *</label>
       <select id="comandaQuickAddRequester">${requesterOptions}</select>
-      <p id="comandaQuickAddRequesterWarn" class="sub" style="display:none;color:var(--red);margin:6px 0 0">Esta pessoa está bloqueada para consumir nesta cota.</p>
+      <p id="comandaQuickAddRequesterWarn" class="sub cmd-erro" style="display:none">Esta pessoa está bloqueada para consumir nesta cota.</p>
     </div>` : `<select id="comandaQuickAddRequester" style="display:none">${requesterOptions}</select>`;
   const itemsSummary = comandaQuickCart.map(i=>`${i.qty}x ${h(i.name)}`).join(', ');
   // Local obrigatório (15/11): o lançamento rápido pergunta o local. Começa sem nada escolhido
