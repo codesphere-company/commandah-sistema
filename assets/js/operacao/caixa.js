@@ -139,7 +139,17 @@ function renderCaixaPorOperador(el){
   const cx = caixaDoAparelho();
   const aviso = (titulo, texto) => cascaDoCaixaPorOperador(titulo, `<div class="cash-layout"><div class="cash-main"><div class="cash-empty">${h(texto)}</div></div></div>`);
   if(!isCloudMode()){ el.innerHTML = aviso('Caixa', 'O caixa por operador precisa da conexão com o servidor.'); return; }
-  if(!cx){ el.innerHTML = aviso('Caixa', 'Este computador não é um caixa. Peça a um administrador para marcar em Configurações.'); return; }
+  if(!cx){
+    // 25/11 (pedido do dono: administradores abrem e fecham os caixas): o administrador escolhe aqui mesmo qual
+    // caixa este computador é, sem ir em Configurações (a marca é por navegador e some ao trocar de endereço,
+    // como na mudança para commandah.com.br). O servidor já aceitava administrador em qualquer caixa.
+    if(typeof isAdminUser==='function' && isAdminUser()){
+      const botoes = listaDeCaixas().map(c=>`<button type="button" class="op-btn primary cx-escolher" onclick="escolherCaixaAqui(${jsArg(c.id)})">${h(c.nome)}</button>`).join('');
+      el.innerHTML = cascaDoCaixaPorOperador('Caixa', `<div class="cash-layout"><div class="cash-main"><div class="cash-empty"><p>Este computador ainda não é um caixa. Qual caixa ele é?</p><div class="cx-escolher-lista">${botoes}</div><p class="sub">Fica guardado neste computador. Dá para trocar em Configurações › Geral › Caixa por operador.</p></div></div></div>`);
+      return;
+    }
+    el.innerHTML = aviso('Caixa', 'Este computador não é um caixa. Peça a um administrador para marcar em Configurações.'); return;
+  }
   if(state.cashTurnosFalhou && !state.cashTurnos){ el.innerHTML = aviso(nomeDoCaixa(cx), 'Não foi possível ler o caixa. Tentando de novo…'); return; }
   const s = state.cashSession;
   if(s && s.status==='open') return renderCaixaAberto(el, s);
@@ -151,6 +161,14 @@ function renderCaixaPorOperador(el){
   el.innerHTML = cascaDoCaixaPorOperador(nomeDoCaixa(cx), `<div class="cash-layout"><aside class="cash-side"><div class="cash-state">Caixa Fechado</div><div class="field"><label for="openAmount">Conte o dinheiro da gaveta</label><input type="number" id="openAmount" min="0" step="0.01" inputmode="decimal" placeholder="0,00" autocomplete="off" value=""><small class="sub">Conte as notas e moedas e digite o total.</small></div><div class="field"><label for="openNote">Observação</label><textarea id="openNote" rows="5"></textarea></div><button class="op-btn primary" id="btnOpenCash" style="width:100%"><span class="op-ico">▷</span> Abrir caixa</button></aside><div class="cash-main"><div class="cash-id">ID do Caixa: <b>[Fechado]</b></div><h2 style="text-transform:none">${h(nomeDoCaixa(cx))} — ${h(currentUser.name)}</h2><div class="cash-empty">Conte o dinheiro da gaveta e digite o total.<br>Se não bater com o último fechamento deste caixa, ele fica travado até um administrador ou o dono liberar.</div></div></div>`);
   if(digitado){ document.getElementById('openAmount').value = digitado.v; document.getElementById('openNote').value = digitado.n; }
   document.getElementById('btnOpenCash').onclick = ()=>abrirTurnoDoCaixa(cx);
+}
+// Administrador marca este computador como um dos caixas e segue para abrir/fechar.
+async function escolherCaixaAqui(id){
+  if(!(typeof isAdminUser==='function' && isAdminUser()) || !listaDeCaixas().some(c=>c.id===id)) return;
+  marcarCaixaDoAparelho(id);
+  logAction('Computador marcado como ' + nomeDoCaixa(id) + ' pela tela do Caixa');
+  try { await refreshCashState(); } catch(e){ /* a consulta periódica tenta de novo */ }
+  renderAll();
 }
 const abrirTurnoDoCaixa = singleFlight('abrirTurnoDoCaixa', async function(cx){
   const contado = lerValorContado('openAmount'); if(contado===null) return;
