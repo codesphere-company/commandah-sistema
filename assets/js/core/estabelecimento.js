@@ -157,6 +157,7 @@ function startApp(){
     // Revisão B2 (08/11): produto pausado/ativado ou catálogo editado em outro aparelho (caixa-multiaparelho.js).
     atualizarCatalogoSeMudou().then(changed=>{ if(changed) redesenharDepoisDoCatalogo(); });
   }, 30000);
+  if(typeof waIniciarAvisos==='function') waIniciarAvisos(); // WhatsApp etapa 2 (25/11): aviso de mensagem nova
   iniciarPollingCaixa(); // caixa por operador (13/11): 5 s travado / 30 s normal, só com o ajuste ligado
   // Computador de caixa (impressão de tudo que for lançado aqui): descobre qual computador é.
   setTimeout(detectLocalPrintAgent, 3000);

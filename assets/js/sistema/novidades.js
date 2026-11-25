@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-26-whatsapp-conversas', data:'26/11/2026', itens:[
+    { titulo:'Conversas do WhatsApp dentro do Commandah (plano Pro)',
+      texto:'No menu lateral, WhatsApp mostra as conversas do número da lanchonete. Quando um cliente escreve, aparece um aviso com som em qualquer tela e um número no menu; Responder abre a conversa. Dá para responder em texto (Enter envia), usar as respostas prontas de chave Pix e horário da cozinha, ver foto e baixar PDF recebidos e ligar a conversa ao cadastro do cliente para ver a cota e a conta. Áudio continua só no celular.',
+      onde:'Menu lateral › WhatsApp', perms:['whatsapp'] },
+  ]},
   { id:'2026-11-25-padrao-janelas', data:'25/11/2026', itens:[
     { titulo:'Salvar sempre à vista nas janelas de cadastro',
       texto:'Nas janelas de cadastro (produto, cliente, colaborador e as outras), o título e os botões Voltar e Salvar ficam fixos enquanto você rola o formulário. Antes, em telas mais baixas, o Salvar ficava escondido lá embaixo. A janela do colaborador também ficou do tamanho certo para os campos que tem.',
