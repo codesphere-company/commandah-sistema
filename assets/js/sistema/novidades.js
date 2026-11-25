@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-padrao-letras', data:'25/11/2026', itens:[
+    { titulo:'Tamanhos de letra padronizados',
+      texto:'As letras do sistema passaram a seguir uma escala única. Os textos menores das listas e etiquetas ficaram um pouco maiores e mais fáceis de ler.',
+      onde:'Todo o sistema' },
+  ]},
   { id:'2026-11-25-padrao-selecao', data:'25/11/2026', itens:[
     { titulo:'Botões do item marcado só aparecem quando você marca',
       texto:'Em Produtos, os botões Duplicar, Estoque, Editar e Excluir, e em Clientes, Editar e Arquivar, deixaram de ficar apagados o tempo todo: eles aparecem juntos, num grupo verde-claro, quando você toca numa linha da lista. Em Produtos, Atualizar Lista passou para dentro de Opções.',
