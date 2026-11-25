@@ -1,0 +1,57 @@
+name: Publicar em commandah.com.br
+
+# 25/11/2026: o endereço oficial passou a ser https://commandah.com.br (Cloudflare Workers com arquivos
+# estáticos, projeto "commandah-sistema"). GitHub Pages proíbe uso comercial. A cada push na main, este job
+# publica os arquivos versionados da main lá. O GitHub Pages continua publicando junto até o redirecionamento.
+#
+# Secret necessário (Settings -> Secrets and variables -> Actions): CLOUDFLARE_API_TOKEN, criado no Cloudflare
+# em My Profile -> API Tokens -> Create Token -> modelo "Edit Cloudflare Workers", com a conta do Commandah e a
+# zona commandah.com.br. Sem o secret o job para com aviso e não mexe em nada.
+#
+# O que vai: só arquivos versionados (git archive), sem .github, .gitignore, .gitattributes e o wrangler.jsonc.
+# Publicar na mão (mesmo resultado): ver "Como o Claude trabalha aqui" em docs/HANDOFF.md.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: publicar-cloudflare
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: bf8a266a02f3d5dd7551c49264c40825
+    steps:
+      - name: Conferir o secret
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Falta o secret CLOUDFLARE_API_TOKEN (ver o comentário no topo deste arquivo)."
+            exit 1
+          fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Separar os arquivos do site
+        run: |
+          mkdir _site
+          git archive HEAD | tar -x -C _site
+          rm -rf _site/.github _site/.gitignore _site/.gitattributes _site/wrangler.jsonc
+          test -f _site/index.html
+          echo "Arquivos: $(find _site -type f | wc -l)"
+      - name: Publicar
+        run: npx --yes wrangler@4.168.0 deploy
+      - name: Conferir no ar
+        run: |
+          sleep 5
+          v=$(grep -o 'assets/js/core/config.js?v=[0-9a-z]*' index.html | head -1)
+          curl -fsS https://commandah.com.br/ | grep -q "$v" && echo "No ar: $v" || { echo "::error::commandah.com.br não mostra $v"; exit 1; }

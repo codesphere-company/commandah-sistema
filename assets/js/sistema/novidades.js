@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-admin-escolhe-caixa', data:'25/11/2026', itens:[
+    { titulo:'Administrador abre o caixa de qualquer computador',
+      texto:'Com o caixa por operador ligado, num computador que ainda não é um caixa o administrador escolhe ali mesmo, na tela do Caixa, qual caixa ele é (Caixa 1, Caixa 2...) e já abre ou fecha. Antes era preciso ir em Configurações. Quem não é administrador continua vendo o aviso para chamar um administrador.',
+      onde:'Caixa', perms:['caixa'] },
+  ]},
   { id:'2026-11-26-whatsapp-conversas', data:'26/11/2026', itens:[
     { titulo:'Conversas do WhatsApp dentro do Commandah (plano Pro)',
       texto:'No menu lateral, WhatsApp mostra as conversas do número da lanchonete. Quando um cliente escreve, aparece um aviso com som em qualquer tela e um número no menu; Responder abre a conversa. Dá para responder em texto (Enter envia), usar as respostas prontas de chave Pix e horário da cozinha, ver foto e baixar PDF recebidos e ligar a conversa ao cadastro do cliente para ver a cota e a conta. Áudio continua só no celular.',

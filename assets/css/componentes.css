@@ -230,6 +230,77 @@ body.tv-mode .kbtn-ready{width:110px!important;font-size:var(--fs-title)!importa
 .wa-lista input,.wa-cliente input,.wa-compor textarea{box-sizing:border-box;padding:8px 10px;border:1px solid var(--c-border-input);border-radius:8px;background:var(--c-surface);color:var(--c-text);font:inherit}
 .wa-lista input:focus,.wa-cliente input:focus,.wa-compor textarea:focus{outline:2px solid var(--c-focus);outline-offset:1px}
 
+/* 25/11 (padrão, lote 12): produto com tamanhos e opções (cadastros/produto-tamanhos.js). Eram estilos inline;
+   os valores são os mesmos (conferido pelo estilo calculado de cada elemento, antes e depois). O #modalRoot dá a
+   força que o style="" tinha sobre as regras gerais de .sub, .row e .empty. */
+#modalRoot .tam-cards{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+#modalRoot .tam-card{border:1px solid var(--c-border-strong,#c9d0d9);border-radius:6px;padding:8px 14px;min-width:120px;text-align:center}
+#modalRoot .tam-card-sigla{font-size:17px}
+#modalRoot .tam-card-nome{margin:2px 0}
+#modalRoot .tam-pausado{opacity:.55}
+#modalRoot .tam-link{margin:6px 0}
+#modalRoot .tam-num{width:60px}
+#modalRoot .tam-regra{border:1px solid var(--c-border-strong,#c9d0d9);border-radius:6px;padding:10px;margin-top:10px}
+#modalRoot .tam-regra-topo{display:flex;justify-content:space-between;gap:8px}
+#modalRoot .tam-regra-campos{align-items:flex-end;margin-top:6px}
+#modalRoot .tam-opcoes{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+#modalRoot .tam-op-pausada{opacity:.5}
+#modalRoot .tam-nota{margin:6px 0 0}
+#modalRoot .tam-vazio{padding:10px}
+#modalRoot .tam-vazio-curto{padding:6px 0}
+#modalRoot .tam-acoes{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+#modalRoot .tam-layout{display:flex;gap:14px}
+#modalRoot .tam-lista{display:flex;flex-direction:column;gap:8px;width:170px;flex:none}
+#modalRoot .tam-sel{cursor:pointer;border:1px solid var(--c-border-strong,#c9d0d9);border-radius:6px;padding:8px 10px}
+#modalRoot .tam-sel-on{border:2px solid var(--c-primary,#2f6fd6)}
+#modalRoot .tam-sel-topo{display:flex;justify-content:space-between;align-items:center}
+#modalRoot .tam-sel-sigla{font-size:18px}
+#modalRoot .tam-sel-linha{display:flex;justify-content:space-between;gap:8px;margin-top:4px}
+#modalRoot .tam-painel{flex:1;min-width:0}
+#modalRoot .tam-row-fim{align-items:flex-end}
+#modalRoot .tam-subtitulo{font-size:12px;font-weight:700;margin:12px 0 6px}
+#modalRoot .tam-subtitulo-grupos{margin:14px 0 0}
+#modalRoot .tam-copiar-btns{margin-top:10px}
+#modalRoot .tam-copiar{border:1px dashed var(--c-border-strong,#9aa4b2);border-radius:6px;padding:10px;margin-top:8px}
+#modalRoot .tam-copiar-nota{margin-top:0}
+#modalRoot .tam-copiar-titulo{font-size:12px}
+#modalRoot .tam-copiar-ok{margin-top:8px}
+
+/* 25/11 (padrão, lote 12): Configurações › Impressoras, Estações e Origens (impressao/impressoras.js). Eram
+   estilos inline, com os mesmos valores. O #app/#modalRoot dá a força que o style="" tinha. */
+:is(#app,#modalRoot) .imp-chave{color:var(--muted)}
+:is(#app,#modalRoot) .imp-tabela{margin-top:14px}
+:is(#app,#modalRoot) .imp-agente{font-size:12px}
+:is(#app,#modalRoot) .imp-carregando{margin:0}
+:is(#app,#modalRoot) .imp-link{color:var(--c-primary-text);font-weight:600}
+#app #agentStatusBox,:is(#app,#modalRoot) .imp-campo{margin-bottom:14px} /* id: o JS troca o className do status */
+
+/* 25/11 (padrão, lote 12): Clientes (cadastros/associados.js): lista, cadastro, dependentes, tags, arquivados,
+   importar planilha e corrigir cota. Eram estilos inline, com os mesmos valores. O display:none da aba de prévia
+   da importação continua inline: o JS troca o style.display. */
+:is(#app,#modalRoot) .cli-arquivados{height:390px}
+:is(#app,#modalRoot) .cli-tags{height:310px}
+:is(#app,#modalRoot) .cli-dep{height:350px}
+:is(#app,#modalRoot) .cli-dep-barra{padding:0 0 10px}
+:is(#app,#modalRoot) .cli-imp-cota{margin:10px 0 0}
+:is(#app,#modalRoot) .cli-imp-mapa{margin-top:16px;align-items:flex-start;gap:20px}
+:is(#app,#modalRoot) .cli-imp-abas{width:170px;flex-shrink:0}
+:is(#app,#modalRoot) .cli-imp-campos{flex:1;min-width:0}
+:is(#app,#modalRoot) .cli-imp-tabela{width:100%}
+:is(#app,#modalRoot) .cli-imp-obrig{width:80px}
+:is(#app,#modalRoot) .cli-imp-previa{max-height:360px;overflow:auto}
+:is(#app,#modalRoot) .cli-imp-centro{text-align:center}
+:is(#app,#modalRoot) .cli-imp-marca{color:var(--red);font-size:18px}
+:is(#app,#modalRoot) .cli-cota-previa{background:var(--cream);font-size:12.5px;line-height:1.8;padding:12px}
+:is(#app,#modalRoot) .cli-cota-acoes{margin-top:16px}
+:is(#app,#modalRoot) .cli-menu{top:48px;min-width:210px}
+:is(#app,#modalRoot) .cli-tabela{min-width:1200px}
+:is(#app,#modalRoot) .cli-span2{grid-column:span 2}
+:is(#app,#modalRoot) .cli-secao{font-size:13px;border-bottom:1px solid var(--c-border-strong);padding-bottom:8px}
+
+/* 25/11: administrador escolhe o caixa na tela do Caixa (operacao/caixa.js) */
+.cx-escolher-lista{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:14px 0}
+.cx-escolher{min-width:140px;min-height:48px}
 /* 25/11 (padrão, lote 12): Relatórios (gestao/relatorios.js). Eram estilos inline, com os mesmos valores.
    Ficam inline só as larguras calculadas na hora (min-width da tabela e barra do ranking). */
 :is(#app,#modalRoot) .rel-mt8{margin-top:8px}
