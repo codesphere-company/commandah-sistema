@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-24-clientes-cota-ordenar', data:'24/11/2026', itens:[
+    { titulo:'Clientes: cota no topo e lista que ordena pela coluna',
+      texto:'No cadastro do cliente, a Cota passou a ser o primeiro campo, acima do Nome (antes ficava em Dados Secundários). Na lista de Clientes, clique no título de qualquer coluna para ordenar: o primeiro clique ordena de A a Z (ou do menor para o maior), o segundo inverte e o terceiro volta à ordem normal. A cota ordena como número (2, 18, 180). A pesquisa filtra enquanto você digita, sem precisar do botão Buscar.',
+      onde:'Cadastros › Clientes', perms:['associados'] },
+  ]},
   { id:'2026-11-21-nfce-codigo-agrupar', data:'21/11/2026', itens:[
     { titulo:'NFC-e com o código curto do produto e itens iguais juntos',
       texto:'Na nota fiscal, o código do produto passou a ser o Código PDV do cadastro (por exemplo, 123), e não mais um código interno comprido. E o mesmo produto lançado várias vezes, pelo mesmo preço, sai numa linha só com a quantidade somada (8 x 3,00 em vez de 8 linhas). Produto sem Código PDV ganha o próximo número livre ao salvar.',
