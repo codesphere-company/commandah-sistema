@@ -157,7 +157,7 @@ function openProductModal(id){
       <div class="record-actions"><button class="op-btn" onclick="closeModal()">Voltar</button><button class="op-btn primary" id="pSaveBtn">Salvar</button></div>
     </div>
   `, true);
-  document.querySelector('#modalRoot .modal').classList.add('record-modal');
+  document.querySelector('#modalRoot .modal').classList.add('record-modal','janela-g'); // 25/11 (padrão, lote 9): largura G (960)
   renderRecipeRows();
   refreshProductGradeUi();
   document.getElementById('pSaveBtn').onclick = ()=>{
