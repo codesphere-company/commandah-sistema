@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-25-padrao-impressoras', data:'25/11/2026', itens:[
+    { titulo:'Tela de Impressoras mais limpa',
+      texto:'A tela de Impressoras ficou com seções separadas por linhas, sem caixas umas dentro das outras, e com botões maiores para tocar. Em Formas de Pagamento, o botão Nova forma passou para a direita, como o Novo das outras telas.',
+      onde:'Configurações › Impressoras e Financeiro › Formas de Pagamento', perms:['impressoras','pagamentos'] },
+  ]},
   { id:'2026-11-25-padrao-cabecalho', data:'25/11/2026', itens:[
     { titulo:'Título e botões das telas num bloco só',
       texto:'Nos cadastros, o título da tela e a barra com a busca e os botões passaram a formar um bloco só, com a busca alinhada ao título. Nos relatórios, o nome do relatório não aparece mais duas vezes.',

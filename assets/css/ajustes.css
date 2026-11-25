@@ -1168,3 +1168,20 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 #view-relatorios .det-report-head h2{display:none}
 #view-relatorios .det-report-head{justify-content:flex-end}
 @media(max-width:760px){.workspace-gray>.op-window>.op-toolbar{padding:8px 16px 12px}}
+
+/* 25/11 (padrão, lote 6): Impressoras sem cartão dentro de cartão (eram 3 níveis: painel > bloco > caixa cinza).
+   Cada bloco vira uma seção separada por uma linha, como os grupos da central; o passo a passo fica como texto. */
+#view-impressoras .ps-block{border:0;border-top:1px solid var(--c-border);border-radius:0;background:none;padding:18px 0 6px;margin:0}
+#view-impressoras .ps-empty{background:none;padding:0;font-size:14px}
+#view-impressoras .ps-block a,#view-impressoras .ps-empty a{color:var(--c-primary-text);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.ps-chip{min-height:var(--hit);padding:0 14px}
+.ps-caixa select,.ps-actions select{min-height:var(--hit)}
+:root{--ic-check:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");--ic-meio:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='8' fill='none' stroke='black' stroke-width='2'/%3E%3Cpath d='M12 4a8 8 0 0 1 0 16z' fill='black'/%3E%3C/svg%3E")}
+.ps-chip.on::before,.ps-chip.partial::before{content:'';display:inline-block;width:14px;height:14px;margin-right:6px;vertical-align:-2px;background:currentColor;-webkit-mask:var(--ic-check) center/14px no-repeat;mask:var(--ic-check) center/14px no-repeat}
+.ps-chip.partial::before{-webkit-mask-image:var(--ic-meio);mask-image:var(--ic-meio)}
+/* Formas de Pagamento: "Nova forma" à direita, como o "Novo" das outras telas (antes começava fora do alinhamento). */
+.tela-com-cabecalho .formas-page .finance-top{height:auto;justify-content:flex-end;padding:0 20px 4px}
+.tela-com-cabecalho .formas-page .finance-actions{padding:0}
+.formas-corpo{padding:4px 20px 18px}
+/* Estado vazio (.empty, 135 telas): um só jeito, 14 px e cor de texto secundário (era 13 px e cinza-claro). */
+.empty{font-size:var(--fs-md);color:var(--c-text-2);padding:32px 16px}
