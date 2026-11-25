@@ -4,6 +4,9 @@
    situação; conectar e desconectar é do administrador (a função confere). Desenho:
    docs/superpowers/specs/2026-11-25-whatsapp-design.md. */
 let waPollTimer = null;
+// Revisão final (25/11): logo depois de ler o QR a conexão pode aparecer fechada por alguns segundos (reinício);
+// a tela continua conferindo mais alguns ciclos antes de parar.
+let waPollExtra = 0;
 const WA_FORA_DO_AR = 'Não foi possível falar com o WhatsApp agora. Tente de novo em alguns segundos.';
 
 async function waChamar(action){
@@ -27,7 +30,7 @@ function waPararPoll(){ if(waPollTimer){ clearTimeout(waPollTimer); waPollTimer=
 
 function openWhatsAppSettings(){
   if(!requirePerm('whatsapp')) return;
-  waPararPoll();
+  waPararPoll(); waPollExtra = 0;
   openModal('WhatsApp', `<div id="waBox" class="wa-config" aria-live="polite"><p class="sub wa-carregando">Conferindo o WhatsApp…</p></div>`);
   waAtualizar();
 }
@@ -65,7 +68,9 @@ function waDesenhar(s, erro){
   box.innerHTML = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><b style="flex:1">Número da lanchonete</b>${chip}</div>${aviso}${corpo}${separado}<div style="display:flex;gap:10px;margin-top:12px">${botoes}</div>
     <p class="sub" style="margin-top:14px">Conexão feita com a Evolution API.</p>`;
   // Enquanto espera a leitura, confere a cada 3 s (para ao fechar a janela ou ao conectar).
-  if(s.situacao==='aguardando_qr') waPollTimer = setTimeout(()=>{ if(document.getElementById('waBox')) waAtualizar(); }, 3000);
+  if(s.situacao==='aguardando_qr') waPollExtra = 4;
+  else if(s.situacao==='conectado') waPollExtra = 0;
+  if(s.situacao==='aguardando_qr' || (waPollExtra>0 && waPollExtra--)) waPollTimer = setTimeout(()=>{ if(document.getElementById('waBox')) waAtualizar(); }, 3000);
 }
 
 async function waConectar(){

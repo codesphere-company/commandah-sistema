@@ -23,6 +23,11 @@ const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY") || "";
 const WEBHOOK_URL = Deno.env.get("WHATSAPP_WEBHOOK_URL") || "";
 const EVENTOS = ["QRCODE_UPDATED", "CONNECTION_UPDATE", "MESSAGES_UPSERT", "MESSAGES_UPDATE"];
 const PRAZO_MS = 8000;
+// QR sem renovação há mais que isto (webhook não chegou): a consulta pede um QR novo à Evolution.
+const QR_VELHO_MS = 45000;
+// Revisão final (25/11): "close" com estes motivos é saída de verdade (logout, banido, sessão trocada).
+// Os outros (515 = reinício logo depois de ler o QR, 408/428/500 = rede) a Evolution reconecta sozinha.
+const SAIU_DE_VERDADE = new Set([401, 402, 403, 406, 440]);
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
@@ -58,9 +63,9 @@ async function caller(req: Request) {
   return null;
 }
 
-type Linha = { situacao: string; numero: string | null; qr: string | null; webhook_segredo: string };
+type Linha = { situacao: string; numero: string | null; qr: string | null; webhook_segredo: string; atualizado_em: string };
 async function lerLinha(tenantId: string): Promise<Linha | null> {
-  const { data, error } = await admin.from("whatsapp_instancias").select("situacao, numero, qr, webhook_segredo").eq("tenant_id", tenantId).maybeSingle();
+  const { data, error } = await admin.from("whatsapp_instancias").select("situacao, numero, qr, webhook_segredo, atualizado_em").eq("tenant_id", tenantId).maybeSingle();
   if (error) throw error;
   return (data as Linha | null) || null;
 }
@@ -116,7 +121,10 @@ async function webhook(k: string, req: Request) {
   } else if (evento === "connection.update") {
     const st = String(data.state || "");
     if (st === "open") await gravar(tenantId, "conectado", numeroDe(data.wuid) || linha.numero, null);
-    else if (st === "close") await gravar(tenantId, "desconectado", null, null);
+    else if (st === "close") {
+      const motivo = Number(data.statusReason ?? (data as { statusCode?: unknown }).statusCode);
+      if (!Number.isFinite(motivo) || SAIU_DE_VERDADE.has(motivo)) await gravar(tenantId, "desconectado", null, null);
+    }
   }
   return json({ ok: true });
 }
@@ -130,7 +138,13 @@ async function situacao(tenantId: string, isAdmin: boolean) {
       const r = await evolution("GET", `/instance/connectionState/${encodeURIComponent(tenantId)}`);
       const st = r.ok ? String(((r.body?.instance as Record<string, unknown>) || {}).state || "") : "";
       if (st === "open" && linha.situacao !== "conectado") await gravar(tenantId, "conectado", linha.numero, null);
-      else if ((st === "close" || r.status === 404) && linha.situacao === "conectado") await gravar(tenantId, "desconectado", null, null);
+      else if (st === "close" || r.status === 404) await gravar(tenantId, "desconectado", null, null);
+      // Revisão final: sem webhook o QR gravado vence; esperando a leitura e com o QR velho, pede outro.
+      else if (linha.situacao === "aguardando_qr" && Date.now() - new Date(linha.atualizado_em).getTime() > QR_VELHO_MS) {
+        const c = await evolution("GET", `/instance/connect/${encodeURIComponent(tenantId)}`);
+        const qr = c.ok ? qrDe(c.body) : null;
+        if (qr) await gravar(tenantId, "aguardando_qr", linha.numero, qr);
+      }
       linha = await lerLinha(tenantId);
     } catch (e) {
       console.error("[whatsapp] connectionState:", e);
