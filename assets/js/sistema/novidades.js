@@ -7,8 +7,8 @@
 const NOVIDADES = [
   { id:'2026-11-26-cardapio-digital', data:'26/11/2026', itens:[
     { titulo:'Cardápio digital no QR da mesa',
-      texto:'Em Configurações › Cardápio digital, ligue o cardápio e imprima o QR de cada mesa. O cliente aponta a câmera e vê os produtos com foto, preço e tamanhos no celular, sem instalar nada. Nesta primeira etapa ele só olha: para pedir, chama o garçom. Produto pausado some do cardápio.',
-      onde:'Configurações › Cardápio digital', perms:['config-sistema'] },
+      texto:'Em Apps › Cardápio Digital, ligue o cardápio e imprima o QR de cada mesa. O cliente aponta a câmera e vê os produtos com foto, preço e tamanhos no celular, sem instalar nada. Nesta primeira etapa ele só olha: para pedir, chama o garçom. Produto pausado some do cardápio.',
+      onde:'Apps › Cardápio Digital', perms:['config-sistema'] },
   ]},
   { id:'2026-11-26-troca-sem-contagem', data:'26/11/2026', itens:[
     { titulo:'Passar o caixa sem contar',
