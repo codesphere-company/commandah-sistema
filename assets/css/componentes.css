@@ -355,7 +355,7 @@ body.tv-mode .kbtn-ready{width:110px!important;font-size:var(--fs-title)!importa
    pagamento (o JS muda a largura), o ${style} das opções do item e a margem da janela de impressão (abre
    fora do app, sem este CSS). */
 :is(#app,#modalRoot) .cmd-centro{text-align:center}
-:is(#app,#modalRoot) .cmd-qtd{min-width:28px;display:inline-block;text-align:center}
+:is(#app,#modalRoot) .cmd-qtd-num{min-width:28px;display:inline-block;text-align:center}
 :is(#app,#modalRoot) .cmd-qtd-linha{justify-content:center;margin-top:6px}
 :is(#app,#modalRoot) .cmd-erro{color:var(--red);margin:6px 0 0}
 :is(#app,#modalRoot) .cmd-perigo{color:var(--c-danger)}

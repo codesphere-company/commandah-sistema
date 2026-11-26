@@ -851,7 +851,7 @@ function openReorderComandaItem(idx){
       <label class="np-label">Quantidade</label>
       <div class="qty-ctrl cmd-qtd-linha">
         <button onclick="reorderQtyChange(-1)" aria-label="Diminuir"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button>
-        <span class="mono cmd-qtd" id="reorderQtyLabel">1</span>
+        <span class="mono cmd-qtd-num" id="reorderQtyLabel">1</span>
         <button onclick="reorderQtyChange(1)" aria-label="Aumentar"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button>
       </div>
     </div>
@@ -859,7 +859,7 @@ function openReorderComandaItem(idx){
       <label class="np-label">Quantidade de copos</label>
       <div class="qty-ctrl cmd-qtd-linha">
         <button onclick="reorderCoposChange(-1)" aria-label="Diminuir"><span class="b-ic" aria-hidden="true">${ICN.minus}</span></button>
-        <span class="mono cmd-qtd" id="reorderCoposLabel">${reorderCopos}</span>
+        <span class="mono cmd-qtd-num" id="reorderCoposLabel">${reorderCopos}</span>
         <button onclick="reorderCoposChange(1)" aria-label="Aumentar"><span class="b-ic" aria-hidden="true">${ICN.plus}</span></button>
       </div>
     </div>`:''}
