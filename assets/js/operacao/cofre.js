@@ -1,7 +1,7 @@
 /* ============ COFRE ============ */
 // cofre (16/11): tela do administrador para o dinheiro que sai da gaveta e vai ao cofre. Só aparece com o caixa
 // por operador ligado e só para quem tem a permissão 'cofre' (admin e dono). Tudo é decidido pelo servidor
-// (cash_cofre_*): o aparelho só mostra o que ele devolve e chama a ação. Saldo, a recolher e extrato numa tela.
+// (cash_cofre_*): o aparelho só mostra o que ele devolve e chama a ação. 26/11: início com o saldo e uma escolha por ação.
 let cofreDados = null;          // última leitura do servidor (cash_cofre_ler)
 let cofreResultado = null;      // resultado da última contagem: { esperado, contado, diferenca }
 let cofreCarregando = false;
@@ -64,66 +64,117 @@ async function renderCofre(){
   cofreDesenhar();
   if(cofreRedesenhar){ cofreRedesenhar = false; renderCofre(); }
 }
+// 26/11 (dono aprovou a maquete "no padrão do app do garçom"): a tela era uma coluna de 300 px com as seis
+// ações empilhadas e botões sem estilo; Abastecer, Outra saída, Recolher e Extrato ficavam duas telas abaixo.
+// Agora o início mostra o saldo no topo e uma escolha por ação (cc-item, o mesmo da central de Configurações);
+// tocar entra na ação, com a barra "‹ Cofre". Os ids dos campos e as funções de ação não mudaram.
+let cofreSecao = '';            // '' = início; senão a chave de COFRE_SECOES
+const cofreCaixaEscolhido = { abastecer:'', recolher:'' }; // caixa escolhido nos botões grandes de cada ação
+const COFRE_SECOES = {
+  recolher:  { titulo:'A recolher', desc:'Sangrias e fins de noite esperando conferência.', icon:'arrowDownBox' },
+  contar:    { titulo:'Contar cofre', desc:'Conferir o dinheiro que está no cofre.', icon:'cash' },
+  abastecer: { titulo:'Abastecer caixa', desc:'Levar troco do cofre para um caixa.', icon:'swap' },
+  fechado:   { titulo:'Recolher de caixa fechado', desc:'Trazer o dinheiro que ficou num caixa já fechado.', icon:'cashbox' },
+  saida:     { titulo:'Outra saída', desc:'Pagamento ou retirada, com motivo.', icon:'arrowUpBox' },
+  extrato:   { titulo:'Extrato', desc:'Tudo que entrou e saiu do cofre, por período.', icon:'history' }
+};
+
 function cofreCasca(corpo){
-  return `<div class="consumer-workspace"><section class="cash-window"><header class="cash-title">Cofre</header>${corpo}</section></div>`;
+  return `<div class="hub"><div class="cc-head"><h1>Cofre</h1></div>${corpo}</div>`;
 }
 
-function cofreDesenhar(){
-  const el = document.getElementById('view-cofre'); if(!el || !cofreDados) return;
-  const d = cofreDados, caixas = typeof listaDeCaixas==='function' ? listaDeCaixas() : [];
+// Entra numa ação (ou volta ao início com ''). Leva o foco ao primeiro campo, como no app do garçom.
+function cofreAbrir(sec){
+  cofreSecao = COFRE_SECOES[sec] ? sec : '';
+  cofreDesenhar();
+  const el = document.getElementById('view-cofre'); if(!el) return;
+  const alvo = cofreSecao ? el.querySelector('.hub-corpo input:not([type=date]):not([hidden])') : el.querySelector('.cc-item');
+  if(alvo) alvo.focus();
+  el.scrollTop = 0;
+}
+function cofreEscolherCaixa(acao, id){
+  cofreCaixaEscolhido[acao] = id;
+  // Guarda o que já foi digitado: o redesenho troca o HTML da ação.
+  const ids = acao==='abastecer' ? ['cofreAbastValor','cofreAbastMotivo'] : ['cofreRecValor'];
+  const vals = ids.map(i=>(document.getElementById(i)||{}).value||'');
+  cofreDesenhar();
+  ids.forEach((i,n)=>{ const e=document.getElementById(i); if(e) e.value = vals[n]; });
+  const v = document.getElementById(ids[0]); if(v) v.focus();
+}
+
+// Botões grandes de caixa (no lugar da lista suspensa) + o select escondido com o mesmo id de antes,
+// que é o que as funções de ação leem.
+function cofreEscolhaCaixa(acao, idCampo){
+  const caixas = typeof listaDeCaixas==='function' ? listaDeCaixas() : [];
+  if(!caixas.some(c=>c.id===cofreCaixaEscolhido[acao])) cofreCaixaEscolhido[acao] = caixas.length ? caixas[0].id : '';
+  const atual = cofreCaixaEscolhido[acao];
+  return `<div class="field"><span class="hub-rotulo">Caixa</span><div class="hub-escolha" role="radiogroup" aria-label="Caixa">${caixas.map(c=>`<button type="button" role="radio" aria-checked="${c.id===atual}" class="${c.id===atual?'on':''}" data-cofre-caixa="${h(c.id)}" onclick="cofreEscolherCaixa(${jsArg(acao)},${jsArg(c.id)})">${h(c.nome)}</button>`).join('')}</div>
+    <select id="${idCampo}" hidden aria-hidden="true" tabindex="-1">${caixas.map(c=>`<option value="${h(c.id)}" ${c.id===atual?'selected':''}>${h(c.nome)}</option>`).join('')}</select></div>`;
+}
+function cofreCampoValor(id, rotulo){
+  return `<div class="field"><label for="${id}">${rotulo}</label><input id="${id}" class="hub-valor" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></div>`;
+}
+
+function cofreInicioHtml(d){
+  const uc = d.ultimaContagem, aRec = (d.aRecolher||[]).length;
+  const contagem = uc ? `<div><div class="lab">Última contagem</div><b class="mono">${fmt(uc.valor)}</b> <span class="sub">· ${h(dataHoraBR(uc.em))}${uc.por?' · '+h(uc.por):''}</span></div>`
+    : `<div class="sub">Conte o cofre para começar o saldo.</div>`;
+  const resultado = cofreResultado ? `<div id="cofreResultado"><div class="lab">Contagem agora</div>Esperado: <b class="mono">${fmt(cofreResultado.esperado)}</b> · Contado: <b class="mono">${fmt(cofreResultado.contado)}</b> · Diferença: ${cofreDifHtml(cofreResultado.diferenca)||'—'}</div>` : '';
+  const itens = Object.keys(COFRE_SECOES).map(k=>{
+    const s = COFRE_SECOES[k];
+    const cont = k==='recolher' && aRec ? ` <span class="hub-cont">${aRec}</span>` : '';
+    return `<button type="button" class="cc-item" onclick="cofreAbrir(${jsArg(k)})"><span class="ic">${ICN[s.icon]||''}</span><span class="tx"><span class="t">${h(s.titulo)}${cont}</span><span class="d">${h(s.desc)}</span></span><span class="go">${ICN.chevRight}</span></button>`;
+  }).join('');
+  return `<div class="hub-status"><div><div class="lab">Saldo do cofre</div><div class="big mono" id="cofreSaldo">${fmt(d.saldo)}</div></div>${contagem}${resultado}</div>
+    <div class="cc-lista">${itens}</div>`;
+}
+
+function cofreExtratoHtml(d){
   const de = (document.getElementById('cofreDe')||{}).value || '', ate = (document.getElementById('cofreAte')||{}).value || '';
-  const opcCaixas = caixas.map(c=>`<option value="${h(c.id)}">${h(c.nome)}</option>`).join('');
-  const uc = d.ultimaContagem;
-  const faixa = uc ? `<div class="cash-summary-line">Última contagem: <b class="mono">${fmt(uc.valor)}</b> · ${h(dataHoraBR(uc.em))}${uc.por?' · '+h(uc.por):''}</div>`
-    : `<div class="cash-empty" style="padding:12px 0">Conte o cofre para começar o saldo.</div>`;
-  const resultado = cofreResultado ? `<div class="cash-summary-line" id="cofreResultado">Esperado: <b class="mono">${fmt(cofreResultado.esperado)}</b> · Contado: <b class="mono">${fmt(cofreResultado.contado)}</b> · Diferença: ${cofreDifHtml(cofreResultado.diferenca)||'—'}</div>` : '';
-  const aRecolher = d.aRecolher||[];
-  const linhasRec = aRecolher.map(r=>`<tr>
-      <td>${h(dataHoraBR(r.lancadoEm))}</td><td>${cofreNomeCaixa(r.caixaId)}</td><td>${h(r.lancadoPorNome||'—')}</td><td>${h(COFRE_ORIGENS[r.origem]||r.origem)}</td>
-      <td class="mono">${fmt(r.valor)}</td>
-      <td><input type="number" min="0" step="0.01" inputmode="decimal" placeholder="Valor contado" data-cofre-contado="${h(r.id)}" style="width:130px"></td>
-      <td><button class="primary" onclick="cofreConfirmar(${jsArg(r.id)})">Confirmar</button></td></tr>`).join('');
   const extrato = (d.extrato||[]).filter(l=>{
     if(l.tipo==='entrada' && l.status!=='confirmado') return false;
     const dia = cofreDiaLocal(l.lancadoEm);
     return (!de || dia>=de) && (!ate || dia<=ate);
   });
-  const linhasExt = extrato.map(l=>{
+  const linhas = extrato.map(l=>{
     const entrada = l.tipo==='entrada', contagem = l.tipo==='contagem';
     const valor = contagem ? fmt(l.valor) : (entrada ? '+ ' : '− ')+fmt(entrada && l.valorContado!=null ? l.valorContado : l.valor);
     const dif = entrada ? l.diferenca : (contagem && l.esperado!=null ? Number(l.valor)-Number(l.esperado) : null);
     const quem = entrada && l.confirmadoPorNome ? l.lancadoPorNome+' → '+l.confirmadoPorNome : (l.lancadoPorNome||'—');
     return `<tr><td>${h(dataHoraBR(l.lancadoEm))}</td><td>${h(COFRE_ORIGENS[l.origem]||l.origem)}${l.motivo?' · '+h(l.motivo):''}</td><td>${cofreNomeCaixa(l.caixaId)}</td><td>${h(quem)}</td><td class="mono">${valor}</td><td>${cofreDifHtml(dif)}</td></tr>`;
   }).join('');
-  el.innerHTML = cofreCasca(`<div class="cash-layout"><div class="cash-main" style="overflow:auto">
-    <div class="cash-summary"><div class="cash-section-title">Saldo do cofre</div>
-      <div class="cash-summary-line">Saldo do cofre: <b class="mono" id="cofreSaldo">${fmt(d.saldo)}</b></div>${faixa}${resultado}
-      <div class="field" style="max-width:260px"><label>Dinheiro contado no cofre</label><input id="cofreContado" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></div>
-      <button class="primary" id="cofreContarBtn" onclick="cofreContar()">Contar cofre</button></div>
-    <div class="cash-section-title" style="margin-top:16px">A recolher</div>
-    ${aRecolher.length?`<table class="cash-movement-table"><thead><tr><th>Quando</th><th>Caixa</th><th>Quem</th><th>Origem</th><th>Valor</th><th>Contado</th><th></th></tr></thead><tbody>${linhasRec}</tbody></table>`:'<div class="cash-empty" style="padding:8px 0">Nada para recolher.</div>'}
-    <div class="cash-section-title" style="margin-top:16px">Abastecer caixa</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-      <div class="field"><label>Caixa</label><select id="cofreAbastCaixa">${opcCaixas}</select></div>
-      <div class="field"><label>Valor</label><input id="cofreAbastValor" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></div>
-      <div class="field"><label>Motivo (opcional)</label><input id="cofreAbastMotivo" type="text" maxlength="120"></div>
-      <button class="primary" onclick="cofreAbastecer()">Abastecer</button></div>
-    <div class="cash-section-title" style="margin-top:16px">Outra saída</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-      <div class="field"><label>Valor</label><input id="cofreSaidaValor" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></div>
-      <div class="field"><label>Motivo</label><input id="cofreSaidaMotivo" type="text" maxlength="120"></div>
-      <button class="primary" onclick="cofreSaida()">Registrar saída</button></div>
-    <div class="cash-section-title" style="margin-top:16px">Recolher de caixa fechado</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-      <div class="field"><label>Caixa</label><select id="cofreRecCaixa">${opcCaixas}</select></div>
-      <div class="field"><label>Valor</label><input id="cofreRecValor" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></div>
-      <button class="primary" onclick="cofreRecolherFechado()">Recolher</button></div>
-    <div class="cash-section-title" style="margin-top:16px">Extrato</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px">
-      <div class="field"><label>De</label><input id="cofreDe" type="date" value="${h(de)}" onchange="cofreDesenhar()"></div>
-      <div class="field"><label>Até</label><input id="cofreAte" type="date" value="${h(ate)}" onchange="cofreDesenhar()"></div></div>
-    ${extrato.length?`<table class="cash-movement-table"><thead><tr><th>Quando</th><th>Lançamento</th><th>Caixa</th><th>Quem</th><th>Valor</th><th>Diferença</th></tr></thead><tbody>${linhasExt}</tbody></table>`:'<div class="cash-empty" style="padding:8px 0">Nenhum lançamento neste período.</div>'}
-  </div></div>`);
+  return `<div class="hub-filtros"><div class="field"><label for="cofreDe">De</label><input id="cofreDe" type="date" value="${h(de)}" onchange="cofreDesenhar()"></div><div class="field"><label for="cofreAte">Até</label><input id="cofreAte" type="date" value="${h(ate)}" onchange="cofreDesenhar()"></div></div>
+    ${extrato.length?`<div class="hub-tabela"><table class="cash-movement-table"><thead><tr><th>Quando</th><th>Lançamento</th><th>Caixa</th><th>Quem</th><th>Valor</th><th>Diferença</th></tr></thead><tbody>${linhas}</tbody></table></div>`:'<p class="hub-vazio">Nenhum lançamento neste período.</p>'}`;
+}
+
+function cofreSecaoHtml(d){
+  const s = COFRE_SECOES[cofreSecao];
+  let corpo = '';
+  if(cofreSecao==='recolher'){
+    const aRecolher = d.aRecolher||[];
+    corpo = aRecolher.length ? `<div class="hub-tabela"><table class="cash-movement-table"><thead><tr><th>Quando</th><th>Caixa</th><th>Quem</th><th>Origem</th><th>Valor</th><th>Contado</th><th></th></tr></thead><tbody>${aRecolher.map(r=>`<tr>
+      <td>${h(dataHoraBR(r.lancadoEm))}</td><td>${cofreNomeCaixa(r.caixaId)}</td><td>${h(r.lancadoPorNome||'—')}</td><td>${h(COFRE_ORIGENS[r.origem]||r.origem)}</td>
+      <td class="mono">${fmt(r.valor)}</td>
+      <td><input type="number" min="0" step="0.01" inputmode="decimal" placeholder="Valor contado" aria-label="Valor contado" data-cofre-contado="${h(r.id)}" class="hub-contado"></td>
+      <td><button type="button" class="btn btn-primary" onclick="cofreConfirmar(${jsArg(r.id)})">Confirmar</button></td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="hub-vazio">Nada para recolher.</p>';
+  } else if(cofreSecao==='contar'){
+    corpo = `<div class="hub-form">${cofreCampoValor('cofreContado','Dinheiro contado no cofre')}<p class="sub">Saldo no sistema: <b class="mono">${fmt(d.saldo)}</b>. A diferença aparece depois de contar.</p><button type="button" class="btn btn-primary hub-acao" id="cofreContarBtn" onclick="cofreContar()">Contar cofre</button></div>`;
+  } else if(cofreSecao==='abastecer'){
+    corpo = `<div class="hub-form">${cofreEscolhaCaixa('abastecer','cofreAbastCaixa')}${cofreCampoValor('cofreAbastValor','Valor')}<div class="field"><label for="cofreAbastMotivo">Motivo (opcional)</label><input id="cofreAbastMotivo" type="text" maxlength="120"></div><button type="button" class="btn btn-primary hub-acao" onclick="cofreAbastecer()">Abastecer ${h(cofreCaixaEscolhido.abastecer?nomeDoCaixa(cofreCaixaEscolhido.abastecer):'caixa')}</button></div>`;
+  } else if(cofreSecao==='fechado'){
+    corpo = `<div class="hub-form">${cofreEscolhaCaixa('recolher','cofreRecCaixa')}${cofreCampoValor('cofreRecValor','Valor')}<p class="sub">Depois, confirme em "A recolher" quando o dinheiro chegar ao cofre.</p><button type="button" class="btn btn-primary hub-acao" onclick="cofreRecolherFechado()">Recolher</button></div>`;
+  } else if(cofreSecao==='saida'){
+    corpo = `<div class="hub-form">${cofreCampoValor('cofreSaidaValor','Valor')}<div class="field"><label for="cofreSaidaMotivo">Motivo</label><input id="cofreSaidaMotivo" type="text" maxlength="120"></div><button type="button" class="btn btn-primary hub-acao" onclick="cofreSaida()">Registrar saída</button></div>`;
+  } else if(cofreSecao==='extrato'){
+    corpo = cofreExtratoHtml(d);
+  }
+  return `<div class="hub-trilha"><button type="button" class="cc-voltar" onclick="cofreAbrir('')">${ICN.chevLeft}Cofre</button><h2>${h(s.titulo)}</h2><span class="hub-saldo">Saldo: <b class="mono">${fmt(d.saldo)}</b></span></div><div class="hub-corpo">${corpo}</div>`;
+}
+
+function cofreDesenhar(){
+  const el = document.getElementById('view-cofre'); if(!el || !cofreDados) return;
+  el.innerHTML = cofreCasca(cofreSecao ? cofreSecaoHtml(cofreDados) : cofreInicioHtml(cofreDados));
 }
 
 // Depois de qualquer ação: lê de novo do servidor e desenha (o foco já saiu do campo, então o render passa).
@@ -157,6 +208,7 @@ const cofreAbastecer = singleFlight('cofreAbastecer', async function(){
   }
   logAction('Cofre: abastecido '+nomeDoCaixa(caixa)+' com '+fmt(valor)+(motivo?' ('+motivo+')':''));
   toast('Caixa abastecido.');
+  cofreSecao = ''; // 26/11: feita a ação, volta ao início do cofre
   await cofreAtualizar();
 });
 
@@ -167,6 +219,7 @@ const cofreSaida = singleFlight('cofreSaida', async function(){
   const r = await cofreChamar('cash_cofre_saida', { p_valor:valor, p_motivo:motivo }); if(!r) return;
   logAction('Cofre: saída de '+fmt(valor)+' ('+motivo+')');
   toast('Saída registrada.');
+  cofreSecao = '';
   await cofreAtualizar();
 });
 
@@ -176,6 +229,7 @@ const cofreContar = singleFlight('cofreContar', async function(){
   cofreResultado = { esperado:r.esperado, contado, diferenca:r.diferenca };
   logAction('Cofre: contagem de '+fmt(contado)+(r.esperado!=null?' (esperado '+fmt(r.esperado)+')':''));
   toast('Cofre contado.');
+  cofreSecao = ''; // o resultado (esperado, contado, diferença) aparece no topo do início
   await cofreAtualizar();
 });
 
@@ -190,5 +244,6 @@ const cofreRecolherFechado = singleFlight('cofreRecolherFechado', async function
   }
   logAction('Cofre: recolhido '+fmt(valor)+' do '+nomeDoCaixa(caixa)+' (caixa fechado)');
   toast('Recolhimento lançado. Confirme quando o dinheiro chegar ao cofre.');
+  cofreSecao = '';
   await cofreAtualizar();
 });

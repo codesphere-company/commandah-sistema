@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-26-cofre-padrao-garcom', data:'26/11/2026', itens:[
+    { titulo:'Cofre organizado como o app do garçom',
+      texto:'A tela do Cofre abre com o saldo no topo e seis escolhas: A recolher (com a quantidade esperando), Contar cofre, Abastecer caixa, Recolher de caixa fechado, Outra saída e Extrato. Toque numa delas para entrar; "‹ Cofre" volta. Antes as ações ficavam empilhadas numa coluna estreita e algumas só apareciam rolando a tela. Para abastecer ou recolher, o caixa agora é um botão grande (Caixa 1, Caixa 2).',
+      onde:'Cofre', perms:['cofre'] },
+  ]},
   { id:'2026-11-26-fiado-whatsapp-interno', data:'26/11/2026', itens:[
     { titulo:'Cobrança do fiado pelo WhatsApp do Commandah (plano Pro)',
       texto:'Ao fechar uma comanda no fiado, "Enviar cobrança via WhatsApp" agora manda pelo número da lanchonete, de dentro do Commandah, sem abrir o WhatsApp Web: a hora do fechamento, o consumo de hoje, o total em aberto, o Pix copia e cola e o QR. Colaborador e plano básico continuam abrindo o WhatsApp como antes.',
