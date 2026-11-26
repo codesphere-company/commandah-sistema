@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-26-apps-central', data:'26/11/2026', itens:[
+    { titulo:'Apps organizados como Configurações',
+      texto:'A área Apps abre uma lista com os apps em três grupos (Outros atendimentos, Ferramentas e Módulos), uma linha explicando cada um e uma busca. Antes eram onze botões numa faixa e a área já abria a Fila de Atendimento. Dentro de um app, "‹ Apps" volta para a lista.',
+      onde:'Menu lateral › Apps' },
+  ]},
   { id:'2026-11-26-cofre-padrao-garcom', data:'26/11/2026', itens:[
     { titulo:'Cofre organizado como o app do garçom',
       texto:'A tela do Cofre abre com o saldo no topo e seis escolhas: A recolher (com a quantidade esperando), Contar cofre, Abastecer caixa, Recolher de caixa fechado, Outra saída e Extrato. Toque numa delas para entrar; "‹ Cofre" volta. Antes as ações ficavam empilhadas numa coluna estreita e algumas só apareciam rolando a tela. Para abastecer ou recolher, o caixa agora é um botão grande (Caixa 1, Caixa 2).',
