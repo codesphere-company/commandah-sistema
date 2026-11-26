@@ -195,14 +195,15 @@ function renderBalcaoPdv(el){
   const prevSearch = document.getElementById('balcaoSearch'), searchFocused = document.activeElement===prevSearch;
   const products = state.products.filter(productEnabledForCurrentChannel).slice().sort((a,b)=>(Number(a.sortOrder)||0)-(Number(b.sortOrder)||0)||String(a.name).localeCompare(String(b.name),'pt-BR'));
   const categories = [...new Set(products.map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-  if(balcaoCategory && !categories.includes(balcaoCategory)) balcaoCategory = '';
+  if(balcaoCategory && balcaoCategory!=='__todos' && !categories.includes(balcaoCategory)) balcaoCategory = '';
   const member = currentSaleDraft.memberId ? state.members.find(m=>m.id===currentSaleDraft.memberId) : null;
   const cards = products.map(p=>{ const av = productAvailable(p), out = av!==Infinity && av<=0;
     return `<button class="balcao-prod" data-category="${h(p.category||'')}" data-search="${h(((p.category||'')+' '+(p.code||'')+' '+(p.pdvCode||'')+' '+p.name).toLowerCase())}" ${out?'disabled title="Sem estoque"':''} onclick="addDraftItem(${jsArg(p.id)})"><span class="bp-name">${h(p.name)}</span><span class="bp-cat">${h(p.category||'Sem categoria')}</span><span class="bp-price mono">${out?'Sem estoque':productSalePriceLabel(p,currentDraftChannel())}</span></button>`; }).join('');
   el.innerHTML = `<div class="table-workspace balcao-split">
     <div class="balcao-main">
       <div class="table-toolbar"><div class="op-search"><input type="search" id="balcaoSearch" placeholder="Buscar produto ou código" value="${h(balcaoQuery)}" oninput="filterBalcaoProducts(this.value)"></div></div>
-      <div class="balcao-cats" id="balcaoCats" role="group" aria-label="Categorias">${balcaoCatsInner(categories)}</div>
+      <div class="balcao-cats" id="balcaoCats" role="group" aria-label="Categoria escolhida">${balcaoCatsInner(categories)}</div>
+      <div class="cat-blocos-area" id="balcaoBlocos">${blocosCategoriasHtml(categories, c=>products.filter(p=>p.category===c).length, 'setBalcaoCategory')}</div>
       <div class="balcao-grid" id="balcaoGrid">${cards || '<p class="empty">Cadastre produtos na aba Produtos antes de vender.</p>'}</div>
     </div>
     <aside class="balcao-cart" aria-label="Pedido da ficha">
@@ -219,17 +220,30 @@ function renderBalcaoPdv(el){
   renderDraftItems();
   if(searchFocused) document.getElementById('balcaoSearch').focus();
 }
+// 26/11 (maquete aprovada, opção A do dono): sem categoria escolhida e sem busca, aparecem os blocos de
+// categoria (como no app do garçom) e a grade fica escondida. A busca procura em todos os produtos.
 function filterBalcaoProducts(q){
   balcaoQuery = String(q||'');
   const value = balcaoQuery.trim().toLowerCase();
-  document.querySelectorAll('#balcaoGrid .balcao-prod').forEach(b=>{ b.style.display = (!balcaoCategory||b.dataset.category===balcaoCategory) && (!value||b.dataset.search.includes(value)) ? '' : 'none'; });
+  const blocos = !balcaoCategory && !value && balcaoCategories().length>0;
+  const area = document.getElementById('balcaoBlocos'), grid = document.getElementById('balcaoGrid'), bar = document.getElementById('balcaoCats');
+  if(area) area.style.display = blocos ? '' : 'none';
+  if(grid){ grid.style.display = blocos ? 'none' : ''; grid.classList.toggle('na-categoria', !!balcaoCategory && balcaoCategory!=='__todos' && !value); }
+  if(bar) bar.style.display = balcaoCategory ? '' : 'none';
+  document.querySelectorAll('#balcaoGrid .balcao-prod').forEach(b=>{ b.style.display = value ? (b.dataset.search.includes(value) ? '' : 'none') : (balcaoCategory==='__todos'||b.dataset.category===balcaoCategory ? '' : 'none'); });
+}
+// Blocos de categoria (26/11), usados na Ficha e no Novo pedido da comanda: cada bloco mostra o nome e
+// quantos itens tem; o último é "Todos os produtos" (chave '__todos'). extra: blocos antes das categorias.
+function blocosCategoriasHtml(cats, contar, acao, extra){
+  const itens = n => n===1 ? '1 item' : n+' itens';
+  return `<div class="cat-blocos" role="group" aria-label="Categorias">${extra||''}${cats.map(c=>`<button type="button" class="cat-bloco" data-category="${h(c)}" onclick="${acao}(this.dataset.category)"><span class="cb-nome">${h(c)}</span><small>${itens(contar(c))}</small></button>`).join('')}<button type="button" class="cat-bloco cat-todos" onclick="${acao}('__todos')"><span class="cb-nome">Todos os produtos</span></button></div>`;
 }
 /* Pedido do dono (05/11): com 45 categorias os botões tomavam a tela e os produtos da categoria
    escolhida ficavam fora da vista. Com uma categoria escolhida, a barra mostra só ela e o botão de
    voltar para todas; a grade fica com o espaço todo. */
 function balcaoCatsInner(categories){
-  if(balcaoCategory) return `<button class="balcao-cats-back" onclick="setBalcaoCategory('')"><span class="b-ic" aria-hidden="true">${ICN.chevLeft}</span> Todas as categorias</button><span class="balcao-cats-current">${h(balcaoCategory)}</span>`;
-  return `<button class="active" onclick="setBalcaoCategory('')">Todas</button>${categories.map(c=>`<button data-category="${h(c)}" onclick="setBalcaoCategory(this.dataset.category)">${h(c)}</button>`).join('')}`;
+  if(!balcaoCategory) return ''; // 26/11: sem categoria, quem aparece são os blocos (#balcaoBlocos)
+  return `<button class="balcao-cats-back" onclick="setBalcaoCategory('')"><span class="b-ic" aria-hidden="true">${ICN.chevLeft}</span> Categorias</button><span class="balcao-cats-current">${balcaoCategory==='__todos' ? 'Todos os produtos' : h(balcaoCategory)}</span>`;
 }
 function balcaoCategories(){
   return [...new Set(state.products.filter(productEnabledForCurrentChannel).map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
@@ -239,10 +253,10 @@ function setBalcaoCategory(c){
   const bar = document.getElementById('balcaoCats');
   if(bar){
     bar.innerHTML = balcaoCatsInner(balcaoCategories());
-    const alvo = balcaoCategory ? bar.querySelector('.balcao-cats-back') : (c===''&&bar.querySelector('button'));
-    if(alvo) alvo.focus();
   }
   filterBalcaoProducts(balcaoQuery);
+  const alvo = balcaoCategory ? bar && bar.querySelector('.balcao-cats-back') : document.querySelector('#balcaoBlocos .cat-bloco');
+  if(alvo) alvo.focus();
   const grid = document.getElementById('balcaoGrid'); if(grid) grid.scrollTop = 0;
 }
 function openBalcaoClientModal(){

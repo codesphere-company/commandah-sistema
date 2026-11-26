@@ -1267,3 +1267,22 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .hub-filtros .field{margin:0;min-width:160px}
 .hub-vazio{margin:0;padding:18px 0;color:var(--c-text-3)}
 @media(max-width:600px){.hub-corpo{padding:14px}.hub-trilha .hub-saldo{margin-left:0;width:100%}}
+/* 26/11 — Ficha e Novo pedido abrem nas categorias em blocos, como no app do garçom (opção A do dono).
+   Tocar num bloco mostra os produtos dele; "Todos os produtos" vem por último, tracejado. */
+.cat-blocos-area{flex:1 1 auto;min-height:0;overflow-y:auto;padding:2px 2px 12px}
+.cat-blocos{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;align-content:start}
+.cat-bloco{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:96px;padding:14px 10px;border:1px solid var(--c-border);border-radius:var(--r-lg);background:var(--c-surface);box-shadow:var(--sh-1);color:var(--c-text);font:inherit;text-align:center;cursor:pointer}
+.cat-bloco .cb-nome{font-size:var(--fs-lg);font-weight:700;line-height:1.2;overflow-wrap:anywhere}
+.cat-bloco small{font-size:var(--fs-sm);color:var(--c-text-3)}
+.cat-bloco:hover{border-color:var(--c-primary);box-shadow:var(--sh-2)}
+.cat-bloco:active{transform:scale(.98)}
+.cat-bloco:focus-visible{outline:2px solid var(--c-primary);outline-offset:2px}
+.cat-bloco.cat-todos{grid-column:1/-1;flex-direction:row;justify-content:flex-start;min-height:56px;padding:0 18px;border-style:dashed;border-color:var(--c-border-input);background:transparent;box-shadow:none}
+.cat-bloco.cat-todos .cb-nome{font-size:var(--fs-md);font-weight:600;color:var(--c-text-2)}
+.cat-bloco.cat-hist{border-color:var(--c-primary);background:var(--c-primary-soft)}
+.cat-bloco.cat-hist .cb-nome{color:var(--c-primary-text)}
+.balcao-grid.na-categoria .bp-cat,.np-menu-grid.na-categoria .np-prod-cat{display:none}
+.np-modal .cat-blocos-area{padding:2px 4px 8px}
+@media(max-width:900px){.cat-blocos-area{overflow:visible}}
+@media(max-width:600px){.cat-blocos{grid-template-columns:1fr 1fr;gap:10px}.cat-bloco{min-height:76px}.cat-bloco .cb-nome{font-size:var(--fs-md)}}
+.np-cat-tabs:empty{display:none}
