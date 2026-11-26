@@ -1,24 +1,27 @@
 /* ============ CARDÁPIO DIGITAL — PEDIDOS DO CELULAR (26/11/2026, etapa 2) ============
    O sócio pede pelo celular e marca na cota (função "cardapio" grava em cardapio_pedidos, status 'novo').
-   Este aparelho pega o pedido se for o "Caixa do app" (caixa por operador ligado: caixaDoAparelho() ===
-   settings.caixaDoApp; desligado: qualquer aparelho com o caixa) e faz o mesmo que o app do garçom
+   Qualquer aparelho com alguém logado que tenha o caixa pega o pedido (26/11; antes só o "Caixa do app") e faz o mesmo que o app do garçom
    (gcConfirmOrder): acha ou abre a comanda do sócio, manda os itens para a cozinha e imprime as fichas.
-   cardapio_pedido_pegar é atômico: só um aparelho pega cada pedido. Pedido com mais de 3 minutos não é pego
+   cardapio_pedido_pegar é atômico: só um aparelho pega cada pedido. Pedido com mais de 5 minutos (26/11; antes 3) não é pego
    (o cliente já foi orientado a chamar o garçom). Desenho: docs/superpowers/specs/2026-11-26-cardapio-etapa2-design.md. */
 let cardapioPedidosOcupado = false;
 const CARDAPIO_QUEM_LANCA = 'Cardápio digital';
 
+// 26/11 (pedido do dono): qualquer aparelho com alguém logado que tenha o caixa (administrador ou caixa) pega os
+// pedidos, não só o Caixa do app. cardapio_pedido_pegar garante que só um pega cada pedido, e a ficha vai pela fila do
+// agente de impressão (sai na impressora certa, seja qual for o aparelho).
 function cardapioSouProcessador(){
   if(!isCloudMode() || !currentUser || !hasPerm('caixa')) return false;
-  const c = (state.settings || {}).cardapio; if(!c || !c.ligado) return false;
-  if(modoCaixaPorOperador()) return caixaDoAparelho() === ((state.settings || {}).caixaDoApp || 'cx1');
-  return true;
+  const c = (state.settings || {}).cardapio;
+  return !!(c && c.ligado);
 }
 async function cardapioTickPedidos(){
-  if(cardapioPedidosOcupado || document.hidden || !cardapioSouProcessador()) return;
+  // 26/11: olha a fila mesmo com a aba escondida (o Chrome deixa rodar no máximo 1 vez por minuto em aba escondida;
+  // antes esperava alguém voltar à tela e um pedido levou 151 s).
+  if(cardapioPedidosOcupado || !cardapioSouProcessador()) return;
   cardapioPedidosOcupado = true;
   try {
-    const desde = new Date(Date.now() - 180000).toISOString();
+    const desde = new Date(Date.now() - 300000).toISOString(); // 5 min (cardapio_pedido_pegar)
     const { data, error } = await supabaseClient.from('cardapio_pedidos').select('id').eq('status', 'novo').gte('criado_em', desde).order('criado_em').limit(5);
     if(error || !data || !data.length) return;
     for(const r of data) await cardapioProcessarPedido(r.id);
@@ -92,7 +95,7 @@ async function cardapioPedidosDeHoje(){
   if(error){ box.innerHTML = '<p class="sub">Não foi possível ler os pedidos agora.</p>'; return; }
   const rot = { novo:'Aguardando o caixa', processando:'Lançando', na_cozinha:'Na cozinha', erro:'Não lançado' };
   box.innerHTML = (data || []).length ? `<table class="cardapio-pedidos"><thead><tr><th>Hora</th><th>Quem</th><th>Local</th><th>Valor</th><th>Situação</th></tr></thead><tbody>${data.map(r=>{
-    const velho = r.status==='novo' && Date.now() - Date.parse(r.criado_em) > 180000;
+    const velho = r.status==='novo' && Date.now() - Date.parse(r.criado_em) > 300000;
     return `<tr><td>${h(timeFmt(r.criado_em))}</td><td>${h(r.quem_nome)}</td><td>${h(r.local)}</td><td class="mono">${fmt(r.total)}</td><td>${h(velho ? 'Não pego (cliente orientado a chamar o garçom)' : (rot[r.status] || r.status) + (r.order_number ? ' · comanda #' + r.order_number : ''))}${r.motivo ? '<br><small class="sub">' + h(r.motivo) + '</small>' : ''}</td></tr>`;
   }).join('')}</tbody></table>` : '<p class="sub">Nenhum pedido pelo celular hoje.</p>';
 }
