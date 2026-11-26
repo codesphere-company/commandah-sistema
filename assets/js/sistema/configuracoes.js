@@ -112,7 +112,29 @@ async function deleteDeliveryArea(id){if(!await confirmarAcao('Excluir esta áre
 function applyBackgroundImage(){const main=document.querySelector('.content');if(!main)return;const image=state.settings.backgroundImage||'';main.style.backgroundImage=image?`linear-gradient(#ffffffdd,#ffffffdd),url("${image}")`:'';main.style.backgroundSize=image?'cover':'';main.style.backgroundPosition=image?'center':'';}
 function selectBackgroundImage(){const input=document.getElementById('backgroundImageFile');if(!input)return;input.onchange=()=>{const file=input.files&&input.files[0];if(!file)return;if(file.size>900000){toast('Escolha uma imagem de até 900 KB.');return;}const reader=new FileReader();reader.onload=()=>{state.settings.backgroundImage=reader.result;save('settings');applyBackgroundImage();renderConfigSistema();toast('Imagem de fundo atualizada.');};reader.readAsDataURL(file);};input.click();}
 function clearBackgroundImage(){state.settings.backgroundImage='';save('settings');applyBackgroundImage();renderConfigSistema();toast('Imagem de fundo removida.');}
-function selectBrandLogo(tema){const campo=tema==='escuro'?'brandLogoDark':'brandLogo';const input=document.getElementById('brandLogoFile');if(!input)return;input.onchange=()=>{const file=input.files&&input.files[0];if(!file)return;if(!file.type.startsWith('image/')||file.size>700000){toast('Escolha uma imagem de até 700 KB.');return;}const reader=new FileReader();reader.onload=()=>{state.settings[campo]=reader.result;save('settings');applyBranding();renderConfigSistema();toast('Logotipo atualizado.');};reader.readAsDataURL(file);};input.click();}
+/* Egress (26/11): o logo ia inteiro para as configurações (até 700 KB), e todo aparelho baixa as configurações
+   ao abrir o sistema. Agora é reduzido aqui para no máximo 640 px (WebP com transparência; PNG se o navegador
+   não gerar WebP), como a foto de produto (08/11). SVG pequeno vai como está. */
+const LOGO_LADO = 640;
+function reduzirLogo(file){
+  return new Promise((resolve, reject)=>{
+    if(file.type==='image/svg+xml' && file.size<=150000){ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=()=>reject(new Error('imagem ilegível')); r.readAsDataURL(file); return; }
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      const escala = Math.min(1, LOGO_LADO/Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth*escala)), hgt = Math.max(1, Math.round(img.naturalHeight*escala));
+      const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = hgt;
+      const ctx = canvas.getContext('2d'); ctx.imageSmoothingQuality = 'high'; ctx.drawImage(img, 0, 0, w, hgt);
+      let dado = canvas.toDataURL('image/webp', 0.9);
+      if(!dado.startsWith('data:image/webp')) dado = canvas.toDataURL('image/png');
+      resolve(dado);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('imagem ilegível')); };
+    img.src = url;
+  });
+}
+function selectBrandLogo(tema){const campo=tema==='escuro'?'brandLogoDark':'brandLogo';const input=document.getElementById('brandLogoFile');if(!input)return;input.onchange=async()=>{const file=input.files&&input.files[0];input.value='';if(!file)return;if(!file.type.startsWith('image/')||file.size>25*1024*1024){toast('Escolha uma imagem (PNG, JPG, WebP ou SVG) de até 25 MB.');return;}let dado;try{dado=await reduzirLogo(file);}catch(e){toast('Não foi possível ler esta imagem. Tente outra.','erro');return;}state.settings[campo]=dado;save('settings');applyBranding();renderConfigSistema();toast('Logotipo atualizado.');};input.click();}
 function clearBrandLogo(tema){state.settings[tema==='escuro'?'brandLogoDark':'brandLogo']='';save('settings');applyBranding();renderConfigSistema();toast('Logotipo removido.');}
 function resetBrandColors(){state.settings.brandPrimary='';state.settings.brandAccent='';save('settings');applyBranding();renderConfigSistema();toast('Cores restauradas para o padrão Commandah.');}
 // BD-04: ajuste do contador pela função set_order_counter (só admin, atômica). Antes as
