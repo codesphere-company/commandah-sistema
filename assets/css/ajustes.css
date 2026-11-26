@@ -1325,3 +1325,18 @@ p.wa-fiado-auto{cursor:default}
 /* Caixa por operador (26/11): opção "Contar o dinheiro na passagem de caixa" */
 .cfg-contar-troca{align-items:flex-start;margin-top:10px}
 .cfg-contar-troca small{display:block;margin-top:2px;font-weight:400;line-height:1.4}
+
+/* Cardápio digital, etapa 1 (26/11): configuração e folha de QR das mesas */
+.cardapio-acoes{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.cardapio-cfg .field input[readonly]{font-family:var(--font-mono,ui-monospace,monospace);font-size:var(--fs-sm)}
+#cardapioQrSheet{display:none}
+@media print{
+  body.imprimindo-qr>*:not(#cardapioQrSheet){display:none!important}
+  body.imprimindo-qr #cardapioQrSheet{display:grid;grid-template-columns:repeat(3,1fr);gap:8mm;color:#000}
+  #cardapioQrSheet .qr-cartao{break-inside:avoid;border:1px dashed #999;border-radius:4mm;padding:5mm;display:grid;justify-items:center;gap:2mm;text-align:center}
+  #cardapioQrSheet .qr-img img,#cardapioQrSheet .qr-img canvas{width:45mm;height:45mm}
+  #cardapioQrSheet b{font-size:14pt}
+  #cardapioQrSheet small{font-size:8pt}
+}
+.hub-pill.on{background:var(--c-success-soft,#E3F5EC);color:var(--c-success)}
+.cardapio-acoes a.btn{text-decoration:none}

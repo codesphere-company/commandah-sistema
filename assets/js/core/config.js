@@ -181,7 +181,8 @@ const RIBBON_TABS = [
           {label:'Configurações do Sistema', icon:ICN.gear, perm:'config-sistema', action:'openSystemSettings', desc:'Dados da casa, cupom, horário da cozinha e versão.'},
           {label:'Numeração de Pedidos', icon:ICN.hash, perm:'config-sistema', action:'openNumberingSettings', desc:'Número inicial e sequência dos pedidos.'},
           {label:'NFC-e (nota fiscal)', icon:ICN.receipt, perm:'config-sistema', action:'openNfceSettings', desc:'Emissor, série e ambiente da nota fiscal.'},
-          {label:'WhatsApp', icon:ICN.bot, perm:'whatsapp', action:'openWhatsAppSettings', desc:'Conectar o número do estabelecimento.'} /* 25/11: WhatsApp etapa 1 (Evolution, plano Pro) */
+          {label:'WhatsApp', icon:ICN.bot, perm:'whatsapp', action:'openWhatsAppSettings', desc:'Conectar o número do estabelecimento.'},
+          {label:'Cardápio digital', icon:ICN.menuBook, perm:'config-sistema', view:'cardapio', desc:'QR nas mesas: o cliente vê fotos e preços no celular.'} /* 25/11: WhatsApp etapa 1 (Evolution, plano Pro) */
       ]},
       { label:'Equipe e acesso', items:[
           {label:'Colaboradores', icon:ICN.briefcase, view:'usuarios', desc:'Quem usa o sistema, PIN e permissões.'},
