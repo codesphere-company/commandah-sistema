@@ -235,13 +235,14 @@ function textoCaixaTravado(){ return 'Caixa travado: a contagem não confere. Ve
 async function lerTurnosDoServidor(){
   const { data, error } = await supabaseClient.rpc('cash_turnos_ler');
   if(error) throw error;
-  const turnos = {}, contagens = {};
-  (Array.isArray(data) ? data : []).forEach(r=>{ if(r && r.caixa_id){ turnos[r.caixa_id] = r.turno || null; if(r.ultima_contagem!=null) contagens[r.caixa_id] = r.ultima_contagem; } });
-  return { turnos, contagens };
+  const turnos = {}, contagens = {}, semContagem = {};
+  (Array.isArray(data) ? data : []).forEach(r=>{ if(r && r.caixa_id){ turnos[r.caixa_id] = r.turno || null; if(r.ultima_contagem!=null) contagens[r.caixa_id] = r.ultima_contagem; if(r.abrir_sem_contagem===true) semContagem[r.caixa_id] = true; } });
+  return { turnos, contagens, semContagem };
 }
 function aplicarTurnosNoEstado(lidos){
   state.cashTurnosFalhou = false; // leitura deu certo: limpa o aviso (Task 4 mostra "Não foi possível ler o caixa. Tentando de novo…" enquanto true)
   state.cashTurnos = lidos.turnos; state.cashUltimaContagem = lidos.contagens;
+  state.cashAbrirSemContagem = lidos.semContagem || {}; // 26/11: caixa passado sem contagem abre sem contar
   state.cashSession = lidos.turnos[caixaQueVale()] || null;
 }
 // cofre (16/11): com o modo ligado, toda saída manual (sangria, pagamento de funcionário, outro pagamento) grava pelo

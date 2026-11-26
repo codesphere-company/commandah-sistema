@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-26-troca-sem-contagem', data:'26/11/2026', itens:[
+    { titulo:'Passar o caixa sem contar',
+      texto:'Em Configurações › Caixa por operador, o administrador pode desligar "Contar o dinheiro na passagem de caixa". Desligado, na troca de pessoa (por exemplo, na janta) ninguém conta: quem sai escolhe Passar o caixa e quem entra só toca em Abrir caixa, continuando com o dinheiro da gaveta. O fechamento do fim da noite continua contado.',
+      onde:'Caixa e Configurações › Caixa por operador', perms:['caixa'] },
+  ]},
   { id:'2026-11-26-logo-reduzido', data:'26/11/2026', itens:[
     { titulo:'Logotipo de qualquer tamanho',
       texto:'Em Configurações › Sistema, o logotipo pode ser escolhido em qualquer tamanho: o sistema reduz a imagem sozinho, mantendo o fundo transparente. Assim os aparelhos abrem o sistema mais rápido e gastam menos internet.',
