@@ -1321,3 +1321,7 @@ p.wa-fiado-auto{cursor:default}
 .wa-envio-tipo{font-size:13px;font-weight:600;color:var(--c-text-2)}
 .wa-envio-motivo{font-size:13px;color:var(--c-danger);line-height:1.4}
 .wa-envio-acoes{display:flex;gap:8px;margin-top:6px}
+
+/* Caixa por operador (26/11): opção "Contar o dinheiro na passagem de caixa" */
+.cfg-contar-troca{align-items:flex-start;margin-top:10px}
+.cfg-contar-troca small{display:block;margin-top:2px;font-weight:400;line-height:1.4}
