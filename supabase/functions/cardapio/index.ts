@@ -169,8 +169,8 @@ async function situacaoDoPedido(t: { tenant: string }, pedido: string, token: st
   const p = data && data[0];
   if (!p || p.member_id !== s.m) return json({ ok: false, erro: "Pedido não encontrado." });
   const idade = (Date.now() - Date.parse(String(p.criado_em))) / 1000;
-  // 'novo' com mais de 3 minutos não é mais pego pelo caixa (cardapio_pedido_pegar): avisa o cliente.
-  const status = p.status === "novo" && idade > 180 ? "expirado" : p.status;
+  // 'novo' com mais de 5 minutos não é mais pego pelo caixa (cardapio_pedido_pegar, 26/11): avisa o cliente.
+  const status = p.status === "novo" && idade > 300 ? "expirado" : p.status;
   return json({ ok: true, status, motivo: p.motivo || "", comanda: p.order_number || null, segundos: Math.round(idade) });
 }
 
