@@ -22,7 +22,7 @@ function renderCardapio(){
   el.innerHTML = `<div class="hub">
     <div class="hub-cartao hub-cartao-largo cardapio-cfg">
       <div class="hub-cartao-topo"><span class="hub-pill ${ativo?'on':'off'}">${ativo?'Ligado':'Desligado'}</span><span class="sub">QR na mesa: fotos e preços no celular do cliente</span></div>
-      <p class="sub">O sócio pode pedir pelo celular e marcar na cota: confirma com um código no WhatsApp, e o pedido entra na comanda dele e vai para a cozinha, lançado pelo computador Caixa do app. Visitante ainda pede ao garçom. Aparecem os produtos ativos e liberados para o QR, com a foto do cadastro.</p>
+      <p class="sub">O sócio pode pedir pelo celular e marcar na cota: confirma com um código no WhatsApp, e o pedido entra na comanda dele e vai para a cozinha, lançado por qualquer computador com o caixa aberto no sistema. Visitante ainda pede ao garçom. Aparecem os produtos ativos e liberados para o QR, com a foto do cadastro.</p>
       ${ativo?`<div class="field"><label for="cardapioLink">Endereço do cardápio</label><input id="cardapioLink" readonly value="${h(cardapioUrl(''))}"></div>`:''}
       <div class="cardapio-acoes">
         ${pode?`<button type="button" class="btn ${ativo?'':'btn-primary'}" id="cardapioLigarBtn" onclick="cardapioLigar(${ativo?'false':'true'})">${ativo?'Desligar o cardápio':'Ligar o cardápio'}</button>`:''}
