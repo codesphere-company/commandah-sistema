@@ -165,14 +165,14 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 /* Lista de comandas abertas (09/10) */
 .comanda-workspace .table-toolbar{gap:10px;flex-wrap:wrap}
 .seg-toggle{display:inline-flex;background:var(--c-surface-3);border-radius:var(--r-pill);padding:3px;gap:2px}
-.seg-toggle button{border:0;background:none;color:var(--c-text-2);border-radius:var(--r-pill);padding:7px 14px;font-weight:600;font-size:var(--fs-sm);cursor:pointer;min-height:36px}
+.seg-toggle button{border:0;background:none;color:var(--c-text-2);border-radius:var(--r-pill);padding:7px 14px;font-weight:600;font-size:var(--fs-sm);cursor:pointer}
 .seg-toggle button.active{background:var(--c-surface);color:var(--c-text);box-shadow:var(--sh-1)}
 .comanda-list-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:18px 0 10px}
 .comanda-list-head .table-heading{margin:0}
 .comanda-list-head .table-heading span{display:inline-block;min-width:26px;padding:1px 8px;margin-left:6px;border-radius:var(--r-pill);background:var(--c-primary-soft);color:var(--c-primary-text);font-size:var(--fs-md);text-align:center}
 .comanda-list-sum{color:var(--c-text-2);font-size:var(--fs-md)}
 .comanda-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
-.comanda-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:4px 10px;text-align:left;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);border-left:1px solid var(--c-border);border-radius:var(--r-lg);padding:12px 14px;min-height:92px;cursor:pointer;box-shadow:var(--sh-1);font:inherit}
+.comanda-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:4px 10px;text-align:left;background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);border-radius:var(--r-lg);padding:12px 14px;min-height:92px;cursor:pointer;box-shadow:var(--sh-1);font:inherit}
 .comanda-card:hover{border-color:var(--c-border-strong);box-shadow:var(--sh-2)}
 .comanda-card:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
 .comanda-card .cc-name{font-size:var(--fs-lg);font-weight:600;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
@@ -180,8 +180,6 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .comanda-card .cc-meta{grid-column:1/-1;font-size:var(--fs-sm);color:var(--c-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .comanda-card .cc-time{grid-column:1/-1;display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-sm);font-weight:600;color:var(--c-text-2)}
 .comanda-card .cc-dot{width:9px;height:9px;border-radius:50%;background:var(--c-text-3);display:inline-block}
-.comanda-card.ctime-green{border-left-color:var(--c-success)}
-.comanda-card.ctime-green .cc-dot{background:var(--c-success)}
 .comanda-card.ctime-yellow{border-left-color:var(--c-warning-solid)}
 .comanda-card.ctime-yellow .cc-dot{background:var(--c-warning-solid)}
 .comanda-card.ctime-yellow .cc-time{color:var(--c-warning)}
@@ -224,10 +222,10 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .balcao-main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:14px;padding:16px 20px;min-height:0}
 .balcao-main .op-search{max-width:420px}
 .balcao-cats{display:flex;gap:8px;flex-wrap:wrap}
-.balcao-cats button{min-height:40px;padding:0 16px;border-radius:var(--r-pill);border:1px solid var(--c-border-strong);background:var(--c-surface);color:var(--c-text-2);font-weight:600;font-size:var(--fs-md);cursor:pointer}
+.balcao-cats button{padding:0 16px;border-radius:var(--r-pill);border:1px solid var(--c-border-strong);background:var(--c-surface);color:var(--c-text-2);font-weight:600;font-size:var(--fs-md);cursor:pointer}
 .balcao-cats button:hover{border-color:var(--c-text-3);color:var(--c-text)}
 .balcao-cats .balcao-cats-back{color:var(--c-text);border-color:var(--c-text-3)}
-.balcao-cats-current{display:inline-flex;align-items:center;min-height:40px;padding:0 4px;font-weight:700;font-size:var(--fs-lg);color:var(--c-text)}
+.balcao-cats-current{display:inline-flex;align-items:center;padding:0 4px;font-weight:700;font-size:var(--fs-lg);color:var(--c-text)}
 .balcao-cats button.active{background:var(--c-text);border-color:var(--c-text);color:var(--c-surface)}
 .balcao-grid{flex:1 1 auto;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;align-content:start;padding:2px 2px 12px}
 .balcao-prod{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:14px;min-height:108px;border-radius:var(--r-lg);border:1px solid var(--c-border);background:var(--c-surface);color:var(--c-text);cursor:pointer}
@@ -555,7 +553,7 @@ button.cash-open-row:hover{border-color:var(--c-primary)}
 .ps-agent-info{flex:1 1 260px;min-width:0}
 .ps-caixa{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:var(--fs-sm);color:var(--c-text-2)}
 /* min-width:0: sem isso a lista fica do tamanho da opção mais comprida e alarga a tela no celular */
-.ps-caixa select{width:auto;max-width:100%;min-width:0;flex:1 1 200px;min-height:32px;padding:4px 8px;font-size:var(--fs-sm);text-overflow:ellipsis}
+.ps-caixa select{width:auto;max-width:100%;min-width:0;flex:1 1 200px;padding:4px 8px;font-size:var(--fs-sm);text-overflow:ellipsis}
 .ps-scan{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:var(--fs-sm);color:var(--c-text-2)}
 .ps-scan label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--c-text)}
 .ps-scan input{width:auto;min-height:0;margin:0}
@@ -567,14 +565,12 @@ button.cash-open-row:hover{border-color:var(--c-primary)}
 .ps-printer-where{color:var(--c-text-2);font-size:var(--fs-sm)}
 .ps-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .ps-chips-label{font-size:var(--fs-sm);color:var(--c-text-2);margin-right:2px}
-.ps-chip{border:1px solid var(--c-border-strong);background:var(--c-surface);color:var(--c-text);border-radius:var(--r-pill);padding:5px 12px;font-size:var(--fs-sm);cursor:pointer;min-height:32px}
+.ps-chip{border:1px solid var(--c-border-strong);background:var(--c-surface);color:var(--c-text);border-radius:var(--r-pill);font-size:var(--fs-sm);cursor:pointer}
 .ps-chip:hover{background:var(--c-surface-3)}
 .ps-chip.on{background:var(--c-primary);border-color:var(--c-primary);color:var(--c-text-inverse);font-weight:600}
-.ps-chip.on::before{content:'✓ '}
 .ps-chip.partial{border-style:dashed;border-color:var(--c-warning-solid);background:var(--c-warning-soft);color:var(--c-warning)}
-.ps-chip.partial::before{content:'◐ '}
 .ps-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:var(--fs-sm)}
-.ps-actions select{width:auto;min-height:32px;padding:4px 8px}
+.ps-actions select{width:auto;padding:4px 8px}
 .ps-test-result{font-size:var(--fs-sm)}
 .ps-test-result.ok{color:var(--c-success);font-weight:600}
 .ps-test-result.err{color:var(--c-danger);font-weight:600}
@@ -687,7 +683,7 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
 /* Módulos em construção (31/10): aparecem no menu, mas apagados e com selo; o clique só avisa. */
 .rb-icons button.em-construcao,.ribbon-tabs .sb-link.em-construcao{opacity:.85} /* 12/11: plano Pro, não defeito */
 .rb-icons button.em-construcao:hover,.ribbon-tabs .sb-link.em-construcao:hover{opacity:1}
-.selo-obra{display:inline-block;font-size:var(--fs-xs);line-height:1.4;font-weight:700;padding:0 6px;border-radius:999px;background:var(--c-primary-soft);color:var(--c-primary-text);white-space:nowrap}
+.selo-obra{display:inline-block;line-height:1.4;font-weight:700;padding:0 6px;border-radius:999px;background:var(--c-primary-soft);color:var(--c-primary-text);white-space:nowrap}
 .ribbon-tabs .sb-link .selo-obra{margin-left:auto}
 
 /* Marca do estabelecimento (31/10): com nome cadastrado, o topo do menu mostra logo + nome no lugar
@@ -697,15 +693,14 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
 .wb-title.has-club .wb-club{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:700;font-size:15px;line-height:1.2;color:var(--c-text);max-width:170px}
 .winbar.has-club-logo .wb-logo{width:auto;height:38px;max-width:120px}
 .winbar.has-club-logo .wb-logo img{display:block;height:100%;width:auto;max-width:120px;object-fit:contain}
-@media(min-width:761px){.winbar.has-club-logo{flex-direction:column;align-items:center;gap:10px;text-align:center}.winbar.has-club-logo .wb-title{width:100%}.winbar.has-club-logo .wb-title.has-club .wb-club{max-width:none}.winbar.has-club-logo .wb-logo{height:60px;max-width:170px}.winbar.has-club-logo .wb-logo img{max-width:170px}}
+@media(min-width:761px){.winbar.has-club-logo{flex-direction:column;align-items:center;gap:10px;text-align:center}.winbar.has-club-logo .wb-title{width:100%}.winbar.has-club-logo .wb-title.has-club .wb-club{max-width:none}}
 .tela-descanso{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-height:52vh;padding:32px 16px;text-align:center}
-.tela-descanso-logo{display:block;max-width:min(420px,70vw);max-height:30vh;object-fit:contain}
+.tela-descanso-logo{display:block;max-width:min(420px,70vw);object-fit:contain}
 .tela-descanso-logo svg{width:140px;height:140px}
 .tela-descanso-nome{font-size:clamp(28px,4.5vw,64px);font-weight:800;line-height:1.1;color:var(--c-text);letter-spacing:-.01em}
 .tela-descanso-msg{margin:0;font-size:clamp(15px,1.6vw,22px);color:var(--c-text-3)}
 /* Resumo da comanda (31/10): só com uma comanda escolhida; o × recolhe. */
-.cp-close{margin-left:auto;flex:0 0 auto;width:32px;height:32px;border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-surface);color:var(--c-text-2);font-size:var(--fs-title);line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
-.cp-close:hover{background:var(--c-surface-3);color:var(--c-text)}
+.cp-close{margin-left:auto;flex:0 0 auto;width:32px;height:32px;font-size:var(--fs-title);line-height:1}
 
 /* Monitor de preparo (31/10, pedido do dono): 5 cartões por linha a partir de 1200 px, dentro e
    fora do Modo TV; letras e botão "Pronto" um pouco menores para caber. Abaixo disso, a grade
@@ -876,7 +871,7 @@ body.tv-mode .kfechada-faixa{font-size:var(--fs-2xl)}
 @media(max-width:900px){#modalRoot .modal.np-modal{max-height:none;overflow:visible}}
 /* UX lote 4 (06/11): o "×" de fechar das janelas de gestão aparecia de dois jeitos (solto, ou num
    quadradinho com borda quando era <button>). Agora os dois têm o mesmo tamanho e a mesma cara. */
-.op-titlebar .op-controls>button,.op-titlebar .op-controls>span{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;padding:0;border:0;border-radius:8px;background:none;color:var(--c-text-2);font-size:var(--fs-title);font-weight:400;line-height:1;cursor:pointer;box-shadow:none}
+.op-titlebar .op-controls>button,.op-titlebar .op-controls>span{font-size:var(--fs-title);font-weight:400;line-height:1;box-shadow:none}
 .op-titlebar .op-controls>button:hover,.op-titlebar .op-controls>span:hover{background:var(--c-surface-3);color:var(--c-text)}
 /* UX lote 4 (06/11): linha escolhida destacada também nas listas .finance-grid (Categoria de
    Contas, Contas a Pagar), como já era nas outras. */
@@ -891,8 +886,7 @@ body.tv-mode .kfechada-faixa{font-size:var(--fs-2xl)}
 .tela-cabecalho{display:flex;align-items:center;gap:12px;padding:2px 0 14px;font-family:var(--font-sans)}
 .tela-cabecalho h1{margin:0;font-size:var(--fs-title);font-weight:600;letter-spacing:-.01em;color:var(--c-text);line-height:1.3}
 .tela-cabecalho .op-controls{margin-left:auto;display:flex}
-.tela-cabecalho .op-controls>button{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;padding:0;border:0;border-radius:8px;background:none;color:var(--c-text-2);font-size:var(--fs-title);line-height:1;cursor:pointer}
-.tela-cabecalho .op-controls>button:hover{background:var(--c-surface-3);color:var(--c-text)}
+.tela-cabecalho .op-controls>button{font-size:var(--fs-title);line-height:1}
 .tela-com-cabecalho .finance-title-tab,.tela-com-cabecalho .full-report-title,.tela-com-cabecalho .report-window>.op-titlebar,.tela-com-cabecalho .daily-summary-head h2,.tela-com-cabecalho>.panel>h2:first-child{display:none}
 @media print{.tela-cabecalho .op-controls{display:none}}
 .tela-com-cabecalho .workspace-gray>section.record-modal>h3:first-child{display:none} /* Numeração de Pedidos: título repetido */
@@ -948,7 +942,7 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .login-nada{margin:10px 12px;font-size:var(--fs-sm);color:var(--c-text-3)}
 
 /* 09/11 (pedido do dono): tela Formas de Pagamento em botões de ligar e desligar (cadastros/formas-pagamento.js). */
-.formas-corpo{padding:4px 14px 18px;display:grid;gap:20px;max-width:980px}
+.formas-corpo{display:grid;gap:20px;max-width:980px}
 .formas-ajuda{margin:0;color:var(--c-text-3);font-size:var(--fs-sm)}
 .forma-grupo h3{margin:0;font-size:15px;color:var(--c-text)}
 .forma-grupo-sub{margin:2px 0 10px;color:var(--c-text-3);font-size:var(--fs-xs)}
