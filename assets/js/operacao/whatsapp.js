@@ -125,7 +125,7 @@ async function waEntrar(){
   v.innerHTML = `<div class="wa-tela">
     <aside class="wa-lista" aria-label="Conversas">
       <input id="waPesquisa" type="search" placeholder="Pesquisar conversa" aria-label="Pesquisar conversa" oninput="waBuscaTxt=this.value;waDesenharLista()">
-      <div class="wa-filtros" role="group" aria-label="Filtro"><button type="button" class="wa-filtro ativo" data-f="todas" onclick="waTrocarFiltro('todas')">Todas</button><button type="button" class="wa-filtro" data-f="nao" onclick="waTrocarFiltro('nao')">Não lidas</button><button type="button" class="wa-filtro" data-f="conta" onclick="waTrocarFiltro('conta')">Conta enviada</button></div>
+      <div class="wa-filtros" role="group" aria-label="Filtro"><button type="button" class="wa-filtro ativo" data-f="todas" onclick="waTrocarFiltro('todas')">Todas</button><button type="button" class="wa-filtro" data-f="nao" onclick="waTrocarFiltro('nao')">Não lidas</button><button type="button" class="wa-filtro" data-f="conta" onclick="waTrocarFiltro('conta')">Conta enviada</button><button type="button" class="wa-filtro" data-f="falhas" onclick="waTrocarFiltro('falhas')">Não enviadas <span class="wa-filtro-num" hidden></span></button></div>
       <div class="wa-conversas"></div>
     </aside>
     <section class="wa-chat-area" aria-label="Conversa">
@@ -140,6 +140,7 @@ async function waEntrar(){
   </div>`;
   document.getElementById('waTexto').addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); waEnviar(); } });
   await waCarregarConversas(true);
+  if(typeof fiadoWaCarregarEnvios==='function') fiadoWaCarregarEnvios(); // etapa 4: contador de Não enviadas
   if(waAberta) waCarregarMensagens(true);
   waDesenharChat(); waDesenharCliente();
   waLigarTela();
@@ -150,6 +151,7 @@ function waLigarTela(){
     if(activeView!=='whatsapp'){ clearInterval(waTelaTimer); waTelaTimer=null; return; }
     if(document.hidden) return;
     waTelaVolta++;
+    if(waTelaVolta % 6 === 0 && typeof fiadoWaCarregarEnvios==='function') fiadoWaCarregarEnvios().then(()=>{ if(waFiltro==='falhas') waDesenharLista(); }); // etapa 4: a cada 30 s
     waCarregarConversas(false); if(waAberta) waCarregarMensagens(false, false);
   }, 5000);
 }
@@ -215,6 +217,7 @@ async function waCarregarMensagens(marcar, completo = true){
 }
 function waTrocarFiltro(f){
   waFiltro = f;
+  if(f==='falhas' && typeof fiadoWaCarregarEnvios==='function') fiadoWaCarregarEnvios().then(()=>{ if(waFiltro==='falhas') waDesenharLista(); });
   document.querySelectorAll('#view-whatsapp .wa-filtro').forEach(b=>b.classList.toggle('ativo', b.dataset.f===f));
   waDesenharLista();
 }
@@ -231,6 +234,7 @@ function waDia(iso){
 function waContaEnviada(c){ return !!(c && c.member_id && (state.sales||[]).some(s=>s.status==='open' && s.memberId===c.member_id && s.contaEnviada)); }
 function waDesenharLista(){
   const box = document.querySelector('#view-whatsapp .wa-conversas'); if(!box) return;
+  if(waFiltro==='falhas' && typeof fiadoWaDesenharEnvios==='function'){ fiadoWaDesenharEnvios(box); return; } // etapa 4
   const termo = waBuscaTxt.trim().toLowerCase();
   const lista = waConvs.filter(c=>(waFiltro!=='nao' || c.nao_lidas>0) && (waFiltro!=='conta' || waContaEnviada(c)) && (!termo || waNomeConversa(c).toLowerCase().includes(termo) || String(c.telefone||'').includes(termo.replace(/\D/g,'')||'§')));
   if(!lista.length){ box.innerHTML = `<p class="sub wa-vazio">${waCarregou ? (waConvs.length ? 'Nenhuma conversa com esse filtro.' : 'Nenhuma conversa ainda. Quando um cliente mandar mensagem, ela aparece aqui.') : 'Carregando…'}</p>`; return; }

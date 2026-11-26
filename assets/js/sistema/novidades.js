@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-27-whatsapp-fiado-automatico', data:'27/11/2026', itens:[
+    { titulo:'Fiado pelo WhatsApp, sozinho',
+      texto:'Em Configurações › WhatsApp, o administrador pode ligar "No fiado, mandar sozinho". Ligado, a conta vai pelo WhatsApp do Commandah na hora que a comanda fecha no fiado, com o Pix e o QR, e quando o pagamento zera a conta vai o aviso de consumo liberado. Se não der para mandar (sem celular no cadastro, WhatsApp desconectado), o fiado fecha do mesmo jeito e a mensagem fica em WhatsApp › Não enviadas, com Reenviar e Descartar. Vem desligado.',
+      onde:'Configurações › WhatsApp e tela WhatsApp', perms:['whatsapp'] },
+  ]},
   { id:'2026-11-26-liberacao-fiado', data:'26/11/2026', itens:[
     { titulo:'Fiado novo bloqueia o cliente liberado',
       texto:'Quando o administrador libera um cliente com pendência, a liberação vale só para a dívida daquele momento. Um fiado lançado depois bloqueia de novo, mesmo que o valor seja menor que o liberado. Antes, uma liberação antiga continuava valendo depois que o cliente pagava.',

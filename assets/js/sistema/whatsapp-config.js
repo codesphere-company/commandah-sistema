@@ -65,12 +65,27 @@ function waDesenhar(s, erro){
   const botoes = !s.pode_conectar ? `<p class="sub">Só o administrador conecta ou desconecta o número.</p>`
     : s.situacao==='conectado' ? `<button class="op-btn" type="button" id="waDesconectar" onclick="waDesconectar()">Desconectar</button>`
     : `<button class="op-btn primary" type="button" id="waConectar" onclick="waConectar()">${s.situacao==='aguardando_qr'?'Gerar QR de novo':'Conectar número'}</button>`;
-  box.innerHTML = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><b style="flex:1">Número da lanchonete</b>${chip}</div>${aviso}${corpo}${separado}<div style="display:flex;gap:10px;margin-top:12px">${botoes}</div>
+  box.innerHTML = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><b style="flex:1">Número da lanchonete</b>${chip}</div>${aviso}${corpo}${separado}<div style="display:flex;gap:10px;margin-top:12px">${botoes}</div>${waFiadoAutoHtml(s)}
     <p class="sub" style="margin-top:14px">Conexão feita com a Evolution API.</p>`;
   // Enquanto espera a leitura, confere a cada 3 s (para ao fechar a janela ou ao conectar).
   if(s.situacao==='aguardando_qr') waPollExtra = 4;
   else if(s.situacao==='conectado') waPollExtra = 0;
   if(s.situacao==='aguardando_qr' || (waPollExtra>0 && waPollExtra--)) waPollTimer = setTimeout(()=>{ if(document.getElementById('waBox')) waAtualizar(); }, 3000);
+}
+
+// Etapa 4 (26/11): fiado automático. Desligado por padrão; liga o administrador (quem conecta o número).
+function waFiadoAutoHtml(s){
+  const ligado = !!(state.settings && state.settings.waFiadoAuto);
+  const txt = 'No fiado, mandar sozinho: a conta vai pelo WhatsApp quando a comanda fecha no fiado, e o aviso de consumo liberado quando o pagamento zera a conta.';
+  if(!s.pode_conectar) return `<p class="sub wa-fiado-auto">Fiado automático: <b>${ligado ? 'ligado' : 'desligado'}</b>.</p>`;
+  return `<label class="wa-fiado-auto"><input type="checkbox" id="waFiadoAuto" ${ligado ? 'checked' : ''} onchange="waSalvarFiadoAuto(this.checked)"> <span>${txt} <small class="sub">Se não der para mandar, o fiado fecha do mesmo jeito e a mensagem fica em WhatsApp › Não enviadas.</small></span></label>`;
+}
+function waSalvarFiadoAuto(ligado){
+  if(!requirePerm('whatsapp')) return;
+  state.settings.waFiadoAuto = !!ligado;
+  save('settings');
+  logAction('WhatsApp: fiado automático ' + (ligado ? 'ligado' : 'desligado'));
+  toast(ligado ? 'Fiado automático ligado.' : 'Fiado automático desligado.');
 }
 
 async function waConectar(){
