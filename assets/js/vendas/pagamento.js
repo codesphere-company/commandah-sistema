@@ -274,7 +274,8 @@ function openPaymentModal(mode, comandaId){
     if(mode==='balcao' && currentSaleDraft.avulsoNp) meta.local = currentSaleDraft.local||'';
     const closedSaleId = await finalizeSale(mode, comandaId, memberId, salePayments, arredondaCentavos(finalTotal-debtIncluded), creditApplied, creditFromChange, meta);
     if(closedSaleId){
-      if(debtParts.length) await recordDebtPaidWithSale(member, debtParts, closedSaleId);
+      if(debtParts.length){ const debtAntes = Number(member && member.debt)||0; // etapa 4: conta zerada manda "consumo liberado"
+        if(await recordDebtPaidWithSale(member, debtParts, closedSaleId) && typeof fiadoWaAposPagamento==='function') fiadoWaAposPagamento(member.id, debtAntes); }
       recordChangeOutInCash(cashChangeOut, closedSaleId);
       if(wantReceipt) printSaleReceipt(closedSaleId);
       autoEmitNfce(closedSaleId); // não espera: a venda já está registrada
@@ -507,7 +508,8 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   if(mode==='balcao'){ balcaoCategory = ''; balcaoQuery = ''; } // 26/11 (opção A do dono): depois de cobrar, a Ficha volta às categorias
   toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
   // D3: consumo do colaborador sai do salário; não oferece a cobrança por WhatsApp.
-  if(fiadoMemberForPrompt && !consumoColaborador) promptWhatsAppCollection(fiadoMemberForPrompt);
+  // Etapa 4 do WhatsApp (26/11): com "No fiado, mandar sozinho" ligado, a cobrança vai sem perguntar (fiado-whatsapp.js).
+  if(fiadoMemberForPrompt && !consumoColaborador && !(typeof fiadoWaAoFechar==='function' && fiadoWaAoFechar(fiadoMemberForPrompt))) promptWhatsAppCollection(fiadoMemberForPrompt);
   return sale.id;
 }
 

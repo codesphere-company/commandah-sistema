@@ -1309,3 +1309,15 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .hub-resumo.cash-summary{padding:20px}
 .hub-resumo .cash-summary-line{font-size:var(--fs-md)}
 .hub-resumo .cash-summary-empty{font-size:var(--fs-sm)}
+
+/* WhatsApp etapa 4 (26/11): fiado automático e fila "Não enviadas" */
+.wa-fiado-auto{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding-top:14px;border-top:1px solid var(--c-border);line-height:1.45;cursor:pointer}
+.wa-fiado-auto input{margin-top:3px;flex:none}
+.wa-fiado-auto small{display:block;margin-top:4px}
+p.wa-fiado-auto{cursor:default}
+.wa-filtros{flex-wrap:wrap}
+.wa-filtro-num{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--c-danger);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+.wa-envio{display:flex;flex-direction:column;gap:4px;padding:12px;border-bottom:1px solid var(--c-border)}
+.wa-envio-tipo{font-size:13px;font-weight:600;color:var(--c-text-2)}
+.wa-envio-motivo{font-size:13px;color:var(--c-danger);line-height:1.4}
+.wa-envio-acoes{display:flex;gap:8px;margin-top:6px}
