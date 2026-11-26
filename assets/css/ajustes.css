@@ -1330,13 +1330,18 @@ p.wa-fiado-auto{cursor:default}
 .cardapio-acoes{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
 .cardapio-cfg .field input[readonly]{font-family:var(--font-mono,ui-monospace,monospace);font-size:var(--fs-sm)}
 #cardapioQrSheet{display:none}
+/* 26/11: a tela trava html/body em 100% com overflow hidden; na impressão isso cortava tudo depois da 1ª página
+   (clube com 147 espaços). Libera a altura e usa blocos em linha, que quebram página melhor que grid. */
 @media print{
+  @page{margin:10mm}
+  html:has(body.imprimindo-qr),body.imprimindo-qr{height:auto!important;overflow:visible!important}
   body.imprimindo-qr>*:not(#cardapioQrSheet){display:none!important}
-  body.imprimindo-qr #cardapioQrSheet{display:grid;grid-template-columns:repeat(3,1fr);gap:8mm;color:#000}
-  #cardapioQrSheet .qr-cartao{break-inside:avoid;border:1px dashed #999;border-radius:4mm;padding:5mm;display:grid;justify-items:center;gap:2mm;text-align:center}
-  #cardapioQrSheet .qr-img img,#cardapioQrSheet .qr-img canvas{width:45mm;height:45mm}
-  #cardapioQrSheet b{font-size:14pt}
-  #cardapioQrSheet small{font-size:8pt}
+  body.imprimindo-qr #cardapioQrSheet{display:block;color:#000;font-size:0}
+  #cardapioQrSheet .qr-cartao{display:inline-block;vertical-align:top;width:31%;margin:0 1% 4mm;box-sizing:border-box;break-inside:avoid;page-break-inside:avoid;border:1px dashed #999;border-radius:4mm;padding:4mm;text-align:center;font-size:10pt}
+  #cardapioQrSheet .qr-img{display:flex;justify-content:center}
+  #cardapioQrSheet .qr-img img,#cardapioQrSheet .qr-img canvas{width:42mm;height:42mm}
+  #cardapioQrSheet b{display:block;font-size:13pt;margin-top:2mm}
+  #cardapioQrSheet small{display:block;font-size:7.5pt;color:#333}
 }
 .hub-pill.on{background:var(--c-success-soft,#E3F5EC);color:var(--c-success)}
 .cardapio-acoes a.btn{text-decoration:none}
