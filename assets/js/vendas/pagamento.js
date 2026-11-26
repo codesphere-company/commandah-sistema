@@ -504,6 +504,7 @@ async function finalizeSale(mode, comandaId, memberId, payments, total, creditAp
   // Avulso do Novo pedido (revisão 15/11): não deixa rascunho vazio de balcão no lugar da Ficha em andamento
   // (renderBalcaoPdv adotaria o rascunho novo e a Ficha sumiria); sem rascunho, volta o balcaoDraft.
   if(currentSaleDraft && currentSaleDraft.avulsoNp) currentSaleDraft = null; else newDraft(mode);
+  if(mode==='balcao'){ balcaoCategory = ''; balcaoQuery = ''; } // 26/11 (opção A do dono): depois de cobrar, a Ficha volta às categorias
   toast('Venda registrada.'); logAction('Venda registrada — '+fmt(total)); renderAll();
   // D3: consumo do colaborador sai do salário; não oferece a cobrança por WhatsApp.
   if(fiadoMemberForPrompt && !consumoColaborador) promptWhatsAppCollection(fiadoMemberForPrompt);

@@ -5,6 +5,31 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-26-caixa-padrao-garcom', data:'26/11/2026', itens:[
+    { titulo:'Caixa organizado como o app do garçom',
+      texto:'Com o caixa fechado, a tela mostra um cartão com o campo grande para contar a gaveta e o botão Abrir caixa. Com o caixa aberto, a situação fica no topo (o administrador vê o dinheiro esperado na gaveta) e embaixo vêm as escolhas: Fechar / passar o caixa, Novo lançamento, Movimentação, Resumo por forma e Fechamentos anteriores. Toque para entrar; "‹ Caixa" volta. Nenhuma regra de abertura, contagem ou fechamento mudou.',
+      onde:'Caixa', perms:['caixa'] },
+  ]},
+  { id:'2026-11-26-categorias-blocos', data:'26/11/2026', itens:[
+    { titulo:'Ficha e Novo pedido começam pelas categorias, como no app do garçom',
+      texto:'A Ficha e o Novo pedido da comanda abrem com as categorias em blocos grandes, cada um com quantos itens tem. Toque na categoria para ver os produtos dela; "‹ Categorias" volta. "Todos os produtos" fica no fim. Na comanda que já tem pedidos, o primeiro bloco é "Já pedidos". A busca continua procurando em todos os produtos, mesmo dentro de uma categoria. Depois de cobrar, a Ficha volta às categorias.',
+      onde:'Ficha e Comanda › Novo pedido' },
+  ]},
+  { id:'2026-11-26-apps-central', data:'26/11/2026', itens:[
+    { titulo:'Apps organizados como Configurações',
+      texto:'A área Apps abre uma lista com os apps em três grupos (Outros atendimentos, Ferramentas e Módulos), uma linha explicando cada um e uma busca. Antes eram onze botões numa faixa e a área já abria a Fila de Atendimento. Dentro de um app, "‹ Apps" volta para a lista.',
+      onde:'Menu lateral › Apps' },
+  ]},
+  { id:'2026-11-26-cofre-padrao-garcom', data:'26/11/2026', itens:[
+    { titulo:'Cofre organizado como o app do garçom',
+      texto:'A tela do Cofre abre com o saldo no topo e seis escolhas: A recolher (com a quantidade esperando), Contar cofre, Abastecer caixa, Recolher de caixa fechado, Outra saída e Extrato. Toque numa delas para entrar; "‹ Cofre" volta. Antes as ações ficavam empilhadas numa coluna estreita e algumas só apareciam rolando a tela. Para abastecer ou recolher, o caixa agora é um botão grande (Caixa 1, Caixa 2).',
+      onde:'Cofre', perms:['cofre'] },
+  ]},
+  { id:'2026-11-26-fiado-whatsapp-interno', data:'26/11/2026', itens:[
+    { titulo:'Cobrança do fiado pelo WhatsApp do Commandah (plano Pro)',
+      texto:'Ao fechar uma comanda no fiado, "Enviar cobrança via WhatsApp" agora manda pelo número da lanchonete, de dentro do Commandah, sem abrir o WhatsApp Web: a hora do fechamento, o consumo de hoje, o total em aberto, o Pix copia e cola e o QR. Colaborador e plano básico continuam abrindo o WhatsApp como antes.',
+      onde:'Fechar comanda no fiado', perms:['whatsapp'] },
+  ]},
   { id:'2026-11-26-whatsapp-conta-pix', data:'26/11/2026', itens:[
     { titulo:'Mandar a conta da comanda pelo WhatsApp, com Pix copia e cola e QR (plano Pro)',
       texto:'Na comanda aberta de um cliente, "Mandar conta pelo WhatsApp" manda pelo número da lanchonete o texto com os itens e o total, o Pix copia e cola com o valor, o QR do Pix e o pedido do comprovante. A comanda fica com o selo "Conta enviada · aguardando Pix" até você conferir o comprovante e dar baixa como sempre. Na tela WhatsApp, o painel do cliente tem "Mandar conta com Pix" e a lista ganhou o filtro "Conta enviada". Para o Pix ir junto, preencha a chave, o nome e a cidade em Configurações › Sistema › Ajustes do Cupom. Colaborador não recebe conta.',

@@ -81,53 +81,108 @@ function contaWhatsappQrPng(brcode){
   finally { box.remove(); }
 }
 
-async function abrirMandarConta(saleId){
-  const s = (state.sales||[]).find(x=>x.id===saleId);
-  if(!contaWhatsappPode(s)){ toast('Esta comanda não pode receber a conta pelo WhatsApp.', 'erro'); return; }
+// Janela comum (25/11): a conta da comanda (abrirMandarConta) e a cobrança do fiado (abrirMandarCobranca) usam a
+// mesma janela e o mesmo envio (enviar_conta). envio = { tipo, m, valorFn, textoFn(comPix), nota, botao, podeEnviar, aoEnviar(jid, valor), semPro }.
+async function contaWaAbrirJanela(titulo, envio){
   if(typeof toggleComandaOrderOptions==='function') toggleComandaOrderOptions(false);
-  openModal('Mandar conta pelo WhatsApp', `<div id="contaWaBox" class="conta-wa" aria-live="polite"><p class="sub">Procurando o WhatsApp do cliente…</p></div>`);
-  const m = contaWhatsappMembro(s);
+  openModal(titulo, `<div id="contaWaBox" class="conta-wa" aria-live="polite"><p class="sub">Procurando o WhatsApp do cliente…</p></div>`);
+  const m = envio.m;
   const plano = typeof waPlano==='function' ? await waPlano() : { pro:false };
-  const box = document.getElementById('contaWaBox'); if(!box) return;
+  const box = document.getElementById('contaWaBox'); if(!box) return false;
   if(plano.pro===false){
-    box.innerHTML = `<p><b>Mandar a conta pelo WhatsApp faz parte do plano Pro.</b></p><p class="sub">Para ligar, fale com a equipe do Commandah.</p><div class="conta-wa-acoes"><button type="button" class="op-btn" onclick="closeModal()">Fechar</button></div>`;
-    return;
+    if(envio.semPro){ closeModal(); envio.semPro(); return false; }
+    box.innerHTML = `<p><b>Mandar pelo WhatsApp do Commandah faz parte do plano Pro.</b></p><p class="sub">Para ligar, fale com a equipe do Commandah.</p><div class="conta-wa-acoes"><button type="button" class="op-btn" onclick="closeModal()">Fechar</button></div>`;
+    return false;
   }
   const destino = await contaWhatsappDestino(m);
-  if(!document.getElementById('contaWaBox')) return;
+  if(!document.getElementById('contaWaBox')) return false;
   if(!destino){
     box.innerHTML = `<p class="wa-erro" role="alert">O cadastro de ${h(m.name)} não tem um telefone que dê para usar.</p><p class="sub">Coloque o celular com DDD no cadastro do cliente, ou ligue uma conversa a ele na tela WhatsApp.</p><div class="conta-wa-acoes"><button type="button" class="op-btn" onclick="closeModal()">Fechar</button></div>`;
-    return;
+    return false;
   }
-  const t = contaWhatsappTotais(s), falta = contaWhatsappPixFalta(t.total);
-  contaWaAtual = { saleId, jid:destino.jid, tel:destino.tel, comPix:!falta };
+  const valor = envio.valorFn(), falta = contaWhatsappPixFalta(valor);
+  contaWaAtual = { ...envio, jid:destino.jid, tel:destino.tel, comPix:!falta };
   const para = destino.jid.endsWith('@lid') ? 'a conversa do cliente no WhatsApp' : waFormatarNumero(destino.tel || destino.jid.split('@')[0]);
   box.innerHTML = `<p class="conta-wa-quem"><b>${h(m.name)}</b>${m.code ? ` · cota ${h(m.code)}` : ''}</p>
     <p>Mandar para <b>${h(para)}</b></p>
-    <label class="conta-wa-pix"><input type="checkbox" id="contaWaPix" ${falta ? 'disabled' : 'checked'} onchange="contaWaAtual.comPix=this.checked;contaWaPrevia()"> <span>Junto: Pix copia e cola e QR de <b>${h(fmt(t.total))}</b></span></label>
+    <label class="conta-wa-pix"><input type="checkbox" id="contaWaPix" ${falta ? 'disabled' : 'checked'} onchange="if(contaWaAtual){contaWaAtual.comPix=this.checked;contaWaPrevia()}"> <span>Junto: Pix copia e cola e QR de <b>${h(fmt(valor))}</b></span></label>
     ${falta ? `<p class="sub conta-wa-falta">${h(falta)}</p>` : ''}
     <div class="conta-wa-previa" id="contaWaPrevia"></div>
-    <p class="sub">A comanda fica aberta como "Conta enviada · aguardando Pix". Quando o comprovante chegar, confira e dê baixa como sempre.</p>
+    <p class="sub">${h(envio.nota)}</p>
     <p class="wa-erro" id="contaWaErro" role="alert"></p>
-    <div class="conta-wa-acoes"><button type="button" class="op-btn" onclick="closeModal()">Cancelar</button><button type="button" class="op-btn primary" id="contaWaEnviar" onclick="mandarConta()">Mandar conta pelo WhatsApp</button></div>`;
+    <div class="conta-wa-acoes"><button type="button" class="op-btn" onclick="closeModal()">Cancelar</button><button type="button" class="op-btn primary" id="contaWaEnviar" onclick="mandarConta()">${h(envio.botao)}</button></div>`;
   contaWaPrevia();
+  return true;
+}
+async function abrirMandarConta(saleId){
+  const s = (state.sales||[]).find(x=>x.id===saleId);
+  if(!contaWhatsappPode(s)){ toast('Esta comanda não pode receber a conta pelo WhatsApp.', 'erro'); return; }
+  const venda = ()=>(state.sales||[]).find(x=>x.id===saleId);
+  await contaWaAbrirJanela('Mandar conta pelo WhatsApp', {
+    tipo:'conta', m:contaWhatsappMembro(s), botao:'Mandar conta pelo WhatsApp',
+    nota:'A comanda fica aberta como "Conta enviada · aguardando Pix". Quando o comprovante chegar, confira e dê baixa como sempre.',
+    valorFn:()=>{ const v = venda(); return v ? contaWhatsappTotais(v).total : 0; },
+    textoFn:comPix=>{ const v = venda(); return v ? contaWhatsappTexto(v, comPix) : ''; },
+    podeEnviar:()=>{ const v = venda(); return v && v.status==='open' ? '' : 'Esta comanda não está mais aberta.'; },
+    aoEnviar:(jid, valor)=>{
+      const v = venda(); if(!v) return;
+      v.contaEnviada = { em:new Date().toISOString(), por:(currentUser && currentUser.name) || '', valor, jid };
+      save('sales');
+      logAction('Conta mandada pelo WhatsApp — comanda #' + (v.orderNumber||'') + ' (' + fmt(valor) + ')');
+      toast('Conta enviada pelo WhatsApp.');
+    }
+  });
+}
+// 25/11 (pedido do dono): o fiado também manda pelo WhatsApp do Commandah, sem abrir o WhatsApp Web.
+// Texto com a hora do fechamento, o consumo de hoje e o total em aberto (a pendência inteira vai no Pix,
+// decisão do desenho de 25/11).
+function cobrancaWhatsappTexto(m, comPix){
+  const clube = (state.settings && state.settings.clubName) || 'a lanchonete';
+  const primeiro = String(m.name||'').trim().split(/\s+/)[0] || '';
+  const nome = primeiro ? primeiro.charAt(0).toUpperCase() + primeiro.slice(1).toLowerCase() : '';
+  const hoje = typeof todaysSalesForMember==='function' ? todaysSalesForMember(m.id) : [];
+  const fechada = hoje.filter(s=>s.status==='closed' && s.closedAt).sort((a,b)=>String(b.closedAt).localeCompare(String(a.closedAt)))[0];
+  const quando = fechada ? new Date(fechada.closedAt).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', ' às') : '';
+  const linhas = [`Olá${nome ? ', ' + nome : ''}! Aqui é ${clube}.`];
+  linhas.push(quando ? `Sua comanda foi fechada no fiado em ${quando}.` : 'Você tem uma conta em aberto conosco.');
+  const itens = [];
+  hoje.forEach(s=>(s.items||[]).filter(i=>!i.canceled).forEach(i=>itens.push(`${contaWhatsappQtd(i.qty)}× ${typeof itemNomeTela==='function' ? itemNomeTela(i) : i.name} — ${fmt((Number(i.price)||0)*(Number(i.qty)||0))}`)));
+  if(itens.length) linhas.push('Consumo de hoje:', ...itens);
+  linhas.push(`*Total em aberto: ${fmt(Math.max(0, Number(m.debt)||0))}*`);
+  if(comPix) linhas.push('Para pagar pelo Pix, copie o código da próxima mensagem ou leia o QR.');
+  else if(String((state.settings||{}).pixKey||'').trim()) linhas.push('Chave Pix para pagamento: ' + String(state.settings.pixKey).trim());
+  linhas.push('Assim que o pagamento for feito, o consumo é liberado normalmente.');
+  return linhas.join('\n');
+}
+function cobrancaWhatsappPode(m){ return !!m && hasPerm('whatsapp') && !memberIsColaborador(m) && Number(m.debt) > TOLERANCIA_CENTAVO; }
+async function abrirMandarCobranca(memberId, semPro){
+  const m0 = (state.members||[]).find(x=>x.id===memberId); if(!m0) return;
+  const membro = ()=>(state.members||[]).find(x=>x.id===memberId) || m0;
+  await contaWaAbrirJanela('Mandar cobrança pelo WhatsApp', {
+    tipo:'cobranca', m:m0, botao:'Mandar cobrança pelo WhatsApp', semPro,
+    nota:'Quando o comprovante chegar, confira e dê baixa no fiado como sempre. O pagamento libera o consumo.',
+    valorFn:()=>Math.max(0, Number(membro().debt)||0),
+    textoFn:comPix=>cobrancaWhatsappTexto(membro(), comPix),
+    podeEnviar:()=>Number(membro().debt) > TOLERANCIA_CENTAVO ? '' : 'Este cliente não tem mais conta em aberto.',
+    aoEnviar:(jid, valor)=>{ logAction('Cobrança do fiado mandada pelo WhatsApp do Commandah para ' + membro().name + ' (' + fmt(valor) + ')'); toast('Cobrança enviada pelo WhatsApp.'); }
+  });
 }
 function contaWaPrevia(){
   const el = document.getElementById('contaWaPrevia'); if(!el || !contaWaAtual) return;
-  const s = (state.sales||[]).find(x=>x.id===contaWaAtual.saleId); if(!s) return;
   // *texto* é negrito no WhatsApp: a prévia mostra como o cliente vê.
-  const txt = contaWhatsappTexto(s, contaWaAtual.comPix) + (contaWaAtual.comPix ? '\n\n[Pix copia e cola]\n[QR do Pix]' : '') + '\n\n' + CONTA_WA_RODAPE;
+  const txt = contaWaAtual.textoFn(contaWaAtual.comPix) + (contaWaAtual.comPix ? '\n\n[Pix copia e cola]\n[QR do Pix]' : '') + '\n\n' + CONTA_WA_RODAPE;
   el.innerHTML = h(txt).replace(/\*([^*\n]+)\*/g, '<b>$1</b>');
 }
 async function mandarConta(){
   if(contaWaEnviando || !contaWaAtual) return;
-  const s = (state.sales||[]).find(x=>x.id===contaWaAtual.saleId);
+  const atual = contaWaAtual;
   const btn = document.getElementById('contaWaEnviar'), err = document.getElementById('contaWaErro');
-  if(!s || s.status!=='open'){ if(err) err.textContent = 'Esta comanda não está mais aberta.'; return; }
-  const t = contaWhatsappTotais(s);
+  const motivo = atual.podeEnviar ? atual.podeEnviar() : '';
+  if(motivo){ if(err) err.textContent = motivo; return; }
+  const valor = atual.valorFn();
   let brcode = '', qr = '';
-  if(contaWaAtual.comPix){
-    try { brcode = contaWhatsappBrCode(t.total); } catch(e){ if(err) err.textContent = e.message; return; }
+  if(atual.comPix){
+    try { brcode = contaWhatsappBrCode(valor); } catch(e){ if(err) err.textContent = e.message; return; }
     qr = contaWhatsappQrPng(brcode);
   }
   contaWaEnviando = true;
@@ -135,24 +190,20 @@ async function mandarConta(){
   if(err) err.textContent = '';
   let r;
   try {
-    r = await waInvocar({ action:'enviar_conta', jid:contaWaAtual.jid, texto:contaWhatsappTexto(s, !!brcode), brcode, qr_png:qr, rodape:CONTA_WA_RODAPE, valor:t.total });
+    r = await waInvocar({ action:'enviar_conta', jid:atual.jid, texto:atual.textoFn(!!brcode), brcode, qr_png:qr, rodape:CONTA_WA_RODAPE, valor });
   } finally { contaWaEnviando = false; }
   if(!r || !r.ok){
-    if(btn){ btn.disabled = false; btn.textContent = 'Mandar conta pelo WhatsApp'; }
-    const parte = r && r.enviadas ? ` Parte da conta já foi (${r.enviadas} mensagem${r.enviadas>1?'s':''}): confira na tela WhatsApp antes de mandar de novo.` : '';
+    if(btn){ btn.disabled = false; btn.textContent = atual.botao; }
+    const parte = r && r.enviadas ? ` Parte já foi (${r.enviadas} ${r.enviadas>1?'mensagens':'mensagem'}): confira na tela WhatsApp antes de mandar de novo.` : '';
     if(err) err.textContent = ((r && r.erro) || 'Não foi possível falar com o WhatsApp agora.') + parte;
     return;
   }
-  // Revisão final: a conversa criada pelo envio fica ligada à cliente (a ligação automática não liga quando
+  // Revisão final: a conversa criada pelo envio fica ligada ao cliente (a ligação automática não liga quando
   // dois cadastros têm o mesmo telefone), para o painel e o filtro "Conta enviada" acharem.
-  const m = contaWhatsappMembro(s);
-  if(m) supabaseClient.rpc('whatsapp_vincular_cliente', { p_jid:contaWaAtual.jid, p_member_id:m.id }).then(()=>{}, ()=>{});
-  s.contaEnviada = { em:new Date().toISOString(), por:(currentUser && currentUser.name) || '', valor:t.total, jid:contaWaAtual.jid };
-  save('sales');
-  logAction('Conta mandada pelo WhatsApp — comanda #' + (s.orderNumber||'') + ' (' + fmt(t.total) + ')');
+  if(atual.m) supabaseClient.rpc('whatsapp_vincular_cliente', { p_jid:atual.jid, p_member_id:atual.m.id }).then(()=>{}, ()=>{});
+  atual.aoEnviar(atual.jid, valor);
   contaWaAtual = null;
   closeModal();
-  toast('Conta enviada pelo WhatsApp.');
   renderAll();
 }
 function contaEnviadaSelo(s){
