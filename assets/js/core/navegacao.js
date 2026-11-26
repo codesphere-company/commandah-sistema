@@ -138,6 +138,7 @@ function switchView(viewId){
   if(viewId==='balcao' && activeView!=='balcao') balcaoCategory = ''; // 26/11 (opção A do dono): a Ficha abre sempre nas categorias
   activeView = viewId;
   if(viewId!=='comandas') comandaAbertaId = null; // saiu da tela: voltando, mostra a lista (comandas.js)
+  caixaSecao = ''; // 26/11: o Caixa também começa no início (operacao/caixa.js)
   cofreSecao = ''; // 26/11: entrar no Cofre (inclusive pelo menu, já estando nele) começa no início (operacao/cofre.js)
   activeViewRibbonTab=activeRibbonTab;
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));

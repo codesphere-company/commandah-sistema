@@ -18,7 +18,8 @@ function renderCaixa(){
     // Pedido do dono (10/10): a abertura vem com o dinheiro contado no último fechamento.
     const lastClosed = (state.cashHistory||[]).filter(c=>c.closedAt).sort((a,b)=>new Date(b.closedAt)-new Date(a.closedAt))[0];
     const lastCounted = lastClosed && lastClosed.countedAmount!=null && Number.isFinite(Number(lastClosed.countedAmount)) ? Number(lastClosed.countedAmount) : null;
-    el.innerHTML = `<div class="consumer-workspace"><section class="cash-window"><header class="cash-title">Caixa</header><div class="cash-layout"><aside class="cash-side"><div class="cash-state">Caixa Fechado</div><div class="field"><label>Saldo inicial (dinheiro)</label><input type="number" id="openAmount" step="0.01" value="${lastCounted!==null?lastCounted.toFixed(2):'0.00'}">${lastCounted!==null?`<small class="sub">Contado no fechamento de ${reportDateTime(lastClosed.closedAt)}. Confira a gaveta.</small>`:''}</div><div class="field"><label>Observação</label><textarea id="openNote" rows="5"></textarea></div><button class="op-btn primary" id="btnOpenCash" style="width:100%"><span class="op-ico">▷</span> Abrir Caixa</button></aside><div class="cash-main"><div class="cash-id">ID do Caixa: <b>[Fechado]</b></div><h2 style="text-transform:none">Caixa de ${h(currentUser.name)}</h2><div class="cash-empty">Não há entradas ou saídas.<br>(Caixa fechado).<br>Clique em “Abrir Caixa” para iniciar as vendas.</div></div></div></section>${renderCashHistoryPanel()}</div>`;
+    el.innerHTML = cascaDoCaixa('Caixa', `<div class="hub-cartao"><div class="hub-cartao-topo"><span class="hub-pill off">Fechado</span><span class="sub">${h(currentUser.name)}</span></div><div class="field"><label for="openAmount">Saldo inicial (dinheiro)</label><input type="number" id="openAmount" class="hub-valor" step="0.01" inputmode="decimal" value="${lastCounted!==null?lastCounted.toFixed(2):'0.00'}">${lastCounted!==null?`<small class="sub">Contado no fechamento de ${reportDateTime(lastClosed.closedAt)}. Confira a gaveta.</small>`:''}</div><div class="field"><label for="openNote">Observação (opcional)</label><textarea id="openNote" rows="2"></textarea></div><button class="btn btn-primary hub-acao" id="btnOpenCash">Abrir caixa</button></div>`); // 26/11: cartão no centro, como na maquete
+    if(!document.getElementById('btnOpenCash')) return; // 26/11: com Fechamentos anteriores aberto, o cartão de abrir não está na tela
     document.getElementById('btnOpenCash').onclick = async (ev)=>{
       const v = parseFloat(document.getElementById('openAmount').value)||0;
       const session = { id:uid(), displayId:(state.cashHistory.length||0)+1, openedAt:new Date().toISOString(), openingAmount:v, openingNote:document.getElementById('openNote').value.trim(), status:'open', operatorName: currentUser.name };
@@ -39,6 +40,32 @@ function renderCaixa(){
     return;
   }
   renderCaixaAberto(el, s);
+}
+// 26/11 (maquete aprovada): telas do Caixa no padrão do app do garçom. caixaSecao: '' = início; 'movimentacao',
+// 'resumo' ou 'historico' = a tela daquela escolha, com a barra "‹ Caixa". switchView volta para o início.
+let caixaSecao = '';
+function caixaAbrir(sec){
+  caixaSecao = sec||'';
+  renderCaixa(); enhanceCashMovementGrid();
+  const el = document.getElementById('view-caixa'); if(!el) return;
+  el.scrollTop = 0;
+  const alvo = caixaSecao ? el.querySelector('.hub-trilha .cc-voltar') : el.querySelector('.cc-item');
+  if(alvo) alvo.focus();
+}
+function caixaTrilha(titulo){ return `<div class="hub-trilha"><button type="button" class="cc-voltar" onclick="caixaAbrir('')">${ICN.chevLeft}Caixa</button><h2>${h(titulo)}</h2></div>`; }
+function caixaItem(sec, icon, titulo, desc, cls, onclick){
+  return `<button type="button" class="cc-item ${cls||''}" onclick="${onclick||`caixaAbrir(${jsArg(sec)})`}"><span class="ic">${ICN[icon]||''}</span><span class="tx"><span class="t">${h(titulo)}</span><span class="d">${h(desc)}</span></span><span class="go">${ICN.chevRight}</span></button>`;
+}
+// Telas sem turno aberto (fechado, travado, avisos): o corpo e, para quem vê os totais, a escolha
+// "Fechamentos anteriores" embaixo (antes o painel ficava sempre no fim da tela).
+function caixaComHistorico(corpo){
+  const painel = renderCashHistoryPanel();
+  if(caixaSecao==='historico' && painel) return caixaTrilha('Fechamentos anteriores') + `<div class="hub-corpo">${painel}</div>`;
+  if(caixaSecao) caixaSecao = '';
+  return corpo + (painel ? `<div class="cc-lista hub-mais">${caixaItem('historico', 'history', 'Fechamentos anteriores', 'Os últimos fechamentos, com o contado e a diferença.')}</div>` : '');
+}
+function cascaDoCaixa(tituloHtml, corpo){
+  return `<div class="hub hub-caixa"><div class="cc-head"><h1 class="cash-title">${tituloHtml}</h1></div>${caixaComHistorico(corpo)}</div>`;
 }
 // Caixa por operador (13/11): venda do turno. Ligado, a venda que tem cashSessionId é do turno com esse id
 // (dois caixas abertos ao mesmo tempo não somam a venda um do outro); venda sem cashSessionId (antiga) e o
@@ -80,7 +107,31 @@ function renderCaixaAberto(el, s){
   // 06/11 (pedido do dono): o operador também não vê as linhas de venda da Movimentação — somando
   // à mão dava para chegar no esperado. Ele vê só o saldo inicial e as entradas/saídas manuais
   // (sangria e reforço) que ele mesmo lança; vendas, parciais, troco e fiado ficam para o admin.
-  el.innerHTML=`<div class="consumer-workspace"><section class="cash-window"><header class="cash-title cash-title-aberto">${porOperador?h(nomeDoCaixa(s.caixaId||caixaQueVale()))+' — '+h(s.operatorName||currentUser.name):`Caixa de ${h(s.operatorName||currentUser.name)}<span class="cash-selo">Id: ${h(caixaId)}</span>`}</header><div class="cash-open-layout"><aside class="cash-open-side"><div class="cash-state opened">Caixa Aberto</div><div class="cash-readonly-label">Saldo inicial (dinheiro):</div><div class="cash-readonly-value">${fmt(s.openingAmount)}</div><div class="cash-readonly-label" style="margin-top:20px">Observação:</div><div class="cash-open-note">${h(s.openingNote||`Aberto às ${timeFmt(s.openedAt)} por ${s.operatorName||currentUser.name}`)}</div><div class="cash-open-date"><b>Data / Hora de abertura:</b><br>${dataHoraBR(s.openedAt)}</div></aside><main class="cash-movement-area"><h2>Caixa de ${h(s.operatorName||currentUser.name)}</h2><div class="cash-section-title">Movimentação</div>${veTotaisCaixa?'<label class="cash-movement-filter"><input type="checkbox" id="cashShowReversed"> Exibir pagamentos estornados e descontos de pedidos</label>':'<p class="cash-movement-filter sub">Conferência às cegas: as vendas aparecem para o administrador e no fechamento, depois da contagem.</p>'}<div class="cash-movement-table"><table><thead><tr><th>Data / Hora</th><th>Descrição</th><th>Entrada</th><th>Saída</th><th>Forma Pagto.</th></tr></thead><tbody>${(veTotaisCaixa?movementRows:movementRows.filter(r=>r.visivelOperador)).map(r=>`<tr><td>${dataHoraBR(r.at)}</td><td>${h(r.description)}</td><td class="mono">${r.entry?fmt(r.entry):''}</td><td class="mono">${r.exit?fmt(r.exit):''}</td><td>${h(r.method)}</td></tr>`).join('')}</tbody>${veTotaisCaixa?`<tfoot><tr><td colspan="2"></td><td class="mono">${fmt((Number(s.openingAmount)||0)+totalVendido+suprimentos)}</td><td class="mono">${fmt(sangrias)}</td><td></td></tr></tfoot>`:''}</table></div></main><aside class="cash-summary"><div class="cash-section-title">Resumo</div><div class="cash-summary-line">Saldo inicial: <b class="mono">${fmt(s.openingAmount)}</b></div><div class="cash-summary-line">Entradas no caixa</div>${totalVendido+suprimentos?(veTotaisCaixa?`<div class="cash-summary-empty">Vendas recebidas: ${fmt(totalVendido)}<br>Entradas: ${fmt(suprimentos)}</div>`:'<div class="cash-summary-empty">Veja cada lançamento em Movimentação.</div>'):'<div class="cash-summary-empty">Não há registros de entrada</div>'}${totals.fiado&&veTotaisCaixa?`<div class="cash-summary-empty">Vendido no fiado (a receber, fora do caixa): ${fmt(totals.fiado)}</div>`:''}<div class="cash-summary-line">Saídas do caixa</div>${sangrias?(veTotaisCaixa?`<div class="cash-summary-empty">${[sangrias-diarias>TOLERANCIA_CENTAVO?`Saídas: ${fmt(sangrias-diarias)}`:'', diarias?`${rotuloPagFuncionario()}: ${fmt(diarias)}`:''].filter(Boolean).join('<br>')/* revisão final, item 7: só diárias não mostra "Saídas: R$ 0,00" */}</div>`:'<div class="cash-summary-empty">Veja cada lançamento em Movimentação.</div>'):'<div class="cash-summary-empty">Não há registros de saída</div>'}<div class="cash-summary-total"><div class="cash-summary-line">Saldo final</div>${veTotaisCaixa?`<div class="cash-summary-line">Dinheiro esperado na gaveta: <b class="mono">${fmt(esperadoDinheiro)}</b></div><div class="cash-summary-line">Total (todas as formas): <b class="mono">${fmt((Number(s.openingAmount)||0)+totalVendido+suprimentos-sangrias)}</b></div>`:`<div class="cash-summary-empty">Conferência às cegas: o esperado aparece no fechamento, depois que você informar o que contou.</div>`}</div></aside><footer class="cash-window-actions"><button class="op-btn" onclick="openCashMovementModal()"><span class="b-ic" aria-hidden="true">${ICN.plus}</span> Novo Lançamento</button><button class="op-btn" onclick="window.print()"><span class="b-ic" aria-hidden="true">${ICN.printer}</span> Imprimir</button><button class="op-btn" disabled>Excluir Lançamento</button><button class="op-btn primary cash-fechar" onclick="openCloseCashModal()">${porOperador?'Fechar / passar o caixa':'Fechar Caixa'}</button></footer></div></section>${renderCashHistoryPanel()}</div>`;
+  // 26/11 (maquete aprovada, "igual ao app do garçom"): em vez da janela de três colunas com tudo de uma vez,
+  // a situação no topo e as escolhas; Movimentação, Resumo e Fechamentos anteriores abrem cada um a sua tela
+  // com "‹ Caixa" (caixaSecao). Fechar e Novo lançamento abrem as janelas de sempre.
+  const tituloHtml = `${porOperador?h(nomeDoCaixa(s.caixaId||caixaQueVale()))+' — '+h(s.operatorName||currentUser.name):`Caixa de ${h(s.operatorName||currentUser.name)}<span class="cash-selo">Id: ${h(caixaId)}</span>`}`;
+  const nLanc = (veTotaisCaixa?movementRows:movementRows.filter(r=>r.visivelOperador)).length - 1;
+  const historico = renderCashHistoryPanel();
+  if(caixaSecao==='historico' && !historico) caixaSecao = '';
+  if(caixaSecao==='resumo' && !veTotaisCaixa) caixaSecao = '';
+  let corpo;
+  if(caixaSecao==='movimentacao'){
+    corpo = caixaTrilha('Movimentação') + `<div class="hub-corpo hub-movimento">${veTotaisCaixa?'<label class="cash-movement-filter"><input type="checkbox" id="cashShowReversed"> Exibir pagamentos estornados e descontos de pedidos</label>':'<p class="cash-movement-filter sub">Conferência às cegas: as vendas aparecem para o administrador e no fechamento, depois da contagem.</p>'}<div class="cash-movement-table"><table><thead><tr><th>Data / Hora</th><th>Descrição</th><th>Entrada</th><th>Saída</th><th>Forma Pagto.</th></tr></thead><tbody>${(veTotaisCaixa?movementRows:movementRows.filter(r=>r.visivelOperador)).map(r=>`<tr><td>${dataHoraBR(r.at)}</td><td>${h(r.description)}</td><td class="mono">${r.entry?fmt(r.entry):''}</td><td class="mono">${r.exit?fmt(r.exit):''}</td><td>${h(r.method)}</td></tr>`).join('')}</tbody>${veTotaisCaixa?`<tfoot><tr><td colspan="2"></td><td class="mono">${fmt((Number(s.openingAmount)||0)+totalVendido+suprimentos)}</td><td class="mono">${fmt(sangrias)}</td><td></td></tr></tfoot>`:''}</table></div><footer class="cash-window-actions"><button class="op-btn" onclick="openCashMovementModal()"><span class="b-ic" aria-hidden="true">${ICN.plus}</span> Novo Lançamento</button><button class="op-btn" onclick="window.print()"><span class="b-ic" aria-hidden="true">${ICN.printer}</span> Imprimir</button><button class="op-btn" disabled>Excluir Lançamento</button></footer></div>`;
+  } else if(caixaSecao==='resumo'){
+    corpo = caixaTrilha('Resumo por forma') + `<div class="hub-corpo hub-resumo cash-summary"><div class="cash-summary-line">Saldo inicial: <b class="mono">${fmt(s.openingAmount)}</b></div><div class="cash-summary-line">Entradas no caixa</div>${totalVendido+suprimentos?(veTotaisCaixa?`<div class="cash-summary-empty">Vendas recebidas: ${fmt(totalVendido)}<br>Entradas: ${fmt(suprimentos)}</div>`:'<div class="cash-summary-empty">Veja cada lançamento em Movimentação.</div>'):'<div class="cash-summary-empty">Não há registros de entrada</div>'}${totals.fiado&&veTotaisCaixa?`<div class="cash-summary-empty">Vendido no fiado (a receber, fora do caixa): ${fmt(totals.fiado)}</div>`:''}<div class="cash-summary-line">Saídas do caixa</div>${sangrias?(veTotaisCaixa?`<div class="cash-summary-empty">${[sangrias-diarias>TOLERANCIA_CENTAVO?`Saídas: ${fmt(sangrias-diarias)}`:'', diarias?`${rotuloPagFuncionario()}: ${fmt(diarias)}`:''].filter(Boolean).join('<br>')/* revisão final, item 7: só diárias não mostra "Saídas: R$ 0,00" */}</div>`:'<div class="cash-summary-empty">Veja cada lançamento em Movimentação.</div>'):'<div class="cash-summary-empty">Não há registros de saída</div>'}<div class="cash-summary-total"><div class="cash-summary-line">Saldo final</div>${veTotaisCaixa?`<div class="cash-summary-line">Dinheiro esperado na gaveta: <b class="mono">${fmt(esperadoDinheiro)}</b></div><div class="cash-summary-line">Total (todas as formas): <b class="mono">${fmt((Number(s.openingAmount)||0)+totalVendido+suprimentos-sangrias)}</b></div>`:`<div class="cash-summary-empty">Conferência às cegas: o esperado aparece no fechamento, depois que você informar o que contou.</div>`}</div></div>`;
+  } else if(caixaSecao==='historico'){
+    corpo = caixaTrilha('Fechamentos anteriores') + `<div class="hub-corpo">${historico}</div>`;
+  } else {
+    const topo = veTotaisCaixa
+      ? `<div><div class="lab">Dinheiro esperado na gaveta</div><div class="big mono">${fmt(esperadoDinheiro)}</div></div><div><div class="lab">Saldo inicial</div><b class="mono">${fmt(s.openingAmount)}</b></div><div><div class="lab">Vendido no turno</div><b class="mono">${fmt(totalVendido)}</b></div>`
+      : `<div><div class="lab">Saldo inicial</div><div class="big mono">${fmt(s.openingAmount)}</div></div><div class="sub">Conferência às cegas: o esperado aparece no fechamento, depois que você informar o que contou.</div>`;
+    const lanc = nLanc===1 ? '1 lançamento neste turno.' : (nLanc>0 ? nLanc+' lançamentos neste turno.' : 'Nenhum lançamento além do saldo inicial.');
+    corpo = `<div class="hub-status">${topo}<div><div class="lab">Aberto</div><span>${h(dataHoraBR(s.openedAt))}${s.operatorName?' · '+h(s.operatorName):''}</span></div></div>
+      <div class="cc-lista hub-principal">${caixaItem('', 'lock', porOperador?'Fechar / passar o caixa':'Fechar Caixa', porOperador?'Contar a gaveta e entregar para o próximo turno ou fechar a noite.':'Contar a gaveta e fechar o caixa.', 'prim cash-fechar', 'openCloseCashModal()')}</div>
+      <div class="cc-lista">${caixaItem('', 'plus', 'Novo lançamento', porOperador?'Entrada, sangria ou pagamento de funcionário.':'Entrada, saída ou diária de freelancer.', '', 'openCashMovementModal()')}${caixaItem('movimentacao', 'listCheck', 'Movimentação', lanc)}${veTotaisCaixa?caixaItem('resumo', 'cash', 'Resumo por forma', 'Entradas, saídas e o total do turno.'):''}${historico?caixaItem('historico', 'history', 'Fechamentos anteriores', 'Os últimos fechamentos, com o contado e a diferença.'):''}</div>`;
+  }
+  el.innerHTML = `<div class="hub hub-caixa"><div class="cc-head"><h1 class="cash-title cash-title-aberto">${tituloHtml}</h1></div>${corpo}</div>`;
 }
 
 /* ---- Caixa por operador (13/11): abrir com contagem, trava, liberar e fechar ----
@@ -132,20 +183,18 @@ function lerValorContado(id){
   if(!raw || !Number.isFinite(v) || v<0){ toast('Informe o dinheiro contado na gaveta.'); if(el) el.focus(); return null; }
   return arredondaCentavos(v);
 }
-function cascaDoCaixaPorOperador(titulo, corpo){
-  return `<div class="consumer-workspace"><section class="cash-window"><header class="cash-title">${h(titulo)}</header>${corpo}</section>${renderCashHistoryPanel()}</div>`;
-}
+function cascaDoCaixaPorOperador(titulo, corpo){ return cascaDoCaixa(h(titulo), corpo); } // 26/11: mesma casca do padrão
 function renderCaixaPorOperador(el){
   const cx = caixaDoAparelho();
-  const aviso = (titulo, texto) => cascaDoCaixaPorOperador(titulo, `<div class="cash-layout"><div class="cash-main"><div class="cash-empty">${h(texto)}</div></div></div>`);
+  const aviso = (titulo, texto) => cascaDoCaixaPorOperador(titulo, `<div class="hub-cartao"><p class="hub-aviso">${h(texto)}</p></div>`);
   if(!isCloudMode()){ el.innerHTML = aviso('Caixa', 'O caixa por operador precisa da conexão com o servidor.'); return; }
   if(!cx){
     // 25/11 (pedido do dono: administradores abrem e fecham os caixas): o administrador escolhe aqui mesmo qual
     // caixa este computador é, sem ir em Configurações (a marca é por navegador e some ao trocar de endereço,
     // como na mudança para commandah.com.br). O servidor já aceitava administrador em qualquer caixa.
     if(typeof isAdminUser==='function' && isAdminUser()){
-      const botoes = listaDeCaixas().map(c=>`<button type="button" class="op-btn primary cx-escolher" onclick="escolherCaixaAqui(${jsArg(c.id)})">${h(c.nome)}</button>`).join('');
-      el.innerHTML = cascaDoCaixaPorOperador('Caixa', `<div class="cash-layout"><div class="cash-main"><div class="cash-empty"><p>Este computador ainda não é um caixa. Qual caixa ele é?</p><div class="cx-escolher-lista">${botoes}</div><p class="sub">Fica guardado neste computador. Dá para trocar em Configurações › Geral › Caixa por operador.</p></div></div></div>`);
+      const botoes = listaDeCaixas().map(c=>`<button type="button" class="cx-escolher" onclick="escolherCaixaAqui(${jsArg(c.id)})">${h(c.nome)}</button>`).join('');
+      el.innerHTML = cascaDoCaixaPorOperador('Caixa', `<div class="hub-cartao"><p class="hub-aviso">Este computador ainda não é um caixa. Qual caixa ele é?</p><div class="hub-escolha">${botoes}</div><p class="sub">Fica guardado neste computador. Dá para trocar em Configurações › Geral › Caixa por operador.</p></div>`);
       return;
     }
     el.innerHTML = aviso('Caixa', 'Este computador não é um caixa. Peça a um administrador para marcar em Configurações.'); return;
@@ -158,7 +207,8 @@ function renderCaixaPorOperador(el){
   // O polling redesenha quando outro caixa muda: o que a pessoa já digitou aqui continua.
   const digitado = el.querySelector('#openAmount') && el.querySelector('#btnOpenCash') && el.dataset.caixa===cx+'|'+currentUser.id ? { v:el.querySelector('#openAmount').value, n:(el.querySelector('#openNote')||{}).value||'' } : null;
   el.dataset.caixa = cx+'|'+currentUser.id;
-  el.innerHTML = cascaDoCaixaPorOperador(nomeDoCaixa(cx), `<div class="cash-layout"><aside class="cash-side"><div class="cash-state">Caixa Fechado</div><div class="field"><label for="openAmount">Conte o dinheiro da gaveta</label><input type="number" id="openAmount" min="0" step="0.01" inputmode="decimal" placeholder="0,00" autocomplete="off" value=""><small class="sub">Conte as notas e moedas e digite o total.</small></div><div class="field"><label for="openNote">Observação</label><textarea id="openNote" rows="5"></textarea></div><button class="op-btn primary" id="btnOpenCash" style="width:100%"><span class="op-ico">▷</span> Abrir caixa</button></aside><div class="cash-main"><div class="cash-id">ID do Caixa: <b>[Fechado]</b></div><h2 style="text-transform:none">${h(nomeDoCaixa(cx))} — ${h(currentUser.name)}</h2><div class="cash-empty">Conte o dinheiro da gaveta e digite o total.<br>Se não bater com o último fechamento deste caixa, ele fica travado até um administrador ou o dono liberar.</div></div></div>`);
+  el.innerHTML = cascaDoCaixaPorOperador(nomeDoCaixa(cx), `<div class="hub-cartao"><div class="hub-cartao-topo"><span class="hub-pill off">Fechado</span><span class="sub">${h(currentUser.name)}</span></div><div class="field"><label for="openAmount">Conte o dinheiro da gaveta</label><input type="number" id="openAmount" class="hub-valor" min="0" step="0.01" inputmode="decimal" placeholder="0,00" autocomplete="off" value=""><small class="sub">Conte as notas e moedas e digite o total. Se não bater com o último fechamento deste caixa, ele fica travado até um administrador ou o dono liberar.</small></div><div class="field"><label for="openNote">Observação (opcional)</label><textarea id="openNote" rows="2"></textarea></div><button class="btn btn-primary hub-acao" id="btnOpenCash">Abrir caixa</button></div>`); // 26/11: cartão no centro
+  if(!document.getElementById('btnOpenCash')) return; // 26/11: Fechamentos anteriores aberto
   if(digitado){ document.getElementById('openAmount').value = digitado.v; document.getElementById('openNote').value = digitado.n; }
   document.getElementById('btnOpenCash').onclick = ()=>abrirTurnoDoCaixa(cx);
 }
@@ -201,7 +251,7 @@ function renderCaixaTravado(el, cx, s){
   ].join('');
   const situacao = p.recusada ? 'O dono recusou. Conte de novo.' : (p.pedidoDono ? 'Aguardando o dono…' : '');
   const quando = p.at ? ' às '+timeFmt(p.at) : '';
-  el.innerHTML = cascaDoCaixaPorOperador(nomeDoCaixa(cx), `<div class="cash-layout"><aside class="cash-side"><div class="cash-state">Caixa travado</div><div class="cash-readonly-label">${fechamento?'Fechamento':'Abertura'} do turno de ${h(s.operatorName||'—')}</div><div class="cash-readonly-label">Contou: ${h(p.contouNome||'—')}${h(quando)}</div><div style="margin-top:12px">${linhas}</div></aside><div class="cash-main"><h2 style="text-transform:none">Contagem não confere</h2><p class="sub">${fechamento?'A contagem do fechamento não bate com o esperado do turno.':'A contagem da gaveta não bate com o último fechamento deste caixa.'} O caixa não recebe pagamento até a contagem bater ou alguém liberar.</p>${situacao?`<p class="cash-close-note" id="cxSituacao"><b>${h(situacao)}</b></p>`:''}<div class="cash-close-actions" style="flex-wrap:wrap;justify-content:flex-start"><button class="op-btn primary" id="cxRecontar" onclick="abrirRecontagemDoCaixa(${jsArg(cx)})">Contar de novo</button><button class="op-btn" id="cxLiberarPin" onclick="liberarTurnoComPin(${jsArg(cx)})">Liberar com PIN de administrador</button>${p.pedidoDono?'':`<button class="op-btn" id="cxPedirDono" onclick="pedirLiberacaoAoDono(${jsArg(cx)})">Pedir liberação ao dono</button>`}</div></div></div>`);
+  el.innerHTML = cascaDoCaixaPorOperador(nomeDoCaixa(cx), `<div class="hub-cartao hub-cartao-largo"><div class="hub-cartao-topo"><span class="hub-pill alerta">Caixa travado</span><b>Contagem não confere</b></div><p class="sub">${fechamento?'A contagem do fechamento não bate com o esperado do turno.':'A contagem da gaveta não bate com o último fechamento deste caixa.'} O caixa não recebe pagamento até a contagem bater ou alguém liberar.</p><div class="hub-detalhe">${fechamento?'Fechamento':'Abertura'} do turno de ${h(s.operatorName||'—')} · Contou: ${h(p.contouNome||'—')}${h(quando)}</div><div class="hub-linhas">${linhas}</div>${situacao?`<p class="cash-close-note" id="cxSituacao"><b>${h(situacao)}</b></p>`:''}<div class="hub-acoes"><button class="btn btn-primary hub-acao" id="cxRecontar" onclick="abrirRecontagemDoCaixa(${jsArg(cx)})">Contar de novo</button><button class="btn hub-acao" id="cxLiberarPin" onclick="liberarTurnoComPin(${jsArg(cx)})">Liberar com PIN de administrador</button>${p.pedidoDono?'':`<button class="btn hub-acao" id="cxPedirDono" onclick="pedirLiberacaoAoDono(${jsArg(cx)})">Pedir liberação ao dono</button>`}</div></div>`); // 26/11: cartão, mesmos botões e ids
 }
 function abrirRecontagemDoCaixa(cx){
   const s = state.cashSession; if(!s || !s.pendencia) return;

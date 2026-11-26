@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-26-caixa-padrao-garcom', data:'26/11/2026', itens:[
+    { titulo:'Caixa organizado como o app do garçom',
+      texto:'Com o caixa fechado, a tela mostra um cartão com o campo grande para contar a gaveta e o botão Abrir caixa. Com o caixa aberto, a situação fica no topo (o administrador vê o dinheiro esperado na gaveta) e embaixo vêm as escolhas: Fechar / passar o caixa, Novo lançamento, Movimentação, Resumo por forma e Fechamentos anteriores. Toque para entrar; "‹ Caixa" volta. Nenhuma regra de abertura, contagem ou fechamento mudou.',
+      onde:'Caixa', perms:['caixa'] },
+  ]},
   { id:'2026-11-26-categorias-blocos', data:'26/11/2026', itens:[
     { titulo:'Ficha e Novo pedido começam pelas categorias, como no app do garçom',
       texto:'A Ficha e o Novo pedido da comanda abrem com as categorias em blocos grandes, cada um com quantos itens tem. Toque na categoria para ver os produtos dela; "‹ Categorias" volta. "Todos os produtos" fica no fim. Na comanda que já tem pedidos, o primeiro bloco é "Já pedidos". A busca continua procurando em todos os produtos, mesmo dentro de uma categoria. Depois de cobrar, a Ficha volta às categorias.',
