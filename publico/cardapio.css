@@ -52,3 +52,30 @@ button{font:inherit;color:inherit}
 .vazio{color:var(--ink-2);text-align:center;padding:28px 0}
 .rodape{margin-top:24px;text-align:center;color:var(--ink-2);font-size:.85rem}
 .linha-pill{margin-top:12px}
+/* Etapa 2 (26/11): carrinho, cota e acompanhamento */
+main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+h3{font-size:1rem;margin:8px 0 0}
+.btn.sec{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.linha-preco{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
+.linha-preco .preco{margin:0}
+.mais{width:40px;height:40px;border-radius:50%;border:0;background:var(--brand);color:var(--brand-ink);font-size:1.4rem;font-weight:800;line-height:1;cursor:pointer;flex:none}
+.tam-add{border:1px solid var(--brand);background:var(--brand-soft);color:var(--brand);border-radius:999px;padding:6px 12px;font-weight:700;font-size:.88rem;cursor:pointer}
+.nota{color:var(--ink-2);font-size:.85rem;margin-top:6px}
+.barra-carrinho{position:fixed;left:0;right:0;bottom:0;z-index:10;padding:10px max(16px,env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));background:linear-gradient(to top,var(--bg) 70%,transparent);display:flex;justify-content:center}
+.barra-carrinho .btn{max-width:560px}
+.carrinho{display:grid;gap:12px;margin-top:14px}
+.item-carrinho{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
+.item-carrinho small{display:block;color:var(--ink-2)}
+.qtd{display:flex;align-items:center;gap:10px;font-weight:800}
+.qtd button{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:1.1rem;cursor:pointer}
+textarea,.campo{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit}
+.campo.codigo{font-size:1.4rem;letter-spacing:.3em;text-align:center}
+.opcoes{display:grid;gap:8px}
+.opcoes label{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer}
+.linha-total{display:flex;justify-content:space-between;gap:10px;font-weight:800;font-size:1.05rem;padding:6px 2px}
+.erro{color:#b42318;font-weight:600;min-height:1.2em}
+@media (prefers-color-scheme: dark){.erro{color:#f08a7e}}
+.link{border:0;background:none;color:var(--brand);font-weight:700;padding:8px;cursor:pointer;justify-self:center}
+.passo2{display:grid;gap:12px}
+.situacao{display:grid;gap:10px;justify-items:center}

@@ -22,14 +22,17 @@ function renderCardapio(){
   el.innerHTML = `<div class="hub">
     <div class="hub-cartao hub-cartao-largo cardapio-cfg">
       <div class="hub-cartao-topo"><span class="hub-pill ${ativo?'on':'off'}">${ativo?'Ligado':'Desligado'}</span><span class="sub">QR na mesa: fotos e preços no celular do cliente</span></div>
-      <p class="sub">Nesta primeira etapa o cliente só olha o cardápio; para pedir, chama o garçom. Aparecem os produtos ativos e liberados para o QR, com a foto do cadastro. Produto pausado some ao recarregar a página.</p>
+      <p class="sub">O sócio pode pedir pelo celular e marcar na cota: confirma com um código no WhatsApp, e o pedido entra na comanda dele e vai para a cozinha, lançado pelo computador Caixa do app. Visitante ainda pede ao garçom. Aparecem os produtos ativos e liberados para o QR, com a foto do cadastro.</p>
       ${ativo?`<div class="field"><label for="cardapioLink">Endereço do cardápio</label><input id="cardapioLink" readonly value="${h(cardapioUrl(''))}"></div>`:''}
       <div class="cardapio-acoes">
         ${pode?`<button type="button" class="btn ${ativo?'':'btn-primary'}" id="cardapioLigarBtn" onclick="cardapioLigar(${ativo?'false':'true'})">${ativo?'Desligar o cardápio':'Ligar o cardápio'}</button>`:''}
         ${ativo?`<a class="btn" id="cardapioAbrir" href="${h(cardapioUrl(''))}" target="_blank" rel="noopener">Abrir como cliente</a><button type="button" class="btn" id="cardapioQrBtn" onclick="cardapioImprimirQrs()">Imprimir QR das mesas (${locais.length})</button>${pode?'<button type="button" class="btn" id="cardapioTrocarBtn" onclick="cardapioTrocarCodigo()">Trocar código</button>':''}`:''}
       </div>
       ${pode?'':'<p class="sub">Só o administrador liga ou desliga o cardápio.</p>'}
-    </div></div>`;
+    </div>
+    ${ativo?`<div class="hub-cartao hub-cartao-largo"><b>Pedidos pelo celular hoje</b><div id="cardapioPedidosHoje"><p class="sub">Carregando…</p></div></div>`:''}
+    </div>`;
+  if(ativo && typeof cardapioPedidosDeHoje==='function') cardapioPedidosDeHoje();
 }
 function cardapioLigar(on){
   if(!requirePerm('config-sistema')) return;
