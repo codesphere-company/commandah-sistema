@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-26-cardapio-digital', data:'26/11/2026', itens:[
+    { titulo:'Cardápio digital no QR da mesa',
+      texto:'Em Apps › Cardápio Digital, ligue o cardápio e imprima o QR de cada mesa. O cliente aponta a câmera e vê os produtos com foto, preço e tamanhos no celular, sem instalar nada. Nesta primeira etapa ele só olha: para pedir, chama o garçom. Produto pausado some do cardápio.',
+      onde:'Apps › Cardápio Digital', perms:['config-sistema'] },
+  ]},
   { id:'2026-11-26-troca-sem-contagem', data:'26/11/2026', itens:[
     { titulo:'Passar o caixa sem contar',
       texto:'Em Configurações › Caixa por operador, o administrador pode desligar "Contar o dinheiro na passagem de caixa". Desligado, na troca de pessoa (por exemplo, na janta) ninguém conta: quem sai escolhe Passar o caixa e quem entra só toca em Abrir caixa, continuando com o dinheiro da gaveta. O fechamento do fim da noite continua contado.',

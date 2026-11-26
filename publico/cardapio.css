@@ -1,0 +1,54 @@
+/* Cardápio digital (página pública), 26/11/2026. Celular primeiro; mesmas cores do Commandah. */
+:root{
+  --bg:#f4f6f5; --surface:#ffffff; --ink:#16211d; --ink-2:#56645f; --line:#dde5e2;
+  --brand:#0e7a5f; --brand-soft:#e2f2ec; --brand-ink:#ffffff; --amber:#9a5c00; --amber-soft:#fdf0d9; --chip:#eef3f1;
+  --f:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0f1513; --surface:#17201d; --ink:#e8efec; --ink-2:#a7b5b0; --line:#2a3632;
+  --brand:#3fbf95; --brand-soft:#173a30; --brand-ink:#06231a; --amber:#f0b45a; --amber-soft:#3a2a12; --chip:#222d29; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f);-webkit-text-size-adjust:100%}
+main{max-width:640px;margin:0 auto;min-height:100vh;padding:0 max(16px,env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+h1,h2{margin:0;letter-spacing:-.01em;text-wrap:balance}
+p{margin:0}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.carregando{padding:40px 0;text-align:center;color:var(--ink-2)}
+
+.topo{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(10px + env(safe-area-inset-top)) 0 10px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+.topo .voltar{border:0;background:none;padding:8px 6px;font-weight:700;color:var(--brand);cursor:pointer;flex:none}
+.topo h2{font-size:1.1rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.boas{display:grid;gap:18px;justify-items:center;text-align:center;padding:calc(48px + env(safe-area-inset-top)) 0 24px}
+.logo{width:96px;height:96px;object-fit:contain;border-radius:22px;background:var(--surface)}
+.logo-letra{width:96px;height:96px;border-radius:22px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-weight:800;font-size:2rem}
+.boas h1{font-size:1.6rem;font-weight:800}
+.mesa{color:var(--ink-2);font-weight:600}
+.pill{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.85rem;font-weight:700;background:var(--brand-soft);color:var(--brand)}
+.pill.fechada{background:var(--amber-soft);color:var(--amber)}
+.aviso{max-width:30ch;color:var(--ink-2)}
+.btn{display:block;width:100%;max-width:340px;border:0;border-radius:14px;padding:15px;font-weight:800;font-size:1rem;background:var(--brand);color:var(--brand-ink);cursor:pointer}
+
+.busca{display:block;width:100%;margin:14px 0 4px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit}
+.cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:14px}
+.cat{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface);padding:0;text-align:left;cursor:pointer;display:grid}
+.cat .foto{aspect-ratio:4/3;width:100%;object-fit:cover;background:var(--chip);display:block}
+.cat .sem-foto{aspect-ratio:4/3;display:grid;place-items:center;background:var(--chip);color:var(--ink-2);font-weight:800;font-size:1.6rem}
+.cat span{padding:10px 12px;font-weight:700;display:flex;justify-content:space-between;gap:8px}
+.cat small{color:var(--ink-2);font-weight:600}
+
+.lista{display:grid;gap:10px;margin-top:14px}
+.prod{display:grid;grid-template-columns:auto 1fr;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;align-items:start}
+.prod.sem{grid-template-columns:1fr}
+.prod img{width:84px;height:84px;border-radius:12px;object-fit:cover;background:var(--chip)}
+.prod b{display:block;font-size:1rem}
+.prod .desc{color:var(--ink-2);font-size:.9rem;margin-top:2px}
+.preco{font-weight:800;margin-top:6px;font-variant-numeric:tabular-nums}
+.tams{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.tams span{background:var(--chip);border-radius:999px;padding:3px 10px;font-size:.88rem;font-variant-numeric:tabular-nums}
+.vazio{color:var(--ink-2);text-align:center;padding:28px 0}
+.rodape{margin-top:24px;text-align:center;color:var(--ink-2);font-size:.85rem}
+.linha-pill{margin-top:12px}

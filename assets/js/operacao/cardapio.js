@@ -1,10 +1,73 @@
 /* ============ CARDÁPIO DIGITAL ============ */
 let cardapioSub = 'equipe';
+/* Cardápio digital, etapa 1 (26/11/2026, pedido do dono): no lugar dos cartões "em breve" de integrações, a
+   configuração do cardápio público (cardapio.html, função "cardapio"): ligar/desligar, abrir como cliente, imprimir o
+   QR de cada mesa (locais cadastrados) e trocar o código. settings.cardapio = { ligado, codigo }; o código é público
+   e aleatório, e trocar invalida os QR antigos. Desenho: docs/superpowers/specs/2026-11-26-cardapio-etapa1-design.md.
+   As funções abaixo de renderCardapio (pedidos recebidos, visão interna) ficam para a etapa 2. */
+function cardapioCfg(){ return (state.settings && state.settings.cardapio) || {}; }
+function cardapioUrl(mesaId){
+  const base = location.origin + location.pathname.replace(/[^/]*$/, '');
+  return base + 'cardapio.html?c=' + encodeURIComponent(cardapioCfg().codigo || '') + (mesaId ? '&m=' + encodeURIComponent(mesaId) : '');
+}
+function novoCodigoCardapio(){
+  const letras = 'abcdefghijkmnpqrstuvwxyz23456789', b = new Uint8Array(10);
+  crypto.getRandomValues(b);
+  return Array.from(b, x => letras[x % letras.length]).join('');
+}
 function renderCardapio(){
-  const el = document.getElementById('view-cardapio');
-  const providers=[['Canal Próprio','Sua página de pedidos e retirada, integrada ao fluxo interno.','★'],['Marketplace Principal','Recebimento de pedidos de parceiro homologado.','♥'],['Canal Regional','Pedidos e atualização de status.','99'],['Parceiro de Entregas','Catálogo, pedidos e acompanhamento.','P'],['Outros Apps','Integração técnica por API e webhooks.','API']];
-  const card=(p,featured=false)=>`<article class="digital-card ${featured?'featured':''}"><div><span class="digital-provider-mark">${p[2]}</span><h2>${p[0]}</h2><span class="digital-badge-soon">🔧 Em breve — ainda não conectado a nenhum provedor real</span><p>Configure o canal para centralizar pedidos no atendimento, quando a integração estiver disponível.</p></div><ul><li>Receber pedidos no PDV</li><li>Publicar seu cardápio</li><li>Atualizar o status</li><li>Relatórios consolidados</li>${featured?'<li>Notificações ao cliente</li><li>Retirada e entrega</li>':''}</ul><div class="digital-card-footer"><button onclick="openDigitalChannelHelp(${jsArg(p[0])})">Acessar manual</button><button class="${featured?'primary':''}" onclick="openDigitalChannelConfig(${jsArg(p[0])})">Configurar</button></div></article>`;
-  el.innerHTML=`<div class="workspace-gray"><section class="op-window"><header class="op-titlebar">Cardápio Digital — Integrações de Delivery <span class="op-controls"><button type="button" onclick="switchView('delivery')" aria-label="Fechar" title="Fechar">${ICN.x}</button></span></header><div class="op-toolbar"><button class="op-btn" onclick="openOwnDigitalMenu('equipe')"><span class="b-ic" aria-hidden="true">${ICN.inbox}</span> Pedidos recebidos</button><button class="op-btn primary" onclick="openOwnDigitalMenu('cliente')"><span class="b-ic" aria-hidden="true">${ICN.menuBook}</span> Abrir cardápio próprio</button><div class="op-toolbar-spacer"></div><button class="op-btn" onclick="renderCardapio()"><span class="b-ic" aria-hidden="true">${ICN.refresh}</span> Atualizar</button></div><main class="digital-integrations"><div class="digital-highlight">${card(providers[0],true)}${card(providers[1],true)}</div><div class="digital-more">${providers.slice(2).map(p=>card(p)).join('')}</div></main></section></div>`;
+  const el = document.getElementById('view-cardapio'); if(!el) return;
+  const c = cardapioCfg(), pode = hasPerm('config-sistema'), ativo = !!(c.ligado && c.codigo), locais = state.locais || [];
+  el.innerHTML = `<div class="hub">
+    <div class="hub-cartao hub-cartao-largo cardapio-cfg">
+      <div class="hub-cartao-topo"><span class="hub-pill ${ativo?'on':'off'}">${ativo?'Ligado':'Desligado'}</span><span class="sub">QR na mesa: fotos e preços no celular do cliente</span></div>
+      <p class="sub">Nesta primeira etapa o cliente só olha o cardápio; para pedir, chama o garçom. Aparecem os produtos ativos e liberados para o QR, com a foto do cadastro. Produto pausado some ao recarregar a página.</p>
+      ${ativo?`<div class="field"><label for="cardapioLink">Endereço do cardápio</label><input id="cardapioLink" readonly value="${h(cardapioUrl(''))}"></div>`:''}
+      <div class="cardapio-acoes">
+        ${pode?`<button type="button" class="btn ${ativo?'':'btn-primary'}" id="cardapioLigarBtn" onclick="cardapioLigar(${ativo?'false':'true'})">${ativo?'Desligar o cardápio':'Ligar o cardápio'}</button>`:''}
+        ${ativo?`<a class="btn" id="cardapioAbrir" href="${h(cardapioUrl(''))}" target="_blank" rel="noopener">Abrir como cliente</a><button type="button" class="btn" id="cardapioQrBtn" onclick="cardapioImprimirQrs()">Imprimir QR das mesas (${locais.length})</button>${pode?'<button type="button" class="btn" id="cardapioTrocarBtn" onclick="cardapioTrocarCodigo()">Trocar código</button>':''}`:''}
+      </div>
+      ${pode?'':'<p class="sub">Só o administrador liga ou desliga o cardápio.</p>'}
+    </div></div>`;
+}
+function cardapioLigar(on){
+  if(!requirePerm('config-sistema')) return;
+  const c = cardapioCfg();
+  state.settings.cardapio = { ...c, ligado: !!on, codigo: c.codigo || novoCodigoCardapio() };
+  save('settings');
+  logAction('Cardápio digital ' + (on ? 'ligado' : 'desligado'));
+  toast(on ? 'Cardápio ligado. Imprima o QR das mesas.' : 'Cardápio desligado. Os QR mostram "indisponível".');
+  renderCardapio();
+}
+async function cardapioTrocarCodigo(){
+  if(!requirePerm('config-sistema')) return;
+  const ok = await askConfirm({ title:'Trocar o código do cardápio?', message:'Os QR já impressos param de abrir o cardápio. Depois, imprima os novos.', confirmLabel:'Trocar código', cancelLabel:'Voltar' });
+  if(!ok) return;
+  state.settings.cardapio = { ...cardapioCfg(), codigo: novoCodigoCardapio() };
+  save('settings');
+  logAction('Cardápio digital: código trocado (QR antigos invalidados)');
+  toast('Código trocado. Imprima os QR novos.');
+  renderCardapio();
+}
+// Folha só de impressão: um QR geral (sem mesa, para o balcão) e um por local cadastrado, com o nome embaixo.
+function cardapioImprimirQrs(){
+  const c = cardapioCfg(); if(!c.ligado || !c.codigo){ toast('Ligue o cardápio antes de imprimir os QR.'); return; }
+  if(!window.QRCode){ toast('Não foi possível gerar os QR agora. Recarregue a página e tente de novo.', 'erro'); return; }
+  document.getElementById('cardapioQrSheet')?.remove();
+  const folha = document.createElement('div'); folha.id = 'cardapioQrSheet';
+  const nome = (state.settings && state.settings.clubName) || 'Cardápio';
+  const itens = [{ id:'', nome:'Balcão' }].concat((state.locais || []).filter(l => l && l.id).map(l => ({ id:l.id, nome:l.nome || l.id })));
+  itens.forEach(it => {
+    const card = document.createElement('div'); card.className = 'qr-cartao';
+    const qr = document.createElement('div'); qr.className = 'qr-img';
+    new QRCode(qr, { text: cardapioUrl(it.id), width: 220, height: 220, colorDark:'#000000', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    const t = document.createElement('b'); t.textContent = it.nome;
+    const s = document.createElement('small'); s.textContent = nome + ' · aponte a câmera para ver o cardápio';
+    card.append(qr, t, s); folha.appendChild(card);
+  });
+  document.body.appendChild(folha); document.body.classList.add('imprimindo-qr');
+  try { window.print(); } finally { document.body.classList.remove('imprimindo-qr'); setTimeout(() => folha.remove(), 1000); }
+  logAction('Cardápio digital: QR das mesas impressos (' + itens.length + ')');
 }
 function openOwnDigitalMenu(mode='equipe'){cardapioSub=mode;const el=document.getElementById('view-cardapio');el.innerHTML=`<div class="workspace-gray"><section class="op-window"><header class="op-titlebar">Cardápio Digital — Canal Próprio <span class="op-controls"><button type="button" onclick="renderCardapio()" aria-label="Fechar" title="Fechar">${ICN.x}</button></span></header><div class="record-tabs"><button class="${mode==='equipe'?'active':''}" onclick="openOwnDigitalMenu('equipe')">Pedidos recebidos</button><button class="${mode==='cliente'?'active':''}" onclick="openOwnDigitalMenu('cliente')">Visão do cliente (QR)</button></div><div id="cardapioBody" style="padding:18px;overflow:auto"></div></section></div>`;if(mode==='equipe')renderCardapioEquipe();else renderCardapioCliente();}
 function openDigitalChannelHelp(name){openModal('Manual — '+name,`<div class="consumer-form-frame"><h3>Etapas para ativação</h3><ol><li>Contrate ou cadastre uma conta no provedor escolhido.</li><li>Solicite as credenciais de integração.</li><li>Configure catálogo, modalidades e horários.</li><li>Valide o recebimento de um pedido de teste.</li></ol><p class="sub">A disponibilidade depende de contrato e credenciais do provedor.</p></div><div class="consumer-modal-actions"><button class="consumer-back" onclick="closeModal()">〈 Voltar</button></div>`);}
