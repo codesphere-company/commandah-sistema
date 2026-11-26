@@ -441,6 +441,13 @@ function whatsAppCollectionMessage(member){
 }
 function openWhatsAppCollection(memberId){
   const m = state.members.find(x=>x.id===memberId); if(!m){ toast('Cliente não encontrado.'); return; }
+  // 25/11 (pedido do dono): com o WhatsApp do Commandah (plano Pro), a cobrança vai por dentro do sistema
+  // (vendas/conta-whatsapp.js), com Pix copia e cola e QR. Sem o Pro, colaborador ou sem permissão: o link de sempre.
+  if(typeof cobrancaWhatsappPode==='function' && cobrancaWhatsappPode(m)){ abrirMandarCobranca(m.id, ()=>openWhatsAppCollectionLink(m.id)); return; }
+  openWhatsAppCollectionLink(memberId);
+}
+function openWhatsAppCollectionLink(memberId){
+  const m = state.members.find(x=>x.id===memberId); if(!m){ toast('Cliente não encontrado.'); return; }
   if(!m.phone){ toast('Este cliente não tem telefone cadastrado.'); return; }
   const phone = String(m.phone).replace(/\D/g,'');
   const phoneWithCountry = phone.length<=11 ? '55'+phone : phone;
