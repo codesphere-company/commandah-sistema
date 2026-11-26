@@ -127,5 +127,5 @@ button{font-family:var(--font-sans);cursor:pointer;}
 input,select,textarea{font-family:var(--font-sans);}
 
 #app{width:100%;max-width:none;margin:0;padding:0;display:none;height:100vh;height:100dvh;min-height:0;overflow:hidden;}
-#app.show{display:flex;flex-direction:column;}
+#app.show{display:flex;}
 
