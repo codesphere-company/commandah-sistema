@@ -5,7 +5,7 @@
 .gc-discard-link{display:block;margin:14px 0 0 auto;background:none;border:0;padding:10px 4px;min-height:44px;color:var(--c-danger);font-weight:600;font-size:15px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 /* UX-02: painel de senhas claro e legível a 3 m, também em tela cheia */
 .score-panel{background:var(--c-surface)}
-.score-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))!important}
+.score-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
 .tile.score-tile{padding:20px 12px;border-radius:var(--r-lg)}
 .tile.score-tile:hover{background:var(--c-surface)}
 .tile.score-tile.ready,.tile.score-tile.ready:hover{background:var(--c-success-soft);border:2px solid var(--c-success);color:var(--c-text)}
@@ -36,7 +36,7 @@
 .kitem-canceled s{text-decoration-thickness:2px}
 .sale-pending-warning{margin:0 0 10px;padding:10px 12px;border:2px solid var(--c-danger);border-radius:var(--r-md);background:var(--c-danger-soft);color:var(--c-text);font-weight:600}
 /* UX-17: janelas grandes com o mesmo arredondamento das pequenas (as regras antigas forçavam canto reto) */
-.app-config-modal,.scale-config-modal,.campaign-modal,.sms-window-modal,.integration-modal,.nfe-stock-modal,.record-modal,.cash-order-modal,.cash-close-modal,.cash-entry-modal,.finance-record-modal,.columns-record-modal,.scheduled-record-modal,.bulk-product-modal{border-radius:var(--r-lg)!important}
+.app-config-modal,.scale-config-modal,.campaign-modal,.sms-window-modal,.integration-modal,.nfe-stock-modal,.record-modal,.cash-order-modal,.cash-close-modal,.cash-entry-modal,.finance-record-modal,.columns-record-modal,.scheduled-record-modal,.bulk-product-modal{border-radius:var(--r-lg)}
 .app-config-modal>:first-child,.scale-config-modal>:first-child,.campaign-modal>:first-child,.sms-window-modal>:first-child,.integration-modal>:first-child,.nfe-stock-modal>:first-child,.record-modal>:first-child,.cash-order-modal>:first-child,.cash-close-modal>:first-child,.cash-entry-modal>:first-child,.finance-record-modal>:first-child,.columns-record-modal>:first-child,.scheduled-record-modal>:first-child,.bulk-product-modal>:first-child{border-top-left-radius:inherit;border-top-right-radius:inherit}
 /* UX-07: adicionais legíveis fora do Modo TV; observação em destaque */
 .kcard .kextras{font-size:var(--fs-md);color:var(--c-text-2)}
@@ -79,7 +79,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 #view-totem .menu-item{padding:10px 12px}
 /* UX-14: relatórios com período ativo marcado e Pesquisar como ação principal */
 .report-period-links button.active,.history-quick-links button.active{background:var(--c-primary-soft);color:var(--c-primary-text);font-weight:700;border-radius:var(--r-pill)}
-.report-search-button{background:var(--c-primary)!important;border:1px solid var(--c-primary)!important;color:var(--c-text-inverse)!important;border-radius:var(--r-md)!important;font-weight:600;min-height:40px}
+.report-search-button{background:var(--c-primary)!important;border:1px solid var(--c-primary);color:var(--c-text-inverse);border-radius:var(--r-md);font-weight:600;min-height:40px}
 .report-search-button:hover{background:var(--c-primary-hover)!important}
 /* UX-10: ícone de traço na tela de pagamento */
 .pay-method-icon svg{width:22px;height:22px;display:block}
@@ -253,7 +253,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 .pay-modal{max-width:calc(100vw - 32px)!important}
 .pay-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:28px;align-items:start;padding:16px 22px 20px}
 .pay-col{min-width:0}
-.pay-modal .pay-total-row{font-size:var(--fs-3xl)!important;font-weight:700!important}
+.pay-modal .pay-total-row{font-size:var(--fs-3xl)!important;font-weight:700}
 .pay-modal #confirmPayBtn{min-height:54px;font-size:var(--fs-lg);font-weight:700}
 @media(max-width:900px){#view-balcao.active{height:auto}.balcao-split{flex-direction:column;height:auto;margin-bottom:-16px;overflow:visible}.balcao-main{padding:14px}.balcao-grid{overflow:visible}.balcao-cart{flex:none;border-left:0;border-top:1px solid var(--c-border)}.pay-cols{grid-template-columns:1fr;gap:12px}}
 /* Telas de cadastro (Produtos, Insumos, Categorias, Colaboradores, Clientes...) sem a "janela"
@@ -285,7 +285,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
 /* Novo Pedido em duas colunas (09/10) */
 .modal.np-modal{width:min(1180px,calc(100vw - 32px))!important;max-width:none!important;height:calc(100dvh - 32px);display:flex;flex-direction:column;padding:0 0 0 0!important}
 .np-modal .modal-title{padding:14px 18px;margin:0;border-bottom:1px solid var(--c-border)}
-.np-modal>.modal-close{position:absolute!important;top:8px;right:10px;margin:0!important;float:none}
+.np-modal>.modal-close{position:absolute!important;top:8px;right:10px;margin:0;float:none}
 .np-modal{position:relative}
 .np-layout{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 360px;background:var(--c-surface-2)}
 .np-menu{min-width:0;min-height:0;display:flex;flex-direction:column;padding:14px 16px;gap:10px}
@@ -405,7 +405,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:14px;heigh
    de ser cartão dentro do cartão. Seção sem borda nem canto, separada do histórico por uma linha;
    resultados em lista corrida com linhas divisórias; "levar junto" sem a moldura tracejada. */
 .comanda-inline .cash-order-main>.np-section{background:var(--c-surface)!important;border:0!important;border-bottom:1px solid var(--c-border)!important;border-radius:0!important;margin:0!important;padding:12px 16px}
-.comanda-inline #comandaQuickSearchResults{gap:0 16px;max-height:calc(45px * 4);padding:0!important;margin-top:6px!important}
+.comanda-inline #comandaQuickSearchResults{gap:0 16px;max-height:calc(45px * 4);padding:0;margin-top:6px}
 .comanda-inline .np-prod-btn{flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:8px;min-height:45px;height:auto;padding:8px 6px!important;border:0!important;border-bottom:1px solid var(--c-border)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
 .comanda-inline .np-prod-btn:hover:not(:disabled){background:var(--c-surface-2)!important}
 .comanda-inline .np-prod-btn .np-prod-price{margin:0 0 0 auto;align-self:center}
@@ -594,7 +594,7 @@ button.cash-open-row:hover{border-color:var(--c-primary)}
 /* Auditoria de design (22/10, "está pesado"): S3 — nenhuma tabela com grade vertical (as regras
    antigas por tela ainda tinham border-right); S4 — negrito (b/strong) em 600, e 700 fica para
    dinheiro em destaque e número da cota. Nada de 800/900 (trocados por 700 nos arquivos). */
-:is(.op-grid,.finance-grid,.pdv-table,.cash-movement-table,.comp-recipe-grid) :is(th,td){border-right:0!important}
+:is(.op-grid,.finance-grid,.pdv-table,.cash-movement-table,.comp-recipe-grid) :is(th,td){border-right:0}
 :is(.cash-movement-table,.comp-recipe-grid) th{background:var(--c-surface-2)!important;border-bottom:1px solid var(--c-border)}
 b,strong{font-weight:600}
 /* S5 da auditoria de design (23/10): cor só em aviso. O estado normal fica neutro e a cor sobra
@@ -651,13 +651,13 @@ body:not(.tv-mode) #view-cozinha>.panel>h2{font-size:var(--fs-title);font-weight
 body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
 /* S7 da auditoria de design (23/10): pagamento sem caixas dentro da janela, interruptor de um
    tamanho só (40×22) e ajustes no celular (rodapé numa linha, categorias da Ficha numa faixa). */
-.pay-summary{background:transparent!important;border:0!important;border-bottom:1px solid var(--c-border)!important;border-radius:0!important;padding:0 0 12px!important}
-.pay-progress-panel{background:transparent!important;border:0!important;border-top:1px solid var(--c-border)!important;border-radius:0!important;padding:12px 0 0!important}
-.pay-col .row:has(>#applyCouponBtn,>#addPaymentBtn){display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;gap:8px;align-items:flex-end}
+.pay-summary{background:transparent;border:0;border-bottom:1px solid var(--c-border);border-radius:0;padding:0 0 12px}
+.pay-progress-panel{background:transparent;border:0;border-top:1px solid var(--c-border);border-radius:0;padding:12px 0 0}
+.pay-col .row:has(>#applyCouponBtn,>#addPaymentBtn){display:flex!important;flex-direction:row;flex-wrap:nowrap;gap:8px;align-items:flex-end}
 .pay-col .row:has(>#applyCouponBtn,>#addPaymentBtn)>.field{flex:1;min-width:0;margin-bottom:0}
 #addPaymentBtn{height:40px;flex:none;min-width:130px}
 #applyCouponBtn{height:40px;min-width:96px;flex:none}
-.comp-switch span,.cash-order-side .comp-switch span{width:40px!important;height:22px!important;flex:none}
+.comp-switch span,.cash-order-side .comp-switch span{width:40px!important;height:22px;flex:none}
 .comp-switch span:after,.cash-order-side .comp-switch span:after{width:16px;height:16px;top:3px;left:3px}
 .comp-switch input:checked+span:after,.cash-order-side .comp-switch input:checked+span:after{left:21px}
 @media(max-width:760px){
@@ -666,7 +666,7 @@ body:not(.tv-mode) #view-cozinha .kfeed{grid-template-columns:repeat(auto-fill,m
   .pay-summary .pay-total-row>span:last-child{white-space:nowrap}
   .statusbar{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;gap:14px;padding:6px 12px;scrollbar-width:none}
   .statusbar .st-metrics{flex-wrap:nowrap;gap:14px}
-  .balcao-cats{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none}
+  .balcao-cats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
   .balcao-cats>button{flex:none}
   .settings-section:has(>.brand-previews){grid-template-columns:1fr!important}
   .settings-section:has(>.brand-previews) div[style*="display:flex"]{flex-wrap:wrap}
@@ -817,7 +817,7 @@ body.tv-mode .kfechada-faixa{font-size:var(--fs-2xl)}
 /* UX lote 3 (06/11): telas de caixa fechado (Comandas e Ficha). Antes o título era "Caixa livre"
    em verde (cor de "tudo certo") e havia dois botões, um com seta de voltar que na verdade abria o
    caixa. Agora: "Caixa fechado", em cor neutra, com um botão só. */
-.free-cash h2{color:var(--c-text)!important} /* vence o !important de componentes.css */
+.free-cash h2{color:var(--c-text)} /* vence o !important de componentes.css */
 .free-cash-actions.free-cash-single{justify-content:center;margin-top:40px}
 .free-cash-actions.free-cash-single .op-btn{min-width:220px}
 /* UX lote 3 (06/11): a faixa de atalhos rolava de lado sem barra visível. Em Configurações metade
@@ -1253,7 +1253,7 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .hub-escolha button{min-height:var(--hit-sale);border:1px solid var(--c-border-control);border-radius:var(--r-md);background:var(--c-surface);color:var(--c-text);font:inherit;font-size:var(--fs-lg);font-weight:600;cursor:pointer}
 .hub-escolha button:hover{border-color:var(--c-primary)}
 .hub-escolha button.on{border-color:var(--c-primary);background:var(--c-primary-soft);color:var(--c-primary-text);box-shadow:inset 0 0 0 1px var(--c-primary)}
-.hub-acao{min-height:var(--hit-sale);font-size:var(--fs-lg)!important;border-radius:var(--r-md)!important}
+.hub-acao{min-height:var(--hit-sale);font-size:var(--fs-lg);border-radius:var(--r-md)!important}
 .hub-tabela{overflow-x:auto}
 .hub-tabela .cash-movement-table{height:auto;min-height:0;width:100%}
 .hub-contado{width:130px;padding:8px 10px;border:1px solid var(--c-border-input);border-radius:6px;background:var(--c-surface);color:var(--c-text);font:inherit}
