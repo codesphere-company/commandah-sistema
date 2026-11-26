@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-26-categorias-blocos', data:'26/11/2026', itens:[
+    { titulo:'Ficha e Novo pedido começam pelas categorias, como no app do garçom',
+      texto:'A Ficha e o Novo pedido da comanda abrem com as categorias em blocos grandes, cada um com quantos itens tem. Toque na categoria para ver os produtos dela; "‹ Categorias" volta. "Todos os produtos" fica no fim. Na comanda que já tem pedidos, o primeiro bloco é "Já pedidos". A busca continua procurando em todos os produtos, mesmo dentro de uma categoria. Depois de cobrar, a Ficha volta às categorias.',
+      onde:'Ficha e Comanda › Novo pedido' },
+  ]},
   { id:'2026-11-26-apps-central', data:'26/11/2026', itens:[
     { titulo:'Apps organizados como Configurações',
       texto:'A área Apps abre uma lista com os apps em três grupos (Outros atendimentos, Ferramentas e Módulos), uma linha explicando cada um e uma busca. Antes eram onze botões numa faixa e a área já abria a Fila de Atendimento. Dentro de um app, "‹ Apps" volta para a lista.',

@@ -293,6 +293,7 @@ function openNovoPedidoModal(saleId, avulsoNome){
       <section class="np-menu">
         <div class="np-search-row"><input id="npProductSearch" type="search" placeholder="Buscar produto pelo nome..." oninput="renderNpProductGrid(this.value)" autocomplete="off"><span class="sub" id="npResultCount"></span></div>
         <div class="np-cat-tabs" id="npCatTabs"></div>
+        <div class="cat-blocos-area" id="npBlocos"></div>
         <div id="npProductGrid" class="np-product-grid np-menu-grid"></div>
       </section>
       <aside class="np-side">
@@ -313,7 +314,7 @@ function openNovoPedidoModal(saleId, avulsoNome){
     </div>
   `, true);
   const modal = document.querySelector('#modalRoot .modal'); modal.classList.add('record-modal','np-modal');
-  npCategory = npHistoryProducts().length ? '__hist' : '';
+  npCategory = ''; // 26/11 (opção A do dono): abre sempre nos blocos de categoria; "Já pedidos" é o primeiro bloco
   renderNpCatTabs(); renderNpProductGrid(''); renderNpCart();
   setTimeout(()=>{ const q=document.getElementById('npProductSearch'); if(q && window.matchMedia && matchMedia('(pointer:fine)').matches) q.focus(); }, 50);
   document.getElementById('npRequester').onchange = (e)=>{
@@ -346,20 +347,30 @@ let npCategory = '';
 /* Pedido do dono (05/11), igual à Ficha: com 45 categorias as abas tomavam a janela e os produtos
    ficavam espremidos. Com uma aba escolhida (categoria ou "Já pedidos"), a barra mostra só ela e o
    botão de voltar para todas. */
+// 26/11 (maquete aprovada, opção A do dono): sem aba escolhida aparecem os blocos de categoria (como no app
+// do garçom), com "Já pedidos" primeiro quando a comanda já tem itens; com uma escolhida, a barra mostra
+// "‹ Categorias" e o nome. '__todos' = Todos os produtos.
+function npCategorias(){ return [...new Set(state.products.filter(p=>p.active!==false).map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR')); }
 function renderNpCatTabs(){
   const el = document.getElementById('npCatTabs'); if(!el) return;
-  const cats = [...new Set(state.products.filter(p=>p.active!==false).map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-  if(!cats.length){ el.innerHTML=''; return; }
+  const cats = npCategorias();
   const hist = npHistoryProducts().length;
   if(npCategory==='__hist' && !hist) npCategory = '';
-  if(npCategory && npCategory!=='__hist' && !cats.includes(npCategory)) npCategory = '';
+  if(npCategory && npCategory!=='__hist' && npCategory!=='__todos' && !cats.includes(npCategory)) npCategory = '';
   el.classList.toggle('np-cat-chosen', !!npCategory);
+  const blocos = document.getElementById('npBlocos');
   if(npCategory){
-    el.innerHTML = `<button class="np-cat-tab np-cat-back" onclick="npSetCategory('')"><span class="b-ic" aria-hidden="true">${ICN.chevLeft}</span> Todas as categorias</button><span class="np-cat-current">${npCategory==='__hist' ? 'Já pedidos <b>'+hist+'</b>' : h(npCategory)}</span>`;
+    const nome = npCategory==='__hist' ? 'Já pedidos <b>'+hist+'</b>' : npCategory==='__todos' ? 'Todos os produtos' : h(npCategory);
+    el.innerHTML = `<button class="np-cat-tab np-cat-back" onclick="npSetCategory('')"><span class="b-ic" aria-hidden="true">${ICN.chevLeft}</span> Categorias</button><span class="np-cat-current">${nome}</span>`;
+    if(blocos) blocos.innerHTML = '';
     return;
   }
-  el.innerHTML = (hist?`<button class="np-cat-tab np-cat-hist" onclick="npSetCategory('__hist')">Já pedidos <b>${hist}</b></button>`:'') + `<button class="np-cat-tab active" onclick="npSetCategory('')">Todas</button>` +
-    cats.map(c=>`<button class="np-cat-tab" data-category="${h(c)}" onclick="npSetCategory(this.dataset.category)">${h(c)}</button>`).join('');
+  el.innerHTML = '';
+  if(blocos){
+    const ativos = state.products.filter(p=>p.active!==false);
+    const histBloco = hist ? `<button type="button" class="cat-bloco cat-hist" onclick="npSetCategory('__hist')"><span class="cb-nome">Já pedidos</span><small>${hist===1?'1 item':hist+' itens'} desta comanda</small></button>` : '';
+    blocos.innerHTML = cats.length ? blocosCategoriasHtml(cats, c=>ativos.filter(p=>p.category===c).length, 'npSetCategory', histBloco) : '';
+  }
 }
 function npSetCategory(c){
   const antes = npCategory;
@@ -369,16 +380,22 @@ function npSetCategory(c){
   renderNpProductGrid(q ? q.value : '');
   const grid = document.getElementById('npProductGrid'); if(grid) grid.scrollTop = 0;
   const bar = document.getElementById('npCatTabs');
-  const alvo = bar && (npCategory ? bar.querySelector('.np-cat-back') : (antes && bar.querySelector('.np-cat-tab.active')));
+  const alvo = npCategory ? bar && bar.querySelector('.np-cat-back') : (antes && document.querySelector('#npBlocos .cat-bloco'));
   if(alvo) alvo.focus();
 }
 function renderNpProductGrid(q){
   const el = document.getElementById('npProductGrid'); if(!el) return;
   const query = String(q||'').toLowerCase();
-  // Buscar sempre procura no cardápio todo; sem busca, vale a aba escolhida.
+  // 26/11: sem aba e sem busca, só os blocos (#npBlocos). Buscar procura no cardápio todo; sem busca, vale a aba.
+  const blocos = !npCategory && !query.trim() && npCategorias().length>0;
+  const area = document.getElementById('npBlocos'); if(area) area.style.display = blocos ? '' : 'none';
+  el.style.display = blocos ? 'none' : '';
+  el.classList.toggle('na-categoria', !!npCategory && npCategory!=='__todos' && npCategory!=='__hist' && !query.trim());
+  const countEl = document.getElementById('npResultCount');
+  if(blocos){ el.innerHTML = ''; if(countEl) countEl.textContent = ''; return; }
   let list = npCategory==='__hist' && !query ? npHistoryProducts() : state.products.filter(p=>p.active!==false && p.name.toLowerCase().includes(query));
-  if(npCategory && npCategory!=='__hist' ) list = list.filter(p=>p.category===npCategory);
-  const countEl = document.getElementById('npResultCount'); if(countEl) countEl.textContent = list.length+' produto'+(list.length===1?'':'s');
+  if(!query && npCategory && npCategory!=='__hist' && npCategory!=='__todos') list = list.filter(p=>p.category===npCategory);
+  if(countEl) countEl.textContent = list.length+' produto'+(list.length===1?'':'s');
   el.innerHTML = list.length ? list.map(p=>{
     const av = productAvailable(p); const out = av!==Infinity && av<=0;
     const inCart = cartProductQty(npCart,p.id);

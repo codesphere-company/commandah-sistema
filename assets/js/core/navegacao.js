@@ -135,6 +135,7 @@ function openRibbonView(viewId,label){ activeRibbonAction=label||''; switchView(
 function openReportView(label){activeRibbonAction=label;switchView('relatorios');}
 function switchView(viewId){
   if(activeView&&activeView!==viewId){viewHistory.push({view:activeView,tab:activeViewRibbonTab||activeRibbonTab,action:activeRibbonAction});if(viewHistory.length>30)viewHistory.shift();}
+  if(viewId==='balcao' && activeView!=='balcao') balcaoCategory = ''; // 26/11 (opção A do dono): a Ficha abre sempre nas categorias
   activeView = viewId;
   if(viewId!=='comandas') comandaAbertaId = null; // saiu da tela: voltando, mostra a lista (comandas.js)
   cofreSecao = ''; // 26/11: entrar no Cofre (inclusive pelo menu, já estando nele) começa no início (operacao/cofre.js)
