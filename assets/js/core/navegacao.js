@@ -137,6 +137,7 @@ function switchView(viewId){
   if(activeView&&activeView!==viewId){viewHistory.push({view:activeView,tab:activeViewRibbonTab||activeRibbonTab,action:activeRibbonAction});if(viewHistory.length>30)viewHistory.shift();}
   activeView = viewId;
   if(viewId!=='comandas') comandaAbertaId = null; // saiu da tela: voltando, mostra a lista (comandas.js)
+  cofreSecao = ''; // 26/11: entrar no Cofre (inclusive pelo menu, já estando nele) começa no início (operacao/cofre.js)
   activeViewRibbonTab=activeRibbonTab;
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+activeView).classList.add('active');

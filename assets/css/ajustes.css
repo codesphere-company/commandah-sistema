@@ -1238,3 +1238,32 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 @media(max-width:1050px){.cash-open-layout{overflow:clip}.cash-window-actions{position:sticky;bottom:0;z-index:3;box-shadow:0 -6px 14px rgba(0,0,0,.10)}.cash-window-actions .op-btn.cash-fechar{flex:1 1 100%;order:-1}}
 #modalRoot .modal.pay-modal{background:var(--c-surface)!important}
 @media(max-width:1100px){.statusbar{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;gap:14px;scrollbar-width:none}.statusbar .st-metrics{flex-wrap:nowrap;gap:14px}}
+/* 26/11 — telas "no padrão do app do garçom" (maquete aprovada; Cofre primeiro, depois Caixa): início com a
+   situação no topo (.hub-status) e as escolhas em .cc-lista/.cc-item (os mesmos da central de Configurações);
+   tocar entra na ação, que abre com a barra .hub-trilha (‹ Voltar + título) e o corpo .hub-corpo. */
+.hub{max-width:1180px;margin:0 auto}
+.hub-status{display:flex;flex-wrap:wrap;align-items:center;gap:12px 32px;margin:8px 0 18px;padding:16px 20px;background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--r-md)}
+.hub-status .lab{font-size:var(--fs-sm);color:var(--c-text-3)}
+.hub-status .big{font-size:var(--fs-3xl);font-weight:700;line-height:1.15}
+.hub-status .sub,.hub-corpo .sub{color:var(--c-text-3);font-size:var(--fs-sm)}
+.hub-cont{display:inline-block;min-width:22px;margin-left:6px;padding:1px 7px;border-radius:var(--r-pill);background:var(--c-danger);color:#fff;font-size:var(--fs-xs);font-weight:700;text-align:center;vertical-align:1px}
+.hub-trilha{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:4px 0 16px}
+.hub-trilha h2{margin:0;font-size:var(--fs-title);font-weight:600}
+.hub-trilha .hub-saldo{margin-left:auto;font-size:var(--fs-sm);color:var(--c-text-2)}
+.hub-corpo{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--r-md);padding:20px}
+.hub-form{display:grid;gap:14px;max-width:440px}
+.hub-form .field{margin:0}
+.hub-rotulo{display:block;margin-bottom:6px;color:var(--c-text-2);font-size:var(--fs-sm);font-weight:600}
+.hub-valor{font-size:var(--fs-2xl)!important;font-weight:600;text-align:right;font-variant-numeric:tabular-nums;min-height:52px!important}
+.hub-escolha{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.hub-escolha button{min-height:var(--hit-sale);border:1px solid var(--c-border-control);border-radius:var(--r-md);background:var(--c-surface);color:var(--c-text);font:inherit;font-size:var(--fs-lg);font-weight:600;cursor:pointer}
+.hub-escolha button:hover{border-color:var(--c-primary)}
+.hub-escolha button.on{border-color:var(--c-primary);background:var(--c-primary-soft);color:var(--c-primary-text);box-shadow:inset 0 0 0 1px var(--c-primary)}
+.hub-acao{min-height:var(--hit-sale);font-size:var(--fs-lg)!important;border-radius:var(--r-md)!important}
+.hub-tabela{overflow-x:auto}
+.hub-tabela .cash-movement-table{height:auto;min-height:0;width:100%}
+.hub-contado{width:130px;padding:8px 10px;border:1px solid var(--c-border-input);border-radius:6px;background:var(--c-surface);color:var(--c-text);font:inherit}
+.hub-filtros{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px}
+.hub-filtros .field{margin:0;min-width:160px}
+.hub-vazio{margin:0;padding:18px 0;color:var(--c-text-3)}
+@media(max-width:600px){.hub-corpo{padding:14px}.hub-trilha .hub-saldo{margin-left:0;width:100%}}
