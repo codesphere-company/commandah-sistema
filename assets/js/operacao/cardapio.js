@@ -6,9 +6,10 @@ let cardapioSub = 'equipe';
    e aleatório, e trocar invalida os QR antigos. Desenho: docs/superpowers/specs/2026-11-26-cardapio-etapa1-design.md.
    As funções abaixo de renderCardapio (pedidos recebidos, visão interna) ficam para a etapa 2. */
 function cardapioCfg(){ return (state.settings && state.settings.cardapio) || {}; }
+// O site (Cloudflare) serve a página em /cardapio; cardapio.html redireciona para lá. O QR já usa o endereço final.
 function cardapioUrl(mesaId){
   const base = location.origin + location.pathname.replace(/[^/]*$/, '');
-  return base + 'cardapio.html?c=' + encodeURIComponent(cardapioCfg().codigo || '') + (mesaId ? '&m=' + encodeURIComponent(mesaId) : '');
+  return base + 'cardapio?c=' + encodeURIComponent(cardapioCfg().codigo || '') + (mesaId ? '&m=' + encodeURIComponent(mesaId) : '');
 }
 function novoCodigoCardapio(){
   const letras = 'abcdefghijkmnpqrstuvwxyz23456789', b = new Uint8Array(10);

@@ -67,7 +67,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(req.url);
 
   // Cardápio digital (26/11): página pública do cliente, fora do app; nunca troca pela tela do sistema.
-  if(url.origin === self.location.origin && /\/(cardapio\.html|publico\/)/.test(url.pathname)) return;
+  if(url.origin === self.location.origin && /\/(cardapio(\.html)?$|publico\/)/.test(url.pathname)) return; // /cardapio: endereço final no Cloudflare
   if(req.mode === 'navigate' && url.origin === self.location.origin){
     event.respondWith((async () => {
       const network = pageFromNetwork(req);
