@@ -349,3 +349,54 @@ body.tv-mode .kbtn-ready{width:110px!important;font-size:var(--fs-title)!importa
 :is(#app,#modalRoot) .rel-gap7{gap:7px}
 :is(#app,#modalRoot) .rel-dre-barra{display:flex;align-items:end;gap:12px}
 :is(#app,#modalRoot) .rel-devedor{color:var(--red)}
+
+/* 25/11 (padrão, lote 12): Comandas e Pagamento (vendas/comandas.js e vendas/pagamento.js). Eram estilos inline,
+   com os mesmos valores. Continuam inline: os display:none que o JS liga e desliga, a barra de progresso do
+   pagamento (o JS muda a largura), o ${style} das opções do item e a margem da janela de impressão (abre
+   fora do app, sem este CSS). */
+:is(#app,#modalRoot) .cmd-centro{text-align:center}
+:is(#app,#modalRoot) .cmd-qtd-num{min-width:28px;display:inline-block;text-align:center}
+:is(#app,#modalRoot) .cmd-qtd-linha{justify-content:center;margin-top:6px}
+:is(#app,#modalRoot) .cmd-erro{color:var(--red);margin:6px 0 0}
+:is(#app,#modalRoot) .cmd-perigo{color:var(--c-danger)}
+:is(#app,#modalRoot) .cmd-btn-largo{width:100%;margin-top:8px}
+:is(#app,#modalRoot) .cmd-copos{width:100%;justify-content:flex-end}
+:is(#app,#modalRoot) .cmd-rel{position:relative}
+:is(#app,#modalRoot) .cmd-passos{padding-left:20px;font-size:13.5px;line-height:1.8}
+:is(#app,#modalRoot) .cmd-valor{min-width:70px;text-align:right}
+:is(#app,#modalRoot) .cmd-mt4{margin-top:4px}
+:is(#app,#modalRoot) .cmd-mt6{margin-top:6px}
+:is(#app,#modalRoot) .cmd-mt8{margin-top:8px}
+:is(#app,#modalRoot) .cmd-mt10{margin-top:10px}
+:is(#app,#modalRoot) .cmd-mt12{margin-top:12px}
+:is(#app,#modalRoot) .cmd-mr6{margin-right:6px}
+:is(#app,#modalRoot) .cmd-m8-topo{margin:8px 0 0}
+:is(#app,#modalRoot) .cmd-m0{margin:0}
+:is(#app,#modalRoot) .cmd-mb12{margin:0 0 12px}
+:is(#app,#modalRoot) .cmd-painel{margin:0;border:0;flex:1;display:flex;flex-direction:column;min-height:0}
+:is(#app,#modalRoot) .cmd-menu-cima{left:0;right:auto;bottom:100%;top:auto;margin-bottom:6px;width:290px}
+:is(#app,#modalRoot) .cmd-normal{font-weight:400}
+:is(#app,#modalRoot) .cmd-quebra{flex-wrap:wrap}
+:is(#app,#modalRoot) .cmd-flex{flex:1;min-height:0}
+:is(#app,#modalRoot) .cmd-opcao{display:flex;margin:0 0 10px}
+:is(#app,#modalRoot) .cmd-detalhe{display:block;color:var(--c-text-3)}
+:is(#app,#modalRoot) .cmd-separa{border-top:1px solid var(--c-border);padding-top:10px}
+:is(#app,#modalRoot) .pag-mb8{margin:0 0 8px}
+:is(#app,#modalRoot) .pag-mb0{margin-bottom:0}
+:is(#app,#modalRoot) .pag-mt10{margin-top:10px}
+:is(#app,#modalRoot) .pag-ml8{margin-left:8px}
+:is(#app,#modalRoot) .pag-m8-topo{margin:8px 0 0}
+:is(#app,#modalRoot) .pag-normal{font-weight:400}
+:is(#app,#modalRoot) .pag-flex{flex:1}
+:is(#app,#modalRoot) .pag-rotulo{text-transform:none;font-weight:400}
+:is(#app,#modalRoot) .pag-direita{text-align:right}
+:is(#app,#modalRoot) .pag-p12{padding:12px}
+:is(#app,#modalRoot) .pag-bloco{margin-top:0;display:block}
+:is(#app,#modalRoot) .pag-nota{margin:0 0 8px;font-size:13px}
+:is(#app,#modalRoot) .pag-linha{gap:8px;margin-top:10px}
+:is(#app,#modalRoot) .pag-erro{color:var(--red);font-size:12px}
+:is(#app,#modalRoot) .pag-aviso{background:var(--cream);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px}
+:is(#app,#modalRoot) .pag-par{display:flex;justify-content:space-between;margin-top:8px}
+:is(#app,#modalRoot) .pag-fim{align-items:flex-end;margin-top:10px}
+:is(#app,#modalRoot) .pag-rachar{margin:12px 0 4px}
+:is(#app,#modalRoot) .pag-adicionar{align-self:flex-end}
