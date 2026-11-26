@@ -109,7 +109,9 @@ const MembersStore = {
     const rows = await lerCadastroPelaFuncao('members_list', { p_so_com_saldo: true });
     const seen = new Set(), changed = [];
     rows.forEach(r=>{ seen.add(r.id); const m=state.members.find(x=>x.id===r.id); if(!m) return; if(Math.abs((Number(r.debt)||0)-(Number(m.debt)||0))>TOLERANCIA_CENTAVO || JSON.stringify(r.debt_release||null)!==JSON.stringify(m.debtRelease||null)) changed.push(m.id); });
-    state.members.forEach(m=>{ if(!seen.has(m.id) && (Math.abs(Number(m.debt)||0)>TOLERANCIA_CENTAVO || m.debtRelease)) changed.push(m.id); });
+    // Egress (26/11): conta zerada com liberação antiga gravada não conta como mudança (era recarregada com o
+    // extrato inteiro a cada 30 s, em todo aparelho); liberação só importa com dívida, e aí o cliente vem na lista.
+    state.members.forEach(m=>{ if(!seen.has(m.id) && Math.abs(Number(m.debt)||0)>TOLERANCIA_CENTAVO) changed.push(m.id); });
     for(const id of changed.slice(0,20)){ try{ await this.refreshOne(id); }catch(e){} }
     return changed.length>0;
   },

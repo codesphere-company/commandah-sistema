@@ -393,6 +393,7 @@ async function pushProducts(){
    chegam também), menos o "active" que este aparelho mudou e ainda não gravou. Não roda com o cadastro
    de produto aberto nem com gravação de produtos na fila, para não atropelar edição em andamento. */
 let produtosVersao = null;
+function definirVersaoDosProdutos(v){ produtosVersao = v==null ? null : v; } // carga inicial (dados.js), egress 26/11
 function notarVersaoDosProdutos(v){
   // Só anda uma casa: se outro aparelho gravou no meio, a próxima volta do poll ainda lê o catálogo.
   if(v!=null && produtosVersao!=null && Number(v)===Number(produtosVersao)+1) produtosVersao = v;

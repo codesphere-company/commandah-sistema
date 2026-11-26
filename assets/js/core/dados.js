@@ -58,6 +58,8 @@ async function carregarDados(){
   setCashMovementsBase(state.cashMovements);
   setInsumosBase(state.insumos);
   setProdutosAtivoBase(state.products); // 08/11: mescla do "active" no save('products') (caixa-multiaparelho.js)
+  // Egress (26/11): a versão do catálogo que acabou de chegar; sem ela o poll de 30 s baixava tudo de novo.
+  if(many && many[STORE.products] && !readFailed.products && typeof definirVersaoDosProdutos==='function') definirVersaoDosProdutos(many[STORE.products].version);
   state.members = await membersP;
   state.orders = await ordersP;
   if(salesP) state.sales = await salesP;

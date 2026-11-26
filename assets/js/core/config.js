@@ -600,11 +600,14 @@ function buildSupabaseStorageApi(client, tenantId){
     },
     // t404: todas as chaves numa requisição só (no login eram ~30 idas e voltas). Chave que não
     // veio (não existe ou a RLS escondeu) fica de fora, igual ao get() que devolve null.
+    // Egress (26/11): traz também a versão da linha. Com ela o catálogo não é baixado de novo na primeira volta
+    // do poll de 30 s (atualizarCatalogoSeMudou), o que custava 1,2 MB a mais em cada abertura do sistema.
     async getMany(keys){
-      const { data, error } = await client.from('app_data').select('key, value').eq('tenant_id', tenantId).in('key', keys);
+      let { data, error } = await client.from('app_data').select('key, value, version').eq('tenant_id', tenantId).in('key', keys);
+      if(error && /version/i.test(String(error.message||''))) ({ data, error } = await client.from('app_data').select('key, value').eq('tenant_id', tenantId).in('key', keys)); // banco sem a coluna
       if(error) throw error;
       const out = {};
-      (data||[]).forEach(row=>{ out[row.key] = (row.value && row.value[APP_DATA_NULL] === true) ? { value: 'null' } : { value: JSON.stringify(row.value) }; });
+      (data||[]).forEach(row=>{ out[row.key] = (row.value && row.value[APP_DATA_NULL] === true) ? { value: 'null', version: row.version } : { value: JSON.stringify(row.value), version: row.version }; });
       return out;
     },
     async set(key, value){
