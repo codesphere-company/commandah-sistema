@@ -313,7 +313,12 @@ function memberBlockedByDebt(member){
   const debt=Number(member&&member.debt)||0;
   if(debt<=TOLERANCIA_CENTAVO) return false;
   const rel=member.debtRelease;
-  return !(rel && debt<=(Number(rel.amount)||0)+TOLERANCIA_CENTAVO);
+  if(!rel || debt>(Number(rel.amount)||0)+TOLERANCIA_CENTAVO) return true;
+  // 26/11 (dono: "o fiado ontem não bloqueou a conta"): a liberação ficava valendo para sempre. Liberada com
+  // R$ 15 em 18/10, a cliente pagou tudo, fez um fiado de R$ 8 (menor que 15) e não bloqueou. Agora qualquer
+  // fiado lançado depois da liberação bloqueia de novo, como diz a regra do OP-14.
+  const liberadaEm=Date.parse(rel.at||'')||0;
+  return (member.debtHistory||[]).some(e=>e && e.type==='debt' && !e.reversed && (Date.parse(e.at||'')||0)>liberadaEm);
 }
 // OP-14 (pedido do dono, 10/10): ao abrir comanda para sócio bloqueado, aviso com Cancelar ou
 // Pagar; pagando a dívida toda, a comanda abre e segue para o pedido. Liberar sem pagar exige a
