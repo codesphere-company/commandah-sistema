@@ -1340,3 +1340,5 @@ p.wa-fiado-auto{cursor:default}
 }
 .hub-pill.on{background:var(--c-success-soft,#E3F5EC);color:var(--c-success)}
 .cardapio-acoes a.btn{text-decoration:none}
+.cardapio-pedidos{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
+.cardapio-pedidos th,.cardapio-pedidos td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--c-border);vertical-align:top}

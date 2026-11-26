@@ -10,7 +10,9 @@ const num = (v: unknown): number | null => (typeof v === "number" && Number.isFi
 
 export type ProdutoPublico = {
   id: string; nome: string; descricao: string; categoria: string; preco: number | null;
-  foto: boolean; unidade: "un" | "kg"; tamanhos: { nome: string; preco: number }[];
+  foto: boolean; unidade: "un" | "kg"; tamanhos: { id: string; nome: string; preco: number }[];
+  // Etapa 2: dá para pedir pelo celular? (com adicionais ou por quilo: "peça ao garçom"). cozinha = sai pela cozinha.
+  pedivel: boolean; cozinha: boolean;
 };
 export type CardapioPublico = {
   nome: string; mesa: string; logo: boolean;
@@ -52,20 +54,27 @@ export function cozinhaAgora(settings: Obj, agora: Date): { aberta: boolean; tex
   return { aberta: false, texto: "Cozinha fechada agora" };
 }
 
-function tamanhos(p: Obj, complementos: Obj[]): { nome: string; preco: number }[] {
+// Produto com grupo de adicionais (em qualquer tamanho) ainda não é pedido pelo celular (etapa 2).
+function temAdicionais(p: Obj, complementos: Obj[]): boolean {
+  const existe = (g: Obj) => complementos.some((c) => c.id === g.groupId && c.recordKind === "optionGroup" && c.active !== false);
+  if (arr(p.groups).some(existe)) return true;
+  return Object.values((p.sizes || {}) as Record<string, Obj>).some((s) => arr(s && s.groups).some(existe));
+}
+
+function tamanhos(p: Obj, complementos: Obj[]): { id: string; nome: string; preco: number }[] {
   const gradeId = str(p.gradeId, 80);
   if (!gradeId) return [];
   const grade = complementos.find((c) => c.id === gradeId && c.recordKind === "grade" && c.active !== false);
   if (!grade) return [];
   const precos = (p.sizes || {}) as Record<string, Obj>;
-  const out: { nome: string; preco: number }[] = [];
+  const out: { id: string; nome: string; preco: number }[] = [];
   for (const s of arr(grade.sizes)) {
     const ps = precos[String(s.id)];
     if (!ps || ps.active === false) continue;
     if (((ps.channels || {}) as Obj).qr === false) continue;
     const preco = num(ps.price);
     if (preco == null) continue;
-    out.push({ nome: str(s.nome, 60), preco });
+    out.push({ id: str(s.id, 80), nome: str(s.nome, 60), preco });
   }
   return out;
 }
@@ -86,7 +95,9 @@ export function montarCardapio(settings: Obj, products: unknown, categorias: unk
         foto: typeof p.image === "string" && /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(p.image),
         unidade: String(p.measure || "").toLowerCase() === "kg" ? "kg" : "un",
         tamanhos: tam,
-      };
+        pedivel: String(p.measure || "").toLowerCase() !== "kg" && !temAdicionais(p, comps),
+        cozinha: !p.estacao || p.estacao === "cozinha",
+      } as ProdutoPublico;
     })
     .filter((p) => p.id && (p.preco != null || p.tamanhos.length));
   // Ordem das categorias: a do cadastro (código), depois as que só existem nos produtos.
