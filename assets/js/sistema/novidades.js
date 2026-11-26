@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-26-liberacao-fiado', data:'26/11/2026', itens:[
+    { titulo:'Fiado novo bloqueia o cliente liberado',
+      texto:'Quando o administrador libera um cliente com pendência, a liberação vale só para a dívida daquele momento. Um fiado lançado depois bloqueia de novo, mesmo que o valor seja menor que o liberado. Antes, uma liberação antiga continuava valendo depois que o cliente pagava.',
+      onde:'Comandas, Ficha e Pagamento', perms:['caixa'] },
+  ]},
   { id:'2026-11-26-caixa-padrao-garcom', data:'26/11/2026', itens:[
     { titulo:'Caixa organizado como o app do garçom',
       texto:'Com o caixa fechado, a tela mostra um cartão com o campo grande para contar a gaveta e o botão Abrir caixa. Com o caixa aberto, a situação fica no topo (o administrador vê o dinheiro esperado na gaveta) e embaixo vêm as escolhas: Fechar / passar o caixa, Novo lançamento, Movimentação, Resumo por forma e Fechamentos anteriores. Toque para entrar; "‹ Caixa" volta. Nenhuma regra de abertura, contagem ou fechamento mudou.',
