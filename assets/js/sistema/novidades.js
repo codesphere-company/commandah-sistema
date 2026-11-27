@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-27-cardapio-opcoes', data:'27/11/2026', itens:[
+    { titulo:'Cardápio do QR pergunta as opções',
+      texto:'No cardápio do celular, produto com opções (como a água com gás ou sem gás, ou os adicionais do lanche) abre a escolha antes de ir para o pedido, respeitando o mínimo, o máximo e os inclusos de cada grupo. As escolhas saem na comanda e na ficha da cozinha como no app do garçom. Só produto vendido por quilo continua "peça ao garçom".',
+      onde:'Cardápio do QR', perms:['caixa'] },
+  ]},
   { id:'2026-11-27-cardapio-pedido-cota', data:'27/11/2026', itens:[
     { titulo:'Sócio pede pelo cardápio e marca na cota',
       texto:'No cardápio do QR, o sócio monta o pedido, escolhe levar na mesa ou retirar no balcão e toca em "Marcar na minha cota". Ele confirma com um código que chega no WhatsApp, e o pedido entra na comanda dele e vai para a cozinha, lançado sozinho pelo computador Caixa do app. Quem está bloqueado por fiado não consegue pedir. Os pedidos do dia aparecem em Apps › Cardápio Digital.',

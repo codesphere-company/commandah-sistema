@@ -16,6 +16,6 @@ O sócio, na mesa do clube, pede pelo celular e o pedido cai na cozinha, sem esp
 - App: `operacao/cardapio-pedidos.js` a cada 6 s no aparelho processador (caixa por operador: `caixaDoAparelho() === settings.caixaDoApp`; desligado: qualquer aparelho com o caixa), comanda como `gcSelectMember`, itens como `cartAddLine` + `buildCustomization` (tamanho), `sendItemsToKitchen(..., 'cardapio', local)`, `printNovoPedidoTickets` (origem 'app'). Apps › Cardápio Digital lista os pedidos de hoje.
 
 ## Decisões do Claude
-- Produto com adicionais ou por quilo: "Peça ao garçom" nesta etapa.
+- Produto por quilo: "Peça ao garçom". Produto com opções (26/11, depois do teste da água com gás): o celular abre a escolha (grupos com mínimo, máximo e inclusos, como core/opcoes.js); o servidor confere de novo e calcula o preço (`conferirEscolhas`); o caixa monta com `buildCustomization` e os mesmos picks.
 - Observação vai no primeiro item (sai na ficha).
 - Bancada: t90 (fluxo completo, 33 verificações).

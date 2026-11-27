@@ -79,3 +79,6 @@ textarea,.campo{width:100%;padding:12px 14px;border-radius:12px;border:1px solid
 .link{border:0;background:none;color:var(--brand);font-weight:700;padding:8px;cursor:pointer;justify-self:center}
 .passo2{display:grid;gap:12px}
 .situacao{display:grid;gap:10px;justify-items:center}
+.grupo{display:grid;gap:8px}
+.grupo h3{margin:6px 0 0}
+.item-carrinho small+small{margin-top:2px}
