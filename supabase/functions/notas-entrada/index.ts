@@ -351,7 +351,7 @@ async function arquivoMes(q: Quem, mes: unknown) {
   const [a, m] = mes.split("-").map(Number);
   const prox = m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, "0")}`;
   const { data, error } = await admin.from("notas_entrada")
-    .select("chave, numero, serie, emitente_cnpj, emitente_nome, emissao, valor, situacao, xml, conferida_em, contabilidade_em, pagamento_em, estoque_em")
+    .select("chave, origem, numero, serie, emitente_cnpj, emitente_nome, emissao, valor, situacao, xml, conferida_em, contabilidade_em, pagamento_em, estoque_em")
     .eq("tenant_id", q.tenantId).gte("emissao", `${mes}-01T00:00:00-03:00`).lt("emissao", `${prox}-01T00:00:00-03:00`)
     .order("emissao", { ascending: true });
   if (error) throw error;

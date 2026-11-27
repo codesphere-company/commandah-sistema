@@ -20,11 +20,11 @@ let notasCompraLidaEm = 0;        // t-notas: entrar e sair da tela em seguida n
 // baixar os itens de 500 notas a cada entrada e depois de cada ação pesava no egress do Supabase Pro). `dados`
 // vem numa segunda consulta só das notas que precisam dos itens na lista (completas, dentro do início e sem
 // estoque: "itens novos: N" e "não se aplica"); o da nota aberta vem ao abrir (abrirNotaCompra).
-const NC_CAMPOS = 'chave,origem,modelo,numero,serie,emitente_cnpj,emitente_nome,emissao,valor,situacao,fora,aviso,conferida_em,contabilidade_em,pagamento_em,contabilidade_obs,estoque_em,estoque_deltas,estoque_desfeito_em,criada_em'; // t-notas tarefa 5: obs do escritório e deltas (o desfazer registra a saída)
+const NC_CAMPOS = 'chave,origem,modelo,numero,serie,emitente_cnpj,emitente_nome,emissao,valor,situacao,fora,aviso,conferida_em,contabilidade_em,pagamento_em,contabilidade_obs,estoque_em,estoque_deltas,estoque_desfeito_em,criada_em,fornecedor_id'; // t-notas tarefa 5: obs do escritório e deltas (o desfazer registra a saída); t-semnota: fornecedor_id
 const NC_LIMITE = 500;
 const NC_FORA_DO_AR = 'Não foi possível falar com o servidor das notas agora. Tente de novo em alguns segundos.';
 const NC_ETAPAS = [['conferida','Conferida'],['contabilidade','Contabilidade'],['pagamento','Pagamento'],['estoque','Estoque']];
-const NC_SECOES = { config:'Configuração', arquivo:'Arquivo do mês' };
+const NC_SECOES = { config:'Configuração', arquivo:'Arquivo do mês', semnota:'Compra sem nota' }; // t-semnota (27/11)
 const NC_MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 
 const ncSoDigitos = x => String(x==null?'':x).replace(/\D/g,'');
@@ -32,6 +32,12 @@ function ncData(iso){ if(!iso) return '—'; const d = new Date(iso); return isN
 function ncMesDe(iso){ if(!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function ncMesNome(mes){ const [a,m] = String(mes).split('-'); return (NC_MESES[Number(m)-1]||mes)+' de '+a; }
 function ncMesAtual(){ return todayStr().slice(0,7); }
+// t-semnota (27/11): chave do fornecedor nos vínculos — CNPJ/CPF da nota; sem documento (compra sem nota de
+// feirante), 'F:' + id do fornecedor. Mesma conta de public.notas_entrada_chave_forn (migration 20261128030000).
+function ncChaveForn(n){ return (n && n.emitente_cnpj) || (n && n.fornecedor_id ? 'F:'+n.fornecedor_id : ''); }
+function ncSemNota(n){ return !!n && n.origem==='sem_nota'; }
+// Nome do documento na tela, no histórico do estoque e na conta a pagar: "NF-e 1234", "NFC-e 88812", "Compra sem nota 17".
+function ncDocumento(n){ if(ncSemNota(n)) return 'Compra sem nota'+(n.numero?' '+n.numero:''); return (n && n.modelo===65 ? 'NFC-e' : 'NF-e')+(n && n.numero ? ' '+n.numero : ''); }
 
 // Etapas de uma nota. Estoque "não se aplica" quando todos os itens têm vínculo "não é estoque" (gás,
 // limpeza...): a nota só passa pelo financeiro (spec, "Gás Maringá ... — (não é estoque)").
@@ -39,7 +45,7 @@ function notasCompraSoFora(n){
   const itens = n && n.dados && Array.isArray(n.dados.itens) ? n.dados.itens : [];
   if(!itens.length) return false;
   const vin = (notasCompraDados && notasCompraDados.vinculos) || {};
-  return itens.every(it => vin[(n.emitente_cnpj||'')+'|'+it.codigo]==='fora');
+  return itens.every(it => vin[ncChaveForn(n)+'|'+it.codigo]==='fora');
 }
 function notasCompraEtapas(n){
   const f = x => x ? 'feito' : 'falta';
@@ -50,7 +56,7 @@ function notasCompraEtapas(n){
 function notasCompraItensNovos(n){
   const itens = n && n.dados && Array.isArray(n.dados.itens) ? n.dados.itens : [];
   const vin = (notasCompraDados && notasCompraDados.vinculos) || {};
-  return itens.filter(it => !vin[(n.emitente_cnpj||'')+'|'+it.codigo]).length;
+  return itens.filter(it => !vin[ncChaveForn(n)+'|'+it.codigo]).length;
 }
 // Pendente = tem etapa faltando, não é "tratada fora" (antes da data de início) e não foi cancelada.
 function notasCompraPendente(n){
@@ -113,6 +119,7 @@ function notasCompraCasca(corpo){
   const acoes = [
     isAdminUser() ? bt('ncBuscarAgora','refresh','Buscar agora','notasCompraBuscarAgora()') : '',
     notasCompraPodeImportar() ? bt('ncImportarBtn','fileIn','Importar XML',"document.getElementById('ncXmlArquivo').click()") : '',
+    notasCompraPodeImportar() ? bt('ncSemNotaBtn','plus','Compra sem nota','abrirCompraSemNota()') : '', // t-semnota (27/11)
     hasPerm('contas') ? bt('ncArquivoBtn','download','Arquivo do mês',"notasCompraAbrir('arquivo')") : '',
     isAdminUser() ? bt('ncConfigBtn','gear','Configuração','notasCompraConfig()') : ''
   ].join('');
@@ -130,13 +137,15 @@ function notasCompraAbrir(sec){
   if(alvo) alvo.focus();
   el.scrollTop = 0;
 }
-function notasCompraFiltrar(f){ notasCompraFiltro = ['pendentes','todas','canceladas'].includes(f) ? f : 'pendentes'; notasCompraDesenhar(); }
+function notasCompraFiltrar(f){ notasCompraFiltro = ['pendentes','todas','semnota','canceladas'].includes(f) ? f : 'pendentes'; notasCompraDesenhar(); }
 function notasCompraEscolherMes(m){ notasCompraMes = /^\d{4}-\d{2}$/.test(m) ? m : ''; notasCompraDesenhar(); }
 
 function notasCompraDesenhar(){
   const el = document.getElementById('view-notascompra'); if(!el || !notasCompraDados) return;
   // t-notas tarefa 5: a seção 'nota' (uma nota aberta) é desenhada por gestao/notas-compra-nota.js.
-  const corpo = notasCompraSecao==='nota' && typeof notaCompraHtml==='function' ? notaCompraHtml() : notasCompraSecao ? notasCompraSecaoHtml() : notasCompraListaHtml();
+  const corpo = notasCompraSecao==='nota' && typeof notaCompraHtml==='function' ? notaCompraHtml()
+    : notasCompraSecao==='semnota' && typeof compraSemNotaHtml==='function' ? compraSemNotaHtml() // t-semnota: gestao/notas-compra-sem-nota.js
+    : notasCompraSecao ? notasCompraSecaoHtml() : notasCompraListaHtml();
   el.innerHTML = notasCompraCasca(corpo);
 }
 
@@ -160,6 +169,7 @@ function ncLinhaHtml(n){
   const e = notasCompraEtapas(n), novos = n.situacao==='completa' && !n.fora && e.estoque==='falta' ? notasCompraItensNovos(n) : 0;
   const tags = [
     n.modelo===65 ? '<span class="nc-tag">NFC-e</span>' : '',
+    ncSemNota(n) ? '<span class="nc-tag nc-tag-semnota">Sem nota</span>' : '', // t-semnota (27/11)
     n.situacao==='cancelada' ? '<span class="nc-tag nc-tag-off">Cancelada</span>' : '',
     n.situacao==='resumo' ? '<span class="nc-tag">Aguardando XML</span>' : '',
     n.fora ? '<span class="nc-tag">Tratada fora</span>' : '',
@@ -180,10 +190,12 @@ function notasCompraListaHtml(){
   const d = notasCompraDados;
   const meses = [...new Set(d.notas.map(n=>ncMesDe(n.emissao)).filter(Boolean))].sort().reverse();
   if(notasCompraMes && !meses.includes(notasCompraMes)) meses.unshift(notasCompraMes);
-  const lista = d.notas.filter(n => (notasCompraFiltro==='pendentes' ? notasCompraPendente(n) : notasCompraFiltro==='canceladas' ? n.situacao==='cancelada' : true)
+  const lista = d.notas.filter(n => (notasCompraFiltro==='pendentes' ? notasCompraPendente(n) : notasCompraFiltro==='canceladas' ? n.situacao==='cancelada' : notasCompraFiltro==='semnota' ? ncSemNota(n) : true)
     && (!notasCompraMes || ncMesDe(n.emissao)===notasCompraMes));
-  const filtros = [['pendentes','Pendentes'],['todas','Todas'],['canceladas','Canceladas']].map(([k,t])=>`<button type="button" role="radio" aria-checked="${notasCompraFiltro===k}" class="${notasCompraFiltro===k?'on':''}" onclick="notasCompraFiltrar(${jsArg(k)})">${t}</button>`).join('');
-  const vazio = notasCompraFiltro==='pendentes' ? 'Nenhuma nota pendente. Tudo em dia.' : notasCompraFiltro==='canceladas' ? 'Nenhuma nota cancelada.' : 'Nenhuma nota de compra ainda. Use "Importar XML" para trazer a primeira.';
+  const filtros = [['pendentes','Pendentes'],['todas','Todas'],['semnota','Sem nota'],['canceladas','Canceladas']].map(([k,t])=>`<button type="button" role="radio" aria-checked="${notasCompraFiltro===k}" class="${notasCompraFiltro===k?'on':''}" onclick="notasCompraFiltrar(${jsArg(k)})">${t}</button>`).join('');
+  const vazio = notasCompraFiltro==='pendentes' ? 'Nenhuma nota pendente. Tudo em dia.' : notasCompraFiltro==='canceladas' ? 'Nenhuma nota cancelada.'
+    : notasCompraFiltro==='semnota' ? 'Nenhuma compra sem nota. Use "Compra sem nota" para lançar a de um fornecedor que não emite nota.'
+    : 'Nenhuma nota de compra ainda. Use "Importar XML" para trazer a primeira.';
   const tabela = lista.length ? `<div class="hub-tabela nc-tabela"><table class="cash-movement-table"><thead><tr><th>Fornecedor</th><th>Nº</th><th>Emissão</th><th class="nc-valor">Valor</th>${NC_ETAPAS.map(([,r])=>`<th class="nc-etapa">${r}</th>`).join('')}</tr></thead><tbody>${lista.map(ncLinhaHtml).join('')}</tbody></table></div>`
     : `<p class="hub-vazio">${vazio}</p>`;
   const limite = d.notas.length>=NC_LIMITE ? `<p class="sub">Mostrando as ${NC_LIMITE} notas mais recentes.</p>` : '';
