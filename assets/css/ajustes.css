@@ -1309,6 +1309,47 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .hub-resumo.cash-summary{padding:20px}
 .hub-resumo .cash-summary-line{font-size:var(--fs-md)}
 .hub-resumo .cash-summary-empty{font-size:var(--fs-sm)}
+/* t-notas (27/11): Notas de compra (gestao/notas-compra.js) no padrão .hub. Etapas: ✓ feito, · falta, — não se aplica.
+   Até 700 px a tabela vira cartões (fornecedor em cima, número/emissão/valor e as quatro etapas embaixo): sem rolagem lateral.
+   O título e o × são os do cabeçalho padrão das telas de gestão; aqui só os botões de ação, à direita. */
+.nc-acoes{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-bottom:4px}
+.nc-filtros{align-items:flex-end}
+.nc-filtro{flex:1 1 360px;max-width:460px;grid-template-columns:repeat(3,1fr)}
+.nc-filtro button{min-height:44px;font-size:var(--fs-md)}
+.nc-tabela .cash-movement-table td.nc-forn{white-space:normal;min-width:200px}
+.nc-tabela tr.nc-linha{cursor:pointer}
+.nc-tabela tr.nc-linha:hover td{background:var(--c-surface-2)}
+.nc-tabela tr.nc-linha:focus-visible{outline:2px solid var(--c-primary);outline-offset:-2px}
+.nc-tabela .nc-etapa{text-align:center;width:1%;white-space:nowrap}
+.nc-tabela td.nc-etapa span{font-size:var(--fs-lg);font-weight:700;line-height:1}
+.nc-tabela td.nc-feito span{color:var(--c-success)}
+.nc-tabela td.nc-falta span,.nc-tabela td.nc-nao_se_aplica span{color:var(--c-text-3)}
+.nc-valor{text-align:right}
+.nc-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.nc-tag{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:var(--r-pill);background:var(--c-surface-3);color:var(--c-text-2);font-size:var(--fs-xs);font-weight:600}
+.nc-tag-off{background:var(--c-danger-soft,#FEE4E2);color:var(--c-danger)}
+.nc-tag-novo{background:var(--c-warning-soft,#FFF4DF);color:var(--c-warning)}
+.nc-aviso{display:block;margin-top:4px;color:var(--c-warning);font-size:var(--fs-xs)}
+.nc-pill-ok{background:var(--c-success-soft);color:var(--c-success)}
+.nc-pill-off{background:var(--c-surface-3);color:var(--c-text-2)}
+.nc-pill-alerta{background:var(--c-warning-soft,#FFF4DF);color:var(--c-warning)}
+.hub-rotulo .hub-pill{height:22px;margin-left:6px;font-size:var(--fs-xs)}
+.nc-erro span,.nc-erro-txt{color:var(--c-danger)}
+.nc-config .comp-switch{margin:2px 0 6px}
+@media(max-width:700px){
+  .nc-acoes{width:100%}.nc-acoes .op-btn{flex:1 1 140px;justify-content:center}
+  .nc-filtro{flex-basis:100%;max-width:none}
+  .nc-tabela{overflow:visible}
+  .nc-tabela .cash-movement-table{border:0}
+  .nc-tabela table,.nc-tabela tbody{display:block}
+  .nc-tabela thead{display:none}
+  .nc-tabela tr.nc-linha{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px 6px;padding:12px 4px;border-bottom:1px solid var(--c-border)}
+  .nc-tabela tr.nc-linha td{display:block;border:0!important;padding:0;background:none!important;white-space:normal;min-width:0}
+  .nc-tabela td.nc-forn{grid-column:span 12}
+  .nc-tabela td[data-rotulo]{grid-column:span 4;text-align:left}
+  .nc-tabela td.nc-etapa{grid-column:span 3;width:auto;text-align:left}
+  .nc-tabela td[data-rotulo]::before{content:attr(data-rotulo);display:block;color:var(--c-text-3);font-size:var(--fs-xs);font-weight:500}
+}
 
 /* WhatsApp etapa 4 (26/11): fiado automático e fila "Não enviadas" */
 .wa-fiado-auto{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding-top:14px;border-top:1px solid var(--c-border);line-height:1.45;cursor:pointer}

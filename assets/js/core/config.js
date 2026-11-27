@@ -143,7 +143,9 @@ const RIBBON_TABS = [
           {label:'Categorias', icon:ICN.tag, view:'categorias'}, {label:'Grades de tamanho', icon:ICN.resize, perm:'complementos', action:'openGradesView'}
       ]},
       { label:'Insumos', items:[ {label:'Insumos', icon:ICN.box, view:'insumos'} ] },
-      { label:'Estoque', items:[ {label:'Alterar em Lote', icon:ICN.editlist, perm:'produtos', action:'openBulkPriceModal'}, {label:'Alterar com NFe', icon:ICN.fileIn, perm:'insumos', action:'openNfeStockWindow'} ] }
+      { label:'Estoque', items:[ {label:'Alterar em Lote', icon:ICN.editlist, perm:'produtos', action:'openBulkPriceModal'}, {label:'Alterar com NFe', icon:ICN.fileIn, perm:'insumos', action:'openNfeStockWindow'},
+          // t-notas (27/11): Notas de compra aparece aqui para quem tem insumos e no Financeiro para quem tem contas (escondida para quem não tem).
+          {label:'Notas de compra', icon:ICN.receipt, view:'notascompra', perm:'insumos', escondeSemPerm:true} ] }
   ]},
   { id:'marketing', label:'Marketing', groups:[
       { label:'Benefícios', items:[ {label:'Promoções', icon:ICN.percent, perm:'cupons', action:"openMarketingView", actionArg:'promocoes'}, {label:'Fidelidade', icon:ICN.heart, perm:'cupons', action:"openMarketingView", actionArg:'fidelidade'}, {label:'Cupons', icon:ICN.ticket, perm:'cupons', action:"openMarketingView", actionArg:'cupons'} ] },
@@ -153,7 +155,7 @@ const RIBBON_TABS = [
   { id:'financeiro', label:'Financeiro', groups:[
       { label:'Organização de Contas', items:[ {label:'Formas de Pagamento', icon:ICN.card, view:'pagamentos'}, {label:'Categoria de Contas', icon:ICN.folder, view:'contascategorias'}, {label:'Fornecedores', icon:ICN.truck, view:'fornecedores'} ] },
       { label:'Conferência', items:[ {label:'Conferência de pagamentos', icon:ICN.listCheck, perm:'conferir-pagamentos', soAdmin:true, view:'conferencia'} ] },
-      { label:'Contas a Pagar / Receber', items:[ {label:'Contas a Pagar', icon:ICN.arrowUpBox, perm:'contas', action:'openFinancialView', actionArg:'pagar'}, {label:'Contas a Receber', icon:ICN.arrowDownBox, perm:'contas', action:'openFinancialView', actionArg:'receber'} ] },
+      { label:'Contas a Pagar / Receber', items:[ {label:'Contas a Pagar', icon:ICN.arrowUpBox, perm:'contas', action:'openFinancialView', actionArg:'pagar'}, {label:'Contas a Receber', icon:ICN.arrowDownBox, perm:'contas', action:'openFinancialView', actionArg:'receber'}, {label:'Notas de compra', icon:ICN.receipt, view:'notascompra', perm:'contas', escondeSemPerm:true /* t-notas (27/11) */} ] },
       { label:'Fiado', items:[ {label:'Conta Corrente (Fiado)', icon:ICN.idcard, perm:'receber-fiado', action:'openFinancialView', actionArg:'fiado'} ] },
       { label:'Integrações', items:[ {label:'Pix Online', icon:ICN.pix, perm:'config-sistema', action:'openPixOnlineConfig'} ] }
   ]},
