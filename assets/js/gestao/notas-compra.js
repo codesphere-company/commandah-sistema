@@ -69,7 +69,7 @@ async function notasCompraCarregar(){
   (rv.data||[]).forEach(v => { vinculos[(v.emitente_cnpj||'')+'|'+v.codigo] = v.tipo; });
   // Sem emissão (resumo sem data) vai pelo dia em que chegou.
   const notas = (rn.data||[]).slice().sort((a,b)=>String(b.emissao||b.criada_em||'').localeCompare(String(a.emissao||a.criada_em||'')));
-  notasCompraDados = { notas, vinculos, config:(rc.data||[])[0] || null };
+  notasCompraDados = { notas, vinculos, config:(rc.data||[])[0] || null, quem:currentUser && currentUser.id };
   notasCompraVelha = false; notasCompraLidaEm = Date.now();
   return notasCompraDados;
 }
@@ -80,6 +80,8 @@ async function renderNotasCompra(){
   // Quem está digitando (CNPJ, data) não perde o que escreveu por causa de um renderAll de fundo.
   const foco = document.activeElement;
   if(notasCompraDados && foco && el.contains(foco) && /^(INPUT|SELECT|TEXTAREA)$/.test(foco.tagName) && foco.type!=='file') return;
+  // Trocou de usuário (bloquear e entrar com outro PIN): relê, a permissão de leitura pode ser outra.
+  if(notasCompraDados && notasCompraDados.quem !== (currentUser && currentUser.id)){ notasCompraVelha = true; notasCompraLidaEm = 0; }
   if(notasCompraDados && (!notasCompraVelha || Date.now()-notasCompraLidaEm<30000)){ notasCompraVelha = false; notasCompraDesenhar(); return; }
   if(notasCompraCarregando) return;
   notasCompraCarregando = true;
@@ -277,10 +279,15 @@ const notasCompraArquivoMes = singleFlight('notasCompraArquivoMes', async functi
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(mes||''))){ toast('Escolha o mês.'); return; }
   const r = await notasCompraChamar({ action:'arquivo_mes', mes });
   if(r.falha || !r.base64){ toast(r.falha || 'Não foi possível montar o arquivo do mês.', 'error'); return; }
-  const bin = atob(r.base64), bytes = new Uint8Array(bin.length);
-  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  // t-notas (revisão da tarefa 4): base64 quebrado ou Blob recusado vira aviso, não erro solto no console.
+  let href = '';
+  try {
+    const bin = atob(r.base64), bytes = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+    href = URL.createObjectURL(new Blob([bytes], { type:'application/zip' }));
+  } catch(e){ toast('Não foi possível montar o arquivo do mês. Tente de novo.', 'error'); return; }
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([bytes], { type:'application/zip' }));
+  a.href = href;
   a.download = r.nome || ('notas-de-compra-'+mes+'.zip');
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
