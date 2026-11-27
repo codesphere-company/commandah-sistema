@@ -29,7 +29,11 @@ const num = (x: No): number => { const v = parseFloat(txt(x)); return isFinite(v
 export function lerNotaXml(xml: string): NotaLida {
   let doc: No;
   try {
-    if (typeof xml !== 'string' || XMLValidator.validate(xml) !== true) throw new Error();
+    if (typeof xml !== 'string') throw new Error();
+    // t-notas (revisão da tarefa 1): arquivo salvo pelo Bloco de Notas/Excel vem com BOM UTF-8 no começo e o
+    // validador recusa ("<?xml" tem que ser o primeiro caractere). Tira antes de validar.
+    if (xml.charCodeAt(0) === 0xFEFF) xml = xml.slice(1);
+    if (XMLValidator.validate(xml) !== true) throw new Error();
     doc = parser.parse(xml);
   } catch { throw new Error('xml_invalido'); }
   const inf = (doc?.nfeProc?.NFe ?? doc?.NFe)?.infNFe;
