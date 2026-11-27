@@ -53,9 +53,17 @@ function cardapioAvisoAtualizar(){
   cardapioAvisoCanal = null; cardapioAvisoChave = chave;
   if(!quero) return;
   try {
-    cardapioAvisoCanal = supabaseClient.channel('cardapio-pedidos-' + storageApi.tenantId)
+    // Nome único a cada assinatura: removeChannel é assíncrono e o canal antigo fica "saindo"; com o mesmo nome o
+    // channel() devolveria esse canal morto e a troca de operador por PIN deixaria o aparelho sem aviso (revisão 27/11).
+    const canal = supabaseClient.channel('cardapio-pedidos-' + storageApi.tenantId + '-' + Date.now());
+    cardapioAvisoCanal = canal
       .on('postgres_changes', { event:'INSERT', schema:'public', table:'cardapio_pedidos', filter:'tenant_id=eq.' + storageApi.tenantId }, ()=>cardapioTickPedidos())
-      .subscribe();
+      .subscribe((st, err)=>{
+        if(st==='SUBSCRIBED') return;
+        console.warn('[cardapio] aviso', st, err || '');
+        // Erro ao entrar no canal (a biblioteca não tenta de novo): esquece a chave para a próxima volta assinar outra vez.
+        if((st==='CHANNEL_ERROR' || st==='TIMED_OUT') && cardapioAvisoCanal===canal) cardapioAvisoChave = '';
+      });
   } catch(e){ console.error('[cardapio] aviso', e); cardapioAvisoCanal = null; }
 }
 async function cardapioConcluirPedido(id, status, motivo, saleId, numero){
