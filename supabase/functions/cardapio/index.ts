@@ -152,6 +152,7 @@ async function acaoPedir(t: { tenant: string; settings: Obj }, body: Obj) {
   const { data, error } = await admin.from("cardapio_pedidos").insert({
     tenant_id: t.tenant, member_id: m.id, dependente_id: dependente, quem_nome: quem.slice(0, 120), local,
     itens: conf.itens, total: conf.total, obs: obs || null,
+    requer: 2, // 26/11: processador que lança opções (cardapio-pedidos.js, CARDAPIO_PROCESSADOR_VERSAO)
   }).select("id").single();
   if (error) throw error;
   // Dependente pedindo: o titular fica sabendo pelo WhatsApp (sem travar o pedido se não der para mandar).
