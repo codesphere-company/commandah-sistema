@@ -10,7 +10,10 @@
 // (fator = unidades de estoque por unidade da nota: 1 CX = 12 UN).
 let notaCompraAberta = null; // { chave, escolhas:{[n]:escolha}, categoriaId, jaPaga, pagoEm, venc }
 
-const NCN_TIPOS = [['insumo','Ligar a insumo'],['novo','Novo insumo'],['revenda','Revenda de produto'],['fora','Não é estoque']];
+const NCN_TIPOS = [['insumo','Ligar a insumo'],['novo','Novo insumo'],['revenda','Revenda de produto'],['produto','Produto novo no cardápio'],['fora','Não é estoque']];
+// t-semnota (27/11): "Produto novo no cardápio" cria o produto de revenda (com ficha 1:1 num insumo novo) na
+// entrada no estoque. Só quem edita o catálogo (administrador) vê a opção.
+function ncnTiposVisiveis(){ return NCN_TIPOS.filter(([k])=>k!=='produto' || podeEditarCatalogo()); }
 const NCN_ETAPA_NOME = { conferida:'Conferida', pagamento:'Pagamento', estoque:'Estoque' };
 const ncnR6 = x => Math.round((Number(x)||0)*1e6)/1e6;
 const ncnR2 = x => Math.round((Number(x)||0)*100)/100;
@@ -28,7 +31,12 @@ function ncnDia(iso){
 }
 // Dia da emissão: o do XML (fuso do emitente), senão o da coluna.
 function ncnEmissaoDia(n){ const s = String((n.dados && n.dados.emissao) || ''); return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0,10) : ncnDia(n.emissao); }
-function ncnFornecedor(n){ const cnpj = ncSoDigitos(n.emitente_cnpj); return cnpj ? (state.fornecedores||[]).find(f=>ncSoDigitos(f.documento)===cnpj) || null : null; }
+// t-semnota: compra sem nota guarda o id do fornecedor (pode não ter CNPJ/CPF); nota com XML acha pelo CNPJ.
+function ncnFornecedor(n){
+  const porId = n.fornecedor_id ? (state.fornecedores||[]).find(f=>f.id===n.fornecedor_id) : null;
+  if(porId) return porId;
+  const cnpj = ncSoDigitos(n.emitente_cnpj); return cnpj ? (state.fornecedores||[]).find(f=>ncSoDigitos(f.documento)===cnpj) || null : null;
+}
 function ncnTamanhos(p){
   const g = p && typeof gradeOf==='function' ? gradeOf(p, state.complementos) : null;
   return g ? (g.sizes||[]).filter(s=>p.sizes && p.sizes[s.id]) : [];
@@ -36,7 +44,7 @@ function ncnTamanhos(p){
 
 // Escolha lembrada pelo vínculo (fornecedor + código). Insumo ou produto apagado: escolher de novo.
 function ncnEscolhaLembrada(n, it){
-  const v = ((notasCompraDados && notasCompraDados.vinculosDet) || {})[(n.emitente_cnpj||'')+'|'+it.codigo];
+  const v = ((notasCompraDados && notasCompraDados.vinculosDet) || {})[ncChaveForn(n)+'|'+it.codigo];
   if(!v) return null;
   const fator = Number(v.fator)>0 ? Number(v.fator) : 1;
   if(v.tipo==='fora') return { tipo:'fora', fator:1 };
@@ -54,7 +62,10 @@ function ncnCategoriaLembrada(n){
     if(ult) return ult.categoriaId;
   }
   const c = (((notasCompraDados && notasCompraDados.config) || {}).categorias || {})[n.emitente_cnpj];
-  return existe(c) ? c : '';
+  if(existe(c)) return c;
+  // t-semnota (DRE): sem lembrança, a categoria do grupo "Compra de mercadorias", se houver uma só.
+  const merc = cats.filter(x=>typeof contaGrupoDre==='function' && contaGrupoDre(x)===DRE_GRUPO_MERCADORIA);
+  return merc.length===1 ? merc[0].id : '';
 }
 function ncnPreparar(chave){
   const n = ncnNota(chave); if(!n) return null;
@@ -75,9 +86,19 @@ async function ncnLerDados(chave){
     return true;
   } catch(e){ return false; }
 }
+// t-semnota: a foto do recibo (compra sem nota) não vem na lista; vem só ao abrir, uma vez.
+async function ncnLerRecibo(chave){
+  const n = ncnNota(chave); if(!n || !ncSemNota(n) || n.reciboLido) return true;
+  try {
+    const { data, error } = await supabaseClient.from('notas_entrada').select('chave,recibo').eq('chave', chave).limit(1);
+    if(error) return false;
+    n.recibo = data && data[0] ? data[0].recibo : null; n.reciboLido = true;
+    return true;
+  } catch(e){ return false; }
+}
 async function abrirNotaCompra(chave){
   if(!ncnNota(chave)){ toast('Nota não encontrada. Atualize a lista.'); return; }
-  if(!await ncnLerDados(chave)){ toast(NC_FORA_DO_AR, 'error'); return; }
+  if(!await ncnLerDados(chave) || !await ncnLerRecibo(chave)){ toast(NC_FORA_DO_AR, 'error'); return; }
   if(!ncnPreparar(chave)){ toast('Nota não encontrada. Atualize a lista.'); return; }
   notasCompraSecao = 'nota';
   notasCompraDesenhar();
@@ -101,12 +122,14 @@ function ncnCompleta(e){
   if(e.tipo==='insumo') return (state.insumos||[]).some(i=>i.id===e.insumoId);
   if(e.tipo==='novo') return !!String(e.nome||'').trim() && UNIT_OPTIONS.includes(e.unidade);
   if(e.tipo==='revenda'){ const p = (state.products||[]).find(x=>x.id===e.produtoId); if(!p) return false; const t = ncnTamanhos(p); return !t.length || t.some(s=>s.id===e.tamanhoId); }
+  if(e.tipo==='produto') return podeEditarCatalogo() && !!String(e.nome||'').trim() && Number(e.preco)>0;
   return false;
 }
 // Nome e unidade do insumo que a escolha alimenta (para a linha "→ +60 un, custo R$ 3,20/un").
 function ncnDestino(e){
   if(!ncnCompleta(e) || e.tipo==='fora') return null;
   if(e.tipo==='novo') return { nome:String(e.nome).trim(), unit:e.unidade };
+  if(e.tipo==='produto') return { nome:String(e.nome).trim(), unit:'un' };
   const id = e.tipo==='insumo' ? e.insumoId : (ncnRevendaInsumo(e)||{}).insumoId;
   const ins = (state.insumos||[]).find(i=>i.id===id);
   if(ins) return { nome:ins.name, unit:ins.unit||'un' };
@@ -118,15 +141,32 @@ function ncnTipo(nItem, tipo){
   const n = ncnNota(A.chave), it = ncnItens(n).find(x=>x.n===nItem); if(!it) return;
   const ant = A.escolhas[nItem] || {};
   A.escolhas[nItem] = { tipo, fator:tipo==='fora' ? 1 : (Number(ant.fator)>0 ? ant.fator : 1),
-    nome:ant.nome || String(it.nome||'').trim(), unidade:ant.unidade || 'un', insumoId:tipo==='insumo' ? ant.insumoId||'' : '', produtoId:ant.produtoId||'', tamanhoId:ant.tamanhoId||'' };
+    nome:ant.nome || (tipo==='produto' ? ncnNomeBonito(it.nome) : String(it.nome||'').trim()), unidade:ant.unidade || 'un', insumoId:tipo==='insumo' ? ant.insumoId||'' : '', produtoId:ant.produtoId||'', tamanhoId:ant.tamanhoId||'',
+    preco:ant.preco||'', categoria:ant.categoria||'', estacao:ant.estacao||'nenhuma' };
   notasCompraDesenhar();
 }
 function ncnCampo(nItem, campo, valor){
   const A = notaCompraAberta, e = A && A.escolhas[nItem]; if(!e) return;
   if(campo==='fator') e.fator = ncnNum(valor);
   else if(campo==='produtoId'){ e.produtoId = String(valor||''); e.tamanhoId = ''; e.insumoId = ''; e.novoId = ''; }
-  else if(['insumoId','nome','unidade','tamanhoId'].includes(campo)) e[campo] = String(valor||'');
+  else if(campo==='preco') e.preco = ncnNum(valor);
+  else if(['insumoId','nome','unidade','tamanhoId','categoria','estacao'].includes(campo)) e[campo] = String(valor||'');
   notasCompraDesenhar();
+}
+// t-semnota: nome do produto novo a partir do nome da nota ("REFRIG COCA-COLA LT 350ML" → "Refrig Coca-Cola Lt 350ml").
+function ncnNomeBonito(nome){
+  return String(nome||'').trim().toLowerCase().replace(/(^|[\s\-\/(])(\p{L})/gu, (m,a,b)=>a+b.toUpperCase()).slice(0,80);
+}
+// t-semnota: dados fiscais do produto novo pelo item da nota. Revenda com ST (CST 10/30/60/70, CSOSN 201-203/500
+// ou valor de ST) sai em 5405 / CSOSN 500 com o CEST da nota; sem ST, 5102 / CSOSN 102. Origem 1 (importação
+// direta do fornecedor) vira 2 para quem revende (estrangeira comprada no Brasil); 6 vira 7. Fica "conferir"
+// até o escritório confirmar. Sem NCM (compra sem nota) não preenche: o produto aparece "Sem código" em Produtos.
+function ncnFiscalProdutoNovo(n, it){
+  const ncm = ncSoDigitos(it.ncm);
+  if(ncm.length!==8) return null;
+  const st = !!it.st, orig = ({'1':'2','6':'7'})[String(it.origem||'')] || (/^[0-8]$/.test(String(it.origem||'')) ? String(it.origem) : '0');
+  return { ncm, cest: st ? ncSoDigitos(it.cest) : '', cfop: st ? '5405' : '5102', csosn: st ? '500' : '102', origem: orig, status:'conferir',
+    nota: `Criado pela ${ncDocumento(n)} (ICMS ${it.icms||'não informado'} do fornecedor${st?', com substituição tributária':''}). Conferir com o escritório.` };
 }
 function ncnSet(campo, valor){
   const A = notaCompraAberta; if(!A) return;
@@ -138,11 +178,11 @@ function ncnSet(campo, valor){
 function ncnOpcoes(lista, sel, vazio){ return `<option value="">${h(vazio)}</option>`+lista.map(([v,t])=>`<option value="${h(v)}" ${v===sel?'selected':''}>${h(t)}</option>`).join(''); }
 function ncnItemHtml(n, it, podeEscolher){
   const A = notaCompraAberta, e = A.escolhas[it.n], ok = ncnCompleta(e), N = Number(it.n);
-  const lembrada = !!((notasCompraDados.vinculosDet||{})[(n.emitente_cnpj||'')+'|'+it.codigo]);
+  const lembrada = !!((notasCompraDados.vinculosDet||{})[ncChaveForn(n)+'|'+it.codigo]);
   const tag = ok ? (lembrada ? '<span class="nc-tag ncn-ok">já ligado ✓</span>' : '<span class="nc-tag">escolhido</span>') : '<span class="nc-tag nc-tag-novo">novo</span>';
   let corpo = '';
   if(podeEscolher){
-    const radios = NCN_TIPOS.map(([k,t])=>`<label class="ncn-op"><input type="radio" name="ncn-tipo-${N}" value="${k}" ${e&&e.tipo===k?'checked':''} onchange="ncnTipo(${N},this.value)"> ${t}</label>`).join('');
+    const radios = ncnTiposVisiveis().map(([k,t])=>`<label class="ncn-op"><input type="radio" name="ncn-tipo-${N}" value="${k}" ${e&&e.tipo===k?'checked':''} onchange="ncnTipo(${N},this.value)"> ${t}</label>`).join('');
     let det = '';
     if(e && e.tipo!=='fora'){
       const un = h(it.unidade||'un');
@@ -153,6 +193,15 @@ function ncnItemHtml(n, it, podeEscolher){
       } else if(e.tipo==='novo'){
         det = `<div class="field"><label for="ncnNome-${N}">Nome do insumo</label><input id="ncnNome-${N}" maxlength="80" value="${h(e.nome||'')}" onchange="ncnCampo(${N},'nome',this.value)"></div>
           <div class="field ncn-un"><label for="ncnUn-${N}">Unidade</label><select id="ncnUn-${N}" onchange="ncnCampo(${N},'unidade',this.value)">${UNIT_OPTIONS.map(u=>`<option ${u===e.unidade?'selected':''}>${u}</option>`).join('')}</select></div>${fator}`;
+      } else if(e.tipo==='produto'){
+        const cats = (state.categorias||[]).map(c=>[c.nome, c.nome]);
+        const ests = (state.estacoes||[]).map(x=>[x.chave, x.nome]).concat([['nenhuma','Não exige preparo']]);
+        const fis = ncnFiscalProdutoNovo(n, it);
+        det = `<div class="field"><label for="ncnPNome-${N}">Nome no cardápio</label><input id="ncnPNome-${N}" maxlength="80" value="${h(e.nome||'')}" onchange="ncnCampo(${N},'nome',this.value)"></div>
+          <div class="field ncn-un"><label for="ncnPPreco-${N}">Preço de venda</label><input id="ncnPPreco-${N}" inputmode="decimal" value="${e.preco?h(String(e.preco).replace('.',',')):''}" placeholder="0,00" onchange="ncnCampo(${N},'preco',this.value)"></div>
+          <div class="field"><label for="ncnPCat-${N}">Categoria</label><select id="ncnPCat-${N}" onchange="ncnCampo(${N},'categoria',this.value)">${ncnOpcoes(cats, e.categoria, 'Sem categoria')}</select></div>
+          <div class="field"><label for="ncnPEst-${N}">Preparo</label><select id="ncnPEst-${N}" onchange="ncnCampo(${N},'estacao',this.value)">${ests.map(([v,t])=>`<option value="${h(v)}" ${v===e.estacao?'selected':''}>${h(t)}</option>`).join('')}</select></div>${fator}
+          <p class="sub ncn-fiscal">${fis ? `NFC-e: NCM ${h(fiscalFmtNcm(fis.ncm))}${fis.cest?' · CEST '+h(fiscalFmtCest(fis.cest)):''} · CFOP ${fis.cfop} · CSOSN ${fis.csosn}, marcado "conferir" até o escritório confirmar.` : 'Sem dados fiscais na compra: preencha NCM, CFOP e CSOSN em Produtos antes de vender com NFC-e.'}</p>`;
       } else {
         const prods = (state.products||[]).filter(p=>!(typeof productKind==='function' && productKind(p)==='combo')).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR')).map(p=>[p.id, p.name]);
         const p = (state.products||[]).find(x=>x.id===e.produtoId), tams = ncnTamanhos(p);
@@ -167,7 +216,7 @@ function ncnItemHtml(n, it, podeEscolher){
   if(e && e.tipo==='fora' && ok) res = 'Não é estoque (só conta a pagar).';
   else if(d){
     const q = ncnR6(Number(it.qtd)*Number(e.fator)), u = h(d.unit);
-    res = `→ ${h(d.nome)}${e.tipo==='revenda'?' (revenda)':''} · 1 ${h(it.unidade||'')} = ${ncnQtd(e.fator)} ${u} → +${ncnQtd(q)} ${u}${q>0?`, custo ${fmt((Number(it.custoTotal)||0)/q)}/${u}`:''}`;
+    res = `→ ${h(d.nome)}${e.tipo==='revenda'?' (revenda)':e.tipo==='produto'?' (produto novo, '+fmt(e.preco)+')':''} · 1 ${h(it.unidade||'')} = ${ncnQtd(e.fator)} ${u} → +${ncnQtd(q)} ${u}${q>0?`, custo ${fmt((Number(it.custoTotal)||0)/q)}/${u}`:''}`;
   }
   return `<div class="ncn-item ${ok?'':'ncn-sem'}" data-item="${N}"><div class="ncn-item-cab"><b>${h(it.nome||'Item '+N)}</b><span class="sub">${ncnQtd(it.qtd)} ${h(it.unidade||'')} · ${fmt(it.custoTotal)}</span>${tag}</div>
     ${corpo}${res?`<div class="ncn-res">${res}</div>`:''}</div>`;
@@ -205,12 +254,16 @@ function notaCompraHtml(){
     ? `<p class="sub ncn-escritorio">Escritório conferiu em ${h(ncData(n.contabilidade_em))}${n.contabilidade_obs?': '+h(n.contabilidade_obs):''}.</p>`
     : `<div class="ncn-escritorio"><div class="field"><label for="ncnObs">Observação do escritório</label><input id="ncnObs" maxlength="500" autocomplete="off"></div>${bt('ncnEscritorio','Escritório conferiu',`notaCompraEscritorio(${J},document.getElementById('ncnObs').value)`)}</div>`;
   const desfazer = n.estoque_em && podeIns ? `<div class="ncn-desfazer">${bt('ncnDesfazer','Desfazer entrada no estoque',`notaCompraDesfazer(${J})`,'btn btn-danger')}</div>` : '';
-  return `<div class="hub-trilha">${voltar}<h2>${n.modelo===65?'NFC-e':'NF-e'} ${h(n.numero||'')}</h2></div>
+  // t-semnota: compra sem nota mostra a foto do recibo e, antes de qualquer etapa, Corrigir e Excluir.
+  const nenhumaEtapa = !n.conferida_em && !n.pagamento_em && !n.estoque_em && !n.contabilidade_em;
+  const semNota = ncSemNota(n) ? `<section class="ncn-semnota"><h3>Recibo</h3>${n.recibo ? `<button type="button" class="ncn-recibo-bt" aria-label="Aumentar ou diminuir a foto do recibo" onclick="this.classList.toggle('grande')"><img class="ncn-recibo" src="${h(n.recibo)}" alt="Foto do recibo da compra"></button>` : '<p class="sub">Sem foto do recibo.</p>'}
+      ${nenhumaEtapa && (podeIns||podeContas) ? `<div class="ncn-acoes">${bt('ncnCorrigir','Corrigir compra',`abrirCompraSemNota(${J})`)}${bt('ncnExcluir','Excluir compra',`compraSemNotaExcluir(${J})`,'btn btn-danger')}</div>` : (ncSemNota(n) && !nenhumaEtapa ? '<p class="sub">Para corrigir depois do Confirmar, desfaça a entrada no estoque e exclua as contas desta compra.</p>' : '')}</section>` : '';
+  return `<div class="hub-trilha">${voltar}<h2>${h(ncDocumento(n))}</h2></div>
     <div class="hub-corpo ncn" data-nota="${h(n.chave)}">
       <div class="ncn-cab"><div><b class="ncn-forn">${h(forn)}</b><span class="sub">${n.emitente_cnpj?'CNPJ '+h(n.emitente_cnpj)+' · ':''}Emissão ${h(ncData(n.emissao))} · Valor <b class="mono">${n.valor==null?'—':fmt(n.valor)}</b></span></div><div class="ncn-etapas">${pills}</div></div>
       ${aviso?`<p class="ncn-aviso">${h(aviso)}</p>`:''}${n.aviso?`<p class="ncn-aviso">${h(n.aviso)}</p>`:''}
       <section><h3>Itens</h3><div class="ncn-itens">${itens.map(it=>ncnItemHtml(n, it, acao && podeIns && !n.estoque_em)).join('') || '<p class="hub-vazio">Sem itens.</p>'}</div></section>
-      ${acao && podeContas ? ncnPagamentoHtml(n) : ''}${acoes}${escritorio}${desfazer}</div>`;
+      ${semNota}${acao && podeContas ? ncnPagamentoHtml(n) : ''}${acoes}${escritorio}${desfazer}</div>`;
 }
 
 // ---------- Etapas ----------
@@ -244,7 +297,8 @@ async function ncnPagamento(n){
   } catch(e){ return { erro:'Não foi possível conferir o pagamento desta nota agora. Confira a conexão e tente de novo.' }; }
   let forn = ncnFornecedor(n);
   if(!forn){
-    forn = { id:uid(), nome:em.fantasia || em.nome || n.emitente_nome || ('CNPJ '+cnpj), razaoSocial:em.nome || n.emitente_nome || '', documento:cnpj, telefone:em.fone || '', email:'', contato:'' };
+    // t-semnota: compra sem nota lançada por quem não grava fornecedores já tem o id (vínculos lembram por ele).
+    forn = { id:n.fornecedor_id || uid(), nome:em.fantasia || em.nome || n.emitente_nome || ('CNPJ '+cnpj), razaoSocial:em.nome || n.emitente_nome || '', documento:cnpj, telefone:em.fone || '', email:'', contato:'' };
     state.fornecedores.push(forn);
     if(!await save('fornecedores')){ state.fornecedores = state.fornecedores.filter(f=>f!==forn); return { erro:'Não foi possível gravar o fornecedor. Confira a conexão e tente de novo.' }; }
   }
@@ -253,7 +307,7 @@ async function ncnPagamento(n){
   dups.forEach((x, i)=>{
     const dup = String(x.numero || i+1), valor = ncnR2(x.valor);
     if((state.contas||[]).some(c=>c.notaChave===n.chave && String(c.notaDup)===dup)) return;
-    criadas.push({ id:uid(), tipo:'pagar', descricao:`NF-e ${n.numero||''}${dups.length>1?` parcela ${i+1}/${dups.length}`:''} — ${forn.nome}`, valor, vencimento:x.vencimento,
+    criadas.push({ id:uid(), tipo:'pagar', descricao:`${ncDocumento(n)}${dups.length>1?` parcela ${i+1}/${dups.length}`:''} — ${forn.nome}`, valor, vencimento:x.vencimento,
       categoriaId:A.categoriaId, fornecedorId:forn.id, lancamento:todayStr(), pago:A.jaPaga, dataPagamento:A.jaPaga ? A.pagoEm : '', desconto:0, juros:0,
       valorPago:A.jaPaga ? valor : 0, frequencia:'Mensal', repetitionIndex:1, repetitionCount:1, createdAt:agora, notaChave:n.chave, notaDup:dup });
   });
@@ -291,13 +345,26 @@ async function ncnEstoque(n){
   const A = notaCompraAberta, itens = ncnItens(n);
   const sem = itens.filter(it=>!ncnCompleta(A.escolhas[it.n])).length;
   if(sem) return { erro:`Escolha o que fazer com ${sem} ${sem===1?'item novo':'itens novos'}.` };
-  const novos = {}, deltas = {}, custos = {}, vinculos = [], fichas = [];
+  const novos = {}, deltas = {}, custos = {}, vinculos = [], fichas = [], produtosNovos = [];
+  if(itens.some(it=>A.escolhas[it.n].tipo==='produto') && !podeEditarCatalogo()) return { erro:'Só o administrador cria produto novo no cardápio pela nota.' };
   for(const it of itens){
     const e = A.escolhas[it.n];
     if(e.tipo==='fora'){ vinculos.push({ codigo:it.codigo, tipo:'fora', fator:1 }); continue; }
     let id;
     if(e.tipo==='insumo') id = e.insumoId;
     else if(e.tipo==='novo'){ id = e.novoId || (e.novoId = uid()); novos[id] = { id, name:String(e.nome).trim(), unit:e.unidade }; }
+    else if(e.tipo==='produto'){
+      // t-semnota: produto novo de revenda = insumo novo (mesmo nome, em unidades) + produto com ficha 1:1.
+      // Os ids ficam na escolha: nova tentativa depois de erro usa os mesmos (não cria dois).
+      id = e.novoId || (e.novoId = uid());
+      const pid = e.produtoNovoId || (e.produtoNovoId = uid());
+      if(!(state.insumos||[]).some(i=>i.id===id)) novos[id] = { id, name:String(e.nome).trim(), unit:'un' };
+      produtosNovos.push({ e, it, id, pid });
+      vinculos.push({ codigo:it.codigo, tipo:'revenda', insumo_id:id, produto_id:pid, tamanho_id:null, fator:Number(e.fator) });
+      const q = ncnR6(Number(it.qtd)*Number(e.fator));
+      if(q>0){ deltas[id] = ncnR6((deltas[id]||0)+q); custos[id] = (custos[id]||0)+(Number(it.custoTotal)||0); }
+      continue;
+    }
     else {
       const r = ncnRevendaInsumo(e); id = r.insumoId; e.insumoId = id;
       if(r.cria) novos[id] = { id, name:r.nome, unit:'un' };
@@ -324,10 +391,26 @@ async function ncnEstoque(n){
   if(r.error) return { erro:ncnMsgEstoque(r.error) };
   if(r.data && r.data.ja) return {};
   ncnTrocarInsumos(r.data && r.data.insumos, antes);
-  ncnMovimentos(n, deltas, 'entrada', 'NF-e '+(n.numero||''));
+  ncnMovimentos(n, deltas, 'entrada', ncDocumento(n));
   save('stockMovements');
   // Depois da entrada, a escolha "novo" vira "ligar a insumo" (desfazer e confirmar de novo não cria outro).
   itens.forEach(it=>{ const e = A.escolhas[it.n]; if(e && e.tipo==='novo' && novos[e.novoId]) A.escolhas[it.n] = { tipo:'insumo', insumoId:e.novoId, fator:e.fator }; });
+  // t-semnota: cria os produtos novos (um save('products') só). Produto que já existe (nova tentativa) não duplica.
+  if(produtosNovos.length){
+    produtosNovos.forEach(({ e, it, id, pid })=>{
+      if(!(state.products||[]).some(p=>p.id===pid)){
+        const fiscal = ncnFiscalProdutoNovo(n, it), estacao = e.estacao || 'nenhuma';
+        state.products.push({ id:pid, code:'', image:'', kind:'produto', name:String(e.nome).trim(), category:e.categoria||'', price:ncnR2(e.preco),
+          measure:'un', minStock:0, sortOrder:state.products.length, active:true, recipe:[{ insumoId:id, qty:1 }], manualCost:0,
+          description:'', pdvCode:nextPdvCode(), noServiceFee:false, estacao, askCopos:'auto', kitchenItem:estacao==='cozinha',
+          channels:{ pdv:true, mobile:true, qr:false, online:false }, observationIds:[], questionIds:[], complementIds:[], sizeIds:[],
+          comboProductIds:[], gradeId:null, sizes:{}, groups:[], ...(fiscal ? { fiscal } : {}) });
+      }
+      A.escolhas[it.n] = { tipo:'revenda', produtoId:pid, tamanhoId:'', insumoId:id, fator:e.fator };
+    });
+    if(!await save('products')) return { ok:true, erro:'Estoque lançado, mas o produto novo não foi gravado no cardápio. Confira a conexão e cadastre em Produtos.' };
+    logAction('Nota de compra: '+produtosNovos.length+' produto(s) novo(s) no cardápio ('+produtosNovos.map(x=>String(x.e.nome).trim()).join(', ')+')');
+  }
   if(fichas.length){
     fichas.forEach(f=>{ f.alvo.recipe = [{ insumoId:f.insumoId, qty:1 }]; });
     if(!await save('products')) return { ok:true, erro:'Estoque lançado, mas a ficha do produto não foi gravada. Confira a conexão e ajuste a ficha em Produtos.' };
@@ -376,7 +459,7 @@ const notaCompraDesfazer = singleFlight('notaCompra', async function(chave){
   if(!(r.data && r.data.ja)){
     ncnTrocarInsumos(r.data && r.data.insumos, antes);
     const deltas = {}; Object.entries(n.estoque_deltas||{}).forEach(([id,q])=>{ if(Number(q)>0) deltas[id] = Number(q); });
-    ncnMovimentos(n, deltas, 'saida', 'Desfeita a NF-e '+(n.numero||''));
+    ncnMovimentos(n, deltas, 'saida', 'Desfeita a '+(ncSemNota(n) ? ncDocumento(n).replace(/^C/,'c') : ncDocumento(n)));
     save('stockMovements');
     logAction('Nota de compra '+(n.numero||'')+': entrada no estoque desfeita');
   }

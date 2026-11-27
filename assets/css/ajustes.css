@@ -1314,7 +1314,7 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
    O título e o × são os do cabeçalho padrão das telas de gestão; aqui só os botões de ação, à direita. */
 .nc-acoes{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-bottom:4px}
 .nc-filtros{align-items:flex-end}
-.nc-filtro{flex:1 1 360px;max-width:460px;grid-template-columns:repeat(3,1fr)}
+.nc-filtro{flex:1 1 440px;max-width:560px;grid-template-columns:repeat(4,1fr)} /* t-semnota: + Sem nota */
 .nc-filtro button{min-height:44px;font-size:var(--fs-md)}
 .nc-tabela .cash-movement-table td.nc-forn{white-space:normal;min-width:200px}
 .nc-tabela tr.nc-linha{cursor:pointer}
@@ -1385,6 +1385,41 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .ncn-falta{flex-basis:100%;margin:0;color:var(--c-warning)}
 .ncn-escritorio{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin:0}
 .ncn-escritorio .field{margin:0;flex:1 1 260px;min-width:0}
+/* t-semnota (27/11): compra sem nota (gestao/notas-compra-sem-nota.js), recibo, produto novo e DRE */
+.nc-tag-semnota{background:var(--c-info-soft);color:var(--c-info)}
+.ncn-semnota{display:grid;gap:10px}
+.ncn-recibo-bt{padding:0;border:1px solid var(--c-border);border-radius:var(--r-md);background:var(--c-surface);cursor:zoom-in;justify-self:start;max-width:100%}
+.ncn-recibo-bt.grande{cursor:zoom-out}
+.ncn-recibo{display:block;max-width:220px;max-height:220px;border-radius:var(--r-md);object-fit:contain}
+.ncn-recibo-bt.grande .ncn-recibo{max-width:100%;max-height:none}
+.ncn-fiscal{flex-basis:100%;margin:0}
+.csn{display:grid;gap:18px}
+.csn>.sub{margin:0}
+.csn h3{margin:0 0 10px;font-size:var(--fs-lg);font-weight:600}
+.csn-bloco{display:grid;gap:10px;min-width:0}
+.csn-linha{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end}
+.csn-linha .field{margin:0;min-width:0}
+.csn-forn{flex:2 1 260px}.csn-data{flex:1 1 170px}.csn-num{flex:1 1 170px}
+.csn-linha select,.csn-linha input{width:100%}
+.csn-cab-itens{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between}
+.csn-cab-itens h3{margin:0}
+.csn-itens{display:grid;gap:8px}
+.csn-item{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr) auto;gap:8px;align-items:end}
+.csn-item .field{margin:0;min-width:0}
+.csn-item input,.csn-item select{width:100%}
+.csn-tirar{min-height:40px;padding:0 10px;justify-content:center}
+.csn-rodape{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.csn-total{font-size:var(--fs-lg)}
+.csn-recibo{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.csn-foto{cursor:pointer}
+.rel-dre-info td{color:var(--c-text-2);font-style:italic}
+@media(max-width:600px){
+  .csn-item{grid-template-columns:repeat(6,minmax(0,1fr));padding:10px 0;border-bottom:1px solid var(--c-border)}
+  .csn-item .csn-nome{grid-column:span 6}
+  .csn-item .csn-qtd,.csn-item .csn-un{grid-column:span 3}
+  .csn-item .csn-valor{grid-column:span 5}
+  .csn-item .csn-tirar{grid-column:span 1}
+}
 @media(max-width:600px){.ncn-acoes .hub-acao{flex:1 1 100%}.ncn-acoes .op-btn{flex:1 1 140px;justify-content:center}}
 
 /* WhatsApp etapa 4 (26/11): fiado automático e fila "Não enviadas" */

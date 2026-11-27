@@ -5,6 +5,10 @@ import { XMLParser, XMLValidator } from 'npm:fast-xml-parser@4.5.1';
 export type ItemLido = {
   n: number; codigo: string; ean: string | null; nome: string; ncm: string; cfop: string;
   unidade: string; qtd: number; valorUnit: number; custoTotal: number;
+  // t-semnota (27/11): para criar o produto do cardápio pela nota. icms = CST (regime normal) ou CSOSN (Simples)
+  // do fornecedor; st = o item veio com ICMS por substituição tributária (CST 10/30/60/70, CSOSN 201/202/203/500
+  // ou valor de ST); origem = orig do ICMS (0 nacional...).
+  cest: string; icms: string; origem: string; st: boolean;
 };
 export type NotaLida = {
   chave: string; modelo: 55 | 65; numero: string; serie: string; emissao: string; valor: number;
@@ -58,12 +62,18 @@ export function lerNotaXml(xml: string): NotaLida {
       }
       return 0;
     };
+    // Grupo do ICMS (ICMS00, ICMS60, ICMSSN102, ICMSSN500...): o primeiro objeto dentro de <ICMS>.
+    const gIcms = (Object.values(imp.ICMS ?? {}).find((v) => v && typeof v === 'object') ?? {}) as No;
+    const icms = txt(gIcms.CST) || txt(gIcms.CSOSN);
+    const vST = doGrupo(imp.ICMS, 'vICMSST');
+    const st = ['10', '30', '60', '70', '201', '202', '203', '500'].includes(icms) || vST > 0;
     const custoTotal = num(p.vProd) - num(p.vDesc) + num(p.vFrete) + num(p.vSeg) + num(p.vOutro)
       + doGrupo(imp.IPI, 'vIPI') + doGrupo(imp.ICMS, 'vICMSST');
     return {
       n: num(d['@_nItem']) || k + 1, codigo: txt(p.cProd), ean: /^\d+$/.test(ean) ? ean : null,
       nome: txt(p.xProd), ncm: txt(p.NCM), cfop: txt(p.CFOP), unidade: txt(p.uCom),
       qtd: num(p.qCom), valorUnit: num(p.vUnCom), custoTotal: Math.round(custoTotal * 100) / 100,
+      cest: txt(p.CEST).replace(/\D/g, ''), icms, origem: txt(gIcms.orig), st,
     };
   });
 

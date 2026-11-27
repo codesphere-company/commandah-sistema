@@ -5,11 +5,13 @@ import { strToU8, zipSync } from 'npm:fflate@0.8.2';
 
 export type NotaArquivo = {
   chave: string; numero: string | null; serie: string | null; emitente_cnpj: string | null; emitente_nome: string | null;
-  emissao: string | null; valor: number | string | null; situacao: string; xml: string | null;
+  emissao: string | null; valor: number | string | null; situacao: string; xml: string | null; origem?: string | null;
   conferida_em: string | null; contabilidade_em: string | null; pagamento_em: string | null; estoque_em: string | null;
 };
 
-const CABECALHO = ['Fornecedor', 'CNPJ', 'Número', 'Série', 'Emissão', 'Valor', 'Situação', 'Conferida', 'Contabilidade', 'Pagamento', 'Estoque'];
+// t-semnota (27/11): coluna Origem — compra sem nota não tem XML no ZIP, mas entra na planilha para o escritório.
+const CABECALHO = ['Fornecedor', 'CNPJ/CPF', 'Número', 'Série', 'Emissão', 'Valor', 'Situação', 'Origem', 'Conferida', 'Contabilidade', 'Pagamento', 'Estoque'];
+const ORIGEM: Record<string, string> = { brasilnfe: 'NF-e (busca automática)', xml_manual: 'NF-e (XML importado)', sem_nota: 'Compra sem nota' };
 const SITUACAO: Record<string, string> = { resumo: 'Só resumo', completa: 'Completa', cancelada: 'Cancelada' };
 
 // Data no fuso de Brasília (fixo em −03:00 desde 2019, sem horário de verão): dd/mm/aaaa.
@@ -31,7 +33,7 @@ export function resumoCsv(notas: NotaArquivo[]): string {
   for (const n of notas) {
     linhas.push([
       n.emitente_nome || '', n.emitente_cnpj || '', n.numero || '', n.serie || '', dataBr(n.emissao), valorBr(n.valor),
-      SITUACAO[n.situacao] || n.situacao, dataBr(n.conferida_em), dataBr(n.contabilidade_em), dataBr(n.pagamento_em), dataBr(n.estoque_em),
+      SITUACAO[n.situacao] || n.situacao, ORIGEM[n.origem || ''] || '', dataBr(n.conferida_em), dataBr(n.contabilidade_em), dataBr(n.pagamento_em), dataBr(n.estoque_em),
     ].map(campo).join(';'));
   }
   // BOM: sem ele o Excel abre o UTF-8 como Latin-1 e estraga os acentos do cabeçalho e dos fornecedores.

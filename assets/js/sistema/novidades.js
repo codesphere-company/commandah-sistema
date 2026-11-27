@@ -5,6 +5,17 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-28-compra-sem-nota', data:'28/11/2026', itens:[
+    { titulo:'Compra sem nota',
+      texto:'Para fornecedor que não emite nota (feira, produtor, padaria do bairro), use o botão "Compra sem nota" em Notas de compra: escolha o fornecedor, a data, os itens com quantidade e valor e, se quiser, tire a foto do recibo. A compra entra na lista com a etiqueta "Sem nota" e segue como uma nota: escolha o destino de cada item e toque em Confirmar para lançar a conta a pagar e a entrada no estoque. Na próxima compra do mesmo fornecedor, os itens já vêm ligados e dá para repetir a lista da última vez.',
+      onde:'Financeiro ou Produtos › Notas de compra', perms:['contas','insumos'] },
+    { titulo:'Produto novo no cardápio pela nota',
+      texto:'Ao abrir uma nota de compra, o administrador pode marcar um item como "Produto novo no cardápio": informe o nome e o preço de venda e, no Confirmar, o produto é criado já com a ficha técnica ligada ao estoque. NCM, CEST, CFOP e CSOSN vêm da nota e ficam marcados "conferir" até o escritório confirmar.',
+      onde:'Notas de compra › abrir a nota', perms:['config-sistema'] },
+    { titulo:'DRE sem contar a mercadoria duas vezes',
+      texto:'Em Financeiro › Categoria de Contas há o Grupo DRE "Compra de mercadorias (estoque)". Contas pagas de uma categoria desse grupo saem das despesas do DRE, porque o custo do que foi vendido já entra no Custo dos Produtos. Elas aparecem numa linha à parte. Marque esse grupo na categoria das compras de mercadoria.',
+      onde:'Relatórios › DRE Simplificado', perms:['contas','relatorios-gerencia'] },
+  ]},
   { id:'2026-11-27-cardapio-aviso-na-hora', data:'27/11/2026', itens:[
     { titulo:'Pedido do cardápio chega ao caixa na hora',
       texto:'O caixa agora é avisado no momento em que o cliente envia o pedido pelo celular, mesmo com a tela do sistema minimizada ou em outra aba. Antes ele conferia a fila de tempos em tempos e, com a aba escondida, o pedido podia demorar até um minuto. Basta ter um caixa logado, como já era.',
