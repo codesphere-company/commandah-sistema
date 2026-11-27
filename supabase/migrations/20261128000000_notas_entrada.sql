@@ -9,7 +9,9 @@
 -- notas_entrada_vinculos  a memória "este código deste fornecedor é tal insumo/produto" (fator = unidades
 --                         de estoque por unidade da nota).
 -- notas_entrada_config    por estabelecimento: trava da equipe (`liberada`, só pelo CLI) e escolhas do
---                         administrador (busca ligada, início, categoria de conta lembrada por CNPJ).
+--                         administrador (busca ligada, início, categoria de conta lembrada por CNPJ) e o CNPJ
+--                         do estabelecimento (t-notas tarefa 3: não existe em settings; a busca e o importar_xml
+--                         descartam nota de outro destinatário por ele).
 --
 -- Ler (RLS): o próprio estabelecimento, para dono/admin e colaborador com "contas" ou "insumos" (a tela
 -- aparece para os dois; a config é lida porque a tela precisa das categorias). Gravar: nunca direto pelo
@@ -74,6 +76,7 @@ create table if not exists public.notas_entrada_config (
   inicio           date,
   ultima_busca_ok  timestamptz,
   ultimo_erro      text,
+  cnpj             text check (cnpj ~ '^\d{14}$'),
   categorias       jsonb not null default '{}'::jsonb check (jsonb_typeof(categorias) = 'object')
 );
 
@@ -321,9 +324,9 @@ grant execute on function public.notas_entrada_marcar(text, text, jsonb) to auth
 
 -- ---------------------------------------------------------------------
 -- Configuração do administrador (só dono/admin). Não mexe em `liberada` (trava da equipe).
--- p_categorias null mantém as que estão gravadas.
+-- p_categorias e p_cnpj null mantêm o que está gravado. p_cnpj aceita pontuação (fica só com os dígitos).
 -- ---------------------------------------------------------------------
-create or replace function public.notas_entrada_config_salvar(p_busca_ligada boolean, p_inicio date, p_categorias jsonb)
+create or replace function public.notas_entrada_config_salvar(p_busca_ligada boolean, p_inicio date, p_categorias jsonb, p_cnpj text)
 returns jsonb
 language plpgsql
 security definer
@@ -332,25 +335,30 @@ as $function$
 declare
   v_tenant text := public.current_tenant_id();
   v_row public.notas_entrada_config%rowtype;
+  v_cnpj text := nullif(regexp_replace(coalesce(p_cnpj, ''), '\D', '', 'g'), '');
 begin
   if v_tenant is null or coalesce(public.current_staff_role(), '') not in ('owner', 'admin') then
     raise exception 'sem permissao para configurar notas de compra';
   end if;
+  if p_cnpj is not null and (v_cnpj is null or v_cnpj !~ '^\d{14}$') then
+    raise exception 'cnpj invalido (precisa de 14 digitos)';
+  end if;
   if p_categorias is not null and jsonb_typeof(p_categorias) <> 'object' then
     raise exception 'categorias invalidas';
   end if;
-  insert into public.notas_entrada_config (tenant_id, busca_ligada, inicio, categorias)
-  values (v_tenant, coalesce(p_busca_ligada, false), p_inicio, coalesce(p_categorias, '{}'::jsonb))
+  insert into public.notas_entrada_config (tenant_id, busca_ligada, inicio, categorias, cnpj)
+  values (v_tenant, coalesce(p_busca_ligada, false), p_inicio, coalesce(p_categorias, '{}'::jsonb), v_cnpj)
   on conflict (tenant_id) do update
     set busca_ligada = coalesce(p_busca_ligada, public.notas_entrada_config.busca_ligada),
         inicio = p_inicio,
-        categorias = coalesce(p_categorias, public.notas_entrada_config.categorias)
+        categorias = coalesce(p_categorias, public.notas_entrada_config.categorias),
+        cnpj = coalesce(v_cnpj, public.notas_entrada_config.cnpj)
   returning * into v_row;
   return to_jsonb(v_row);
 end;
 $function$;
-revoke all on function public.notas_entrada_config_salvar(boolean, date, jsonb) from public, anon;
-grant execute on function public.notas_entrada_config_salvar(boolean, date, jsonb) to authenticated;
+revoke all on function public.notas_entrada_config_salvar(boolean, date, jsonb, text) from public, anon;
+grant execute on function public.notas_entrada_config_salvar(boolean, date, jsonb, text) to authenticated;
 
 -- ---------------------------------------------------------------------
 -- Trava da equipe Commandah (pelo CLI, como nfce_liberar_producao): só service role.
@@ -377,7 +385,7 @@ grant execute on function public.notas_entrada_liberar(text, boolean) to service
 -- ROLLBACK (manual)
 -- =====================================================================
 -- drop function if exists public.notas_entrada_liberar(text, boolean);
--- drop function if exists public.notas_entrada_config_salvar(boolean, date, jsonb);
+-- drop function if exists public.notas_entrada_config_salvar(boolean, date, jsonb, text);
 -- drop function if exists public.notas_entrada_marcar(text, text, jsonb);
 -- drop function if exists public.notas_entrada_desfazer_estoque(text);
 -- drop function if exists public.notas_entrada_estoque(text, jsonb, jsonb, jsonb);

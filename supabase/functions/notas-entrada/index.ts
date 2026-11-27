@@ -96,12 +96,11 @@ async function settingsDo(tenantId: string): Promise<Record<string, unknown>> {
   return v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {};
 }
 const soDigitos = (x: unknown) => (typeof x === "string" || typeof x === "number" ? String(x).replace(/\D/g, "") : "");
-// CNPJ do estabelecimento. A nfce não guarda CNPJ (a Brasil NFe sabe pelo token); a tela das notas grava em
-// settings.nfce.emitente.cnpj. Os outros dois nomes ficam por tolerância.
-function cnpjDo(settings: Record<string, unknown>): string | null {
-  const nf = (settings.nfce && typeof settings.nfce === "object" ? settings.nfce : {}) as Record<string, unknown>;
-  const em = (nf.emitente && typeof nf.emitente === "object" ? nf.emitente : {}) as Record<string, unknown>;
-  const c = soDigitos(em.cnpj) || soDigitos(nf.cnpj) || soDigitos(settings.cnpj);
+// CNPJ do estabelecimento (decisão do controlador, 27/11): fica em notas_entrada_config.cnpj, gravado pela
+// tela por notas_entrada_config_salvar. A nfce não guarda CNPJ (a Brasil NFe sabe pelo token) e o
+// settings.cnpj do clube está vazio (o site não edita); ele só vale como reserva, se tiver 14 dígitos.
+function cnpjDo(cfgCnpj: unknown, settings: Record<string, unknown>): string | null {
+  const c = soDigitos(cfgCnpj) || soDigitos(settings.cnpj);
   return c.length === 14 ? c : null;
 }
 
@@ -184,13 +183,13 @@ async function completar(token: string, tenantId: string, cnpj: string, chave: s
 }
 
 type Contagem = { novas: number; completas: number; canceladas: number };
-type Config = { tenant_id: string; liberada: boolean; busca_ligada: boolean; inicio: string | null; ultima_busca_ok: string | null };
+type Config = { tenant_id: string; liberada: boolean; busca_ligada: boolean; inicio: string | null; ultima_busca_ok: string | null; cnpj: string | null };
 
 // Busca de um estabelecimento. Erro geral (sem CNPJ, sem emissor, Brasil NFe fora) sobe para gravar ultimo_erro;
 // erro de uma nota só vai para o log e a nota fica em resumo para a próxima busca.
 async function buscarTenant(cfg: Config, c: Contagem): Promise<void> {
   const tenantId = cfg.tenant_id;
-  const cnpj = cnpjDo(await settingsDo(tenantId));
+  const cnpj = cnpjDo(cfg.cnpj, await settingsDo(tenantId));
   if (!cnpj) throw new Error("CNPJ do estabelecimento não configurado");
   const token = await tokenDo(tenantId);
   if (!token) throw new Error("Estabelecimento sem emissor da Brasil NFe");
@@ -291,7 +290,7 @@ async function buscarRegistrando(cfg: Config, c: Contagem): Promise<string | nul
   }
 }
 
-const CAMPOS_CONFIG = "tenant_id, liberada, busca_ligada, inicio, ultima_busca_ok";
+const CAMPOS_CONFIG = "tenant_id, liberada, busca_ligada, inicio, ultima_busca_ok, cnpj";
 
 async function importarXml(q: Quem, xmlBruto: unknown) {
   if (typeof xmlBruto !== "string" || !xmlBruto.trim()) return json({ erro: "xml_invalido" });
@@ -302,7 +301,9 @@ async function importarXml(q: Quem, xmlBruto: unknown) {
   const settings = await settingsDo(q.tenantId);
   const dest = lida.destinatarioCnpj;
   if (dest) {
-    const cnpj = cnpjDo(settings);
+    const { data: cfgC, error: errC } = await admin.from("notas_entrada_config").select("cnpj").eq("tenant_id", q.tenantId).maybeSingle();
+    if (errC) throw errC;
+    const cnpj = cnpjDo(cfgC ? cfgC.cnpj : null, settings);
     if (!cnpj) return json({ erro: "sem_cnpj" });
     if (dest !== cnpj) return json({ erro: "outro_cnpj" });
   }
