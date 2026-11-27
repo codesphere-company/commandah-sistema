@@ -519,3 +519,100 @@ function hideSyncFailBanner(){
   if(el){ el.remove(); applyTopBannerOffset(); }
 }
 
+
+/* ============ NOTAS DE COMPRA: AVISO (t-notas, 27/11) ============
+   Quem tem Contas ou Insumos vê o selo com o número de notas pendentes (alguma etapa faltando, fora as "tratadas
+   fora" e as canceladas) na área onde mora a tela Notas de compra, e uma faixa "N notas de compra novas" quando o
+   número sobe. Nota cancelada pelo fornecedor que já tinha entrada ou pagamento (campo `aviso`) ganha faixa
+   própria, uma vez por nota. Egress (Supabase Pro): sem polling curto novo. Conta ao entrar e a cada 5 min, com
+   consulta leve (sem `dados`/`xml`, só as notas ainda abertas); com a tela lida há pouco usa o cache dela, sem
+   consulta. `dados` só das poucas notas em que falta apenas o estoque (para saber se todos os itens são
+   "não é estoque").
+   Revisão final (achados 3 e 4): a faixa "N notas de compra novas" vale só para chaves que este usuário ainda não
+   viu (guardadas no localStorage, por usuário); o selo segue com o total de pendentes. A consulta dos 5 min pede
+   só as colunas da contagem; nome e número só das canceladas com aviso ainda não mostrado. */
+let notasAvisoQtd = 0, notasAvisoOcupado = false;
+const NOTAS_AVISO_VISTAS = 'cmd-notas-cancelada-vistas';
+const NOTAS_AVISO_NOVAS = 'cmd-notas-novas-vistas:'; // + id do usuário
+function notasAvisoPode(){ return !!currentUser && isCloudMode() && (hasPerm('contas') || hasPerm('insumos')); }
+function notasAvisoLer(chave){ try{ const v = JSON.parse(localStorage.getItem(chave)||'[]'); return Array.isArray(v) ? v : []; }catch(e){ return []; } }
+function notasAvisoGravar(chave, lista, novas, max){
+  if(!novas.length) return;
+  try{ localStorage.setItem(chave, JSON.stringify(lista.concat(novas).slice(-max))); }catch(e){}
+}
+function notasAvisoVistas(){ return notasAvisoLer(NOTAS_AVISO_VISTAS); }
+function notasAvisoMarcar(chaves){ notasAvisoGravar(NOTAS_AVISO_VISTAS, notasAvisoVistas(), chaves, 300); }
+function notasAvisoToast(classe, titulo, texto){
+  const root = document.getElementById('toastRoot'); if(!root) return;
+  root.querySelectorAll('.toast.'+classe).forEach(t=>t.remove());
+  const el = document.createElement('div');
+  el.className = 'toast wa-toast nc-toast '+classe; el.setAttribute('role','status');
+  el.innerHTML = '<span><b>'+h(titulo)+'</b>'+(texto?'<br>'+h(texto):'')+'</span>'
+    + '<span class="wa-toast-acoes"><button type="button" class="op-btn primary" data-nc="ver">Ver</button><button type="button" class="op-btn" data-nc="depois">Depois</button></span>';
+  el.querySelector('[data-nc="ver"]').onclick = ()=>{ el.remove(); openRibbonView('notascompra','Notas de compra'); };
+  el.querySelector('[data-nc="depois"]').onclick = ()=>el.remove();
+  root.appendChild(el);
+  setTimeout(()=>el.remove(), 20000);
+}
+// pendentes = chaves das notas pendentes agora; canceladas = notas canceladas com `aviso`; falar = avisar com
+// faixa (false quando vem da tela aberta: quem está vendo a lista já viu as notas, que entram como vistas).
+function notasAvisoAplicar(pendentes, canceladas, falar){
+  const qtd = pendentes.length, mudouQtd = qtd!==notasAvisoQtd;
+  notasAvisoQtd = qtd;
+  const chaveNovas = NOTAS_AVISO_NOVAS+currentUser.id, jaVistas = notasAvisoLer(chaveNovas), set = new Set(jaVistas);
+  const novas = pendentes.filter(k=>!set.has(k));
+  if(falar && novas.length) notasAvisoToast('nc-novas', novas.length===1 ? '1 nota de compra nova' : novas.length+' notas de compra novas', 'Falta conferir, pagar ou dar entrada no estoque.');
+  notasAvisoGravar(chaveNovas, jaVistas, novas, 1000);
+  const vistas = new Set(notasAvisoVistas());
+  const ainda = canceladas.filter(n=>!vistas.has(n.chave));
+  if(falar) ainda.forEach(n=>notasAvisoToast('nc-cancelada', 'Nota cancelada pelo fornecedor', (n.emitente_nome||'')+(n.numero?' — nº '+n.numero:'')+'. '+n.aviso));
+  notasAvisoMarcar(ainda.map(n=>n.chave));
+  if(mudouQtd && typeof renderRibbonTabs==='function') renderRibbonTabs();
+}
+// Cache da tela Notas de compra (já lido, sem consulta nova).
+function notasCompraAvisoDeDados(falar){
+  if(!notasAvisoPode() || typeof notasCompraDados==='undefined' || !notasCompraDados) return;
+  const notas = notasCompraDados.notas || [];
+  notasAvisoAplicar(notas.filter(notasCompraPendente).map(n=>n.chave), notas.filter(n=>n.situacao==='cancelada' && n.aviso), !!falar);
+}
+async function notasCompraAvisoAtualizar(forcar){
+  if(!notasAvisoPode() || notasAvisoOcupado || (document.hidden && !forcar)) return;
+  const uid = currentUser.id;
+  if(!forcar && typeof notasCompraDados!=='undefined' && notasCompraDados && notasCompraDados.quem===uid && Date.now()-notasCompraLidaEm<5*60000){ notasCompraAvisoDeDados(true); return; }
+  notasAvisoOcupado = true;
+  try{
+    const { data, error } = await supabaseClient.from('notas_entrada')
+      .select('chave,emitente_cnpj,situacao,aviso,conferida_em,contabilidade_em,pagamento_em,estoque_em')
+      .eq('fora', false).or('conferida_em.is.null,contabilidade_em.is.null,pagamento_em.is.null,estoque_em.is.null,aviso.not.is.null')
+      .order('criada_em', { ascending:false }).limit(500);
+    if(error || !Array.isArray(data) || !currentUser || currentUser.id!==uid) return;
+    const abertas = data.filter(n=>n.situacao!=='cancelada');
+    const soEstoque = abertas.filter(n=>n.conferida_em && n.contabilidade_em && n.pagamento_em && !n.estoque_em);
+    const fora = new Set();
+    if(soEstoque.length){
+      const [rd, rv] = await Promise.all([
+        supabaseClient.from('notas_entrada').select('chave,dados').in('chave', soEstoque.map(n=>n.chave).slice(0,100)),
+        supabaseClient.from('notas_entrada_vinculos').select('emitente_cnpj,codigo,tipo')
+      ]);
+      if(rd.error || rv.error || !currentUser || currentUser.id!==uid) return;
+      const vin = {}; (rv.data||[]).forEach(v=>{ vin[(v.emitente_cnpj||'')+'|'+v.codigo] = v.tipo; });
+      const mapa = {}; (rd.data||[]).forEach(d=>{ mapa[d.chave] = d.dados; });
+      soEstoque.forEach(n=>{
+        const itens = mapa[n.chave] && Array.isArray(mapa[n.chave].itens) ? mapa[n.chave].itens : [];
+        if(itens.length && itens.every(it=>vin[(n.emitente_cnpj||'')+'|'+it.codigo]==='fora')) fora.add(n.chave);
+      });
+    }
+    // Nome e número só das canceladas com aviso que ainda não apareceram (a faixa usa; o selo não).
+    const vistas = new Set(notasAvisoVistas());
+    const canceladas = data.filter(n=>n.situacao==='cancelada' && n.aviso && !vistas.has(n.chave)).slice(0,50);
+    if(canceladas.length){
+      const rn = await supabaseClient.from('notas_entrada').select('chave,emitente_nome,numero').in('chave', canceladas.map(n=>n.chave));
+      if(rn.error || !currentUser || currentUser.id!==uid) return;
+      const nomes = {}; (rn.data||[]).forEach(x=>{ nomes[x.chave] = x; });
+      canceladas.forEach(n=>{ const x = nomes[n.chave] || {}; n.emitente_nome = x.emitente_nome; n.numero = x.numero; });
+    }
+    notasAvisoAplicar(abertas.filter(n=>!fora.has(n.chave)).map(n=>n.chave), canceladas, true);
+  }catch(e){ /* sem rede: tenta no próximo ciclo */ }
+  finally{ notasAvisoOcupado = false; }
+}
+setInterval(()=>{ if(currentUser) notasCompraAvisoAtualizar(false); }, 5*60000);
