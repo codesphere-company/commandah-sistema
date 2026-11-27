@@ -21,7 +21,10 @@ export function dataBr(iso: string | null): string {
 }
 const valorBr = (v: number | string | null) => (v == null || v === '' || !isFinite(Number(v)) ? '' : Number(v).toFixed(2).replace('.', ','));
 // Campo com ";", aspas ou quebra de linha vai entre aspas (aspas dobradas), senão o Excel quebra a coluna.
-const campo = (s: string) => (/[;"\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s);
+// Revisão da tarefa 3: texto que começa com = + - @ (nome do fornecedor vem do XML de terceiros) vira fórmula no
+// Excel; o apóstrofo na frente faz o Excel tratar como texto.
+const semFormula = (s: string) => (/^[=+\-@]/.test(s) ? "'" + s : s);
+const campo = (bruto: string) => { const s = semFormula(bruto); return /[;"\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
 
 export function resumoCsv(notas: NotaArquivo[]): string {
   const linhas = [CABECALHO.join(';')];

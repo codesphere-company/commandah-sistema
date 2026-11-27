@@ -154,16 +154,25 @@ function b64ParaTexto(b64: string): string {
 }
 
 // Campos da linha que vêm do XML lido (completa a nota; o resumo da busca é só provisório).
-function camposDoXml(lida: NotaLida, xml: string) {
+// Nota com emissão (dia em Brasília) antes da data de início escolhida pelo administrador: fica guardada, mas
+// fora das pendências, do estoque e das contas. Vale para a busca, o XML importado e o resumo completado
+// (revisão da tarefa 3: o importar_xml gravava fora=false e o resumo completado não recalculava).
+function foraPor(inicio: unknown, emissao: string | null): boolean {
+  const ini = inicio ? String(inicio).slice(0, 10) : "";
+  return !!(ini && emissao && diaBr(emissao) < ini);
+}
+
+function camposDoXml(lida: NotaLida, xml: string, inicio: unknown) {
+  const emissao = isoDe(lida.emissao);
   return {
     situacao: "completa", xml, dados: lida, modelo: lida.modelo, numero: lida.numero || null, serie: lida.serie || null,
     emitente_cnpj: lida.emitente.cnpj || null, emitente_nome: (lida.emitente.nome || lida.emitente.fantasia || "").slice(0, 200) || null,
-    emissao: isoDe(lida.emissao), valor: lida.valor,
+    emissao, valor: lida.valor, fora: foraPor(inicio, emissao),
   };
 }
 
 // Pede o XML, lê e marca completa. Erro sobe (quem chama conta e segue com a próxima nota).
-async function completar(token: string, tenantId: string, cnpj: string, chave: string): Promise<boolean> {
+async function completar(token: string, tenantId: string, cnpj: string, inicio: unknown, chave: string): Promise<boolean> {
   const r = await brasilNfe(token, "ObterArquivoNotaFiscal", { ChaveNF: chave, FileType: 1, TipoDocumentoFiscal: 0 });
   if (!r.ok || typeof r.body !== "string" || !r.body) throw new Error(`arquivo da nota ${chave}: HTTP ${r.status} ${r.text}`);
   const xml = b64ParaTexto(r.body);
@@ -176,7 +185,7 @@ async function completar(token: string, tenantId: string, cnpj: string, chave: s
     if (error) throw error;
     return false;
   }
-  const { error } = await admin.from("notas_entrada").update(camposDoXml(lida, xml))
+  const { error } = await admin.from("notas_entrada").update(camposDoXml(lida, xml, inicio))
     .eq("tenant_id", tenantId).eq("chave", chave).eq("situacao", "resumo");
   if (error) throw error;
   return true;
@@ -236,8 +245,7 @@ async function buscarTenant(cfg: Config, c: Contagem): Promise<void> {
           emitente_cnpj: soDigitos(n.CnpjEmissor) || null, emitente_nome: typeof n.NomeEmissor === "string" ? n.NomeEmissor.slice(0, 200) : null,
           emissao, valor: isFinite(Number(n.Valor)) ? Number(n.Valor) : null,
           situacao: cancelada ? "cancelada" : "resumo",
-          // Nota de antes da data de início escolhida pelo administrador: fica guardada, mas fora das pendências.
-          fora: !!(cfg.inicio && emissao && diaBr(emissao) < String(cfg.inicio).slice(0, 10)),
+          fora: foraPor(cfg.inicio, emissao),
         };
         // ignoreDuplicates: o "Buscar agora" e o cron ao mesmo tempo não duplicam nem dão erro.
         const { data, error } = await admin.from("notas_entrada").upsert(linha, { onConflict: "tenant_id,chave", ignoreDuplicates: true }).select("chave");
@@ -255,7 +263,7 @@ async function buscarTenant(cfg: Config, c: Contagem): Promise<void> {
       }
       if (!cancelada && ex.situacao === "resumo") {
         // Apagada por ser de outro destinatário: não conta como nova (volta a cada busca enquanto estiver na janela).
-        if (await completar(token, tenantId, cnpj, chave)) c.completas++;
+        if (await completar(token, tenantId, cnpj, cfg.inicio, chave)) c.completas++;
         else if (inseriu) c.novas--;
       }
     } catch (e) {
@@ -269,7 +277,7 @@ async function buscarTenant(cfg: Config, c: Contagem): Promise<void> {
   if (errPresas) throw errPresas;
   for (const p of (presas || []) as { chave: string }[]) {
     if (tentadas.has(p.chave)) continue;
-    try { if (await completar(token, tenantId, cnpj, p.chave)) c.completas++; } catch (e) { console.error(`[notas-entrada] ${tenantId} nota ${p.chave} (presa em resumo):`, e); }
+    try { if (await completar(token, tenantId, cnpj, cfg.inicio, p.chave)) c.completas++; } catch (e) { console.error(`[notas-entrada] ${tenantId} nota ${p.chave} (presa em resumo):`, e); }
   }
 
   const { error } = await admin.from("notas_entrada_config").update({ ultima_busca_ok: new Date(agora).toISOString(), ultimo_erro: null }).eq("tenant_id", tenantId);
@@ -300,9 +308,11 @@ async function importarXml(q: Quem, xmlBruto: unknown) {
   const xml = xmlBruto.charCodeAt(0) === 0xFEFF ? xmlBruto.slice(1) : xmlBruto;
   const settings = await settingsDo(q.tenantId);
   const dest = lida.destinatarioCnpj;
+  // Config lida sempre (também sem destinatário): o inicio decide o fora.
+  const { data: cfgC, error: errC } = await admin.from("notas_entrada_config").select("cnpj, inicio").eq("tenant_id", q.tenantId).maybeSingle();
+  if (errC) throw errC;
+  const inicio = cfgC ? cfgC.inicio : null;
   if (dest) {
-    const { data: cfgC, error: errC } = await admin.from("notas_entrada_config").select("cnpj").eq("tenant_id", q.tenantId).maybeSingle();
-    if (errC) throw errC;
     const cnpj = cnpjDo(cfgC ? cfgC.cnpj : null, settings);
     if (!cnpj) return json({ erro: "sem_cnpj" });
     if (dest !== cnpj) return json({ erro: "outro_cnpj" });
@@ -317,13 +327,13 @@ async function importarXml(q: Quem, xmlBruto: unknown) {
   if (ex && ex.situacao !== "resumo") return json({ ja: true, chave: lida.chave });
   if (ex) {
     // A busca achou só o resumo (XML ainda não veio): o XML importado completa a mesma linha.
-    const { error } = await admin.from("notas_entrada").update(camposDoXml(lida, xml))
+    const { error } = await admin.from("notas_entrada").update(camposDoXml(lida, xml, inicio))
       .eq("tenant_id", q.tenantId).eq("chave", lida.chave).eq("situacao", "resumo");
     if (error) throw error;
     return json({ ok: true, chave: lida.chave, completou: true });
   }
   const linha = {
-    tenant_id: q.tenantId, chave: lida.chave, origem: "xml_manual", ...camposDoXml(lida, xml),
+    tenant_id: q.tenantId, chave: lida.chave, origem: "xml_manual", ...camposDoXml(lida, xml, inicio),
     aviso: dest ? null : AVISO_SEM_DEST,
   };
   const { data, error } = await admin.from("notas_entrada").upsert(linha, { onConflict: "tenant_id,chave", ignoreDuplicates: true }).select("chave");
