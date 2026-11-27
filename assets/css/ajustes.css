@@ -1351,6 +1351,42 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
   .nc-tabela td[data-rotulo]::before{content:attr(data-rotulo);display:block;color:var(--c-text-3);font-size:var(--fs-xs);font-weight:500}
 }
 
+/* t-notas tarefa 5 (27/11): nota de compra aberta (gestao/notas-compra-nota.js). Um cartão por item com a escolha
+   (ligar a insumo, novo, revenda, não é estoque) e a conta "→ +60 un, custo R$ 3,20/un"; parcelas e categoria no
+   bloco de pagamento; Confirmar grande e as etapas sozinhas ao lado. */
+.ncn{display:grid;gap:18px}
+.ncn h3{margin:0 0 10px;font-size:var(--fs-lg);font-weight:600}
+.ncn-cab{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 16px}
+.ncn-cab .ncn-forn{display:block;font-size:var(--fs-lg)}
+.ncn-cab .sub{display:block;margin-top:2px}
+.ncn-etapas{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start}
+.ncn-etapa{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border-radius:var(--r-pill);background:var(--c-surface-3);color:var(--c-text-2);font-size:var(--fs-xs);font-weight:600}
+.ncn-etapa.nc-feito{background:var(--c-success-soft);color:var(--c-success)}
+.ncn-aviso{margin:0;padding:10px 12px;border-radius:var(--r-md);background:var(--c-warning-soft,#FFF4DF);color:var(--c-text)}
+.ncn-itens{display:grid;gap:10px}
+.ncn-item{display:grid;gap:8px;padding:12px;border:1px solid var(--c-border);border-radius:var(--r-md);min-width:0}
+.ncn-item.ncn-sem{border-color:var(--c-warning)}
+.ncn-item-cab{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.ncn-item-cab b{overflow-wrap:anywhere}
+.ncn-ok{background:var(--c-success-soft);color:var(--c-success)}
+.ncn-ops{display:flex;flex-wrap:wrap;gap:6px 16px}
+.ncn-op{display:inline-flex;align-items:center;gap:6px;min-height:36px;cursor:pointer}
+.ncn-det{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end}
+.ncn-det .field{margin:0;flex:1 1 200px;min-width:0}
+.ncn-det .ncn-fator,.ncn-det .ncn-un{flex:0 1 120px}
+.ncn-det select,.ncn-det input{width:100%}
+.ncn-res{color:var(--c-text-2);font-size:var(--fs-sm);overflow-wrap:anywhere}
+.ncn-parcelas{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 10px;padding:0;list-style:none}
+.ncn-pag-campos{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:flex-end}
+.ncn-pag-campos .field,.ncn-venc{margin:0;flex:0 1 240px;min-width:0}
+.ncn-check{display:inline-flex;align-items:center;gap:6px;min-height:40px}
+.ncn-acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ncn-acoes .hub-acao{min-width:200px}
+.ncn-falta{flex-basis:100%;margin:0;color:var(--c-warning)}
+.ncn-escritorio{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin:0}
+.ncn-escritorio .field{margin:0;flex:1 1 260px;min-width:0}
+@media(max-width:600px){.ncn-acoes .hub-acao{flex:1 1 100%}.ncn-acoes .op-btn{flex:1 1 140px;justify-content:center}}
+
 /* WhatsApp etapa 4 (26/11): fiado automático e fila "Não enviadas" */
 .wa-fiado-auto{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding-top:14px;border-top:1px solid var(--c-border);line-height:1.45;cursor:pointer}
 .wa-fiado-auto input{margin-top:3px;flex:none}

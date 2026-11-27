@@ -8,7 +8,7 @@
 // as etapas fica em gestao/notas-compra-nota.js (abrirNotaCompra, tarefa 5).
 // Padrão das telas novas (Cofre/Caixa, 26/11): situação no topo (.hub-status); Configuração e Arquivo do mês
 // entram com a barra .hub-trilha ("‹ Notas de compra" + título).
-let notasCompraDados = null;      // { notas:[...], vinculos:{'cnpj|codigo':tipo}, config:{...}|null }
+let notasCompraDados = null;      // { notas:[...], vinculos:{'cnpj|codigo':tipo}, vinculosDet:{'cnpj|codigo':linha}, config:{...}|null }
 let notasCompraSecao = '';        // '' = lista; 'config' | 'arquivo'
 let notasCompraFiltro = 'pendentes';
 let notasCompraMes = '';          // 'AAAA-MM' ou '' (todos os meses)
@@ -18,7 +18,7 @@ let notasCompraLidaEm = 0;        // t-notas: entrar e sair da tela em seguida n
 
 // Sem xml (t-notas: o XML só vai para o arquivo do mês, pela função). `dados` traz os itens: a lista conta
 // os itens sem vínculo e vê se todos são "não é estoque".
-const NC_CAMPOS = 'chave,origem,modelo,numero,serie,emitente_cnpj,emitente_nome,emissao,valor,situacao,fora,aviso,dados,conferida_em,contabilidade_em,pagamento_em,estoque_em,estoque_desfeito_em,criada_em';
+const NC_CAMPOS = 'chave,origem,modelo,numero,serie,emitente_cnpj,emitente_nome,emissao,valor,situacao,fora,aviso,dados,conferida_em,contabilidade_em,pagamento_em,contabilidade_obs,estoque_em,estoque_deltas,estoque_desfeito_em,criada_em'; // t-notas tarefa 5: obs do escritório e deltas (o desfazer registra a saída)
 const NC_LIMITE = 500;
 const NC_FORA_DO_AR = 'Não foi possível falar com o servidor das notas agora. Tente de novo em alguns segundos.';
 const NC_ETAPAS = [['conferida','Conferida'],['contabilidade','Contabilidade'],['pagamento','Pagamento'],['estoque','Estoque']];
@@ -61,15 +61,15 @@ async function notasCompraCarregar(){
   if(!isCloudMode()) throw new Error('As notas de compra precisam do sistema na nuvem.');
   const [rn, rv, rc] = await Promise.all([
     supabaseClient.from('notas_entrada').select(NC_CAMPOS).order('emissao', { ascending:false }).limit(NC_LIMITE),
-    supabaseClient.from('notas_entrada_vinculos').select('emitente_cnpj,codigo,tipo'),
+    supabaseClient.from('notas_entrada_vinculos').select('emitente_cnpj,codigo,tipo,insumo_id,produto_id,tamanho_id,fator'), // t-notas tarefa 5: a nota aberta vem com as escolhas lembradas
     supabaseClient.from('notas_entrada_config').select('cnpj,liberada,busca_ligada,inicio,ultima_busca_ok,ultimo_erro,categorias').limit(1)
   ]);
   if(rn.error || rv.error || rc.error) throw new Error(NC_FORA_DO_AR);
-  const vinculos = {};
-  (rv.data||[]).forEach(v => { vinculos[(v.emitente_cnpj||'')+'|'+v.codigo] = v.tipo; });
+  const vinculos = {}, vinculosDet = {};
+  (rv.data||[]).forEach(v => { vinculos[(v.emitente_cnpj||'')+'|'+v.codigo] = v.tipo; vinculosDet[(v.emitente_cnpj||'')+'|'+v.codigo] = v; });
   // Sem emissão (resumo sem data) vai pelo dia em que chegou.
   const notas = (rn.data||[]).slice().sort((a,b)=>String(b.emissao||b.criada_em||'').localeCompare(String(a.emissao||a.criada_em||'')));
-  notasCompraDados = { notas, vinculos, config:(rc.data||[])[0] || null, quem:currentUser && currentUser.id };
+  notasCompraDados = { notas, vinculos, vinculosDet, config:(rc.data||[])[0] || null, quem:currentUser && currentUser.id };
   notasCompraVelha = false; notasCompraLidaEm = Date.now();
   return notasCompraDados;
 }
@@ -120,7 +120,9 @@ function notasCompraEscolherMes(m){ notasCompraMes = /^\d{4}-\d{2}$/.test(m) ? m
 
 function notasCompraDesenhar(){
   const el = document.getElementById('view-notascompra'); if(!el || !notasCompraDados) return;
-  el.innerHTML = notasCompraCasca(notasCompraSecao ? notasCompraSecaoHtml() : notasCompraListaHtml());
+  // t-notas tarefa 5: a seção 'nota' (uma nota aberta) é desenhada por gestao/notas-compra-nota.js.
+  const corpo = notasCompraSecao==='nota' && typeof notaCompraHtml==='function' ? notaCompraHtml() : notasCompraSecao ? notasCompraSecaoHtml() : notasCompraListaHtml();
+  el.innerHTML = notasCompraCasca(corpo);
 }
 
 function ncSituacaoBusca(c){
