@@ -71,6 +71,7 @@ async function notasCompraCarregar(){
   const notas = (rn.data||[]).slice().sort((a,b)=>String(b.emissao||b.criada_em||'').localeCompare(String(a.emissao||a.criada_em||'')));
   notasCompraDados = { notas, vinculos, vinculosDet, config:(rc.data||[])[0] || null, quem:currentUser && currentUser.id };
   notasCompraVelha = false; notasCompraLidaEm = Date.now();
+  if(typeof notasCompraAvisoDeDados==='function') notasCompraAvisoDeDados(false); // t-notas tarefa 6: o selo do menu acompanha a tela, sem consulta extra
   return notasCompraDados;
 }
 

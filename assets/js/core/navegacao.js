@@ -86,7 +86,8 @@ function renderRibbonTabs(){
   }).join('');
   const areaLinks = areas.map(t=>{
     const first = t.groups[0] && t.groups[0].items[0];
-    return `<button class="sb-link ${t.id===activeRibbonTab?'active':''}" data-tab="${t.id}"><span class="ic">${(first&&first.icon)||''}</span>${t.label}</button>`;
+    const temNotas = typeof notasAvisoQtd!=='undefined' && notasAvisoQtd>0 && t.groups.some(g=>g.items.some(it=>it.view==='notascompra' && !itemEscondido(it))); // t-notas (27/11): selo das notas pendentes
+    return `<button class="sb-link ${t.id===activeRibbonTab?'active':''}" data-tab="${t.id}"><span class="ic">${(first&&first.icon)||''}</span>${t.label}${temNotas?`<span class="sb-badge" aria-label="${notasAvisoQtd} notas de compra pendentes">${notasAvisoQtd>99?'99+':notasAvisoQtd}</span>`:''}</button>`;
   }).join('');
   el.innerHTML = links + (areaLinks ? `<div class="sb-sep">Gestão</div>${areaLinks}` : '');
   // Trocar de área abre a primeira tela da faixa (pedido do dono, 22/10): antes só a faixa mudava e
