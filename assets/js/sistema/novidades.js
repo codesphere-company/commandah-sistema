@@ -5,6 +5,11 @@
 // Depois de mostrada, a novidade não volta para aquela pessoa naquele aparelho. Ajuda › Novidades reabre tudo.
 // A cada publicação, acrescentar uma entrada NO TOPO da lista (id único, data dd/mm/aaaa).
 const NOVIDADES = [
+  { id:'2026-11-27-cardapio-aviso-na-hora', data:'27/11/2026', itens:[
+    { titulo:'Pedido do cardápio chega ao caixa na hora',
+      texto:'O caixa agora é avisado no momento em que o cliente envia o pedido pelo celular, mesmo com a tela do sistema minimizada ou em outra aba. Antes ele conferia a fila de tempos em tempos e, com a aba escondida, o pedido podia demorar até um minuto. Basta ter um caixa logado, como já era.',
+      onde:'Cardápio do QR', perms:['caixa'] },
+  ]},
   { id:'2026-11-27-notas-de-compra', data:'27/11/2026', itens:[
     { titulo:'Notas de compra: conferir, pagar e dar entrada no estoque',
       texto:'Nova tela com as notas fiscais de compra dos fornecedores. Para cada nota o sistema mostra quatro etapas: conferida, contabilidade, pagamento e estoque. Ao abrir a nota, você escolhe o que cada item é (insumo, produto ou algo que não vai para o estoque) e confirma: a entrada no estoque e o contas a pagar saem juntos, e dá para desfazer. Há também o arquivo do mês para mandar ao escritório. Quando chega nota nova, aparece um número ao lado do menu e um aviso na tela; se o fornecedor cancelar uma nota que já tinha entrada ou pagamento, o sistema avisa. Por enquanto as notas entram importando o arquivo XML; a busca automática será ligada na virada.',

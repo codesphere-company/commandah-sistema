@@ -18,18 +18,53 @@ function cardapioSouProcessador(){
   const c = (state.settings || {}).cardapio;
   return !!(c && c.ligado);
 }
+// 27/11 (t-cardapio-aviso): o aparelho é AVISADO pelo Supabase (tempo real) quando um pedido é gravado, em vez de só
+// perguntar de 6 em 6 s — com a aba escondida o Chrome segura o setInterval por até 1 min, e o aviso chega mesmo assim.
+// A conferência periódica continua como reserva (30 s), caso o aviso caia. Se o aviso chega com a fila ocupada, marca
+// para olhar de novo assim que terminar (não perde o pedido até a próxima reserva).
+let cardapioPedidosDeNovo = false;
 async function cardapioTickPedidos(){
   // 26/11: olha a fila mesmo com a aba escondida (o Chrome deixa rodar no máximo 1 vez por minuto em aba escondida;
   // antes esperava alguém voltar à tela e um pedido levou 151 s).
-  if(cardapioPedidosOcupado || !cardapioSouProcessador()) return;
+  if(!cardapioSouProcessador()) return;
+  if(cardapioPedidosOcupado){ cardapioPedidosDeNovo = true; return; }
   cardapioPedidosOcupado = true;
+  cardapioPedidosDeNovo = false;
   try {
     const desde = new Date(Date.now() - 300000).toISOString(); // 5 min (cardapio_pedido_pegar)
     const { data, error } = await supabaseClient.from('cardapio_pedidos').select('id').eq('status', 'novo').lte('requer', CARDAPIO_PROCESSADOR_VERSAO).gte('criado_em', desde).order('criado_em').limit(5);
     if(error || !data || !data.length) return;
     for(const r of data) await cardapioProcessarPedido(r.id);
   } catch(e){ console.error('[cardapio] fila', e); }
-  finally { cardapioPedidosOcupado = false; }
+  finally {
+    cardapioPedidosOcupado = false;
+    if(cardapioPedidosDeNovo) setTimeout(cardapioTickPedidos, 0);
+  }
+}
+// Assinatura do aviso em tempo real: só no aparelho que processa (caixa/admin logado com o cardápio ligado), uma por
+// estabelecimento e usuário; desfeita quando o aparelho deixa de processar (logout, troca de PIN, cardápio desligado).
+// A RLS de cardapio_pedidos (owner/admin/caixa do próprio tenant) também vale para o aviso.
+let cardapioAvisoCanal = null, cardapioAvisoChave = '';
+function cardapioAvisoAtualizar(){
+  const quero = cardapioSouProcessador() && typeof supabaseClient!=='undefined' && supabaseClient && typeof supabaseClient.channel==='function';
+  const chave = quero ? (storageApi.tenantId + '|' + (currentUser && currentUser.id)) : '';
+  if(chave===cardapioAvisoChave) return;
+  if(cardapioAvisoCanal){ try { supabaseClient.removeChannel(cardapioAvisoCanal); } catch(e){ /* canal já caiu */ } }
+  cardapioAvisoCanal = null; cardapioAvisoChave = chave;
+  if(!quero) return;
+  try {
+    // Nome único a cada assinatura: removeChannel é assíncrono e o canal antigo fica "saindo"; com o mesmo nome o
+    // channel() devolveria esse canal morto e a troca de operador por PIN deixaria o aparelho sem aviso (revisão 27/11).
+    const canal = supabaseClient.channel('cardapio-pedidos-' + storageApi.tenantId + '-' + Date.now());
+    cardapioAvisoCanal = canal
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'cardapio_pedidos', filter:'tenant_id=eq.' + storageApi.tenantId }, ()=>cardapioTickPedidos())
+      .subscribe((st, err)=>{
+        if(st==='SUBSCRIBED') return;
+        console.warn('[cardapio] aviso', st, err || '');
+        // Erro ao entrar no canal (a biblioteca não tenta de novo): esquece a chave para a próxima volta assinar outra vez.
+        if((st==='CHANNEL_ERROR' || st==='TIMED_OUT') && cardapioAvisoCanal===canal) cardapioAvisoChave = '';
+      });
+  } catch(e){ console.error('[cardapio] aviso', e); cardapioAvisoCanal = null; }
 }
 async function cardapioConcluirPedido(id, status, motivo, saleId, numero){
   try { await supabaseClient.rpc('cardapio_pedido_concluir', { p_id:id, p_status:status, p_motivo:motivo || null, p_sale_id:saleId || null, p_order_number:numero || null }); }
@@ -104,4 +139,7 @@ async function cardapioPedidosDeHoje(){
     return `<tr><td>${h(timeFmt(r.criado_em))}</td><td>${h(r.quem_nome)}</td><td>${h(r.local)}</td><td class="mono">${fmt(r.total)}</td><td>${h(velho ? 'Não pego (cliente orientado a chamar o garçom)' : (rot[r.status] || r.status) + (r.order_number ? ' · comanda #' + r.order_number : ''))}${r.motivo ? '<br><small class="sub">' + h(r.motivo) + '</small>' : ''}</td></tr>`;
   }).join('')}</tbody></table>` : '<p class="sub">Nenhum pedido pelo celular hoje.</p>';
 }
-setInterval(cardapioTickPedidos, 6000);
+// 27/11 (t-cardapio-aviso): reserva de 30 s (antes 6 s) — o caminho normal é o aviso em tempo real. A cada volta também
+// confere se a assinatura do aviso ainda corresponde a quem está logado.
+setInterval(()=>{ cardapioAvisoAtualizar(); cardapioTickPedidos(); }, 30000);
+setTimeout(cardapioAvisoAtualizar, 3000);

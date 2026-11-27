@@ -269,6 +269,7 @@ function afterLogin(){
 // Auditoria 11/11, item 1: também chamado ao terminar a tela "Como você atende?", que antes pulava a troca.
 function avisosAoEntrar(){
   setTimeout(()=>{ if(typeof notasCompraAvisoAtualizar==='function') notasCompraAvisoAtualizar(true); }, 2500); // t-notas (27/11): selo e faixa das notas de compra
+  setTimeout(()=>{ if(typeof cardapioAvisoAtualizar==='function') cardapioAvisoAtualizar(); }, 1500); // t-cardapio-aviso (27/11): assina o aviso de pedido já no login (sem esperar a volta de 30 s)
   avisoLgpdAoEntrar(); // item 6 (auditoria 11/11): anonimização automática dos próximos 7 dias
   if(pinTrocaObrigatoria || (currentUser.username==='admin' && currentUser.pin==='1234')) setTimeout(openForcedPinModal,0);
   else setTimeout(mostrarNovidadesAoEntrar,0);
