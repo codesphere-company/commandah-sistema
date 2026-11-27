@@ -16,9 +16,11 @@ let notasCompraCarregando = false;
 let notasCompraVelha = true;      // t-notas: entrar na tela (switchView) relê do servidor; o renderAll de fundo só redesenha
 let notasCompraLidaEm = 0;        // t-notas: entrar e sair da tela em seguida não relê (Supabase Pro por egress, 25/11)
 
-// Sem xml (t-notas: o XML só vai para o arquivo do mês, pela função). `dados` traz os itens: a lista conta
-// os itens sem vínculo e vê se todos são "não é estoque".
-const NC_CAMPOS = 'chave,origem,modelo,numero,serie,emitente_cnpj,emitente_nome,emissao,valor,situacao,fora,aviso,dados,conferida_em,contabilidade_em,pagamento_em,contabilidade_obs,estoque_em,estoque_deltas,estoque_desfeito_em,criada_em'; // t-notas tarefa 5: obs do escritório e deltas (o desfazer registra a saída)
+// Sem xml (t-notas: o XML só vai para o arquivo do mês, pela função) e sem `dados` (revisão final, achado 2:
+// baixar os itens de 500 notas a cada entrada e depois de cada ação pesava no egress do Supabase Pro). `dados`
+// vem numa segunda consulta só das notas que precisam dos itens na lista (completas, dentro do início e sem
+// estoque: "itens novos: N" e "não se aplica"); o da nota aberta vem ao abrir (abrirNotaCompra).
+const NC_CAMPOS = 'chave,origem,modelo,numero,serie,emitente_cnpj,emitente_nome,emissao,valor,situacao,fora,aviso,conferida_em,contabilidade_em,pagamento_em,contabilidade_obs,estoque_em,estoque_deltas,estoque_desfeito_em,criada_em'; // t-notas tarefa 5: obs do escritório e deltas (o desfazer registra a saída)
 const NC_LIMITE = 500;
 const NC_FORA_DO_AR = 'Não foi possível falar com o servidor das notas agora. Tente de novo em alguns segundos.';
 const NC_ETAPAS = [['conferida','Conferida'],['contabilidade','Contabilidade'],['pagamento','Pagamento'],['estoque','Estoque']];
@@ -59,16 +61,28 @@ function notasCompraPendente(n){
 
 async function notasCompraCarregar(){
   if(!isCloudMode()) throw new Error('As notas de compra precisam do sistema na nuvem.');
-  const [rn, rv, rc] = await Promise.all([
+  const [rn, rd, rv, rc] = await Promise.all([
     supabaseClient.from('notas_entrada').select(NC_CAMPOS).order('emissao', { ascending:false }).limit(NC_LIMITE),
+    supabaseClient.from('notas_entrada').select('chave,dados').eq('situacao','completa').eq('fora',false).is('estoque_em',null)
+      .order('emissao', { ascending:false }).limit(NC_LIMITE),
     supabaseClient.from('notas_entrada_vinculos').select('emitente_cnpj,codigo,tipo,insumo_id,produto_id,tamanho_id,fator'), // t-notas tarefa 5: a nota aberta vem com as escolhas lembradas
     supabaseClient.from('notas_entrada_config').select('cnpj,liberada,busca_ligada,inicio,ultima_busca_ok,ultimo_erro,categorias').limit(1)
   ]);
-  if(rn.error || rv.error || rc.error) throw new Error(NC_FORA_DO_AR);
+  if(rn.error || rd.error || rv.error || rc.error) throw new Error(NC_FORA_DO_AR);
   const vinculos = {}, vinculosDet = {};
   (rv.data||[]).forEach(v => { vinculos[(v.emitente_cnpj||'')+'|'+v.codigo] = v.tipo; vinculosDet[(v.emitente_cnpj||'')+'|'+v.codigo] = v; });
   // Sem emissão (resumo sem data) vai pelo dia em que chegou.
   const notas = (rn.data||[]).slice().sort((a,b)=>String(b.emissao||b.criada_em||'').localeCompare(String(a.emissao||a.criada_em||'')));
+  // `dados` de uma nota não muda enquanto a situação é a mesma: o que já foi lido (nota aberta, por exemplo,
+  // que saiu da segunda consulta depois da entrada no estoque) fica, sem baixar de novo.
+  const novos = {}; (rd.data||[]).forEach(d => { novos[d.chave] = d.dados; });
+  const antigas = {}, mesmo = notasCompraDados && notasCompraDados.quem===(currentUser && currentUser.id);
+  ((mesmo && notasCompraDados.notas) || []).forEach(n => { if(n.dadosLidos || n.dados!=null) antigas[n.chave] = n; });
+  notas.forEach(n => {
+    if(Object.prototype.hasOwnProperty.call(novos, n.chave)){ n.dados = novos[n.chave]; n.dadosLidos = true; return; }
+    const a = antigas[n.chave];
+    if(a && a.situacao===n.situacao){ n.dados = a.dados; n.dadosLidos = true; }
+  });
   notasCompraDados = { notas, vinculos, vinculosDet, config:(rc.data||[])[0] || null, quem:currentUser && currentUser.id };
   notasCompraVelha = false; notasCompraLidaEm = Date.now();
   if(typeof notasCompraAvisoDeDados==='function') notasCompraAvisoDeDados(false); // t-notas tarefa 6: o selo do menu acompanha a tela, sem consulta extra
@@ -192,7 +206,7 @@ function ncConfigHtml(){
     <div class="field"><span class="hub-rotulo">Busca automática <span class="hub-pill nc-pill-${b.cls}">${b.txt}</span></span>
       <label class="comp-switch"><input type="checkbox" id="ncBusca" ${c.busca_ligada?'checked':''}><span></span> Buscar as notas na SEFAZ a cada 2 horas</label>
       <small class="sub">A busca automática só funciona depois que a equipe do Commandah liberar para este estabelecimento${c.liberada?' (já liberada)':''}. Enquanto isso, importe o XML das notas.</small></div>
-    <div class="field"><label for="ncInicio">Data de início</label><input id="ncInicio" type="date" value="${h(inicio)}"><small class="sub">Notas emitidas antes desta data ficam como "tratadas fora": só consulta e arquivo do contador, sem conferir, sem estoque e sem contas.</small></div>
+    <div class="field"><label for="ncInicio">Data de início</label><input id="ncInicio" type="date" value="${h(inicio)}"><small class="sub">Notas emitidas antes desta data ficam como "tratadas fora": só consulta e arquivo do contador, sem conferir, sem estoque e sem contas. Mudar a data reclassifica as notas ainda não tratadas (sem nenhuma etapa feita).</small></div>
     <p class="sub nc-ultima">Última busca: <b>${c.ultima_busca_ok ? h(dataHoraBR(c.ultima_busca_ok)) : 'nenhuma ainda'}</b>${c.ultimo_erro ? `<br>Último erro: <b class="nc-erro-txt">${h(c.ultimo_erro)}</b>` : ''}</p>
     <button type="button" class="btn btn-primary hub-acao" id="ncSalvar" onclick="notasCompraConfigSalvar()">Salvar</button></div>`;
 }
@@ -316,5 +330,7 @@ const notasCompraConfigSalvar = singleFlight('notasCompraConfigSalvar', async fu
   notasCompraDados.config = { ...(notasCompraDados.config||{}), ...data };
   logAction(`Notas de compra: busca automática ${busca?'ligada':'desligada'}, início ${inicio.split('-').reverse().join('/')}`);
   toast('Configuração das notas de compra salva.');
-  notasCompraAbrir('');
+  notasCompraSecao = '';
+  // Revisão final (achado 1): a data de início reclassifica as notas ainda não tratadas no servidor; relê a lista.
+  await notasCompraRecarregar();
 });

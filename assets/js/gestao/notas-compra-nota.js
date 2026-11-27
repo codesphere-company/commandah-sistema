@@ -63,7 +63,21 @@ function ncnPreparar(chave){
   notaCompraAberta = { chave, escolhas, categoriaId:ncnCategoriaLembrada(n), jaPaga:false, pagoEm:todayStr(), venc:ncnEmissaoDia(n) };
   return n;
 }
-function abrirNotaCompra(chave){
+// Revisão final (achado 2): a lista não traz `dados` de toda nota; a que abre sem eles (estoque já feito, fora,
+// cancelada...) busca só a dela, uma vez.
+async function ncnLerDados(chave){
+  const n = ncnNota(chave); if(!n || n.dadosLidos) return true;
+  try {
+    const { data, error } = await supabaseClient.from('notas_entrada').select('chave,dados').eq('chave', chave).limit(1);
+    if(error) return false;
+    const m = ncnNota(chave) || n;
+    m.dados = data && data[0] ? data[0].dados : null; m.dadosLidos = true;
+    return true;
+  } catch(e){ return false; }
+}
+async function abrirNotaCompra(chave){
+  if(!ncnNota(chave)){ toast('Nota não encontrada. Atualize a lista.'); return; }
+  if(!await ncnLerDados(chave)){ toast(NC_FORA_DO_AR, 'error'); return; }
   if(!ncnPreparar(chave)){ toast('Nota não encontrada. Atualize a lista.'); return; }
   notasCompraSecao = 'nota';
   notasCompraDesenhar();
@@ -206,7 +220,8 @@ async function ncnRpc(nome, args){
 }
 async function ncnMarcar(chave, etapa, dados){
   const r = await ncnRpc('notas_entrada_marcar', { p_chave:chave, p_etapa:etapa, p_dados:dados||{} });
-  if(r.error) return { erro: /sem permissao/i.test(r.error.message||'') ? 'Seu perfil não pode marcar '+etapa+' nesta nota.' : 'Não foi possível marcar '+etapa+' agora. Confira a conexão e tente de novo.' };
+  const m = r.error ? String(r.error.message||'') : '';
+  if(r.error) return { erro: /sem permissao/i.test(m) ? 'Seu perfil não pode marcar '+etapa+' nesta nota.' : /para consulta/i.test(m) ? 'Esta nota é só para consulta.' : 'Não foi possível marcar '+etapa+' agora. Confira a conexão e tente de novo.' };
   return { ok:!(r.data && r.data.ja) };
 }
 async function ncnConferida(n){
@@ -220,6 +235,13 @@ async function ncnPagamento(n){
   if(A.jaPaga && !/^\d{4}-\d{2}-\d{2}$/.test(A.pagoEm)) return { erro:'Informe a data em que a nota foi paga.' };
   const dups = Array.isArray(d.duplicatas) && d.duplicatas.length ? d.duplicatas : [{ numero:'1', vencimento:A.venc, valor:Number(n.valor)||Number(d.valor)||0 }];
   if(dups.some(x=>!/^\d{4}-\d{2}-\d{2}$/.test(String(x.vencimento||'')) || !(Number(x.valor)>0))) return { erro:'Confira o vencimento e o valor da conta a pagar.' };
+  // Revisão final (achado 5): dois aparelhos na mesma nota. O outro pode ter lançado as contas há pouco (o blob
+  // de contas deste aparelho ainda não tem); relê só o pagamento_em desta nota antes de criar qualquer conta.
+  try {
+    const { data, error } = await supabaseClient.from('notas_entrada').select('pagamento_em').eq('chave', n.chave).limit(1);
+    if(error) return { erro:'Não foi possível conferir o pagamento desta nota agora. Confira a conexão e tente de novo.' };
+    if(data && data[0] && data[0].pagamento_em) return { erro:'O pagamento desta nota já foi lançado em outro aparelho.' };
+  } catch(e){ return { erro:'Não foi possível conferir o pagamento desta nota agora. Confira a conexão e tente de novo.' }; }
   let forn = ncnFornecedor(n);
   if(!forn){
     forn = { id:uid(), nome:em.fantasia || em.nome || n.emitente_nome || ('CNPJ '+cnpj), razaoSocial:em.nome || n.emitente_nome || '', documento:cnpj, telefone:em.fone || '', email:'', contato:'' };

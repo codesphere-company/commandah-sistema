@@ -167,6 +167,9 @@ begin
     raise exception 'nota so com resumo (sem itens): espere o XML';
   end if;
 
+  -- Revisão final (achado 6): nota só com itens "não é estoque" (sem upserts nem deltas) não chama
+  -- insumos_apply, que regravaria o blob de insumos e faria os aparelhos relerem à toa.
+  if jsonb_array_length(v_up) > 0 or v_deltas <> '{}'::jsonb then
   -- 1) Cadastro: insumos novos com estoque 0; dos existentes, insumos_apply já ignora "stock".
   v_up := coalesce((select jsonb_agg(case when jsonb_typeof(x) = 'object' then x || '{"stock":0}'::jsonb else x end)
                       from jsonb_array_elements(v_up) x), '[]'::jsonb);
@@ -185,6 +188,7 @@ begin
   v_lista := public.insumos_apply(
     coalesce((select jsonb_agg(jsonb_build_object('id', d.key)) from jsonb_each(v_deltas) d), '[]'::jsonb),
     v_deltas, '[]'::jsonb);
+  end if;
 
   insert into public.notas_entrada_vinculos (tenant_id, emitente_cnpj, codigo, tipo, insumo_id, produto_id, tamanho_id, fator, atualizado_em)
   select v_tenant, coalesce(v_nota.emitente_cnpj, ''), left(v->>'codigo', 120), v->>'tipo',
@@ -265,6 +269,7 @@ grant execute on function public.notas_entrada_desfazer_estoque(text) to authent
 -- Etapas: 'conferida' (contas ou insumos), 'contabilidade' (contas; p_dados.obs),
 -- 'pagamento' (contas; p_dados.contas = ids das contas criadas pela tela).
 -- Idempotente: a segunda marcação não troca quem/quando (nem as contas/obs) — devolve ja:true.
+-- Nota tratada fora, cancelada ou só com resumo é recusada ("Esta nota é só para consulta.").
 -- ---------------------------------------------------------------------
 create or replace function public.notas_entrada_marcar(p_chave text, p_etapa text, p_dados jsonb)
 returns jsonb
@@ -301,6 +306,11 @@ begin
   if v_nota.id is null then
     raise exception 'nota nao encontrada';
   end if;
+  -- Revisão final (achado 7): nota tratada fora, cancelada ou só com resumo é só consulta (a tela já não
+  -- mostra os botões; aqui é a trava do servidor, com a mesma frase da tela).
+  if v_nota.fora or v_nota.situacao <> 'completa' then
+    raise exception 'Esta nota é só para consulta.';
+  end if;
 
   if p_etapa = 'conferida' then
     if v_nota.conferida_em is not null then return jsonb_build_object('ok', true, 'ja', true); end if;
@@ -324,6 +334,7 @@ grant execute on function public.notas_entrada_marcar(text, text, jsonb) to auth
 
 -- ---------------------------------------------------------------------
 -- Configuração do administrador (só dono/admin). Não mexe em `liberada` (trava da equipe).
+-- Reclassifica `fora` das notas sem nenhuma etapa feita pela data de início gravada.
 -- p_categorias e p_cnpj null mantêm o que está gravado. p_cnpj aceita pontuação (fica só com os dígitos).
 -- ---------------------------------------------------------------------
 create or replace function public.notas_entrada_config_salvar(p_busca_ligada boolean, p_inicio date, p_categorias jsonb, p_cnpj text)
@@ -354,6 +365,14 @@ begin
         categorias = coalesce(p_categorias, public.notas_entrada_config.categorias),
         cnpj = coalesce(v_cnpj, public.notas_entrada_config.cnpj)
   returning * into v_row;
+  -- Revisão final (achado 1): a data de início reclassifica as notas ainda não tratadas (nenhuma etapa feita).
+  -- Sem isso, salvar o CNPJ pela primeira vez (início = hoje) deixava as notas da semana anterior como
+  -- "tratadas fora" para sempre (reimportar o XML devolve ja:true). Nota com alguma etapa feita fica como está.
+  update public.notas_entrada
+     set fora = (v_row.inicio is not null and emissao is not null
+                 and (emissao at time zone 'America/Sao_Paulo')::date < v_row.inicio)
+   where tenant_id = v_tenant
+     and conferida_em is null and pagamento_em is null and estoque_em is null and contabilidade_em is null;
   return to_jsonb(v_row);
 end;
 $function$;

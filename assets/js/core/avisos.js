@@ -527,15 +527,21 @@ function hideSyncFailBanner(){
    própria, uma vez por nota. Egress (Supabase Pro): sem polling curto novo. Conta ao entrar e a cada 5 min, com
    consulta leve (sem `dados`/`xml`, só as notas ainda abertas); com a tela lida há pouco usa o cache dela, sem
    consulta. `dados` só das poucas notas em que falta apenas o estoque (para saber se todos os itens são
-   "não é estoque"). */
-let notasAvisoQtd = 0, notasAvisoUltimo = 0, notasAvisoUid = null, notasAvisoOcupado = false;
+   "não é estoque").
+   Revisão final (achados 3 e 4): a faixa "N notas de compra novas" vale só para chaves que este usuário ainda não
+   viu (guardadas no localStorage, por usuário); o selo segue com o total de pendentes. A consulta dos 5 min pede
+   só as colunas da contagem; nome e número só das canceladas com aviso ainda não mostrado. */
+let notasAvisoQtd = 0, notasAvisoOcupado = false;
 const NOTAS_AVISO_VISTAS = 'cmd-notas-cancelada-vistas';
+const NOTAS_AVISO_NOVAS = 'cmd-notas-novas-vistas:'; // + id do usuário
 function notasAvisoPode(){ return !!currentUser && isCloudMode() && (hasPerm('contas') || hasPerm('insumos')); }
-function notasAvisoVistas(){ try{ const v = JSON.parse(localStorage.getItem(NOTAS_AVISO_VISTAS)||'[]'); return Array.isArray(v) ? v : []; }catch(e){ return []; } }
-function notasAvisoMarcar(chaves){
-  if(!chaves.length) return;
-  try{ localStorage.setItem(NOTAS_AVISO_VISTAS, JSON.stringify(notasAvisoVistas().concat(chaves).slice(-300))); }catch(e){}
+function notasAvisoLer(chave){ try{ const v = JSON.parse(localStorage.getItem(chave)||'[]'); return Array.isArray(v) ? v : []; }catch(e){ return []; } }
+function notasAvisoGravar(chave, lista, novas, max){
+  if(!novas.length) return;
+  try{ localStorage.setItem(chave, JSON.stringify(lista.concat(novas).slice(-max))); }catch(e){}
 }
+function notasAvisoVistas(){ return notasAvisoLer(NOTAS_AVISO_VISTAS); }
+function notasAvisoMarcar(chaves){ notasAvisoGravar(NOTAS_AVISO_VISTAS, notasAvisoVistas(), chaves, 300); }
 function notasAvisoToast(classe, titulo, texto){
   const root = document.getElementById('toastRoot'); if(!root) return;
   root.querySelectorAll('.toast.'+classe).forEach(t=>t.remove());
@@ -548,14 +554,15 @@ function notasAvisoToast(classe, titulo, texto){
   root.appendChild(el);
   setTimeout(()=>el.remove(), 20000);
 }
-// qtd = pendentes agora; canceladas = notas canceladas com `aviso`; falar = avisar com faixa (false quando vem da tela aberta).
-function notasAvisoAplicar(qtd, canceladas, falar){
-  if(notasAvisoUid!==currentUser.id){ notasAvisoUid = currentUser.id; notasAvisoUltimo = 0; }
-  const mudouQtd = qtd!==notasAvisoQtd;
+// pendentes = chaves das notas pendentes agora; canceladas = notas canceladas com `aviso`; falar = avisar com
+// faixa (false quando vem da tela aberta: quem está vendo a lista já viu as notas, que entram como vistas).
+function notasAvisoAplicar(pendentes, canceladas, falar){
+  const qtd = pendentes.length, mudouQtd = qtd!==notasAvisoQtd;
   notasAvisoQtd = qtd;
-  const novas = qtd - notasAvisoUltimo;
-  if(falar && novas>0) notasAvisoToast('nc-novas', novas===1 ? '1 nota de compra nova' : novas+' notas de compra novas', 'Falta conferir, pagar ou dar entrada no estoque.');
-  notasAvisoUltimo = qtd;
+  const chaveNovas = NOTAS_AVISO_NOVAS+currentUser.id, jaVistas = notasAvisoLer(chaveNovas), set = new Set(jaVistas);
+  const novas = pendentes.filter(k=>!set.has(k));
+  if(falar && novas.length) notasAvisoToast('nc-novas', novas.length===1 ? '1 nota de compra nova' : novas.length+' notas de compra novas', 'Falta conferir, pagar ou dar entrada no estoque.');
+  notasAvisoGravar(chaveNovas, jaVistas, novas, 1000);
   const vistas = new Set(notasAvisoVistas());
   const ainda = canceladas.filter(n=>!vistas.has(n.chave));
   if(falar) ainda.forEach(n=>notasAvisoToast('nc-cancelada', 'Nota cancelada pelo fornecedor', (n.emitente_nome||'')+(n.numero?' — nº '+n.numero:'')+'. '+n.aviso));
@@ -566,7 +573,7 @@ function notasAvisoAplicar(qtd, canceladas, falar){
 function notasCompraAvisoDeDados(falar){
   if(!notasAvisoPode() || typeof notasCompraDados==='undefined' || !notasCompraDados) return;
   const notas = notasCompraDados.notas || [];
-  notasAvisoAplicar(notas.filter(notasCompraPendente).length, notas.filter(n=>n.situacao==='cancelada' && n.aviso), !!falar);
+  notasAvisoAplicar(notas.filter(notasCompraPendente).map(n=>n.chave), notas.filter(n=>n.situacao==='cancelada' && n.aviso), !!falar);
 }
 async function notasCompraAvisoAtualizar(forcar){
   if(!notasAvisoPode() || notasAvisoOcupado || (document.hidden && !forcar)) return;
@@ -575,7 +582,7 @@ async function notasCompraAvisoAtualizar(forcar){
   notasAvisoOcupado = true;
   try{
     const { data, error } = await supabaseClient.from('notas_entrada')
-      .select('chave,emitente_cnpj,emitente_nome,numero,situacao,fora,aviso,conferida_em,contabilidade_em,pagamento_em,estoque_em')
+      .select('chave,emitente_cnpj,situacao,aviso,conferida_em,contabilidade_em,pagamento_em,estoque_em')
       .eq('fora', false).or('conferida_em.is.null,contabilidade_em.is.null,pagamento_em.is.null,estoque_em.is.null,aviso.not.is.null')
       .order('criada_em', { ascending:false }).limit(500);
     if(error || !Array.isArray(data) || !currentUser || currentUser.id!==uid) return;
@@ -595,8 +602,16 @@ async function notasCompraAvisoAtualizar(forcar){
         if(itens.length && itens.every(it=>vin[(n.emitente_cnpj||'')+'|'+it.codigo]==='fora')) fora.add(n.chave);
       });
     }
-    const qtd = abertas.filter(n=>!fora.has(n.chave)).length;
-    notasAvisoAplicar(qtd, data.filter(n=>n.situacao==='cancelada' && n.aviso), true);
+    // Nome e número só das canceladas com aviso que ainda não apareceram (a faixa usa; o selo não).
+    const vistas = new Set(notasAvisoVistas());
+    const canceladas = data.filter(n=>n.situacao==='cancelada' && n.aviso && !vistas.has(n.chave)).slice(0,50);
+    if(canceladas.length){
+      const rn = await supabaseClient.from('notas_entrada').select('chave,emitente_nome,numero').in('chave', canceladas.map(n=>n.chave));
+      if(rn.error || !currentUser || currentUser.id!==uid) return;
+      const nomes = {}; (rn.data||[]).forEach(x=>{ nomes[x.chave] = x; });
+      canceladas.forEach(n=>{ const x = nomes[n.chave] || {}; n.emitente_nome = x.emitente_nome; n.numero = x.numero; });
+    }
+    notasAvisoAplicar(abertas.filter(n=>!fora.has(n.chave)).map(n=>n.chave), canceladas, true);
   }catch(e){ /* sem rede: tenta no próximo ciclo */ }
   finally{ notasAvisoOcupado = false; }
 }
