@@ -13,9 +13,11 @@ let next = process.argv[2];
 if (!next) {
   const d = new Date();
   const today = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-  const sameDay = current.filter(v => v.startsWith(today)).map(v => v.slice(8)).sort();
-  const last = sameDay[sameDay.length - 1];
-  next = today + (last ? String.fromCharCode(last.charCodeAt(0) + 1) : 'a');
+  // 26/11: depois do "z" vinha "{" (caractere inválido no endereço). Agora: a…z, depois za…zz, zza…
+  const sameDay = current.filter(v => v.startsWith(today)).map(v => v.slice(8)).filter(s => /^[a-z]+$/.test(s));
+  const last = sameDay.sort((a, b) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0))[sameDay.length - 1];
+  const proxima = s => !s ? 'a' : s.endsWith('z') ? s + 'a' : s.slice(0, -1) + String.fromCharCode(s.charCodeAt(s.length - 1) + 1);
+  next = today + proxima(last);
 }
 fs.writeFileSync(file, html.replace(re, `$1?v=${next}"`));
 console.log(`?v= ${[...new Set(current)].join(', ') || '(nenhum)'} -> ${next}`);
