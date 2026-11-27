@@ -460,8 +460,28 @@ async function checkNewAppVersion(){
     bar.id = 'newVersionBar'; bar.className = 'new-version-bar'; bar.setAttribute('role','status');
     bar.innerHTML = '<span>Há uma versão nova do Commandah.</span><button type="button" onclick="location.reload()">Recarregar agora</button><button type="button" class="nv-later" onclick="this.parentNode.remove()">Depois</button>';
     document.body.appendChild(bar);
+    versaoNovaDesde = Date.now();
   }catch(e){}
 }
+/* 26/11 (pedido do dono, depois do cardápio): aparelho parado recarrega sozinho quando sai versão nova. Um caixa
+   esquecido com a versão antiga lançava o pedido do cardápio do jeito velho (recusou a Coca com a escolha NORMAL).
+   Parado: ninguém mexeu há 2 minutos, nenhuma janela aberta, nenhum campo com o cursor e nada por enviar
+   (Ficha, Novo pedido, adição rápida, app do garçom). Fora disso fica só a faixa "Há uma versão nova", como antes.
+   "Depois" na faixa também segura a recarga (a faixa some). */
+let versaoNovaDesde = 0, ultimaAtividade = Date.now();
+['pointerdown','keydown','touchstart','wheel'].forEach(ev=>window.addEventListener(ev, ()=>{ ultimaAtividade = Date.now(); }, { passive:true, capture:true }));
+function aparelhoParado(){
+  if(Date.now() - ultimaAtividade < 120000) return false;
+  if(document.querySelector('#modalRoot .modal, #confirmRoot')) return false;
+  const foco = document.activeElement; if(foco && /^(INPUT|TEXTAREA|SELECT)$/.test(foco.tagName)) return false;
+  const pendentes = l => Array.isArray(l) && l.some(i=>i && !i.sent);
+  if(typeof currentSaleDraft!=='undefined' && currentSaleDraft && pendentes(currentSaleDraft.items)) return false;
+  if(typeof gcCart!=='undefined' && pendentes(gcCart)) return false;
+  if(typeof npCart!=='undefined' && pendentes(npCart)) return false;
+  if(typeof comandaQuickCart!=='undefined' && pendentes(comandaQuickCart)) return false;
+  return true;
+}
+setInterval(()=>{ if(versaoNovaDesde && document.getElementById('newVersionBar') && aparelhoParado()) location.reload(); }, 30000);
 setTimeout(()=>{ renderAppVersion(); checkNewAppVersion(); }, 3000);
 // PROD-17: guarda só o aplicativo (sw.js) para abrir mesmo recarregando sem internet.
 if(typeof navigator!=='undefined' && 'serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){

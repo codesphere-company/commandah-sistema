@@ -5,6 +5,9 @@
    cardapio_pedido_pegar é atômico: só um aparelho pega cada pedido. Pedido com mais de 5 minutos (26/11; antes 3) não é pego
    (o cliente já foi orientado a chamar o garçom). Desenho: docs/superpowers/specs/2026-11-26-cardapio-etapa2-design.md. */
 let cardapioPedidosOcupado = false;
+// 26/11: versão deste processador. 2 = lança tamanho e opções (picks). O pedido diz a mínima (cardapio_pedidos.requer);
+// aparelho desatualizado não pega e deixa para outro. Subir quando o lançamento mudar de um jeito que o antigo erraria.
+const CARDAPIO_PROCESSADOR_VERSAO = 2;
 const CARDAPIO_QUEM_LANCA = 'Cardápio digital';
 
 // 26/11 (pedido do dono): qualquer aparelho com alguém logado que tenha o caixa (administrador ou caixa) pega os
@@ -22,7 +25,7 @@ async function cardapioTickPedidos(){
   cardapioPedidosOcupado = true;
   try {
     const desde = new Date(Date.now() - 300000).toISOString(); // 5 min (cardapio_pedido_pegar)
-    const { data, error } = await supabaseClient.from('cardapio_pedidos').select('id').eq('status', 'novo').gte('criado_em', desde).order('criado_em').limit(5);
+    const { data, error } = await supabaseClient.from('cardapio_pedidos').select('id').eq('status', 'novo').lte('requer', CARDAPIO_PROCESSADOR_VERSAO).gte('criado_em', desde).order('criado_em').limit(5);
     if(error || !data || !data.length) return;
     for(const r of data) await cardapioProcessarPedido(r.id);
   } catch(e){ console.error('[cardapio] fila', e); }
@@ -52,7 +55,7 @@ function cardapioLinhasDoPedido(p){
   return { cart };
 }
 async function cardapioProcessarPedido(id){
-  const { data:p, error } = await supabaseClient.rpc('cardapio_pedido_pegar', { p_id:id });
+  const { data:p, error } = await supabaseClient.rpc('cardapio_pedido_pegar', { p_id:id, p_versao:CARDAPIO_PROCESSADOR_VERSAO });
   if(error || !p) return;
   try {
     let m = (state.members || []).find(x=>x.id===p.member_id);
