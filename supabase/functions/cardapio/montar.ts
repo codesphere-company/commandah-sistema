@@ -10,10 +10,13 @@ const num = (v: unknown): number | null => (typeof v === "number" && Number.isFi
 
 export type ProdutoPublico = {
   id: string; nome: string; descricao: string; categoria: string; preco: number | null;
-  foto: boolean; unidade: "un" | "kg"; tamanhos: { id: string; nome: string; preco: number }[];
-  // Etapa 2: dá para pedir pelo celular? (com adicionais ou por quilo: "peça ao garçom"). cozinha = sai pela cozinha.
+  foto: boolean; unidade: "un" | "kg"; tamanhos: { id: string; nome: string; preco: number; grupos: Grupo[] }[];
+  // Grupos de opções do produto sem tamanho (com tamanho, ficam em cada tamanho). 26/11: o cliente escolhe no celular.
+  grupos: Grupo[];
+  // Dá para pedir pelo celular? (por quilo: "peça ao garçom"). cozinha = sai pela cozinha.
   pedivel: boolean; cozinha: boolean;
 };
+export type Grupo = { id: string; nome: string; min: number; max: number; incluidos: number; opcoes: { id: string; nome: string; preco: number }[] };
 export type CardapioPublico = {
   nome: string; mesa: string; logo: boolean;
   cozinha: { aberta: boolean; texto: string };
@@ -54,27 +57,38 @@ export function cozinhaAgora(settings: Obj, agora: Date): { aberta: boolean; tex
   return { aberta: false, texto: "Cozinha fechada agora" };
 }
 
-// Produto com grupo de adicionais (em qualquer tamanho) ainda não é pedido pelo celular (etapa 2).
-function temAdicionais(p: Obj, complementos: Obj[]): boolean {
-  const existe = (g: Obj) => complementos.some((c) => c.id === g.groupId && c.recordKind === "optionGroup" && c.active !== false);
-  if (arr(p.groups).some(existe)) return true;
-  return Object.values((p.sizes || {}) as Record<string, Obj>).some((s) => arr(s && s.groups).some(existe));
+// Regras de grupo (product.groups ou sizes[id].groups) -> grupos com as opções ativas, como opcoes.js (rulesFor/opcoesGroupOf).
+export function gruposDe(regras: unknown, complementos: Obj[]): Grupo[] {
+  const out: Grupo[] = [];
+  for (const r of arr(regras)) {
+    const g = complementos.find((c) => c.id === r.groupId && c.recordKind === "optionGroup" && c.active !== false);
+    if (!g) continue;
+    out.push({
+      id: str(g.id, 80), nome: str(g.nome, 80),
+      min: Math.max(0, Math.floor(Number(r.min) || 0)), max: Math.max(0, Math.floor(Number(r.max) || 0)),
+      incluidos: Math.max(0, Math.floor(Number(r.included) || 0)),
+      opcoes: arr(g.options).filter((o) => o.active !== false && str(o.id, 80)).map((o) => ({ id: str(o.id, 80), nome: str(o.nome, 80), preco: num(o.preco) || 0 })),
+    });
+  }
+  return out;
 }
+// Grupo obrigatório sem nenhuma opção ativa: não dá para pedir.
+const gruposPossiveis = (gs: Grupo[]) => gs.every((g) => g.min <= 0 || g.opcoes.length > 0);
 
-function tamanhos(p: Obj, complementos: Obj[]): { id: string; nome: string; preco: number }[] {
+function tamanhos(p: Obj, complementos: Obj[]): { id: string; nome: string; preco: number; grupos: Grupo[] }[] {
   const gradeId = str(p.gradeId, 80);
   if (!gradeId) return [];
   const grade = complementos.find((c) => c.id === gradeId && c.recordKind === "grade" && c.active !== false);
   if (!grade) return [];
   const precos = (p.sizes || {}) as Record<string, Obj>;
-  const out: { id: string; nome: string; preco: number }[] = [];
+  const out: { id: string; nome: string; preco: number; grupos: Grupo[] }[] = [];
   for (const s of arr(grade.sizes)) {
     const ps = precos[String(s.id)];
     if (!ps || ps.active === false) continue;
     if (((ps.channels || {}) as Obj).qr === false) continue;
     const preco = num(ps.price);
     if (preco == null) continue;
-    out.push({ id: str(s.id, 80), nome: str(s.nome, 60), preco });
+    out.push({ id: str(s.id, 80), nome: str(s.nome, 60), preco, grupos: gruposDe(ps.groups, complementos) });
   }
   return out;
 }
@@ -95,7 +109,8 @@ export function montarCardapio(settings: Obj, products: unknown, categorias: unk
         foto: typeof p.image === "string" && /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(p.image),
         unidade: String(p.measure || "").toLowerCase() === "kg" ? "kg" : "un",
         tamanhos: tam,
-        pedivel: String(p.measure || "").toLowerCase() !== "kg" && !temAdicionais(p, comps),
+        grupos: tam.length ? [] : gruposDe(p.groups, comps),
+        pedivel: String(p.measure || "").toLowerCase() !== "kg" && (tam.length ? tam.some((t) => gruposPossiveis(t.grupos)) : gruposPossiveis(gruposDe(p.groups, comps))),
         cozinha: !p.estacao || p.estacao === "cozinha",
       } as ProdutoPublico;
     })

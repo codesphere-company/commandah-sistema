@@ -39,8 +39,10 @@ function cardapioLinhasDoPedido(p){
     const prod = state.products.find(x=>x.id===it.produtoId);
     if(!prod || prod.active===false) return { erro:(it.nome || 'Um produto') + ' acabou. Chame o garçom.' };
     let choice = null;
-    if(it.tamanhoId){
-      choice = buildCustomization({ product:prod, complementos:state.complementos, sizeId:it.tamanhoId, channel:'qr', picks:{} });
+    // 26/11: tamanho e opções escolhidos no celular (picks no formato do buildCustomization: {grupo:{opção:qtd}}).
+    const picks = it.opcoes && typeof it.opcoes==='object' ? it.opcoes : {};
+    if(it.tamanhoId || Object.keys(picks).length || productNeedsChoice(prod, state.complementos)){
+      choice = buildCustomization({ product:prod, complementos:state.complementos, sizeId:it.tamanhoId || null, channel:'qr', picks });
       if(choice.error) return { erro:prod.name + ': ' + choice.error + ' Chame o garçom.' };
     }
     cartAddLine(cart, prod, choice, Math.max(1, Math.min(20, parseInt(it.qtd, 10) || 1)));

@@ -1,5 +1,5 @@
 // Cardápio digital, etapa 2 (26/11/2026): regras do pedido do sócio na cota. Puro, para testar com dados fixos.
-import type { CardapioPublico } from "./montar.ts";
+import type { CardapioPublico, Grupo } from "./montar.ts";
 
 type Obj = Record<string, unknown>;
 const enc = new TextEncoder();
@@ -54,7 +54,39 @@ export function bloqueadoPorFiado(member: Obj, lancamentos: Obj[]): boolean {
 }
 
 export const LIMITE_ITENS = 20, LIMITE_TOTAL = 500;
-export type ItemPedido = { produtoId: string; tamanhoId: string | null; nome: string; preco: number; qtd: number };
+export type Escolhas = Record<string, Record<string, number>>; // {grupoId: {opcaoId: quantidade}} (formato do buildCustomization)
+export type ItemPedido = { produtoId: string; tamanhoId: string | null; opcoes: Escolhas; nome: string; resumo: string; preco: number; qtd: number };
+
+// Cobra só o que passa dos inclusos; os inclusos cobrem as unidades mais caras (chargedForGroup, core/opcoes.js).
+function cobradoNoGrupo(precos: number[], incluidos: number): number {
+  const u = precos.slice().sort((a, b) => b - a);
+  let t = 0; for (let i = Math.max(0, incluidos); i < u.length; i++) t += u[i];
+  return Math.round(t * 100) / 100;
+}
+// Confere as escolhas contra os grupos do produto (ou do tamanho): só grupos e opções existentes, quantidade
+// inteira, mínimo e máximo (0 = sem limite). Devolve o acréscimo e o resumo ("AGUA: 1x COM GAS").
+export function conferirEscolhas(grupos: Grupo[], escolhas: unknown, nome: string): { opcoes: Escolhas; extra: number; resumo: string } | { erro: string } {
+  const ent = (escolhas && typeof escolhas === "object" ? escolhas : {}) as Record<string, unknown>;
+  for (const gid of Object.keys(ent)) if (!grupos.some((g) => g.id === gid)) return { erro: nome + ": opção indisponível. Atualize a página." };
+  const opcoes: Escolhas = {}; let extra = 0; const linhas: string[] = [];
+  for (const g of grupos) {
+    const picks = (ent[g.id] && typeof ent[g.id] === "object" ? ent[g.id] : {}) as Record<string, unknown>;
+    const precos: number[] = [], partes: string[] = []; let total = 0;
+    for (const oid of Object.keys(picks)) {
+      const q = Number(picks[oid]);
+      if (!q) continue;
+      const o = g.opcoes.find((x) => x.id === oid);
+      if (!o || !Number.isInteger(q) || q < 0 || q > 20) return { erro: nome + ": opção indisponível. Atualize a página." };
+      (opcoes[g.id] = opcoes[g.id] || {})[oid] = q;
+      total += q; for (let i = 0; i < q; i++) precos.push(o.preco); partes.push(q + "x " + o.nome);
+    }
+    if (g.max > 0 && total > g.max) return { erro: "Escolha no máximo " + g.max + " em " + g.nome + "." };
+    if (g.min > 0 && total < g.min) return { erro: "Escolha " + (g.min === 1 ? "uma opção" : "ao menos " + g.min) + " em " + g.nome + " (" + nome + ")." };
+    extra += cobradoNoGrupo(precos, g.incluidos);
+    if (partes.length) linhas.push(g.nome + ": " + partes.join(", "));
+  }
+  return { opcoes, extra: Math.round(extra * 100) / 100, resumo: linhas.join(" · ") };
+}
 
 // Confere o carrinho do celular contra o cardápio montado agora: só produto pedível, tamanho existente,
 // quantidade inteira de 1 a 20, cozinha aberta para itens da cozinha. Preço sempre do cadastro.
@@ -70,14 +102,16 @@ export function conferirItens(cardapio: CardapioPublico, itens: unknown): { iten
     if (p.cozinha && !cardapio.cozinha.aberta) return { erro: "A cozinha está fechada agora. " + p.nome + " não pode ser pedido." };
     const qtd = Number(it.qtd);
     if (!Number.isInteger(qtd) || qtd < 1 || qtd > 20) return { erro: "Quantidade inválida em " + p.nome + "." };
-    let preco = p.preco, nome = p.nome, tamanhoId: string | null = null;
+    let preco = p.preco, nome = p.nome, tamanhoId: string | null = null, grupos = p.grupos || [];
     if (p.tamanhos.length) {
       const t = p.tamanhos.find((x) => x.id === it.tamanhoId);
       if (!t) return { erro: "Escolha o tamanho de " + p.nome + "." };
-      preco = t.preco; nome = p.nome + " " + t.nome; tamanhoId = t.id;
+      preco = t.preco; nome = p.nome + " " + t.nome; tamanhoId = t.id; grupos = t.grupos || [];
     }
     if (preco == null) return { erro: p.nome + ": peça ao garçom." };
-    out.push({ produtoId: p.id, tamanhoId, nome, preco, qtd });
+    const esc = conferirEscolhas(grupos, it.opcoes, p.nome);
+    if ("erro" in esc) return { erro: esc.erro };
+    out.push({ produtoId: p.id, tamanhoId, opcoes: esc.opcoes, nome, resumo: esc.resumo, preco: Math.round((preco + esc.extra) * 100) / 100, qtd });
   }
   const total = Math.round(out.reduce((a, i) => a + i.preco * i.qtd, 0) * 100) / 100;
   if (total > LIMITE_TOTAL) return { erro: "Pedido acima de R$ 500,00. Chame o garçom." };

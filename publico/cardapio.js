@@ -1,4 +1,5 @@
 /* ============ CARDÁPIO DIGITAL — PÁGINA PÚBLICA (26/11/2026) ============
+   26/11 (noite): produto com opções (ex.: AGUA com gás/sem gás, adicionais) abre a escolha no celular.
    Aberta pelo QR da mesa: /cardapio?c=<código público>&m=<id do local>. Fala só com a função "cardapio" (sem login).
    Etapa 1: boas-vindas, categorias em blocos e produtos com foto, preço e tamanhos (fotos pedidas uma a uma).
    Etapa 2: o sócio monta o carrinho, escolhe mesa ou balcão e marca na cota: confirma com um código de 4 números
@@ -10,7 +11,7 @@
   var q = new URLSearchParams(location.search);
   var codigo = (q.get('c') || '').trim().toLowerCase(), mesa = (q.get('m') || '').slice(0, 80);
   var app = document.getElementById('app');
-  var dados = null, busca = '', carrinho = [], obs = '', balcao = false, cotaDigitada = '', acompanhando = null;
+  var dados = null, busca = '', carrinho = [], obs = '', balcao = false, cotaDigitada = '', acompanhando = null, escolhaAtual = null;
   var CHAVE_CARRINHO = 'cardapio-carrinho:' + codigo, CHAVE_SESSAO = 'cardapio-sessao:' + codigo;
 
   function guardar(chave, v, sessao){ try { (sessao ? sessionStorage : localStorage).setItem(chave, JSON.stringify(v)); } catch(e){ /* sem armazenamento: segue na memória */ } }
@@ -68,9 +69,16 @@
     ]));
   }
 
-  function adicionar(p, tamanho){
-    var item = { produtoId:p.id, tamanhoId:tamanho ? tamanho.id : null, nome: p.nome + (tamanho ? ' ' + tamanho.nome : ''), preco: tamanho ? tamanho.preco : p.preco, qtd:1 };
-    var igual = carrinho.find(function(i){ return i.produtoId === item.produtoId && i.tamanhoId === item.tamanhoId; });
+  // 26/11: produto (ou tamanho) com grupos de opções abre a escolha antes de ir para o carrinho.
+  function gruposDe(p, tamanho){ return (tamanho ? tamanho.grupos : p.grupos) || []; }
+  function tocar(p, tamanho){ if(gruposDe(p, tamanho).length){ escolhaAtual = { p:p, t:tamanho, picks:{} }; ir('escolha'); } else adicionar(p, tamanho, {}, ''); }
+  function cobrado(precos, incluidos){ var u = precos.slice().sort(function(a, b){ return b - a; }), t = 0; for(var i = Math.max(0, incluidos); i < u.length; i++) t += u[i]; return Math.round(t * 100) / 100; }
+  function extraDas(grupos, picks){ return grupos.reduce(function(a, g){ var pr = []; g.opcoes.forEach(function(o){ var q = (picks[g.id] || {})[o.id] || 0; for(var i = 0; i < q; i++) pr.push(o.preco); }); return a + cobrado(pr, g.incluidos); }, 0); }
+  function chaveOpcoes(o){ return JSON.stringify(Object.keys(o || {}).sort().map(function(g){ return [g, Object.keys(o[g]).sort().map(function(k){ return [k, o[g][k]]; })]; })); }
+  function adicionar(p, tamanho, picks, resumo){
+    var base = tamanho ? tamanho.preco : p.preco;
+    var item = { produtoId:p.id, tamanhoId:tamanho ? tamanho.id : null, opcoes:picks || {}, resumo:resumo || '', nome: p.nome + (tamanho ? ' ' + tamanho.nome : ''), preco: Math.round((base + extraDas(gruposDe(p, tamanho), picks || {})) * 100) / 100, qtd:1 };
+    var igual = carrinho.find(function(i){ return i.produtoId === item.produtoId && i.tamanhoId === item.tamanhoId && chaveOpcoes(i.opcoes) === chaveOpcoes(item.opcoes); });
     if(igual){ if(igual.qtd < 20) igual.qtd++; } else carrinho.push(item);
     salvarCarrinho(); barraCarrinho();
   }
@@ -96,12 +104,12 @@
       info.push(el('div', { class:'tams' }, p.tamanhos.map(function(t){
         var rot = t.nome + ' · ' + brl(t.preco);
         return podePedir() && p.pedivel && !fechado
-          ? el('button', { class:'tam-add', type:'button', 'aria-label':'Adicionar ' + p.nome + ' ' + t.nome, onclick:function(){ adicionar(p, t); } }, ['+ ' + rot])
+          ? el('button', { class:'tam-add', type:'button', 'aria-label':'Adicionar ' + p.nome + ' ' + t.nome, onclick:function(){ tocar(p, t); } }, ['+ ' + rot])
           : el('span', { text: rot });
       })));
     } else {
       var linha = [el('span', { class:'preco', text: brl(p.preco) + (p.unidade === 'kg' ? ' o kg' : '') })];
-      if(podePedir() && p.pedivel && !fechado) linha.push(el('button', { class:'mais', type:'button', 'aria-label':'Adicionar ' + p.nome, onclick:function(){ adicionar(p, null); } }, ['+']));
+      if(podePedir() && p.pedivel && !fechado) linha.push(el('button', { class:'mais', type:'button', 'aria-label':'Adicionar ' + p.nome, onclick:function(){ tocar(p, null); } }, ['+']));
       info.push(el('div', { class:'linha-preco' }, linha));
     }
     if(podePedir() && !p.pedivel) info.push(el('p', { class:'nota', text:'Peça ao garçom' }));
@@ -138,12 +146,51 @@
     tela([topo(nome, function(){ history.back(); }), el('div', { class:'lista' }, lista.map(produtoCard)), el('p', { class:'rodape', text: podePedir() ? 'Visitante: peça ao garçom.' : 'Para pedir, chame o garçom.' })]);
   }
 
+  /* ---------- Escolha das opções (26/11) ---------- */
+  function telaEscolha(){
+    var e = escolhaAtual; if(!e){ ir('categorias', null, true); return; }
+    var grupos = gruposDe(e.p, e.t), base = e.t ? e.t.preco : e.p.preco;
+    var botao = el('button', { class:'btn', type:'button', id:'addEscolha' });
+    var msg = el('p', { class:'erro', role:'alert' });
+    function totalG(g){ var q = e.picks[g.id] || {}; return Object.keys(q).reduce(function(a, k){ return a + q[k]; }, 0); }
+    function falta(){ for(var i = 0; i < grupos.length; i++){ var g = grupos[i]; if(g.min > 0 && totalG(g) < g.min) return g; } return null; }
+    function atualizar(){
+      var preco = Math.round((base + extraDas(grupos, e.picks)) * 100) / 100, f = falta();
+      botao.textContent = f ? 'Escolha ' + (f.min === 1 ? 'uma opção' : f.min + ' opções') + ' em ' + f.nome : 'Adicionar · ' + brl(preco);
+      botao.disabled = !!f;
+    }
+    function regra(g){ return g.max === 1 ? (g.min >= 1 ? 'Escolha 1' : 'Opcional, até 1') : (g.min > 0 ? 'Escolha ' + g.min + (g.max ? ' a ' + g.max : ' ou mais') : (g.max ? 'Opcional, até ' + g.max : 'Opcional')) + (g.incluidos ? ' · ' + g.incluidos + ' incluído' + (g.incluidos > 1 ? 's' : '') : ''); }
+    var blocos = grupos.map(function(g){
+      var lista = el('div', { class:'opcoes' });
+      g.opcoes.forEach(function(o){
+        var preco = o.preco > 0 ? ' + ' + brl(o.preco) : '';
+        if(g.max === 1){
+          var r = el('input', { type:'radio', name:'g-' + g.id, onchange:function(){ e.picks[g.id] = {}; e.picks[g.id][o.id] = 1; atualizar(); } });
+          lista.appendChild(el('label', null, [r, ' ' + o.nome + preco]));
+        } else {
+          var qtd = el('span', { text:'0' });
+          var mudar = function(d){ var q = e.picks[g.id] = e.picks[g.id] || {}; var novo = (q[o.id] || 0) + d; if(novo < 0) return; if(d > 0 && g.max && totalG(g) >= g.max){ msg.textContent = 'No máximo ' + g.max + ' em ' + g.nome + '.'; return; } msg.textContent = ''; if(novo) q[o.id] = novo; else delete q[o.id]; qtd.textContent = String(novo); atualizar(); };
+          lista.appendChild(el('div', { class:'item-carrinho' }, [el('div', null, [el('b', { text:o.nome }), preco ? el('small', { text:preco.trim() }) : null]),
+            el('div', { class:'qtd' }, [el('button', { type:'button', 'aria-label':'Tirar ' + o.nome, onclick:function(){ mudar(-1); } }, ['−']), qtd, el('button', { type:'button', 'aria-label':'Pôr ' + o.nome, onclick:function(){ mudar(1); } }, ['+'])])]));
+        }
+      });
+      return el('section', { class:'grupo' }, [el('h3', { text:g.nome }), el('p', { class:'nota', text:regra(g) }), lista]);
+    });
+    botao.addEventListener('click', function(){
+      if(falta()) return;
+      var resumo = grupos.map(function(g){ var q = e.picks[g.id] || {}; var partes = g.opcoes.filter(function(o){ return q[o.id]; }).map(function(o){ return (q[o.id] > 1 ? q[o.id] + 'x ' : '') + o.nome; }); return partes.length ? partes.join(', ') : ''; }).filter(Boolean).join(' · ');
+      adicionar(e.p, e.t, e.picks, resumo); escolhaAtual = null; history.back();
+    });
+    tela([topo(e.p.nome + (e.t ? ' ' + e.t.nome : ''), function(){ history.back(); }), el('div', { class:'carrinho' }, blocos.concat([botao, msg]))]);
+    atualizar();
+  }
+
   /* ---------- Etapa 2: carrinho, cota e acompanhamento ---------- */
   function telaCarrinho(){
     if(!carrinho.length){ ir('categorias', null, true); return; }
     var linhas = carrinho.map(function(i, idx){
       return el('div', { class:'item-carrinho' }, [
-        el('div', null, [el('b', { text: i.nome }), el('small', { text: brl(i.preco) + ' cada' })]),
+        el('div', null, [el('b', { text: i.nome }), i.resumo ? el('small', { text: i.resumo }) : null, el('small', { text: brl(i.preco) + ' cada' })]),
         el('div', { class:'qtd' }, [
           el('button', { type:'button', 'aria-label':'Tirar um', onclick:function(){ i.qtd--; if(i.qtd <= 0) carrinho.splice(idx, 1); salvarCarrinho(); telaCarrinho(); } }, ['−']),
           el('span', { text: String(i.qtd) }),
@@ -217,7 +264,7 @@
     })) : null;
     var enviar = el('button', { class:'btn', type:'button', id:'enviarPedido', onclick:function(){
       enviar.disabled = true; msg.textContent = '';
-      post({ acao:'pedir', sessao:s.sessao, m:mesa, balcao:balcao, quem:quem || null, obs:obs, itens: carrinho.map(function(i){ return { produtoId:i.produtoId, tamanhoId:i.tamanhoId, qtd:i.qtd }; }) }).then(function(r){
+      post({ acao:'pedir', sessao:s.sessao, m:mesa, balcao:balcao, quem:quem || null, obs:obs, itens: carrinho.map(function(i){ return { produtoId:i.produtoId, tamanhoId:i.tamanhoId, opcoes:i.opcoes || {}, qtd:i.qtd }; }) }).then(function(r){
         enviar.disabled = false;
         if(r.sessao === 'vencida'){ apagar(CHAVE_SESSAO); telaCota(); return; }
         if(!r.ok){ msg.textContent = r.erro || 'Não foi possível mandar o pedido.'; return; }
@@ -273,6 +320,7 @@
     if(estado.onde === 'categorias') return categorias();
     if(estado.onde === 'cat') return categoria(estado.arg);
     if(estado.onde === 'carrinho') return telaCarrinho();
+    if(estado.onde === 'escolha') return telaEscolha();
     if(estado.onde === 'cota') return telaCota();
     if(estado.onde === 'acompanhar') return telaAcompanhar();
     boasVindas();
