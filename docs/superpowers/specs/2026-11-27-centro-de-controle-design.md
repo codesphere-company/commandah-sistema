@@ -138,6 +138,12 @@ ou venda nos últimos 30 min.
 2. Tela Centro de controle com incidentes, aparelhos e som.
 3. Resumos (ticket, mais vendidos, por hora) e detalhe do cliente.
 
+4. (pedido do dono, 27/11) Uso dos servidores no mesmo painel: Supabase (egress, banco, funções, MAU vs. limite do plano,
+   pela Management API) e a VPS do Evolution (CPU, memória, disco por um coletor pequeno), com barra de uso do plano para
+   decidir upgrade. Desenhar à parte.
+5. (pedido do dono, 27/11) Custos das assinaturas da plataforma por mês (Supabase, VPS, Brasil NFe, Cloudflare, domínio…;
+   automático onde houver API, o resto cadastrado à mão), ao lado da receita das assinaturas dos clientes. Desenhar à parte.
+
 ## Deixado ao construtor
 - Nomes exatos de colunas além dos citados; índices.
 - Como medir "fila de envio" no aparelho além de vendas e caixa (pedidos `orders` locais?), desde que o critério fique
