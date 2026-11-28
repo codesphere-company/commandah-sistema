@@ -86,6 +86,7 @@ ou venda nos últimos 30 min.
 | `agente_sem_sinal` | agente de impressão com `last_seen_at` > 3 min (e ele tem impressora ativa) | crítico |
 | `venda_nao_subiu` | aparelho com pendência de envio há > 2 min | crítico |
 | `aparelho_sumiu` | aparelho que é caixa com turno aberto e sem sinal há > 3 min | crítico |
+| `estabelecimento_sem_sinal` | cliente funcionando e **todos** os aparelhos e agentes sem sinal há > 3 min (provável queda de internet ou energia) | crítico |
 | `nfce_rejeitada` | nota em `nfce_notas` com status `rejeitada`/`erro` nos últimos 30 min | atenção |
 | `caixa_travado` | turno `travado*` há > 10 min | atenção |
 | `erros_tela` | ≥ 5 `client_errors` do mesmo cliente em 10 min | atenção |
@@ -101,6 +102,12 @@ ou venda nos últimos 30 min.
 - Garçom offline (*call do Claude*): a pendência de venda só vive na memória do aparelho e aparelho sem internet não manda
   sinal. Regra extra `aparelho_sumiu_com_pendencia`: último sinal com pendência > 0 e sem sinal há > 5 min → **atenção**
   (só painel) para qualquer papel; para aparelho de caixa já é `aparelho_sumiu` (crítico).
+- Quedas de internet (pedido do dono, 27/11): cada aparelho anota no localStorage quando perdeu e recuperou a conexão
+  (eventos `offline`/`online` e falha de rede nas gravações) e manda os períodos no primeiro sinal depois de voltar;
+  ficam em `quedas_conexao (tenant_id, aparelho_id, inicio, fim, pendencias_ao_voltar)` para o histórico do cliente
+  ("sem internet das 20:10 às 20:25, 3 vendas subiram às 20:26"). `estabelecimento_sem_sinal` substitui os alertas
+  individuais (`aparelho_sumiu`, `agente_sem_sinal`) daquele cliente enquanto estiver aberto, para não mandar 5 WhatsApps.
+  O WhatsApp sai do servidor do Evolution, então o alerta chega mesmo com a internet do cliente fora.
 - Clientes monitorados (*call do Claude*): só com assinatura ativa (`assinaturas`); contas de teste/bancada ficam fora.
 
 ### 4. Avisos por WhatsApp
