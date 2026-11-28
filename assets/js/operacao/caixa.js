@@ -91,9 +91,15 @@ function caixaSituacao(cx){
   if(state.cashAbrirSemContagem && state.cashAbrirSemContagem[cx]) return { tom:'alerta', texto:'Passado sem contagem' };
   return { tom:'off', texto:'Fechado' };
 }
+// Revisão final: a marca deste computador só vale se o caixa ainda existe em Configurações (removido ou id trocado
+// = sem caixa, para o admin poder escolher de novo em vez de ficar preso na lista sem cartão tocável).
+function caixaDoAparelhoNaLista(){ const cx = caixaDoAparelho(); return cx && listaDeCaixas().some(c=>c.id===cx) ? cx : null; }
 function renderListaDeCaixas(el){
-  if(state.cashTurnosFalhou && !state.cashTurnos){ el.innerHTML = cascaDoCaixa('Caixa', `<div class="hub-cartao"><p class="hub-aviso">Não foi possível ler o caixa. Tentando de novo…</p></div>`); return; }
-  const meu = caixaDoAparelho();
+  // Casca própria, sem "Fechamentos anteriores" (que é o histórico do caixa deste computador, com valores):
+  // o Cofre fica no fim e a lista não mostra dinheiro. O histórico segue na tela do caixa e em Relatórios.
+  const casca = corpo => `<div class="hub hub-caixa"><div class="cc-head"><h1 class="cash-title">Caixa</h1></div>${corpo}</div>`;
+  if(state.cashTurnosFalhou && !state.cashTurnos){ el.innerHTML = casca(`<div class="hub-cartao"><p class="hub-aviso">Não foi possível ler o caixa. Tentando de novo…</p></div>`); return; }
+  const meu = caixaDoAparelhoNaLista();
   const cartoes = listaDeCaixas().map(c=>{
     const este = c.id===meu, s = caixaSituacao(c.id);
     const miolo = `<span class="ic">${ICN.cashbox||''}</span><span class="tx"><span class="t">${h(c.nome)}${este?' <span class="cx-este">Este computador</span>':''}</span><span class="d cx-sit ${s.tom}">${h(s.texto)}</span></span>`;
@@ -102,7 +108,7 @@ function renderListaDeCaixas(el){
   }).join('');
   const cofre = userPermissions(currentUser).includes('cofre') ? caixaItem('', 'lock', 'Cofre', 'Saldo, recolher, abastecer e extrato.', 'cx-cofre', "switchView('cofre')") : '';
   const escolha = meu ? '' : `<div class="hub-cartao"><p class="hub-aviso">Este computador ainda não é um caixa. Qual caixa ele é?</p><div class="hub-escolha">${listaDeCaixas().map(c=>`<button type="button" class="cx-escolher" onclick="escolherCaixaAqui(${jsArg(c.id)})">${h(c.nome)}</button>`).join('')}</div><p class="sub">Fica guardado neste computador. Dá para trocar em Configurações › Geral › Caixa por operador.</p></div>`;
-  el.innerHTML = cascaDoCaixa('Caixa', `<div class="cc-lista cx-lista">${cartoes}${cofre}</div>${escolha}`);
+  el.innerHTML = casca(`<div class="cc-lista cx-lista">${cartoes}${cofre}</div>${escolha}`);
 }
 // Caixa por operador (13/11): venda do turno. Ligado, a venda que tem cashSessionId é do turno com esse id
 // (dois caixas abertos ao mesmo tempo não somam a venda um do outro); venda sem cashSessionId (antiga) e o
@@ -239,7 +245,7 @@ function renderCaixaPorOperador(el){
   const cx = caixaDoAparelho();
   const aviso = (titulo, texto) => cascaDoCaixaPorOperador(titulo, `<div class="hub-cartao"><p class="hub-aviso">${h(texto)}</p></div>`);
   if(!isCloudMode()){ el.innerHTML = aviso('Caixa', 'O caixa por operador precisa da conexão com o servidor.'); return; }
-  if(caixaVerTodos() && (caixaNaLista || !cx)) return renderListaDeCaixas(el); // caixa-lista (27/11)
+  if(caixaVerTodos() && (caixaNaLista || !caixaDoAparelhoNaLista())) return renderListaDeCaixas(el); // caixa-lista (27/11)
   if(!cx){
     // 25/11 (pedido do dono: administradores abrem e fecham os caixas): o administrador escolhe aqui mesmo qual
     // caixa este computador é, sem ir em Configurações (a marca é por navegador e some ao trocar de endereço,
