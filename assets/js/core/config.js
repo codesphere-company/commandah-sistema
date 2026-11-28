@@ -147,17 +147,19 @@ const RIBBON_TABS = [
           // t-notas (27/11): Notas de compra aparece aqui para quem tem insumos e no Financeiro para quem tem contas (escondida para quem não tem).
           {label:'Notas de compra', icon:ICN.receipt, view:'notascompra', perm:'insumos', escondeSemPerm:true} ] }
   ]},
-  { id:'marketing', label:'Marketing', groups:[
-      { label:'Benefícios', items:[ {label:'Promoções', icon:ICN.percent, perm:'cupons', action:"openMarketingView", actionArg:'promocoes'}, {label:'Fidelidade', icon:ICN.heart, perm:'cupons', action:"openMarketingView", actionArg:'fidelidade'}, {label:'Cupons', icon:ICN.ticket, perm:'cupons', action:"openMarketingView", actionArg:'cupons'} ] },
-      { label:'Divulgação', items:[ {label:'SMS', icon:ICN.chat, perm:'cupons', action:'openSmsWindow'} ] },
-      { label:'Relacionamento', items:[ {label:'Disparador Inteligente', icon:ICN.megaphone, perm:'cupons', action:'toggleMarketingRibbonMenu', actionArg:'disparador'} ] }
+  // 27/11 (pedido do dono: "marketing e financeiro precisa acompanhar o menu dos relatorios no design"): Marketing e
+  // Financeiro também abrem a central (sistema/central-config.js), com grupos, descrição e busca, em vez da faixa.
+  { id:'marketing', label:'Marketing', central:true, busca:'Buscar no marketing', vazio:'Nada no marketing', groups:[
+      { label:'Benefícios', items:[ {label:'Promoções', desc:'Campanhas de desconto com período e produtos participantes.', icon:ICN.percent, perm:'cupons', action:"openMarketingView", actionArg:'promocoes'}, {label:'Fidelidade', desc:'Pontos dos clientes: saldo, crédito e resgate.', icon:ICN.heart, perm:'cupons', action:"openMarketingView", actionArg:'fidelidade'}, {label:'Cupons', desc:'Códigos de desconto com validade e regras.', icon:ICN.ticket, perm:'cupons', action:"openMarketingView", actionArg:'cupons'} ] },
+      { label:'Divulgação', items:[ {label:'SMS', desc:'Mensagens de texto para os clientes, na hora ou agendadas.', icon:ICN.chat, perm:'cupons', action:'openSmsWindow'} ] },
+      { label:'Relacionamento', items:[ {label:'Disparador Inteligente', desc:'Campanhas automáticas para os clientes.', icon:ICN.megaphone, perm:'cupons', action:'toggleMarketingRibbonMenu', actionArg:'disparador'} ] }
   ]},
-  { id:'financeiro', label:'Financeiro', groups:[
-      { label:'Organização de Contas', items:[ {label:'Formas de Pagamento', icon:ICN.card, view:'pagamentos'}, {label:'Categoria de Contas', icon:ICN.folder, view:'contascategorias'}, {label:'Fornecedores', icon:ICN.truck, view:'fornecedores'} ] },
-      { label:'Conferência', items:[ {label:'Conferência de pagamentos', icon:ICN.listCheck, perm:'conferir-pagamentos', soAdmin:true, view:'conferencia'} ] },
-      { label:'Contas a Pagar / Receber', items:[ {label:'Contas a Pagar', icon:ICN.arrowUpBox, perm:'contas', action:'openFinancialView', actionArg:'pagar'}, {label:'Contas a Receber', icon:ICN.arrowDownBox, perm:'contas', action:'openFinancialView', actionArg:'receber'}, {label:'Notas de compra', icon:ICN.receipt, view:'notascompra', perm:'contas', escondeSemPerm:true /* t-notas (27/11) */} ] },
-      { label:'Fiado', items:[ {label:'Conta Corrente (Fiado)', icon:ICN.idcard, perm:'receber-fiado', action:'openFinancialView', actionArg:'fiado'} ] },
-      { label:'Integrações', items:[ {label:'Pix Online', icon:ICN.pix, perm:'config-sistema', action:'openPixOnlineConfig'} ] }
+  { id:'financeiro', label:'Financeiro', central:true, busca:'Buscar no financeiro', vazio:'Nada no financeiro', groups:[
+      { label:'Organização de Contas', items:[ {label:'Formas de Pagamento', desc:'Dinheiro, cartões, Pix e as outras formas aceitas.', icon:ICN.card, view:'pagamentos'}, {label:'Categoria de Contas', desc:'Grupos das contas a pagar e a receber.', icon:ICN.folder, view:'contascategorias'}, {label:'Fornecedores', desc:'Cadastro de quem vende para a casa.', icon:ICN.truck, view:'fornecedores'} ] },
+      { label:'Conferência', items:[ {label:'Conferência de pagamentos', desc:'Vendas em que o servidor achou diferença no pagamento.', icon:ICN.listCheck, perm:'conferir-pagamentos', soAdmin:true, view:'conferencia'} ] },
+      { label:'Contas a Pagar / Receber', items:[ {label:'Contas a Pagar', desc:'Boletos e despesas, com vencimento e baixa.', icon:ICN.arrowUpBox, perm:'contas', action:'openFinancialView', actionArg:'pagar'}, {label:'Contas a Receber', desc:'Valores que a casa tem para receber.', icon:ICN.arrowDownBox, perm:'contas', action:'openFinancialView', actionArg:'receber'}, {label:'Notas de compra', desc:'Notas dos fornecedores: conferir, lançar a conta e o estoque.', icon:ICN.receipt, view:'notascompra', perm:'contas', escondeSemPerm:true /* t-notas (27/11) */} ] },
+      { label:'Fiado', items:[ {label:'Conta Corrente (Fiado)', desc:'O que cada cliente deve e o que já pagou.', icon:ICN.idcard, perm:'receber-fiado', action:'openFinancialView', actionArg:'fiado'} ] },
+      { label:'Integrações', items:[ {label:'Pix Online', desc:'Receber Pix com QR na hora da venda.', icon:ICN.pix, perm:'config-sistema', action:'openPixOnlineConfig'} ] }
   ]},
   // 25/11 (padrão, lote 3): a área abre a central (sistema/central-config.js), como Configurações; a faixa de 20
   // atalhos caía no modo compacto (4 linhas, 175 px). desc: uma linha do que cada relatório mostra.
