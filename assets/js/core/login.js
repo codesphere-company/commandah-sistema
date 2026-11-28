@@ -230,6 +230,7 @@ function updatePinDots(){
 }
 function afterLogin(){
   if(currentUser) lembrarUltimoLogin(currentUser.id); // 08/11: o aparelho lembra quem entrou por último
+  if(typeof iniciarSinalDoAparelho==='function') iniciarSinalDoAparelho(); // centro de controle (27/11): sinal a cada ~60 s (core/sinal.js)
   document.getElementById('loginOverlay').classList.add('hide');
   detectLocalPrintAgent();
   if(currentUser.role==='cozinha'){
