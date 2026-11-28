@@ -24,6 +24,9 @@
 // Etapa 3: POST { action: "enviar_conta", jid, texto, brcode, qr_png, rodape, valor } -> manda a conta em ordem
 //          (texto, Pix copia e cola, QR, rodapé); { ok, enviadas }.
 // As duas ações: dono, admin e caixa, com plano Pro.
+// Centro de controle (27/11/2026, etapa 1): POST { action: "alertas_enviar" } com x-segredo = secret CONTROLE_SEGREDO
+//          (pg_cron controle-avaliar, migration 20261129000000_centro_controle) -> manda até 50 avisos de
+//          controle_avisos pela instância PLATAFORMA_WHATSAPP_INSTANCIA; { enviados, falhas }. Sem JWT.
 import { createClient } from "npm:@supabase/supabase-js@2.117.0";
 import { comCors } from "../_shared/cors.ts";
 
@@ -32,6 +35,8 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const EVOLUTION_URL = (Deno.env.get("EVOLUTION_URL") || "").replace(/\/+$/, "");
 const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY") || "";
 const WEBHOOK_URL = Deno.env.get("WHATSAPP_WEBHOOK_URL") || "";
+const CONTROLE_SEGREDO = Deno.env.get("CONTROLE_SEGREDO") || "";
+const PLATAFORMA_INSTANCIA = Deno.env.get("PLATAFORMA_WHATSAPP_INSTANCIA") || "";
 const EVENTOS = ["QRCODE_UPDATED", "CONNECTION_UPDATE", "MESSAGES_UPSERT", "MESSAGES_UPDATE"];
 const PRAZO_MS = 8000;
 // QR sem renovação há mais que isto (webhook não chegou): a consulta pede um QR novo à Evolution.
@@ -398,11 +403,45 @@ async function desconectar(tenantId: string) {
   return json({ ok: true, situacao: "desconectado" });
 }
 
+// Centro de controle (27/11): manda os avisos da fila pela instância da plataforma. Falha grava o erro e tenta de
+// novo na próxima rodada (o cron só chama quando há aviso com menos de 5 tentativas).
+async function alertasEnviar() {
+  if (!PLATAFORMA_INSTANCIA) return json({ ok: true, enviados: 0, falhas: 0, erro: "instancia" });
+  const { data, error } = await admin.from("controle_avisos").select("id,para,texto,tentativas")
+    .is("enviado_em", null).lt("tentativas", 5).order("criado_em", { ascending: true }).limit(50);
+  if (error) throw error;
+  let enviados = 0, falhas = 0;
+  for (const a of (data || []) as { id: string; para: string; texto: string; tentativas: number }[]) {
+    const dig = String(a.para || "").replace(/\D/g, "");
+    const numero = dig.length <= 11 ? "55" + dig : dig;
+    let r: { ok: boolean; status: number } = { ok: false, status: 0 };
+    try { r = await evolution("POST", `/message/sendText/${encodeURIComponent(PLATAFORMA_INSTANCIA)}`, { number: numero, text: a.texto }); }
+    catch (e) { r = { ok: false, status: 0 }; console.error("[whatsapp] alerta:", e); }
+    if (r.ok) {
+      enviados++;
+      await admin.from("controle_avisos").update({ enviado_em: new Date().toISOString(), tentativas: a.tentativas + 1, erro: null }).eq("id", a.id);
+    } else {
+      falhas++;
+      await admin.from("controle_avisos").update({ tentativas: a.tentativas + 1, erro: "Evolution " + (r.status || "sem resposta") }).eq("id", a.id);
+    }
+  }
+  return json({ ok: true, enviados, falhas });
+}
+
 Deno.serve(comCors(async (req) => {
   if (req.method !== "POST") return json({ ok: false, erro: "método" }, 405);
   try {
     const k = new URL(req.url).searchParams.get("k");
     if (k !== null) return await webhook(k, req);
+    // Centro de controle: só o agendamento sabe o segredo (secret vazio = fechado). Vem antes do JWT.
+    if (req.headers.get("x-segredo") !== null) {
+      const seg = req.headers.get("x-segredo") || "";
+      if (!CONTROLE_SEGREDO || !iguais(seg, CONTROLE_SEGREDO)) return json({ ok: false, erro: "Não autorizado." }, 401);
+      let b: { action?: string } = {};
+      try { b = await req.json(); } catch { /* corpo vazio */ }
+      if (b.action === "alertas_enviar") return await alertasEnviar();
+      return json({ ok: false, erro: "ação desconhecida" }, 400);
+    }
     const quem = await caller(req);
     if (!quem) return json({ ok: false, erro: "Entre de novo no Commandah." }, 401);
     let body: { action?: string; jid?: unknown; texto?: unknown; evo_id?: unknown } = {};
