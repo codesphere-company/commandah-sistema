@@ -230,6 +230,7 @@ function updatePinDots(){
 }
 function afterLogin(){
   if(currentUser) lembrarUltimoLogin(currentUser.id); // 08/11: o aparelho lembra quem entrou por último
+  if(typeof iniciarSinalDoAparelho==='function') iniciarSinalDoAparelho(); // centro de controle (27/11): sinal a cada ~60 s (core/sinal.js)
   document.getElementById('loginOverlay').classList.add('hide');
   detectLocalPrintAgent();
   if(currentUser.role==='cozinha'){
@@ -282,6 +283,7 @@ function avisosAoEntrar(){
    acesso de admin no banco. */
 document.getElementById('btnLogout').onclick = async ()=>{
   if(currentUser){ logAction('Logout realizado'); }
+  if(typeof pararSinalDoAparelho==='function') await pararSinalDoAparelho(); // centro de controle (27/11): sinal de saída
   currentUser=null;
   try{ if(supabaseClient) await supabaseClient.auth.signOut(); }catch(e){}
   sessionIsOwner = false;
