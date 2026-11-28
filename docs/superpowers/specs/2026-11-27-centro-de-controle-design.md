@@ -150,3 +150,19 @@ ou venda nos últimos 30 min.
   num lugar só.
 - Ritmo do sinal pode ser 60 s ± jitter.
 - Retenção: incidentes fechados > 90 dias e sinais de aparelhos sem uso > 30 dias apagados pelo cron diário.
+
+## Revisão final da etapa 1 (27/11, calls do Claude)
+- Alertas vindos dos aparelhos (`ficha_nao_enviada`, `venda_nao_subiu`, `aparelho_sumiu`) são **um por cliente e código**,
+  com os nomes no detalhe; no máximo 50 aparelhos por cliente; nomes limpos (sem link) antes do WhatsApp.
+- Fecha só depois de **3 min ausente** (histerese); repete no máximo **8 vezes** (2 h); cliente que parou de funcionar
+  (sem venda há 60 min) fecha **calado**.
+- `estabelecimento_sem_sinal` fica aberto enquanto durar (até 12 h com o caixa aberto) e suprime os individuais e a
+  venda pendente do mesmo cliente.
+- Venda/ficha pendente vale pelo **último sinal** (até 12 h): aparelho que perdeu a internet continua alertando até
+  avisar que enviou. A regra `aparelho_sumiu_com_pendencia` saiu (coberta por essa).
+- Não alertam: aparelho que saiu para a tela de PIN (sinal de saída no logout), registro velho do mesmo caixa, turno já
+  fechado (por operador), agente substituído (reinstalado), impressora cujo agente já está calado.
+- Envio: `controle_avisos_pegar()` reserva atômica (2 min), aviso vale 30 min, no máximo 3 tentativas; alerta de
+  incidente já fechado não sai.
+- Deixado para depois: `ultimo_erro` não é enviado pelo aparelho; fichas que falharam somem ao recarregar a página (como o
+  aviso vermelho de hoje); o diff de `state.sales` roda a cada minuto na thread da tela.

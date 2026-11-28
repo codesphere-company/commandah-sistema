@@ -283,6 +283,7 @@ function avisosAoEntrar(){
    acesso de admin no banco. */
 document.getElementById('btnLogout').onclick = async ()=>{
   if(currentUser){ logAction('Logout realizado'); }
+  if(typeof pararSinalDoAparelho==='function') await pararSinalDoAparelho(); // centro de controle (27/11): sinal de saída
   currentUser=null;
   try{ if(supabaseClient) await supabaseClient.auth.signOut(); }catch(e){}
   sessionIsOwner = false;

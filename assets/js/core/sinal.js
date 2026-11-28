@@ -7,7 +7,7 @@
 // O banco confere tudo a cada minuto (controle_avaliar) e avisa o operador da plataforma. Falha de rede aqui nunca
 // aparece na tela: só vira uma "queda" guardada, enviada no primeiro sinal que passar.
 const SINAL_ID_KEY = 'commandah:aparelhoId', SINAL_QUEDAS_KEY = 'commandah:quedas', SINAL_MS = 60000;
-let sinalTimer = null, sinalPendDesde = null, sinalEmVoo = null;
+let sinalTimer = null, sinalPendDesde = null, sinalEmVoo = null, sinalGeracao = 0;
 
 function aparelhoId(){
   try{
@@ -45,13 +45,15 @@ window.addEventListener('offline', sinalCaiu);
 window.addEventListener('online', ()=>{ sinalVoltou(); enviarSinal(); });
 
 // Um envio por vez: quem chama durante um envio recebe o mesmo envio (e espera por ele).
-function enviarSinal(){
-  if(sinalEmVoo) return sinalEmVoo;
+// saindo = true: último sinal antes do logout (o servidor não conta "aparelho sumiu" para quem foi para a tela de PIN).
+function enviarSinal(saindo){
+  if(sinalEmVoo && !saindo) return sinalEmVoo;
   if(!currentUser || typeof isCloudMode!=='function' || !isCloudMode() || !supabaseClient) return Promise.resolve();
-  sinalEmVoo = enviarSinalAgora().finally(()=>{ sinalEmVoo = null; });
+  const antes = sinalEmVoo || Promise.resolve();
+  sinalEmVoo = antes.then(()=>enviarSinalAgora(!!saindo)).finally(()=>{ sinalEmVoo = null; });
   return sinalEmVoo;
 }
-async function enviarSinalAgora(){
+async function enviarSinalAgora(saindo){
   try{
     const p = pendenciasDoAparelho();
     const quedas = sinalQuedas().filter(q=>q && q.fim);
@@ -61,17 +63,25 @@ async function enviarSinalAgora(){
       versao: versaoDoSite(), tela: (typeof activeView!=='undefined' && activeView) || '',
       caixaId: cx, caixaAberto: !!(cx && state.cashSession && state.cashSession.status==='open'),
       pendVendas: p.vendas, pendCaixa: p.caixa, pendDesde: p.desde, fichas: p.fichas, fichasDesde: p.fichasDesde,
-      quedas
+      quedas, saindo: !!saindo
     } });
     if(error){ if(/fetch|network|Failed/i.test(String(error.message||''))) sinalCaiu(); return; }
     sinalVoltou(); // um sinal passou: se havia queda aberta, fecha (o próximo sinal leva)
     if(quedas.length){ const resto = sinalQuedas().filter(q=>!quedas.some(x=>x.inicio===q.inicio)); sinalGuardarQuedas(resto); }
   }catch(e){ sinalCaiu(); }
 }
+// Cada início é uma geração nova: a cadeia de uma geração antiga para sozinha (relogin não duplica o sinal).
 function iniciarSinalDoAparelho(){
   aparelhoId();
+  const g = ++sinalGeracao;
   if(sinalTimer) clearTimeout(sinalTimer);
-  const ciclo = ()=>{ sinalTimer = setTimeout(async ()=>{ await enviarSinal(); ciclo(); }, SINAL_MS + Math.round((Math.random()-0.5)*20000)); };
-  setTimeout(enviarSinal, 0);
+  const ciclo = ()=>{ if(g!==sinalGeracao) return; sinalTimer = setTimeout(async ()=>{ if(g!==sinalGeracao) return; await enviarSinal(); ciclo(); }, SINAL_MS + Math.round((Math.random()-0.5)*20000)); };
+  setTimeout(()=>{ if(g===sinalGeracao) enviarSinal(); }, 0);
   ciclo();
+}
+// Logout: manda o sinal de saída (no máximo 3 s, para não segurar a troca de usuário) e para a cadeia.
+async function pararSinalDoAparelho(){
+  sinalGeracao++;
+  if(sinalTimer){ clearTimeout(sinalTimer); sinalTimer = null; }
+  try{ await Promise.race([enviarSinal(true), new Promise(r=>setTimeout(r, 3000))]); }catch(e){}
 }

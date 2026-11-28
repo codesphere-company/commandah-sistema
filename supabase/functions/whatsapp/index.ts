@@ -403,15 +403,14 @@ async function desconectar(tenantId: string) {
   return json({ ok: true, situacao: "desconectado" });
 }
 
-// Centro de controle (27/11): manda os avisos da fila pela instância da plataforma. Falha grava o erro e tenta de
-// novo na próxima rodada (o cron só chama quando há aviso com menos de 5 tentativas).
+// Centro de controle (27/11): manda os avisos da fila pela instância da plataforma. Os avisos vêm reservados pelo banco
+// (controle_avisos_pegar: duas rodadas não pegam o mesmo; já conta a tentativa; vale 30 min; no máximo 3 tentativas).
 async function alertasEnviar() {
   if (!PLATAFORMA_INSTANCIA) return json({ ok: true, enviados: 0, falhas: 0, erro: "instancia" });
-  const { data, error } = await admin.from("controle_avisos").select("id,para,texto,tentativas")
-    .is("enviado_em", null).lt("tentativas", 5).order("criado_em", { ascending: true }).limit(50);
+  const { data, error } = await admin.rpc("controle_avisos_pegar", { p_n: 50 });
   if (error) throw error;
   let enviados = 0, falhas = 0;
-  for (const a of (data || []) as { id: string; para: string; texto: string; tentativas: number }[]) {
+  for (const a of (data || []) as { id: string; para: string; texto: string }[]) {
     const dig = String(a.para || "").replace(/\D/g, "");
     const numero = dig.length <= 11 ? "55" + dig : dig;
     let r: { ok: boolean; status: number } = { ok: false, status: 0 };
@@ -419,10 +418,10 @@ async function alertasEnviar() {
     catch (e) { r = { ok: false, status: 0 }; console.error("[whatsapp] alerta:", e); }
     if (r.ok) {
       enviados++;
-      await admin.from("controle_avisos").update({ enviado_em: new Date().toISOString(), tentativas: a.tentativas + 1, erro: null }).eq("id", a.id);
+      await admin.from("controle_avisos").update({ enviado_em: new Date().toISOString(), erro: null }).eq("id", a.id);
     } else {
       falhas++;
-      await admin.from("controle_avisos").update({ tentativas: a.tentativas + 1, erro: "Evolution " + (r.status || "sem resposta") }).eq("id", a.id);
+      await admin.from("controle_avisos").update({ erro: "Evolution " + (r.status || "sem resposta") }).eq("id", a.id);
     }
   }
   return json({ ok: true, enviados, falhas });

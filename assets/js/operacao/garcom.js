@@ -102,7 +102,7 @@ function gcToggleTheme(){
   if(!gcFlow||gcFlow.step==='home') gcRenderHome();
 }
 function gcToggleMenu(){ const p=document.getElementById('gcMenuPanel'); if(p) p.classList.toggle('open'); }
-async function gcLogout(){ logAction('Logout realizado'); currentUser=null; try{ if(supabaseClient) await supabaseClient.auth.signOut(); }catch(e){} sessionIsOwner=false; document.getElementById('garcomApp').classList.remove('show'); renderLogin(); }
+async function gcLogout(){ logAction('Logout realizado'); if(typeof pararSinalDoAparelho==='function') await pararSinalDoAparelho(); /* centro de controle (27/11) */ currentUser=null; try{ if(supabaseClient) await supabaseClient.auth.signOut(); }catch(e){} sessionIsOwner=false; document.getElementById('garcomApp').classList.remove('show'); renderLogin(); }
 
 function gcOpenFlow(saleId){
   const s = state.sales.find(x=>x.id===saleId); if(!s) return;
