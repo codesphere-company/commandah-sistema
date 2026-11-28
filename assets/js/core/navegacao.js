@@ -70,7 +70,8 @@ function updateShellGap(){
 window.addEventListener('resize', ()=>{ if(currentUser) updateShellGap(); });
 // Nome no menu lateral das telas da área Principal (no ribbon eram rótulos de botão).
 // cofre (16/11): o item Cofre só aparece com o caixa por operador ligado (soModoCaixa).
-function itemEscondido(it){ return HIDDEN_MODULES.has(it.label) || (!!it.escondeSemPerm && !ribbonItemAction(it, userPermissions(currentUser)).enabled) || (!!it.soModoCaixa && !((typeof modoCaixaPorOperador==='function' && modoCaixaPorOperador()) && ribbonItemAction(it, userPermissions(currentUser)).enabled)); }
+// caixa-lista (27/11): foraDoMenu = a tela existe, mas a entrada é por outra tela (o Cofre fica no fim da lista do Caixa).
+function itemEscondido(it){ return HIDDEN_MODULES.has(it.label) || !!it.foraDoMenu || (!!it.escondeSemPerm && !ribbonItemAction(it, userPermissions(currentUser)).enabled) || (!!it.soModoCaixa && !((typeof modoCaixaPorOperador==='function' && modoCaixaPorOperador()) && ribbonItemAction(it, userPermissions(currentUser)).enabled)); }
 const SIDEBAR_LABELS = {caixa:'Caixa', comandas:'Comandas', balcao:'Ficha', delivery:'Delivery', cozinha:'Cozinha', associados:'Clientes', whatsapp:'WhatsApp'};
 // Visual A (22/10): o menu lateral mostra direto as telas da primeira área ("Principal": caixa,
 // comandas, balcão...) e, abaixo, as outras áreas; clicar numa área abre a faixa de atalhos dela.
@@ -140,6 +141,7 @@ function switchView(viewId){
   activeView = viewId;
   if(viewId!=='comandas') comandaAbertaId = null; // saiu da tela: voltando, mostra a lista (comandas.js)
   caixaSecao = ''; // 26/11: o Caixa também começa no início (operacao/caixa.js)
+  caixaNaLista = true; // caixa-lista (27/11): admin e dono entram no Caixa pela lista de todos os caixas
   cofreSecao = ''; // 26/11: entrar no Cofre (inclusive pelo menu, já estando nele) começa no início (operacao/cofre.js)
   notasCompraSecao = ''; notasCompraVelha = true; // t-notas (27/11): entrar em Notas de compra começa na lista e relê do servidor (gestao/notas-compra.js)
   activeViewRibbonTab=activeRibbonTab;

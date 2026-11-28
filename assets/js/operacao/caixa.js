@@ -65,7 +65,44 @@ function caixaComHistorico(corpo){
   return corpo + (painel ? `<div class="cc-lista hub-mais">${caixaItem('historico', 'history', 'Fechamentos anteriores', 'Os últimos fechamentos, com o contado e a diferença.')}</div>` : '');
 }
 function cascaDoCaixa(tituloHtml, corpo){
-  return `<div class="hub hub-caixa"><div class="cc-head"><h1 class="cash-title">${tituloHtml}</h1></div>${caixaComHistorico(corpo)}</div>`;
+  return `<div class="hub hub-caixa"><div class="cc-head">${caixaTituloComVolta(`<h1 class="cash-title">${tituloHtml}</h1>`)}</div>${caixaComHistorico(corpo)}</div>`;
+}
+/* caixa-lista (27/11, pedido do dono: "queria poder ver todos os caixas abertos no menu caixa. o cofre poderia ir para
+   o final dos caixas"): com o caixa por operador ligado, administrador e dono começam o Caixa numa lista com a situação
+   de cada caixa (state.cashTurnos, que o polling já lê de todos) e o Cofre no fim. Só o caixa deste computador é
+   tocável: abrir e fechar pedem a gaveta física. Os cartões não mostram dinheiro. caixaNaLista volta a true em switchView. */
+let caixaNaLista = true;
+function caixaVerTodos(){ return modoCaixaPorOperador() && podeVerTotaisDoCaixa(); }
+function caixaEntrarNoMeu(){ caixaNaLista = false; caixaAbrir(''); }
+function caixaVoltarParaLista(){ caixaNaLista = true; caixaAbrir(''); }
+// Na tela do caixa deste computador, quem vê a lista ganha "‹ Todos os caixas" ao lado do título.
+function caixaTituloComVolta(h1){
+  if(!(caixaVerTodos() && !caixaNaLista)) return h1;
+  return `<div class="cx-titulo"><button type="button" class="cc-voltar" onclick="caixaVoltarParaLista()">${ICN.chevLeft}Todos os caixas</button>${h1}</div>`;
+}
+function caixaSituacao(cx){
+  const t = (state.cashTurnos||{})[cx], quem = t && t.operatorName ? ' · '+t.operatorName : '';
+  if(t && t.status==='open') return { tom:'on', texto:'Aberto'+quem+(t.openedAt?' · desde '+timeFmt(t.openedAt):'') };
+  if(t && /^travado/.test(String(t.status||''))){
+    const p = t.pendencia||{}, fech = p.tipo==='fechamento' || t.status==='travado_fechamento', at = p.at||t.openedAt;
+    return { tom:'alerta', texto:'Travado '+(fech?'no fechamento':'na abertura')+quem+(at?' · '+timeFmt(at):'') };
+  }
+  if(t) return { tom:'alerta', texto:String(t.status||'')+quem };
+  if(state.cashAbrirSemContagem && state.cashAbrirSemContagem[cx]) return { tom:'alerta', texto:'Passado sem contagem' };
+  return { tom:'off', texto:'Fechado' };
+}
+function renderListaDeCaixas(el){
+  if(state.cashTurnosFalhou && !state.cashTurnos){ el.innerHTML = cascaDoCaixa('Caixa', `<div class="hub-cartao"><p class="hub-aviso">Não foi possível ler o caixa. Tentando de novo…</p></div>`); return; }
+  const meu = caixaDoAparelho();
+  const cartoes = listaDeCaixas().map(c=>{
+    const este = c.id===meu, s = caixaSituacao(c.id);
+    const miolo = `<span class="ic">${ICN.cashbox||''}</span><span class="tx"><span class="t">${h(c.nome)}${este?' <span class="cx-este">Este computador</span>':''}</span><span class="d cx-sit ${s.tom}">${h(s.texto)}</span></span>`;
+    return este ? `<button type="button" class="cc-item cx-cartao" onclick="caixaEntrarNoMeu()">${miolo}<span class="go">${ICN.chevRight}</span></button>`
+      : `<div class="cc-item cx-cartao so-ler">${miolo}</div>`;
+  }).join('');
+  const cofre = userPermissions(currentUser).includes('cofre') ? caixaItem('', 'lock', 'Cofre', 'Saldo, recolher, abastecer e extrato.', 'cx-cofre', "switchView('cofre')") : '';
+  const escolha = meu ? '' : `<div class="hub-cartao"><p class="hub-aviso">Este computador ainda não é um caixa. Qual caixa ele é?</p><div class="hub-escolha">${listaDeCaixas().map(c=>`<button type="button" class="cx-escolher" onclick="escolherCaixaAqui(${jsArg(c.id)})">${h(c.nome)}</button>`).join('')}</div><p class="sub">Fica guardado neste computador. Dá para trocar em Configurações › Geral › Caixa por operador.</p></div>`;
+  el.innerHTML = cascaDoCaixa('Caixa', `<div class="cc-lista cx-lista">${cartoes}${cofre}</div>${escolha}`);
 }
 // Caixa por operador (13/11): venda do turno. Ligado, a venda que tem cashSessionId é do turno com esse id
 // (dois caixas abertos ao mesmo tempo não somam a venda um do outro); venda sem cashSessionId (antiga) e o
@@ -131,7 +168,7 @@ function renderCaixaAberto(el, s){
       <div class="cc-lista hub-principal">${caixaItem('', 'lock', porOperador?'Fechar / passar o caixa':'Fechar Caixa', porOperador?'Contar a gaveta e entregar para o próximo turno ou fechar a noite.':'Contar a gaveta e fechar o caixa.', 'prim cash-fechar', 'openCloseCashModal()')}</div>
       <div class="cc-lista">${caixaItem('', 'plus', 'Novo lançamento', porOperador?'Entrada, sangria ou pagamento de funcionário.':'Entrada, saída ou diária de freelancer.', '', 'openCashMovementModal()')}${caixaItem('movimentacao', 'listCheck', 'Movimentação', lanc)}${veTotaisCaixa?caixaItem('resumo', 'cash', 'Resumo por forma', 'Entradas, saídas e o total do turno.'):''}${historico?caixaItem('historico', 'history', 'Fechamentos anteriores', 'Os últimos fechamentos, com o contado e a diferença.'):''}</div>`;
   }
-  el.innerHTML = `<div class="hub hub-caixa"><div class="cc-head"><h1 class="cash-title cash-title-aberto">${tituloHtml}</h1></div>${corpo}</div>`;
+  el.innerHTML = `<div class="hub hub-caixa"><div class="cc-head">${caixaTituloComVolta(`<h1 class="cash-title cash-title-aberto">${tituloHtml}</h1>`)}</div>${corpo}</div>`;
 }
 
 /* ---- Caixa por operador (13/11): abrir com contagem, trava, liberar e fechar ----
@@ -202,6 +239,7 @@ function renderCaixaPorOperador(el){
   const cx = caixaDoAparelho();
   const aviso = (titulo, texto) => cascaDoCaixaPorOperador(titulo, `<div class="hub-cartao"><p class="hub-aviso">${h(texto)}</p></div>`);
   if(!isCloudMode()){ el.innerHTML = aviso('Caixa', 'O caixa por operador precisa da conexão com o servidor.'); return; }
+  if(caixaVerTodos() && (caixaNaLista || !cx)) return renderListaDeCaixas(el); // caixa-lista (27/11)
   if(!cx){
     // 25/11 (pedido do dono: administradores abrem e fecham os caixas): o administrador escolhe aqui mesmo qual
     // caixa este computador é, sem ir em Configurações (a marca é por navegador e some ao trocar de endereço,
@@ -238,6 +276,7 @@ function renderCaixaPorOperador(el){
 async function escolherCaixaAqui(id){
   if(!(typeof isAdminUser==='function' && isAdminUser()) || !listaDeCaixas().some(c=>c.id===id)) return;
   marcarCaixaDoAparelho(id);
+  caixaNaLista = false; // caixa-lista (27/11): escolheu na lista, segue para abrir este caixa
   logAction('Computador marcado como ' + nomeDoCaixa(id) + ' pela tela do Caixa');
   try { await refreshCashState(); } catch(e){ /* a consulta periódica tenta de novo */ }
   renderAll();

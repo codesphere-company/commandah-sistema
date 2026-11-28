@@ -123,7 +123,7 @@ function seloEmBreve(label){ return label==='Minha Assinatura' ? 'Em breve' : 'P
 function avisoEmConstrucao(label){ toast(label==='Minha Assinatura' ? label+' chega em breve.' : label+' faz parte do plano Pro e chega em breve.'); }
 const RIBBON_TABS = [
   { id:'principal', label:'Principal', groups:[
-      { label:'Caixa', items:[ {label:'Abrir/Fechar', icon:ICN.lock, view:'caixa'}, {label:'Cofre', icon:ICN.lock, view:'cofre', soAdmin:true, soModoCaixa:true /* cofre (16/11): só com o caixa por operador ligado */} ] },
+      { label:'Caixa', items:[ {label:'Abrir/Fechar', icon:ICN.lock, view:'caixa'}, {label:'Cofre', icon:ICN.lock, view:'cofre', soAdmin:true, soModoCaixa:true /* cofre (16/11): só com o caixa por operador ligado */, foraDoMenu:true /* caixa-lista (27/11): entra pelo fim da lista do Caixa */} ] },
       { label:'Pedidos', items:[
           {label:'Mesas/Comandas', icon:ICN.table, view:'comandas'},
           {label:'Caixa/PDV', icon:ICN.cart, view:'balcao'},
