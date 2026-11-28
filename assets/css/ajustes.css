@@ -1298,6 +1298,15 @@ th.th-ordena.ativa{color:var(--c-primary-text)}
 .hub-cartao .cx-escolher{min-height:var(--hit-sale);border:1px solid var(--c-primary);border-radius:var(--r-md);background:var(--c-primary);color:var(--c-text-inverse);font:inherit;font-size:var(--fs-lg);font-weight:700;cursor:pointer}
 .hub-principal{margin-bottom:12px}
 .hub-mais{max-width:460px;margin:0 auto}
+/* caixa-lista (27/11): lista de todos os caixas (admin e dono) com o Cofre no fim; só o caixa deste computador é tocável. */
+.cx-titulo{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.cx-lista{grid-template-columns:1fr;max-width:620px;margin:8px 0 18px}
+.cx-cartao.so-ler{cursor:default}
+.cx-cartao.so-ler:hover{background:none}
+.cx-cartao.so-ler:hover .ic{background:var(--c-surface-3);color:var(--c-text-2)}
+.cx-este{display:inline-flex;align-items:center;height:22px;margin-left:6px;padding:0 8px;border-radius:var(--r-pill);background:var(--c-primary-soft);color:var(--c-primary-text);font-size:var(--fs-xs);font-weight:700;vertical-align:middle}
+.cx-sit.on{color:var(--c-success)}
+.cx-sit.alerta{color:var(--c-warning);font-weight:600}
 .cc-item.prim{background:var(--c-primary);color:var(--c-text-inverse);min-height:76px}
 .cc-item.prim:hover{background:var(--c-primary-hover)}
 .cc-item.prim .ic,.cc-item.prim:hover .ic{background:rgba(255,255,255,.18);color:var(--c-text-inverse)}

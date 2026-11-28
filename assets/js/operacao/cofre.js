@@ -80,7 +80,9 @@ const COFRE_SECOES = {
 };
 
 function cofreCasca(corpo){
-  return `<div class="hub"><div class="cc-head"><h1>Cofre</h1></div>${corpo}</div>`;
+  // caixa-lista (27/11): o Cofre saiu do menu e abre pelo fim da lista do Caixa; "‹ Caixa" volta para ela.
+  const volta = cofreSecao ? '' : `<button type="button" class="cc-voltar" onclick="switchView('caixa')">${ICN.chevLeft}Caixa</button>`;
+  return `<div class="hub"><div class="cc-head"><div class="cx-titulo">${volta}<h1>Cofre</h1></div></div>${corpo}</div>`;
 }
 
 // Entra numa ação (ou volta ao início com ''). Leva o foco ao primeiro campo, como no app do garçom.
